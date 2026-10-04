@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { findCourseBySlug, getCourses, getEnrollments } from "@/lib/server/courses";
-import { getFinalTest } from "@/lib/server/courses";
+import { getCourseDetailBySlug, getFinalTest } from "@/lib/server/courses";
 import { FinalTestClient } from "@/components/courses/final-test-client";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import ROUTES from "@/lib/routes";
@@ -18,12 +17,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function FinalTestPage({ params }: Props) {
   const { slug } = await params;
 
-  const [courses, enrollments] = await Promise.all([getCourses(), getEnrollments()]);
-  const course = findCourseBySlug(courses, enrollments, slug);
+  const course = await getCourseDetailBySlug(slug).catch(() => null);
   if (!course) notFound();
-
-  const isEnrolled = enrollments.some((e) => e.course_id === course.id);
-  if (!isEnrolled) redirect(ROUTES.course(slug));
+  if (!course.is_enrolled) redirect(ROUTES.course(slug));
 
   const finalTest = await getFinalTest(course.id);
   if (!finalTest) redirect(ROUTES.course(slug));

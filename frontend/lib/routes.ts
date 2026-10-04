@@ -252,6 +252,8 @@ const ROUTES = {
     courseId && sectionId ? `/teach/debug-labs/new?course=${courseId}&section=${sectionId}` : "/teach/debug-labs/new",
   labBuilderRecipe:         (recipeId: string, step?: string)   => step ? `/teach/debug-labs/${recipeId}?step=${step}` : `/teach/debug-labs/${recipeId}`,
   labBuilderBlock:          (blockId: string)                   => `/teach/debug-labs/blocks/${blockId}`,
+  labBuilderBlockNew:       (kind?: string)                     => kind ? `/teach/debug-labs/blocks/new?kind=${kind}` : "/teach/debug-labs/blocks/new",
+  labBuilderBlockEdit:      (blockId: string)                   => `/teach/debug-labs/blocks/${blockId}/edit`,
 
   // Hiring / public assessment (no login required)
   hireLanding:              (code: string)                      => `/hire/${code}`,

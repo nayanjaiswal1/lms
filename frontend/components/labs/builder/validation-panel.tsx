@@ -1,5 +1,7 @@
 import { AlertTriangle, CheckCircle2, Info, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { UpdateList } from "@/components/labs/builder/update-list";
+import type { RecipeRef } from "@/components/labs/builder/use-save-spec";
 import { cn } from "@/lib/utils";
 import type { IssueSeverity, RecipeAnalysis, UpdateAvailable } from "@/lib/labs/builder/types";
 
@@ -14,10 +16,11 @@ const SEVERITY_ORDER: IssueSeverity[] = ["error", "warning", "info"];
 interface ValidationPanelProps {
   analysis: RecipeAnalysis;
   updates: UpdateAvailable[];
+  recipe: RecipeRef;
 }
 
 /** The live validation panel pinned beside every wizard step (docs/debug-labs.md B4). */
-export function ValidationPanel({ analysis, updates }: ValidationPanelProps) {
+export function ValidationPanel({ analysis, updates, recipe }: ValidationPanelProps) {
   const issues = [...analysis.issues].sort(
     (a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity),
   );
@@ -65,16 +68,7 @@ export function ValidationPanel({ analysis, updates }: ValidationPanelProps) {
         </ul>
       )}
 
-      {updates.length > 0 && (
-        <div className="flex flex-col gap-1 border-t border-border pt-3 text-xs">
-          <p className="font-semibold">Updates available</p>
-          {updates.map((u) => (
-            <p className="text-muted-foreground" key={u.block_id}>
-              <span className="font-mono">{u.block_key}</span> {u.pinned_version} → {u.latest_version}
-            </p>
-          ))}
-        </div>
-      )}
+      {updates.length > 0 && <UpdateList recipe={recipe} updates={updates} />}
     </aside>
   );
 }

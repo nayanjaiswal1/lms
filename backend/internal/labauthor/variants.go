@@ -179,12 +179,13 @@ func canonicalJSON(v any) ([]byte, error) {
 // (Analyze does this).
 func RecipeHash(r *labblock.Recipe) (string, error) {
 	type hb struct {
-		Key         string         `json:"key"`
-		Version     string         `json:"version"`
-		ContentHash string         `json:"content_hash"`
-		Role        string         `json:"role"`
-		Pool        string         `json:"pool,omitempty"`
-		Params      map[string]any `json:"params"`
+		Key         string          `json:"key"`
+		Version     string          `json:"version"`
+		ContentHash string          `json:"content_hash"`
+		Role        string          `json:"role"`
+		Pool        string          `json:"pool,omitempty"`
+		Chain       *labblock.Chain `json:"chain,omitempty"`
+		Params      map[string]any  `json:"params"`
 	}
 	blocks := make([]hb, 0, len(r.Blocks))
 	for _, b := range r.Blocks {
@@ -192,7 +193,7 @@ func RecipeHash(r *labblock.Recipe) (string, error) {
 		if p == nil {
 			p = map[string]any{}
 		}
-		blocks = append(blocks, hb{b.Key, b.Version, b.ContentHash, b.Role(), b.Ref.Pool, p})
+		blocks = append(blocks, hb{b.Key, b.Version, b.ContentHash, b.Role(), b.Ref.Pool, b.Ref.Chain, p})
 	}
 	sort.Slice(blocks, func(i, j int) bool {
 		a, b := blocks[i], blocks[j]

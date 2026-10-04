@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Blocks, Plus, Wrench } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BuildStatusBadge } from "@/components/labs/builder/build-status-badge";
 import { getRecipes, requireLabAuthor } from "@/lib/labs/builder/server";
@@ -52,6 +53,20 @@ export default async function DebugLabBuilderPage() {
                   <h2 className="min-w-0 text-base font-semibold">{r.title}</h2>
                   <BuildStatusBadge status={r.latest_build?.status ?? null} />
                 </div>
+                {(r.updates_available > 0 || r.yanked_blocks > 0) && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {r.yanked_blocks > 0 && (
+                      <Badge className="badge-destructive" variant="outline">
+                        {r.yanked_blocks} yanked block{r.yanked_blocks === 1 ? "" : "s"}
+                      </Badge>
+                    )}
+                    {r.updates_available > 0 && (
+                      <Badge className="badge-info" variant="outline">
+                        {r.updates_available} update{r.updates_available === 1 ? "" : "s"} available
+                      </Badge>
+                    )}
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">
                   {r.spec.blocks.length} block{r.spec.blocks.length === 1 ? "" : "s"} · revision {r.revision}
                   {r.lab_id ? " · published" : ""}

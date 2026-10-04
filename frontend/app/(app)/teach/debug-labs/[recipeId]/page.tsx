@@ -43,7 +43,7 @@ export default async function RecipeBuilderPage({ params, searchParams }: Recipe
           <StepBody analysis={analysis} courseParam={course} step={step} view={view} />
         </section>
         <div className="lg:col-span-3">
-          <ValidationPanel analysis={analysis} updates={view.updates} />
+          <ValidationPanel analysis={analysis} recipe={view.recipe} updates={view.updates} />
         </div>
       </div>
     </main>

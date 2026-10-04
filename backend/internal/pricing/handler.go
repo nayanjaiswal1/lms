@@ -1,7 +1,6 @@
 package pricing
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -107,8 +106,7 @@ func (h *Handler) AdminUpdate(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
 	var req updateTierRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 

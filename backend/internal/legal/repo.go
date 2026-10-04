@@ -2,10 +2,8 @@ package legal
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -34,21 +32,30 @@ func (r *Repo) RecordAcceptance(ctx context.Context, userID, docType, version st
 	return a, nil
 }
 
-// LatestVersion returns the version of docType userID most recently
-// accepted, or "" if they never have.
-func (r *Repo) LatestVersion(ctx context.Context, userID, docType string) (string, error) {
-	var version string
-	err := r.pool.QueryRow(ctx,
-		`SELECT version FROM legal_acceptances
-		 WHERE user_id = $1 AND doc_type = $2
-		 ORDER BY accepted_at DESC LIMIT 1`,
-		userID, docType,
-	).Scan(&version)
+// LatestVersions returns, per doc_type, the version userID most recently
+// accepted — absent from the map if they never have.
+func (r *Repo) LatestVersions(ctx context.Context, userID string) (map[string]string, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT DISTINCT ON (doc_type) doc_type, version FROM legal_acceptances
+		 WHERE user_id = $1
+		 ORDER BY doc_type, accepted_at DESC`,
+		userID,
+	)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return "", nil
-		}
-		return "", fmt.Errorf("legal: latest version: %w", err)
+		return nil, fmt.Errorf("legal: latest versions: %w", err)
 	}
-	return version, nil
+	defer rows.Close()
+	latest := map[string]string{}
+	for rows.Next() {
+		var docType, version string
+		if err := rows.Scan(&docType, &version); err != nil {
+			return nil, fmt.Errorf("legal: scan latest version: %w", err)
+		}
+		latest[docType] = version
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("legal: latest versions rows: %w", err)
+	}
+	return latest, nil
 }
+

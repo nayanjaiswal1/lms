@@ -1,7 +1,6 @@
 package features
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -65,8 +64,7 @@ func (h *Handler) AdminSetOrgFeatureFlag(w http.ResponseWriter, r *http.Request)
 	key := chi.URLParam(r, "key")
 
 	var req setFeatureFlagRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -145,8 +143,7 @@ func (h *Handler) SetMemberFeatureFlag(w http.ResponseWriter, r *http.Request) {
 	key := chi.URLParam(r, "key")
 
 	var req setFeatureFlagRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 

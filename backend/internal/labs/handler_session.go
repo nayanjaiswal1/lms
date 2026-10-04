@@ -1,9 +1,6 @@
 package labs
 
 import (
-	"encoding/json"
-	"errors"
-	"io"
 	"net/http"
 	"strings"
 
@@ -210,8 +207,7 @@ func (h *Handler) HandleStartSession(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		ModuleID string `json:"module_id"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSONAllowEmpty(w, r, &body) {
 		return
 	}
 

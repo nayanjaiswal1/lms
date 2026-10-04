@@ -83,6 +83,13 @@ func (s *Service) checkInput(ctx context.Context, orgID string, in *RecipeInput,
 		if len(b.Role) > maxRefStringLen || len(b.Pool) > maxRefStringLen {
 			return fmt.Errorf("%w: role/pool too long", ErrInvalidInput)
 		}
+		if b.Pool != "" && !poolNameRe.MatchString(b.Pool) {
+			return fmt.Errorf("%w: pool names use lowercase letters, digits, - and _", ErrInvalidInput)
+		}
+		if b.Chain != nil && (b.Chain.After == "" || len(b.Chain.After) > maxRefStringLen*2 ||
+			(b.Chain.Mode != labblock.ChainMasks && b.Chain.Mode != labblock.ChainCompounds)) {
+			return fmt.Errorf("%w: a chain needs an `after` fault and a mode of %s or %s", ErrInvalidInput, labblock.ChainMasks, labblock.ChainCompounds)
+		}
 	}
 	if in.Spec.DifficultyOverride != "" && !contains(labblock.Difficulties, in.Spec.DifficultyOverride) {
 		return fmt.Errorf("%w: difficulty_override must be one of %s", ErrInvalidInput, strings.Join(labblock.Difficulties, "|"))
@@ -115,6 +122,8 @@ func (s *Service) checkInput(ctx context.Context, orgID string, in *RecipeInput,
 			issues = append(issues, labblock.Errf(labblock.CodeBlockForeignOrg, v.Key, "block belongs to another organization"))
 		case !KindAllows(in.LabKind, v.Manifest.Kind):
 			issues = append(issues, labblock.Errf(labblock.CodeUnknownKind, v.Key, fmt.Sprintf("%s blocks are not valid in a %s recipe", v.Manifest.Kind, in.LabKind)))
+		case b.Chain != nil && v.Manifest.Kind != "fault":
+			issues = append(issues, labblock.Errf(labblock.CodeChainInvalid, v.Key, "only faults can be chained"))
 		}
 	}
 	if len(issues) > 0 {
@@ -194,13 +203,16 @@ type BlockRefView struct {
 	OrgOwned       bool   `json:"org_owned"`
 }
 
-// UpdateAvailable says a newer non-yanked version of a pinned block exists.
-// Taking it means a new recipe revision -> build -> verify -> republish.
+// UpdateAvailable says a pinned block should move to another version. Usually
+// a newer non-yanked version exists; when the pinned version was yanked it is
+// the newest non-yanked one even if older (a roll-back). Taking it means a new
+// recipe revision -> build -> verify -> republish.
 type UpdateAvailable struct {
 	BlockID         string `json:"block_id"`
 	BlockKey        string `json:"block_key"`
 	PinnedVersionID string `json:"pinned_version_id"`
 	PinnedVersion   string `json:"pinned_version"`
+	PinnedYanked    bool   `json:"pinned_yanked"`
 	LatestVersionID string `json:"latest_version_id"`
 	LatestVersion   string `json:"latest_version"`
 	Changelog       string `json:"changelog"`
@@ -213,35 +225,33 @@ type RecipeView struct {
 	Updates []UpdateAvailable `json:"updates"`
 }
 
-// GetRecipeView returns the recipe, its pinned blocks, and available updates.
-func (s *Service) GetRecipeView(ctx context.Context, orgID, id string) (*RecipeView, error) {
-	rc, err := s.repo.GetRecipe(ctx, orgID, id)
-	if err != nil {
-		return nil, err
-	}
-	if err := s.repo.AttachLatestBuilds(ctx, []*Recipe{rc}); err != nil {
-		return nil, err
-	}
-	vers, err := s.repo.ResolveVersions(ctx, orgID, versionIDs(rc.Spec))
-	if err != nil {
-		return nil, err
-	}
-	view := &RecipeView{Recipe: rc, Blocks: []BlockRefView{}, Updates: []UpdateAvailable{}}
-	blockIDs := map[string]bool{}
-	for _, ref := range rc.Spec.Blocks {
-		v, ok := vers[ref.BlockVersionID]
-		if !ok {
-			continue
+// blockViews describes the blocks a spec pins (refs that cannot be resolved
+// are skipped; the validator reports them).
+func blockViews(spec labblock.Spec, vers map[string]*labblock.ResolvedBlock) []BlockRefView {
+	out := []BlockRefView{}
+	for _, ref := range spec.Blocks {
+		if v, ok := vers[ref.BlockVersionID]; ok {
+			out = append(out, BlockRefView{
+				BlockVersionID: v.VersionID, BlockID: v.BlockID, Key: v.Key, Kind: v.Manifest.Kind,
+				Version: v.Version, Title: v.Manifest.Title, Yanked: v.Yanked, OrgOwned: v.OrgID != nil,
+			})
 		}
-		view.Blocks = append(view.Blocks, BlockRefView{
-			BlockVersionID: v.VersionID, BlockID: v.BlockID, Key: v.Key, Kind: v.Manifest.Kind,
-			Version: v.Version, Title: v.Manifest.Title, Yanked: v.Yanked, OrgOwned: v.OrgID != nil,
-		})
-		blockIDs[v.BlockID] = true
 	}
-	ids := make([]string, 0, len(blockIDs))
-	for id := range blockIDs {
-		ids = append(ids, id)
+	return out
+}
+
+// updatesFor computes the available updates of several recipes' pinned blocks
+// with a single query for the live versions. The result is parallel to groups.
+func (s *Service) updatesFor(ctx context.Context, groups [][]BlockRefView) ([][]UpdateAvailable, error) {
+	seen := map[string]bool{}
+	var ids []string
+	for _, g := range groups {
+		for _, b := range g {
+			if !seen[b.BlockID] {
+				seen[b.BlockID] = true
+				ids = append(ids, b.BlockID)
+			}
+		}
 	}
 	live, err := s.repo.LiveVersions(ctx, ids)
 	if err != nil {
@@ -249,26 +259,99 @@ func (s *Service) GetRecipeView(ctx context.Context, orgID, id string) (*RecipeV
 	}
 	latest := map[string]VersionRef{}
 	for _, l := range live {
-		cur, ok := latest[l.BlockID]
-		if !ok || versionLess(cur.Version, l.Version) {
+		if cur, ok := latest[l.BlockID]; !ok || versionLess(cur.Version, l.Version) {
 			latest[l.BlockID] = l
 		}
 	}
-	for _, b := range view.Blocks {
-		l, ok := latest[b.BlockID]
-		if ok && versionLess(b.Version, l.Version) {
-			view.Updates = append(view.Updates, UpdateAvailable{
+	out := make([][]UpdateAvailable, len(groups))
+	for i, g := range groups {
+		out[i] = []UpdateAvailable{}
+		for _, b := range g {
+			l, ok := latest[b.BlockID]
+			if !ok || l.ID == b.BlockVersionID || !(b.Yanked || versionLess(b.Version, l.Version)) {
+				continue
+			}
+			out[i] = append(out[i], UpdateAvailable{
 				BlockID: b.BlockID, BlockKey: b.Key, PinnedVersionID: b.BlockVersionID, PinnedVersion: b.Version,
-				LatestVersionID: l.ID, LatestVersion: l.Version, Changelog: l.Changelog,
+				PinnedYanked: b.Yanked, LatestVersionID: l.ID, LatestVersion: l.Version, Changelog: l.Changelog,
 			})
 		}
 	}
-	return view, nil
+	return out, nil
+}
+
+// GetRecipeView returns the recipe, its pinned blocks, and available updates.
+func (s *Service) GetRecipeView(ctx context.Context, orgID, id string) (*RecipeView, error) {
+	rc, err := s.repo.GetRecipe(ctx, orgID, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.attachState(ctx, orgID, []*Recipe{rc}); err != nil {
+		return nil, err
+	}
+	vers, err := s.repo.ResolveVersions(ctx, orgID, versionIDs(rc.Spec))
+	if err != nil {
+		return nil, err
+	}
+	blocks := blockViews(rc.Spec, vers)
+	updates, err := s.updatesFor(ctx, [][]BlockRefView{blocks})
+	if err != nil {
+		return nil, err
+	}
+	return &RecipeView{Recipe: rc, Blocks: blocks, Updates: updates[0]}, nil
+}
+
+// ListRecipes lists the org's recipes with their latest build and the number
+// of pending block updates / yanked pins (the list's "update available" badge).
+func (s *Service) ListRecipes(ctx context.Context, orgID string, limit, offset int) ([]*Recipe, error) {
+	rs, err := s.repo.ListRecipes(ctx, orgID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.attachState(ctx, orgID, rs); err != nil {
+		return nil, err
+	}
+	return rs, nil
+}
+
+// attachState fills each recipe's latest build, update count and yanked count.
+func (s *Service) attachState(ctx context.Context, orgID string, rs []*Recipe) error {
+	if err := s.repo.AttachLatestBuilds(ctx, rs); err != nil {
+		return err
+	}
+	var ids []string
+	for _, rc := range rs {
+		ids = append(ids, versionIDs(rc.Spec)...)
+	}
+	vers, err := s.repo.ResolveVersions(ctx, orgID, ids)
+	if err != nil {
+		return err
+	}
+	groups := make([][]BlockRefView, len(rs))
+	for i, rc := range rs {
+		groups[i] = blockViews(rc.Spec, vers)
+	}
+	updates, err := s.updatesFor(ctx, groups)
+	if err != nil {
+		return err
+	}
+	for i, rc := range rs {
+		rc.UpdatesAvailable = len(updates[i])
+		for _, b := range groups[i] {
+			if b.Yanked {
+				rc.YankedBlocks++
+			}
+		}
+	}
+	return nil
 }
 
 // ─── text blocks ────────────────────────────────────────────────────────────
 
-var slugRe = regexp.MustCompile(`[^a-z0-9]+`)
+var (
+	slugRe     = regexp.MustCompile(`[^a-z0-9]+`)
+	poolNameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
+)
 
 func slugify(s string) string {
 	return strings.Trim(slugRe.ReplaceAllString(strings.ToLower(s), "-"), "-")

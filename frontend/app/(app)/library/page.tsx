@@ -12,12 +12,10 @@ export const metadata: Metadata = { title: "Library" };
 // instructor gate the course editor uses: placing content is an authoring
 // action.
 export default async function LibraryPage() {
-  const myPerms = await getMyPermissions();
+  const [myPerms, initialPage] = await Promise.all([getMyPermissions(), getLibraryItems()]);
   if (!myPerms.includes(PERMISSIONS.COURSES.EDIT)) {
     notFound();
   }
-
-  const initialPage = await getLibraryItems();
 
   return (
     <main className="page-container">

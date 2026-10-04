@@ -409,20 +409,25 @@ func (r *Repo) YankVersion(ctx context.Context, versionID, reason string) ([]Aff
 		}
 		return nil, ErrAlreadyYanked
 	}
+	return r.AffectedLabs(ctx, versionID)
+}
+
+// AffectedLabs lists the published labs built from a block version (any org).
+func (r *Repo) AffectedLabs(ctx context.Context, versionID string) ([]AffectedLab, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT DISTINCT ld.id, ld.org_id, ld.title
 		FROM public.lab_block_usages u
 		JOIN public.lab_definitions ld ON ld.build_id = u.build_id
 		WHERE u.block_version_id = $1 ORDER BY ld.title`, versionID)
 	if err != nil {
-		return nil, fmt.Errorf("labauthor.Repo.YankVersion: affected: %w", err)
+		return nil, fmt.Errorf("labauthor.Repo.AffectedLabs: %w", err)
 	}
 	defer rows.Close()
 	out := []AffectedLab{}
 	for rows.Next() {
 		var a AffectedLab
 		if err := rows.Scan(&a.ID, &a.OrgID, &a.Title); err != nil {
-			return nil, fmt.Errorf("labauthor.Repo.YankVersion: scan: %w", err)
+			return nil, fmt.Errorf("labauthor.Repo.AffectedLabs: scan: %w", err)
 		}
 		out = append(out, a)
 	}
@@ -447,6 +452,11 @@ type Recipe struct {
 	// LatestBuild is the recipe's newest build (any hash); set by the list and
 	// detail reads only.
 	LatestBuild *BuildRef `json:"latest_build,omitempty"`
+	// UpdatesAvailable counts pinned blocks with a newer (or, when yanked, a
+	// replacement) version; YankedBlocks counts pinned yanked versions. Set by
+	// Service.ListRecipes and GetRecipeView.
+	UpdatesAvailable int `json:"updates_available"`
+	YankedBlocks     int `json:"yanked_blocks"`
 }
 
 // BuildRef is a build's identity and status, for recipe lists and the wizard.

@@ -25,14 +25,14 @@ export async function generateMetadata({ params }: Props) {
 }
 
 export default async function InstructorCourseDetailPage({ params }: Props) {
-  const myPerms = await getMyPermissions();
-  if (!myPerms.includes(PERMISSIONS.COURSES.EDIT)) {
+  const { slug } = await params;
+  const [myPerms, course] = await Promise.all([
+    getMyPermissions(),
+    getInstructorCourseBySlug(slug).catch(() => undefined),
+  ]);
+  if (!myPerms.includes(PERMISSIONS.COURSES.EDIT) || !course) {
     notFound();
   }
-
-  const { slug } = await params;
-  const course = await getInstructorCourseBySlug(slug).catch(() => undefined);
-  if (!course) notFound();
   const id = course.id;
 
   const [tree, wikiSpaces, progress] = await Promise.all([

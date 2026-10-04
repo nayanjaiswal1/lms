@@ -212,8 +212,7 @@ type orgResponse struct {
 
 func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	var req registerRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -371,8 +370,7 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -429,94 +427,18 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.enforceMaxSessions(r.Context(), u.ID); err != nil {
-		slog.Error("auth: login enforce max sessions", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Login failed.")
-		return
-	}
-
-	var orgRole string
-	if err := h.pool.QueryRow(r.Context(),
-		`SELECT role FROM org_members WHERE org_id = $1 AND user_id = $2`,
-		h.cfg.DefaultOrgID, u.ID,
-	).Scan(&orgRole); err != nil {
-		orgRole = "learner"
-	}
-
-	accessToken, err := CreateAccessToken(h.cfg, Claims{
-		UserID:         u.ID,
-		OrgID:          h.cfg.DefaultOrgID,
-		OrgRole:        orgRole,
-		AuthMethod:     "password",
+	body, ok := h.mintSession(w, r, sessionSubject{
+		ID:             u.ID,
+		Name:           u.Name,
+		Email:          u.Email,
+		AvatarURL:      u.AvatarURL,
 		SessionVersion: u.SessionVersion,
-	})
-	if err != nil {
-		slog.Error("auth: login create access token", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Login failed.")
+	}, "password", "login", "Login failed.", nil)
+	if !ok {
 		return
 	}
 
-	rawRefresh, refreshHash, err := CreateRefreshToken()
-	if err != nil {
-		slog.Error("auth: login create refresh token", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Login failed.")
-		return
-	}
-
-	familyID, err := randomHex(16)
-	if err != nil {
-		slog.Error("auth: login generate family_id", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Login failed.")
-		return
-	}
-
-	if _, err := h.pool.Exec(r.Context(),
-		`INSERT INTO refresh_tokens (user_id, token_hash, expires_at, family_id, device_hint, ip)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		u.ID, refreshHash,
-		time.Now().Add(h.cfg.RefreshTokenTTL),
-		familyID, truncate(r.Header.Get("User-Agent"), 200), firstThreeOctets(r.RemoteAddr),
-	); err != nil {
-		slog.Error("auth: login insert refresh token", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Login failed.")
-		return
-	}
-
-	csrfToken, err := CreateCSRFToken(h.cfg)
-	if err != nil {
-		slog.Error("auth: login generate csrf token", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Login failed.")
-		return
-	}
-
-	setAccessCookie(w, h.cfg, accessToken)
-	setRefreshCookie(w, h.cfg, rawRefresh)
-	setCSRFCookie(w, h.cfg, csrfToken)
-
-	orgs, err := h.queryUserOrgs(r.Context(), u.ID)
-	if err != nil {
-		slog.Error("auth: login query orgs", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Login failed.")
-		return
-	}
-
-	onboardingCompleted, err := h.checkOnboardingCompleted(r.Context(), u.ID)
-	if err != nil {
-		slog.Error("auth: login check onboarding", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Login failed.")
-		return
-	}
-
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{
-		"user": userResponse{
-			ID:        u.ID,
-			Name:      u.Name,
-			Email:     u.Email,
-			AvatarURL: u.AvatarURL,
-		},
-		"orgs":                 orgs,
-		"onboarding_completed": onboardingCompleted,
-	})
+	httputil.WriteJSON(w, http.StatusOK, body)
 }
 
 // ─── HandleRefresh ────────────────────────────────────────────────────────────
@@ -664,7 +586,7 @@ func (h *Handler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 			// those two. Leaving their Set-Cookie headers out means whichever
 			// order the two responses land in, the browser keeps the winner's
 			// values instead of one response clobbering the other with stale data.
-			setAccessCookie(w, h.cfg, graceAccessToken)
+			SetAccessCookie(w, h.cfg, graceAccessToken)
 			httputil.WriteJSON(w, http.StatusOK, map[string]any{
 				"user": userResponse{
 					ID:        gu.ID,
@@ -720,7 +642,7 @@ func (h *Handler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setAccessCookie(w, h.cfg, newAccessToken)
+	SetAccessCookie(w, h.cfg, newAccessToken)
 	setRefreshCookie(w, h.cfg, rawRefresh)
 	setCSRFCookie(w, h.cfg, csrfToken)
 
@@ -804,7 +726,10 @@ func (h *Handler) HandleLogoutAll(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 	var req verifyEmailRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Token) == "" {
+	if !httputil.DecodeJSON(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.Token) == "" {
 		httputil.WriteError(w, http.StatusBadRequest, "Token is required.")
 		return
 	}
@@ -861,8 +786,7 @@ func (h *Handler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) HandleResendVerification(w http.ResponseWriter, r *http.Request) {
 	var req resendVerificationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -920,8 +844,7 @@ func (h *Handler) HandleResendVerification(w http.ResponseWriter, r *http.Reques
 
 func (h *Handler) HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	var req forgotPasswordRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -991,8 +914,7 @@ func (h *Handler) HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 	var req resetPasswordRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -1250,6 +1172,134 @@ func (h *Handler) checkOnboardingCompleted(ctx context.Context, userID string) (
 	return completed, err
 }
 
+// ─── session minting ──────────────────────────────────────────────────────────
+
+// sessionSubject is the verified user every sign-in path has loaded and
+// cleared (password match / authenticator response / provider vouching, plus
+// the account-lock check) before it mints a session.
+type sessionSubject struct {
+	ID             string
+	Name           string
+	Email          string
+	AvatarURL      *string
+	SessionVersion int
+}
+
+// sessionBody is the JSON body every sign-in endpoint returns.
+type sessionBody struct {
+	User                userResponse  `json:"user"`
+	Orgs                []orgResponse `json:"orgs"`
+	OnboardingCompleted bool          `json:"onboarding_completed"`
+}
+
+// mintSession is the tail shared by password, passkey and social sign-in:
+// cap the number of live session families, resolve the default-org role, mint
+// the access/refresh/CSRF triple, persist the refresh row, set the three
+// cookies and assemble the sign-in response.
+//
+// It exists because the same ~80 lines were copied into each sign-in path, so
+// a fix to any one of them (a new claim, a cookie attribute, the session cap)
+// had to be repeated everywhere and drifted where it was not.
+//
+// op labels the caller in the error log ("login", "webauthn login finish", ...)
+// and failMsg is the message written with a 500. onboardingOverride supplies a
+// value the caller already knows (social carries it across the one-time
+// exchange token); nil makes the helper read it from the database.
+//
+// Returns ok=false with the response already written on failure.
+func (h *Handler) mintSession(w http.ResponseWriter, r *http.Request, sub sessionSubject, authMethod, op, failMsg string, onboardingOverride *bool) (sessionBody, bool) {
+	fail := func() (sessionBody, bool) {
+		httputil.WriteError(w, http.StatusInternalServerError, failMsg)
+		return sessionBody{}, false
+	}
+
+	if err := h.enforceMaxSessions(r.Context(), sub.ID); err != nil {
+		slog.Error("auth: "+op+" enforce max sessions", "error", err)
+		return fail()
+	}
+
+	var orgRole string
+	if err := h.pool.QueryRow(r.Context(),
+		`SELECT role FROM org_members WHERE org_id = $1 AND user_id = $2`,
+		h.cfg.DefaultOrgID, sub.ID,
+	).Scan(&orgRole); err != nil {
+		orgRole = "learner"
+	}
+
+	accessToken, err := CreateAccessToken(h.cfg, Claims{
+		UserID:         sub.ID,
+		OrgID:          h.cfg.DefaultOrgID,
+		OrgRole:        orgRole,
+		AuthMethod:     authMethod,
+		SessionVersion: sub.SessionVersion,
+	})
+	if err != nil {
+		slog.Error("auth: "+op+" create access token", "error", err)
+		return fail()
+	}
+
+	rawRefresh, refreshHash, err := CreateRefreshToken()
+	if err != nil {
+		slog.Error("auth: "+op+" create refresh token", "error", err)
+		return fail()
+	}
+
+	familyID, err := randomHex(16)
+	if err != nil {
+		slog.Error("auth: "+op+" generate family_id", "error", err)
+		return fail()
+	}
+
+	if _, err := h.pool.Exec(r.Context(),
+		`INSERT INTO refresh_tokens (user_id, token_hash, expires_at, family_id, device_hint, ip)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		sub.ID, refreshHash,
+		time.Now().Add(h.cfg.RefreshTokenTTL),
+		familyID, truncate(r.Header.Get("User-Agent"), 200), firstThreeOctets(r.RemoteAddr),
+	); err != nil {
+		slog.Error("auth: "+op+" insert refresh token", "error", err)
+		return fail()
+	}
+
+	csrfToken, err := CreateCSRFToken(h.cfg)
+	if err != nil {
+		slog.Error("auth: "+op+" generate csrf token", "error", err)
+		return fail()
+	}
+
+	SetAccessCookie(w, h.cfg, accessToken)
+	setRefreshCookie(w, h.cfg, rawRefresh)
+	setCSRFCookie(w, h.cfg, csrfToken)
+
+	orgs, err := h.queryUserOrgs(r.Context(), sub.ID)
+	if err != nil {
+		slog.Error("auth: "+op+" query orgs", "error", err)
+		return fail()
+	}
+
+	onboarding := false
+	if onboardingOverride != nil {
+		onboarding = *onboardingOverride
+	} else {
+		onboarding, err = h.checkOnboardingCompleted(r.Context(), sub.ID)
+		if err != nil {
+			slog.Error("auth: "+op+" check onboarding", "error", err)
+			return fail()
+		}
+	}
+
+	return sessionBody{
+		User: userResponse{
+			ID:        sub.ID,
+			Name:      sub.Name,
+			Email:     sub.Email,
+			AvatarURL: sub.AvatarURL,
+		},
+		Orgs:                orgs,
+		OnboardingCompleted: onboarding,
+	}, true
+}
+
 // ─── cookie helpers ───────────────────────────────────────────────────────────
 
 // Cookie lifetimes derive from the configured token TTLs rather than being
@@ -1257,7 +1307,11 @@ func (h *Handler) checkOnboardingCompleted(ctx context.Context, userID string) (
 // ACCESS_TOKEN_TTL left the browser discarding a cookie whose JWT was still
 // valid, and lowering it left the browser sending a JWT that had already
 // expired — the two only agreed at their default values.
-func setAccessCookie(w http.ResponseWriter, cfg *config.Config, token string) {
+//
+// Exported because org-switch (internal/orgs) re-issues the access cookie too;
+// every caller must go through here so the cookie and the token cannot pick up
+// different lifetimes again.
+func SetAccessCookie(w http.ResponseWriter, cfg *config.Config, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "access_token",
 		Value:    token,

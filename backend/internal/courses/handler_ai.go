@@ -2,9 +2,7 @@ package courses
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -15,6 +13,8 @@ import (
 
 // GenerateOutline calls the AI provider to produce a course outline JSON.
 // Returns the outline to the instructor for review; no DB rows are created.
+// The async job that persists the same outline (jobs/handlers) shares
+// ai.GenerateOutline, so the preview and the job cannot drift.
 func (h *Handler) GenerateOutline(w http.ResponseWriter, r *http.Request) {
 	_, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -35,58 +35,39 @@ func (h *Handler) GenerateOutline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	topic := ai.SanitizeTopic(req.Topic, 200)
-	if topic == "" {
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"topic": "Topic is required."})
-		return
-	}
-	level := req.Level
-	if level == "" {
-		level = "intermediate"
-	}
-	count := req.ModuleCount
-	if count <= 0 {
-		count = 8
-	}
-	if count > 30 {
-		count = 30
-	}
-
 	ctx, cancel := context.WithTimeout(r.Context(), h.service.cfg.LLMTimeout)
 	defer cancel()
 
-	userPrompt := fmt.Sprintf("Topic: %s\nDifficulty: %s\nNumber of modules: %d", topic, level, count)
-
-	resp, err := h.service.ai.Complete(ctx, ai.CompletionRequest{
-		SystemPrompt: ai.CourseOutlineSystemPrompt,
-		UserPrompt:   userPrompt,
-		MaxTokens:    2048,
-		JSONMode:     true,
+	outline, _, err := ai.GenerateOutline(ctx, h.service.ai, ai.OutlineParams{
+		Topic:       req.Topic,
+		Level:       req.Level,
+		ModuleCount: req.ModuleCount,
 	})
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			httputil.WriteError(w, http.StatusServiceUnavailable, "AI response timed out. Please try again.")
-			return
-		}
-		msg := err.Error()
-		if strings.Contains(msg, "rate_limit") {
-			httputil.WriteError(w, http.StatusServiceUnavailable, "AI service is rate-limited. Please wait and try again.")
-			return
-		}
-		if strings.Contains(msg, "api error") {
-			httputil.WriteError(w, http.StatusBadGateway, "AI service returned an error. Please try again.")
-			return
-		}
-		// Network or unknown upstream failure.
-		httputil.WriteError(w, http.StatusBadGateway, "AI service is unavailable. Please try again.")
-		return
-	}
-
-	var outline CourseOutline
-	if err := json.Unmarshal([]byte(resp.Content), &outline); err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, "AI returned an invalid response structure.")
+		writeOutlineError(w, err)
 		return
 	}
 
 	httputil.WriteJSON(w, http.StatusOK, outline)
+}
+
+// writeOutlineError maps outline generation failures onto the HTTP contract the
+// preview UI relies on. The domain sentinels are checked first so a bad input
+// or a malformed model reply never gets reported as an upstream outage.
+func writeOutlineError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, ai.ErrOutlineTopicRequired):
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"topic": "Topic is required."})
+	case errors.Is(err, ai.ErrOutlineUnparsable):
+		httputil.WriteError(w, http.StatusInternalServerError, "AI returned an invalid response structure.")
+	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
+		httputil.WriteError(w, http.StatusServiceUnavailable, "AI response timed out. Please try again.")
+	case strings.Contains(err.Error(), "rate_limit"):
+		httputil.WriteError(w, http.StatusServiceUnavailable, "AI service is rate-limited. Please wait and try again.")
+	case strings.Contains(err.Error(), "api error"):
+		httputil.WriteError(w, http.StatusBadGateway, "AI service returned an error. Please try again.")
+	default:
+		// Network or unknown upstream failure.
+		httputil.WriteError(w, http.StatusBadGateway, "AI service is unavailable. Please try again.")
+	}
 }

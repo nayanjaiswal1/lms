@@ -185,7 +185,10 @@ func (h *Handler) HandleSocialExchange(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Token string `json:"token"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
+	if !httputil.DecodeJSON(w, r, &req) {
+		return
+	}
+	if req.Token == "" {
 		httputil.WriteError(w, http.StatusBadRequest, "Token is required.")
 		return
 	}
@@ -215,12 +218,6 @@ func (h *Handler) HandleSocialExchange(w http.ResponseWriter, r *http.Request) {
 	}
 	onboardingCompleted := payloadFields.OnboardingCompleted
 
-	if err := h.enforceMaxSessions(r.Context(), userID); err != nil {
-		slog.Error("auth: social exchange enforce max sessions", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Exchange failed.")
-		return
-	}
-
 	// Fetch user first so SessionVersion is available for the access token claim.
 	type userRow struct {
 		ID             string
@@ -245,81 +242,18 @@ func (h *Handler) HandleSocialExchange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var orgRole string
-	if err := h.pool.QueryRow(r.Context(),
-		`SELECT role FROM org_members WHERE org_id = $1 AND user_id = $2`,
-		h.cfg.DefaultOrgID, userID,
-	).Scan(&orgRole); err != nil {
-		orgRole = "learner"
-	}
-
-	accessToken, err := CreateAccessToken(h.cfg, Claims{
-		UserID:         userID,
-		OrgID:          h.cfg.DefaultOrgID,
-		OrgRole:        orgRole,
-		AuthMethod:     "social",
+	body, ok := h.mintSession(w, r, sessionSubject{
+		ID:             u.ID,
+		Name:           u.Name,
+		Email:          u.Email,
+		AvatarURL:      u.AvatarURL,
 		SessionVersion: u.SessionVersion,
-	})
-	if err != nil {
-		slog.Error("auth: social exchange create access token", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Exchange failed.")
+	}, "social", "social exchange", "Exchange failed.", &onboardingCompleted)
+	if !ok {
 		return
 	}
 
-	rawRefresh, refreshHash, err := CreateRefreshToken()
-	if err != nil {
-		slog.Error("auth: social exchange create refresh token", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Exchange failed.")
-		return
-	}
-
-	familyID, err := randomHex(16)
-	if err != nil {
-		slog.Error("auth: social exchange generate family_id", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Exchange failed.")
-		return
-	}
-
-	if _, err := h.pool.Exec(r.Context(),
-		`INSERT INTO refresh_tokens (user_id, token_hash, expires_at, family_id, device_hint, ip)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		userID, refreshHash,
-		time.Now().Add(h.cfg.RefreshTokenTTL),
-		familyID, truncate(r.Header.Get("User-Agent"), 200), firstThreeOctets(r.RemoteAddr),
-	); err != nil {
-		slog.Error("auth: social exchange insert refresh token", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Exchange failed.")
-		return
-	}
-
-	csrfToken, err := CreateCSRFToken(h.cfg)
-	if err != nil {
-		slog.Error("auth: social exchange generate csrf token", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Exchange failed.")
-		return
-	}
-
-	orgs, err := h.queryUserOrgs(r.Context(), u.ID)
-	if err != nil {
-		slog.Error("auth: social exchange query orgs", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Exchange failed.")
-		return
-	}
-
-	setAccessCookie(w, h.cfg, accessToken)
-	setRefreshCookie(w, h.cfg, rawRefresh)
-	setCSRFCookie(w, h.cfg, csrfToken)
-
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{
-		"user": userResponse{
-			ID:        u.ID,
-			Name:      u.Name,
-			Email:     u.Email,
-			AvatarURL: u.AvatarURL,
-		},
-		"orgs":                 orgs,
-		"onboarding_completed": onboardingCompleted,
-	})
+	httputil.WriteJSON(w, http.StatusOK, body)
 }
 
 // ─── provider user fetching ───────────────────────────────────────────────────

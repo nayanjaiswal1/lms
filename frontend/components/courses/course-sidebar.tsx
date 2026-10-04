@@ -115,6 +115,7 @@ export function CourseSidebar({ course, currentModuleId, progress, isEnrolled, o
                             isCurrent && "border-primary bg-primary/8 font-medium text-primary",
                           )}
                           href={ROUTES.courseLearnModule(course.slug, mod.id)}
+                          prefetch={false}
                           onClick={onNavigate}
                         >
                           {status === "completed" ? (

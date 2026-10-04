@@ -73,7 +73,7 @@ export function IssueDrawer({ issue, onClose }: IssueDrawerProps) {
               <span className="text-xs text-muted-foreground">{issue.opened_short}</span>
             </div>
             <div className="flex items-center gap-1">
-              <Button aria-label="Copy issue link" size="icon" variant="ghost" type="button" onClick={copyLink}>
+              <Button aria-label="Copy issue link" size="icon" type="button" variant="ghost" onClick={copyLink}>
                 <Link2 aria-hidden className="size-4.5" />
               </Button>
               <Button asChild size="icon" variant="ghost">
@@ -81,7 +81,7 @@ export function IssueDrawer({ issue, onClose }: IssueDrawerProps) {
                   <ExternalLink aria-hidden className="size-4.5" />
                 </a>
               </Button>
-              <Button aria-label="Close drawer" className="ml-1" size="icon" variant="ghost" type="button" onClick={onClose}>
+              <Button aria-label="Close drawer" className="ml-1" size="icon" type="button" variant="ghost" onClick={onClose}>
                 <X aria-hidden className="size-5" />
               </Button>
             </div>
@@ -189,7 +189,7 @@ export function IssueDrawer({ issue, onClose }: IssueDrawerProps) {
                 <div className="flex-between border-t border-border px-2 py-1">
                   <div className="flex items-center gap-1 text-muted-foreground">
                     {COMMENT_TOOLS.map(({ label, icon: Icon }) => (
-                      <Button aria-label={label} key={label} size="icon" variant="ghost" type="button">
+                      <Button aria-label={label} key={label} size="icon" type="button" variant="ghost">
                         <Icon aria-hidden className="size-3.5" />
                       </Button>
                     ))}
@@ -221,11 +221,11 @@ export function IssueDrawer({ issue, onClose }: IssueDrawerProps) {
         </div>
 
         <div className="flex-between gap-2 border-t border-border px-4 py-3 sm:px-6">
-          <Button variant="ghost" type="button" onClick={onClose}>
+          <Button type="button" variant="ghost" onClick={onClose}>
             Close
           </Button>
           <div className="flex items-center gap-2">
-            <Button variant="outline" type="button">
+            <Button type="button" variant="outline">
               <Clock aria-hidden className="size-4" />
               <span>Move to Parked</span>
             </Button>

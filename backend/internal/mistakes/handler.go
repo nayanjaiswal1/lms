@@ -1,7 +1,6 @@
 package mistakes
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -75,8 +74,7 @@ func (h *Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req LogRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 

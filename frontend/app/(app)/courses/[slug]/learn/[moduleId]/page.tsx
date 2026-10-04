@@ -5,8 +5,9 @@ import { notFound } from "next/navigation";
 import { Clock, CheckCircle2, Brain, Terminal } from "lucide-react";
 import { apiGet } from "@/lib/server/api";
 import { cn } from "@/lib/utils";
-import { findCourseBySlug, getCourses, getCourseTree, getCourseProgress, getEnrollments, getMyCheckProgress, getMyReflection, getMyLessonNote, getPublicCourseTree } from "@/lib/server/courses";
+import { getCourseDetailBySlug, getMyCheckProgress, getMyReflection, getMyLessonNote, getPublicCourseTree, getModuleTranslations, getPublicModuleTranslations } from "@/lib/server/courses";
 import { AnonLessonPage } from "@/components/courses/anon-lesson-page";
+import { LessonLanguageSwitcher, pickTranslation } from "@/components/courses/lesson-language-switcher";
 import { getMyFeedback } from "@/lib/server/feedback";
 import { getDueCards } from "@/lib/server/srs";
 import { getModuleLab } from "@/lib/server/labs";
@@ -22,6 +23,7 @@ import { LessonLabHero } from "@/components/courses/lesson-lab-hero";
 import { getHighlightsForSource } from "@/lib/server/highlights";
 import { MODULE_TYPE_LABEL } from "@/lib/courses/module-types";
 import { computeCompletion } from "@/lib/courses/progress";
+import { withoutBodies } from "@/lib/courses/slim-tree";
 import { Badge } from "@/components/ui/badge";
 import { CourseCompletionPrompt } from "@/components/feedback/course-completion-prompt";
 import { CourseSidebarRail } from "@/components/courses/course-sidebar-rail";
@@ -43,6 +45,7 @@ import ROUTES from "@/lib/routes";
 
 interface Props {
   params: Promise<{ slug: string; moduleId: string }>;
+  searchParams: Promise<{ lang?: string }>;
 }
 
 interface ModuleContent {
@@ -63,8 +66,9 @@ export async function generateMetadata({ params }: Props) {
   return { title: `Learn ${slug}` };
 }
 
-export default async function ModuleLearnPage({ params }: Props) {
+export default async function ModuleLearnPage({ params, searchParams }: Props) {
   const { slug, moduleId } = await params;
+  const { lang } = await searchParams;
 
   const cookieStore = await cookies();
   if (!cookieStore.get("access_token")?.value) {
@@ -72,44 +76,47 @@ export default async function ModuleLearnPage({ params }: Props) {
     if (!tree) notFound();
     const moduleExists = tree.sections.some((s) => s.modules.some((m) => m.id === moduleId));
     if (!moduleExists) notFound();
-    return <AnonLessonPage course={tree} currentModuleId={moduleId} />;
+    const translations = await getPublicModuleTranslations(slug, moduleId);
+    return <AnonLessonPage activeLocale={pickTranslation(translations, lang)?.locale ?? null} course={tree} currentModuleId={moduleId} translations={translations} />;
   }
 
-  const [courses, enrollments] = await Promise.all([getCourses(), getEnrollments().catch(() => [])]);
-  const course = findCourseBySlug(courses, enrollments, slug);
-  if (!course) notFound();
-
-  const [tree, progress, content, dueRevisions] = await Promise.all([
-    getCourseTree(course.id),
-    getCourseProgress(course.id).catch(() => null),
+  // One call resolves slug → tree + enrollment + progress (was catalog list +
+  // enrollments + tree + progress across two serial rounds).
+  const [tree, content, dueRevisions, translations] = await Promise.all([
+    getCourseDetailBySlug(slug).catch(() => null),
     getModuleContent(moduleId),
     getDueCards().catch(() => ({ cards: [], total: 0 })),
+    getModuleTranslations(moduleId),
   ]);
+  if (!tree) notFound();
 
   const allModules = tree.sections.flatMap((s) => s.modules);
   const currentIndex = allModules.findIndex((m) => m.id === moduleId);
   const currentModule = allModules[currentIndex];
   if (!currentModule) notFound();
 
-  const prevModule = currentIndex > 0 ? allModules[currentIndex - 1] : null;
-  const nextModule = currentIndex < allModules.length - 1 ? allModules[currentIndex + 1] : null;
+  const sidebarTree = withoutBodies(tree);
+  const slimModules = sidebarTree.sections.flatMap((s) => s.modules);
+  const prevModule = currentIndex > 0 ? slimModules[currentIndex - 1] : null;
+  const nextModule = currentIndex < slimModules.length - 1 ? slimModules[currentIndex + 1] : null;
 
-  const isEnrolled = enrollments.some((e) => e.course_id === course.id);
-  const progressModules = progress?.modules ?? [];
+  const isEnrolled = tree.is_enrolled;
+  const progressModules = tree.progress?.modules ?? [];
   const moduleProgress = progressModules.find((p) => p.module_id === moduleId);
   const { completed: completedCount, total: totalCount } = computeCompletion(allModules.map((m) => m.id), progressModules);
 
   const courseComplete = isEnrolled && totalCount > 0 && completedCount === totalCount;
-  const myCourseFeedback = courseComplete
-    ? await getMyFeedback("course", course.id).catch(() => null)
-    : null;
 
-  const notes = currentModule.type === "notes" && currentModule.content_body
+  const translation = pickTranslation(translations, lang);
+  const originalNotes = currentModule.type === "notes" && currentModule.content_body
     ? renderModuleMarkdown(currentModule.content_body)
     : null;
+  const notes = translation && originalNotes ? renderModuleMarkdown(translation.content_body) : originalNotes;
 
-  const requiredCheckIds = notes
-    ? notes.segments.flatMap((s) => (s.type === "knowledge-check" ? s.questions.map((q) => q.id) : []))
+  // Quiz gating always keys off the ORIGINAL body: the server's answer key
+  // belongs to it, so a translation can't add or drop required checks.
+  const requiredCheckIds = originalNotes
+    ? originalNotes.segments.flatMap((s) => (s.type === "knowledge-check" ? s.questions.map((q) => q.id) : []))
     : [];
   // First runnable-language snippet in the lesson, if any — surfaced as a
   // standalone scratch compiler in the right rail (LessonCompilerToggle) so
@@ -123,14 +130,18 @@ export default async function ModuleLearnPage({ params }: Props) {
         .flatMap((s) => (s.type === "code" ? s.variants : []))
         .find((v) => isRunnableLanguage(v.language))?.language ?? null
     : null;
-  const passedCheckIds = requiredCheckIds.length > 0 ? await getMyCheckProgress(moduleId).catch(() => []) : [];
-  const initialReflection = notes ? await getMyReflection(moduleId).catch(() => null) : null;
-  const initialNote = notes ? await getMyLessonNote(moduleId).catch(() => null) : null;
-  const initialHighlights = notes
-    ? await getHighlightsForSource("lesson", moduleId).catch(() => [])
-    : [];
+  const isNotes = currentModule.type === "notes";
+  // One parallel round instead of six serial cross-region hops — each of these
+  // used to be awaited back to back, which made every sidebar click take seconds.
+  const [myCourseFeedback, passedCheckIds, initialReflection, initialNote, initialHighlights, moduleLab] = await Promise.all([
+    courseComplete ? getMyFeedback("course", tree.id).catch(() => null) : null,
+    requiredCheckIds.length > 0 ? getMyCheckProgress(moduleId).catch(() => []) : [],
+    notes ? getMyReflection(moduleId).catch(() => null) : null,
+    notes ? getMyLessonNote(moduleId).catch(() => null) : null,
+    notes ? getHighlightsForSource("lesson", moduleId).catch(() => []) : [],
+    isNotes ? getModuleLab(moduleId) : null,
+  ]);
 
-  const moduleLab = currentModule.type === "notes" ? await getModuleLab(moduleId) : null;
   // True once a lab linked to this notes lesson is actually running —
   // ModuleNotes then splits into notes + workspace panes (see
   // LessonLabWorkspacePane), so this page gives up the same space a
@@ -227,17 +238,17 @@ export default async function ModuleLearnPage({ params }: Props) {
       requiredIds={requiredCheckIds}
     >
     <div className="flex flex-col items-start gap-6 lg:flex-row">
-      {courseComplete && !myCourseFeedback && <CourseCompletionPrompt courseId={course.id} />}
+      {courseComplete && !myCourseFeedback && <CourseCompletionPrompt courseId={tree.id} />}
 
       {/* Collapsed while the lab split is open — the workspace pane needs
           the room, and the left nav is one click away via End Lab. */}
       {!isLabOpen && (
-        <CourseSidebarRail course={tree} currentModuleId={moduleId} isEnrolled={isEnrolled} progress={progressModules} />
+        <CourseSidebarRail course={sidebarTree} currentModuleId={moduleId} isEnrolled={isEnrolled} progress={progressModules} />
       )}
 
       <main className="min-w-0 flex-1">
         <CourseSidebarDrawer
-          course={tree}
+          course={sidebarTree}
           currentModuleId={moduleId}
           currentModuleTitle={currentModule.title}
           isEnrolled={isEnrolled}
@@ -269,6 +280,13 @@ export default async function ModuleLearnPage({ params }: Props) {
               </div>
             )}
             <div className="mb-6 flex flex-wrap items-center gap-2">{moduleMeta}</div>
+            {notes && (
+              <LessonLanguageSwitcher
+                activeLocale={translation?.locale ?? null}
+                basePath={ROUTES.courseLearnModule(slug, moduleId)}
+                translations={translations}
+              />
+            )}
 
             {currentModule.type === "video" && content?.presigned_url && (
               <ModuleVideo

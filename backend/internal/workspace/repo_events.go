@@ -80,15 +80,33 @@ func (r *Repo) CountItemEvents(ctx context.Context, db DBTX, itemID string) (int
 
 // CountComments counts non-deleted comments on a work item (comments.subject_type
 // was widened for 'work_item' in 037) — the issues feed's real "comments" count.
-func (r *Repo) CountComments(ctx context.Context, db DBTX, itemID string) (int, error) {
-	var n int
-	if err := db.QueryRow(ctx,
-		`SELECT count(*) FROM comments WHERE subject_type = 'work_item' AND subject_id = $1 AND deleted_at IS NULL`,
-		itemID,
-	).Scan(&n); err != nil {
-		return 0, fmt.Errorf("workspace: count comments: %w", err)
+func (r *Repo) CountCommentsByItem(ctx context.Context, db DBTX, itemIDs []string) (map[string]int, error) {
+	counts := make(map[string]int, len(itemIDs))
+	if len(itemIDs) == 0 {
+		return counts, nil
 	}
-	return n, nil
+	rows, err := db.Query(ctx,
+		`SELECT subject_id, count(*) FROM comments
+		 WHERE subject_type = 'work_item' AND subject_id = ANY($1) AND deleted_at IS NULL
+		 GROUP BY subject_id`,
+		itemIDs,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("workspace: count comments: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, fmt.Errorf("workspace: scan comment count: %w", err)
+		}
+		counts[id] = n
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("workspace: comment count rows: %w", err)
+	}
+	return counts, nil
 }
 
 // ListRecentEventsForItems returns the most recent events across a set of

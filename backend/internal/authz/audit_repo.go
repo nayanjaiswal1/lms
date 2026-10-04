@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"regexp"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -20,8 +19,6 @@ func NewAuditRepo(pool *pgxpool.Pool) *AuditRepo {
 	return &AuditRepo{pool: pool}
 }
 
-var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
-
 // Write inserts a single row into audit_logs. entityID is stored as target_id
 // when it is a valid UUID; otherwise target_id is left NULL and the original
 // value is preserved under "original_entity_id" in after_state (mirrors
@@ -30,7 +27,7 @@ func (r *AuditRepo) Write(ctx context.Context, orgID, actorID, action, entityTyp
 	var before, after json.RawMessage
 	var targetID *string
 
-	if uuidPattern.MatchString(entityID) {
+	if isValidUUID(entityID) {
 		targetID = &entityID
 		if diff != nil {
 			before, _ = json.Marshal(diff.Before)

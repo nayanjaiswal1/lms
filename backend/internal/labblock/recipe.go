@@ -11,6 +11,10 @@ type BlockRef struct {
 	// Pool groups interchangeable blocks: exactly one member of a pool is
 	// picked per variant (a "fault pool", docs/debug-labs.md §B6).
 	Pool string `json:"pool,omitempty"`
+	// Chain makes this fault follow another fault of the recipe, overriding
+	// any chain its manifest declares (docs/debug-labs.md §B2 rule 4). Only
+	// valid on fault blocks; `after` is the other fault's block key.
+	Chain *Chain `json:"chain,omitempty"`
 	// Params are the author's explicit parameter values. A randomizable
 	// param that is set here is pinned; one that is absent becomes a
 	// variant axis.

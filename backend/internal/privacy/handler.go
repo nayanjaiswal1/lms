@@ -1,7 +1,6 @@
 package privacy
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -40,8 +39,7 @@ func (h *Handler) HandleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Password string `json:"password"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if err := h.service.DeleteAccount(r.Context(), claims.UserID, req.Password); err != nil {

@@ -32,6 +32,10 @@ type Candidate struct {
 	Needs []string `json:"needs"`
 	// Suggested: adding the block satisfies a requirement the recipe has unmet.
 	Suggested bool `json:"suggested"`
+	// ChainAfter, set on a fault that is only blocked by sharing a slot with a
+	// fault already in the recipe, is the fault key it can be added chained
+	// after (compatible=true); the wizard adds it with that chain.
+	ChainAfter string `json:"chain_after,omitempty"`
 }
 
 // Candidates lists the org-visible blocks of one kind for a recipe's wizard
@@ -109,6 +113,12 @@ func (s *Service) Candidates(ctx context.Context, orgID, recipeID, kind string) 
 				c.Needs = append(c.Needs, is.Message)
 			}
 		}
+		if !c.Selected && kind == "fault" && len(c.Blockers) > 0 && onlySlotConflicts(an.Issues, b.Key, inBase) {
+			c.ChainAfter = chainableAfter(rc.Spec, vers, b.LatestVersionID, analyze)
+			if c.ChainAfter != "" {
+				c.Blockers = []string{}
+			}
+		}
 		c.Compatible = len(c.Blockers) == 0
 		out = append(out, c)
 	}
@@ -125,4 +135,46 @@ func countCode(issues []labblock.Issue, code string) int {
 		}
 	}
 	return n
+}
+
+// onlySlotConflicts reports whether every blocking error the candidate brings
+// is a slot conflict - the one blocker an explicit chain lifts (rule 3).
+func onlySlotConflicts(issues []labblock.Issue, key string, inBase map[string]bool) bool {
+	n := 0
+	for _, is := range issues {
+		if is.Severity != labblock.SeverityError || !blockingCodes[is.Code] || (is.Block != key && inBase[issueKey(is)]) {
+			continue
+		}
+		if is.Code != labblock.CodeSlotConflict {
+			return false
+		}
+		n++
+	}
+	return n > 0
+}
+
+// chainableAfter returns the key of a fault already in the recipe that the
+// candidate version can follow without any blocking error ("" if none).
+func chainableAfter(spec labblock.Spec, vers map[string]*labblock.ResolvedBlock, versionID string,
+	analyze func(labblock.Spec) *Analysis) string {
+	for _, ref := range spec.Blocks {
+		v, ok := vers[ref.BlockVersionID]
+		if !ok || v.Manifest.Kind != "fault" {
+			continue
+		}
+		next := spec
+		next.Blocks = append(append([]labblock.BlockRef(nil), spec.Blocks...),
+			labblock.BlockRef{BlockVersionID: versionID, Chain: &labblock.Chain{After: v.Key, Mode: labblock.ChainMasks}})
+		blocked := false
+		for _, is := range analyze(next).Issues {
+			if is.Severity == labblock.SeverityError && blockingCodes[is.Code] {
+				blocked = true
+				break
+			}
+		}
+		if !blocked {
+			return v.Key
+		}
+	}
+	return ""
 }

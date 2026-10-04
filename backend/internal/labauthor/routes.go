@@ -58,6 +58,9 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service, pool *pg
 		})
 	})
 
-	r.With(middleware.RequirePlatformRole(pool, middleware.PlatformRoleSuperAdmin)).
-		Post("/api/admin/lab-authoring/blocks/{versionId}/yank", h.HandleYankVersion)
+	r.Route("/api/admin/lab-authoring/blocks/{versionId}", func(r chi.Router) {
+		r.Use(middleware.RequirePlatformRole(pool, middleware.PlatformRoleSuperAdmin))
+		r.Get("/affected-labs", h.HandleAffectedLabs)
+		r.Post("/yank", h.HandleYankVersion)
+	})
 }

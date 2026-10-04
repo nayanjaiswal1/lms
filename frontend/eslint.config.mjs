@@ -376,6 +376,36 @@ export default tseslint.config(
         },
       ],
 
+      // ── Ban: importing authHeaders() ───────────────────────────────────
+      // authHeaders() is the one exported building block of the shared helpers
+      // above that is NOT a shared helper — it is their implementation detail.
+      // It is exported only because two sanctioned consumers cannot go through
+      // apiGet/apiPost/apiAction: the /api/whatnow forwarder (a route handler
+      // that relays an arbitrary method/body to the backend) and the workspace
+      // CSV export (whose response is plain text, not a JSON {data} envelope).
+      // Letting any other file import it is exactly how the hand-rolled
+      // "fetch + build headers + parse envelope" block came to be duplicated
+      // across server actions: it never builds a Cookie header literal, so the
+      // Property[key.name="Cookie"] rule above never fired on it. Exceptions are
+      // declared once in the authHeaders-exceptions block at the bottom.
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/lib/server/api',
+              importNames: ['authHeaders'],
+              message:
+                '[Architecture] Do not import authHeaders() — it is an implementation detail of lib/server/api.ts. ' +
+                'Use apiGet/apiPost/apiAction/apiUpload (lib/server/api.ts) in server code, ' +
+                'or apiFetch (lib/client/api.ts) in client components. ' +
+                'If the response genuinely is not a JSON {data} envelope, add your file to the ' +
+                'authHeaders-exceptions block in eslint.config.mjs with a comment explaining why.',
+            },
+          ],
+        },
+      ],
+
       // ── General code quality ─────────────────────────────────────────────
       'prefer-const': 'error',
       'no-console': ['warn', { allow: ['warn', 'error'] }],
@@ -538,6 +568,25 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-require-imports': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
+
+  // ── 11. Documented authHeaders() exceptions ──────────────────────────────
+  // The only two files allowed to import authHeaders() (see the
+  // no-restricted-imports ban in section 8). Both are cases where the shared
+  // helpers cannot be used because the response is not a JSON {data} envelope:
+  //   • app/api/whatnow/**  — a Next.js route handler that forwards an
+  //     arbitrary method/body (including a raw text body) straight to the Go
+  //     backend and streams back whatever it returns; there is no envelope to
+  //     unwrap and no ActionResult to produce.
+  //   • lib/workspace/phase5-actions.ts — the workspace CSV export, which
+  //     streams text/csv and must return the raw text as its payload.
+  // Adding a file here needs a comment saying why apiGet/apiPost/apiAction
+  // does not fit — not "authHeaders was convenient".
+  {
+    files: ['app/api/whatnow/**', 'lib/workspace/phase5-actions.ts'],
+    rules: {
+      'no-restricted-imports': 'off',
     },
   },
 )

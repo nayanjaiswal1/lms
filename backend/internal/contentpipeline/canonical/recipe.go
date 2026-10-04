@@ -23,12 +23,14 @@ type RecipeSpec struct {
 	Blocks             []RecipeBlock `yaml:"blocks"`
 }
 
-// RecipeBlock pins one block: "key@version", optionally in a pool, with params.
+// RecipeBlock pins one block: "key@version", optionally in a pool or chained
+// after another fault, with params.
 type RecipeBlock struct {
-	Block  string         `yaml:"block"`
-	Role   string         `yaml:"role"`
-	Pool   string         `yaml:"pool"`
-	Params map[string]any `yaml:"params"`
+	Block  string          `yaml:"block"`
+	Role   string          `yaml:"role"`
+	Pool   string          `yaml:"pool"`
+	Chain  *labblock.Chain `yaml:"chain"`
+	Params map[string]any  `yaml:"params"`
 }
 
 // LoadRecipe reads and strictly parses a recipe file.
@@ -74,7 +76,7 @@ func (r *RecipeSpec) Spec() (labblock.Spec, error) {
 			return spec, fmt.Errorf("canonical.RecipeSpec.Spec: block %q must be key@version", b.Block)
 		}
 		spec.Blocks = append(spec.Blocks, labblock.BlockRef{
-			BlockVersionID: LabBlockVersionID(key, version), Role: b.Role, Pool: b.Pool, Params: b.Params,
+			BlockVersionID: LabBlockVersionID(key, version), Role: b.Role, Pool: b.Pool, Chain: b.Chain, Params: b.Params,
 		})
 	}
 	return spec, nil

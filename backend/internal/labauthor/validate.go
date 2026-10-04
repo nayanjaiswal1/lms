@@ -339,6 +339,14 @@ func BuildRecipe(labKind, orgID string, spec labblock.Spec, versions map[string]
 		cp := *v
 		cp.Ref = ref
 		cp.Params = nil
+		if ref.Chain != nil && v.Manifest.Fault != nil {
+			// The recipe's chain replaces the manifest's, on private copies
+			// (the resolved manifest is shared with other recipes).
+			m, f := *v.Manifest, *v.Manifest.Fault
+			f.Chain = ref.Chain
+			m.Fault = &f
+			cp.Manifest = &m
+		}
 		r.Blocks = append(r.Blocks, &cp)
 	}
 	return r, issues

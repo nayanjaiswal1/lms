@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -209,8 +208,7 @@ func (h *Handler) createFromJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CreateJSONRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -421,8 +419,7 @@ func (h *Handler) Promote(w http.ResponseWriter, r *http.Request) {
 
 	var req PromoteRequest
 	if r.ContentLength != 0 {
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+		if !httputil.DecodeJSON(w, r, &req) {
 			return
 		}
 	}

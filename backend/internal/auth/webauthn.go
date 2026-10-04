@@ -234,8 +234,7 @@ func (h *Handler) HandleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Re
 	}
 
 	var req webauthnRegisterFinishRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Handle == "" || len(req.Response) == 0 {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) || req.Handle == "" || len(req.Response) == 0 {
 		return
 	}
 
@@ -362,8 +361,7 @@ func (h *Handler) HandleWebAuthnCredentialRename(w http.ResponseWriter, r *http.
 	var req struct {
 		Nickname string `json:"nickname"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -550,8 +548,7 @@ func (h *Handler) HandleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Reque
 	}
 
 	var req webauthnLoginFinishRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Handle == "" || len(req.Response) == 0 {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) || req.Handle == "" || len(req.Response) == 0 {
 		return
 	}
 
@@ -629,12 +626,6 @@ func (h *Handler) HandleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	if err := h.enforceMaxSessions(r.Context(), u.userID); err != nil {
-		slog.Error("auth: webauthn login finish enforce max sessions", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Sign-in failed.")
-		return
-	}
-
 	type userRow struct {
 		ID             string
 		Name           string
@@ -659,86 +650,16 @@ func (h *Handler) HandleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var orgRole string
-	if err := h.pool.QueryRow(r.Context(),
-		`SELECT role FROM org_members WHERE org_id = $1 AND user_id = $2`,
-		h.cfg.DefaultOrgID, u.userID,
-	).Scan(&orgRole); err != nil {
-		orgRole = "learner"
-	}
-
-	accessToken, err := CreateAccessToken(h.cfg, Claims{
-		UserID:         u.userID,
-		OrgID:          h.cfg.DefaultOrgID,
-		OrgRole:        orgRole,
-		AuthMethod:     "passkey",
+	body, ok := h.mintSession(w, r, sessionSubject{
+		ID:             ur.ID,
+		Name:           ur.Name,
+		Email:          ur.Email,
+		AvatarURL:      ur.AvatarURL,
 		SessionVersion: ur.SessionVersion,
-	})
-	if err != nil {
-		slog.Error("auth: webauthn login finish create access token", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Sign-in failed.")
+	}, "passkey", "webauthn login finish", "Sign-in failed.", nil)
+	if !ok {
 		return
 	}
 
-	rawRefresh, refreshHash, err := CreateRefreshToken()
-	if err != nil {
-		slog.Error("auth: webauthn login finish create refresh token", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Sign-in failed.")
-		return
-	}
-
-	familyID, err := randomHex(16)
-	if err != nil {
-		slog.Error("auth: webauthn login finish generate family_id", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Sign-in failed.")
-		return
-	}
-
-	if _, err := h.pool.Exec(r.Context(),
-		`INSERT INTO refresh_tokens (user_id, token_hash, expires_at, family_id, device_hint, ip)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		u.userID, refreshHash,
-		time.Now().Add(h.cfg.RefreshTokenTTL),
-		familyID, truncate(r.Header.Get("User-Agent"), 200), firstThreeOctets(r.RemoteAddr),
-	); err != nil {
-		slog.Error("auth: webauthn login finish insert refresh token", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Sign-in failed.")
-		return
-	}
-
-	csrfToken, err := CreateCSRFToken(h.cfg)
-	if err != nil {
-		slog.Error("auth: webauthn login finish generate csrf token", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Sign-in failed.")
-		return
-	}
-
-	orgs, err := h.queryUserOrgs(r.Context(), u.userID)
-	if err != nil {
-		slog.Error("auth: webauthn login finish query orgs", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Sign-in failed.")
-		return
-	}
-
-	onboardingCompleted, err := h.checkOnboardingCompleted(r.Context(), u.userID)
-	if err != nil {
-		slog.Error("auth: webauthn login finish check onboarding", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Sign-in failed.")
-		return
-	}
-
-	setAccessCookie(w, h.cfg, accessToken)
-	setRefreshCookie(w, h.cfg, rawRefresh)
-	setCSRFCookie(w, h.cfg, csrfToken)
-
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{
-		"user": userResponse{
-			ID:        ur.ID,
-			Name:      ur.Name,
-			Email:     ur.Email,
-			AvatarURL: ur.AvatarURL,
-		},
-		"orgs":                 orgs,
-		"onboarding_completed": onboardingCompleted,
-	})
+	httputil.WriteJSON(w, http.StatusOK, body)
 }

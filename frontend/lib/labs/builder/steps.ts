@@ -13,6 +13,8 @@ export interface BlockStep extends BaseStep {
   type: "blocks";
   kinds: readonly string[];
   mode: BlockStepMode;
+  /** Extra panel rendered under the candidates. */
+  panel?: "ticket-draft";
 }
 
 export interface CustomStep extends BaseStep {
@@ -27,8 +29,8 @@ export const BUILDER_STEPS: readonly BuilderStep[] = [
     description: "The application students debug: its features, history and regression suite.",
   },
   {
-    key: "fault", type: "blocks", kinds: ["fault"], mode: "single", label: "Fault",
-    description: "The production bug planted in the app. Incompatible faults are greyed out with the reason.",
+    key: "fault", type: "blocks", kinds: ["fault"], mode: "multi", label: "Faults",
+    description: "The production bugs planted in the app. Add up to three: chain them, or pool interchangeable ones so each student gets one. Incompatible faults are greyed out with the reason.",
   },
   {
     key: "data", type: "blocks", kinds: ["data"], mode: "multi", label: "Data",
@@ -39,12 +41,12 @@ export const BUILDER_STEPS: readonly BuilderStep[] = [
     description: "Fake external services and production-like environment settings.",
   },
   {
-    key: "ticket", type: "blocks", kinds: ["ticket"], mode: "single", label: "Ticket",
-    description: "How the incident reaches the student. Without one, the brief comes from the fault's symptom.",
-  },
-  {
     key: "checks", type: "blocks", kinds: ["check"], mode: "multi", label: "Checks",
     description: "Grader probes. The fault sets their parameters; add the checks it references.",
+  },
+  {
+    key: "ticket", type: "blocks", kinds: ["ticket"], mode: "single", panel: "ticket-draft", label: "Ticket",
+    description: "How the incident reaches the student. Draft one with AI from the fault's symptom, write your own, or reuse a shared one. Without one, the brief comes from the symptom.",
   },
   {
     key: "guidance", type: "blocks", kinds: ["hints", "rubric"], mode: "single", label: "Hints & rubric",

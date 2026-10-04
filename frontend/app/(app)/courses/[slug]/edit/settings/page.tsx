@@ -17,16 +17,20 @@ export async function generateMetadata({ params }: Props) {
 }
 
 export default async function CourseSettingsPage({ params }: Props) {
-  const myPerms = await getMyPermissions();
-  if (!myPerms.includes(PERMISSIONS.COURSES.EDIT)) {
+  const { slug } = await params;
+  const [myPerms, course] = await Promise.all([
+    getMyPermissions(),
+    getInstructorCourseBySlug(slug).catch(() => undefined),
+  ]);
+  if (!myPerms.includes(PERMISSIONS.COURSES.EDIT) || !course) {
     notFound();
   }
 
-  const { slug } = await params;
-  const course = await getInstructorCourseBySlug(slug).catch(() => undefined);
-  if (!course) notFound();
-
-  const tree = await getCourseTree(course.id).catch(() => null);
+  const [tree, finalTest, certificateRule] = await Promise.all([
+    getCourseTree(course.id).catch(() => null),
+    getFinalTestForEdit(course.id),
+    getCertificateRule(course.id),
+  ]);
   if (!tree) {
     notFound();
   }
@@ -34,11 +38,6 @@ export default async function CourseSettingsPage({ params }: Props) {
   if (tree.status === "archived") {
     redirect(ROUTES.courseEdit(slug));
   }
-
-  const [finalTest, certificateRule] = await Promise.all([
-    getFinalTestForEdit(course.id),
-    getCertificateRule(course.id),
-  ]);
 
   return (
     <main className="page-container">

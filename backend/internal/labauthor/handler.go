@@ -55,7 +55,7 @@ func writeErr(w http.ResponseWriter, err error) {
 		if allCode(inv.Analysis.Issues, labblock.CodeBlockYanked) {
 			code = CodeBlockYanked
 		}
-		httputil.WriteErrorCodeWithData(w, http.StatusUnprocessableEntity, code, "The recipe is not valid.", inv.Analysis)
+		httputil.WriteErrorCodeWithData(w, http.StatusUnprocessableEntity, code, invalidMessage(inv.Analysis), inv.Analysis)
 		return
 	}
 	if errors.Is(err, ErrRateLimited) {
@@ -68,6 +68,17 @@ func writeErr(w http.ResponseWriter, err error) {
 // to the API error envelope. Exported so the build pipeline's handlers report
 // authoring errors identically.
 func WriteError(w http.ResponseWriter, err error) { writeErr(w, err) }
+
+// invalidMessage is the envelope message of a rejected recipe or block: the
+// first error issue, so a form that shows only the message still says why.
+func invalidMessage(a *Analysis) string {
+	for _, i := range a.Issues {
+		if i.Severity == labblock.SeverityError {
+			return "The recipe is not valid: " + i.Message
+		}
+	}
+	return "The recipe is not valid."
+}
 
 func allCode(issues []labblock.Issue, code string) bool {
 	if len(issues) == 0 {
@@ -207,6 +218,25 @@ func (h *Handler) HandleYankVersion(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"affected_labs": labs})
 }
 
+// HandleAffectedLabs: GET /api/admin/lab-authoring/blocks/{versionId}/affected-labs
+// (platform super_admin) — the published labs built from a version, so the
+// yank dialog can show its blast radius before it is confirmed.
+func (h *Handler) HandleAffectedLabs(w http.ResponseWriter, r *http.Request) {
+	if _, ok := auth.RequireClaims(w, r); !ok {
+		return
+	}
+	id, ok := pathID(w, r, "versionId")
+	if !ok {
+		return
+	}
+	labs, err := h.svc.repo.AffectedLabs(r.Context(), id)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"affected_labs": labs})
+}
+
 // ─── recipes ────────────────────────────────────────────────────────────────
 
 // HandleListRecipes: GET /api/instructor/lab-authoring/recipes
@@ -215,11 +245,8 @@ func (h *Handler) HandleListRecipes(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	rs, err := h.svc.repo.ListRecipes(r.Context(), claims.OrgID,
+	rs, err := h.svc.ListRecipes(r.Context(), claims.OrgID,
 		min(httputil.QueryIntPositive(r, "limit", defaultPageSize), maxPageSize), httputil.QueryIntNonNegative(r, "offset", 0))
-	if err == nil {
-		err = h.svc.repo.AttachLatestBuilds(r.Context(), rs)
-	}
 	if err != nil {
 		writeErr(w, err)
 		return

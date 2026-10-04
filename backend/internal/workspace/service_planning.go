@@ -511,6 +511,15 @@ func (s *Service) BuildPlanningIssues(ctx context.Context, userID string) (*AeIs
 	}
 	now := s.now()
 
+	itemIDs := make([]string, len(items))
+	for i, it := range items {
+		itemIDs[i] = it.ID
+	}
+	commentCounts, err := s.repo.CountCommentsByItem(ctx, s.pool, itemIDs)
+	if err != nil {
+		return nil, err
+	}
+
 	issues := make([]AeIssue, 0, len(items))
 	openCount, inProgressCount := 0, 0
 	for i, it := range items {
@@ -535,11 +544,6 @@ func (s *Service) BuildPlanningIssues(ctx context.Context, userID string) (*AeIs
 		}
 		if it.Severity != nil {
 			labels = append(labels, AeIssueLabel{Text: "~" + *it.Severity, Tone: "error"})
-		}
-
-		comments, err := s.repo.CountComments(ctx, s.pool, it.ID)
-		if err != nil {
-			return nil, err
 		}
 
 		due := "—"
@@ -569,7 +573,7 @@ func (s *Service) BuildPlanningIssues(ctx context.Context, userID string) (*AeIs
 			Opened: "opened " + agoLong(now.Sub(it.CreatedAt)), OpenedShort: "opened " + agoShort(now.Sub(it.CreatedAt)),
 			Author: author, Meta: []AeIssueMeta{{Text: "updated " + agoShort(now.Sub(it.UpdatedAt))}},
 			StepsDone: 0, StepsTotal: 0, ProgressTone: "outline",
-			Estimate: estimate, EstimateTitle: estimateTitle, Comments: comments, Files: 0,
+			Estimate: estimate, EstimateTitle: estimateTitle, Comments: commentCounts[it.ID], Files: 0,
 			Assignee: assignee, Milestone: "—", Due: due, Selected: i == 0, Detail: nil,
 		})
 	}

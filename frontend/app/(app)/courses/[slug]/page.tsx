@@ -268,6 +268,7 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
                                   <Link
                                     className="flex items-center gap-3 px-6 py-3 pl-10 text-sm text-foreground transition-colors duration-fast hover:bg-muted"
                                     href={ROUTES.courseLearnModule(course.slug, mod.id)}
+                                    prefetch={false}
                                   >
                                     {rowContent}
                                   </Link>

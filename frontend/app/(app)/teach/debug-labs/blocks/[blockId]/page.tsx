@@ -1,7 +1,13 @@
+import Link from "next/link";
 import type { Metadata } from "next";
+import { Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { BackLink } from "@/components/labs/builder/back-link";
-import { getBlock, requireLabAuthor } from "@/lib/labs/builder/server";
+import { TextBlockDeleteButton } from "@/components/labs/builder/text-block-delete-button";
+import { YankVersionButton } from "@/components/labs/builder/yank-version-button";
+import { Button } from "@/components/ui/button";
+import { canManageBlocks, getBlock, isPlatformAdmin, requireLabAuthor } from "@/lib/labs/builder/server";
+import { isTextKind } from "@/lib/labs/builder/text-blocks";
 import ROUTES from "@/lib/routes";
 
 export const metadata: Metadata = { title: "Block" };
@@ -14,7 +20,8 @@ interface BlockPageProps {
 export default async function BlockPage({ params }: BlockPageProps) {
   await requireLabAuthor();
   const { blockId } = await params;
-  const block = await getBlock(blockId);
+  const [block, canManage, canYank] = await Promise.all([getBlock(blockId), canManageBlocks(), isPlatformAdmin()]);
+  const editable = canManage && block.org_owned && isTextKind(block.kind);
   const latest = block.versions[0]?.manifest;
 
   return (
@@ -30,6 +37,17 @@ export default async function BlockPage({ params }: BlockPageProps) {
           <h1 className="page-title">{latest?.title ?? block.block_key}</h1>
           <p className="break-all font-mono text-xs text-muted-foreground">{block.block_key}</p>
         </div>
+        {editable && (
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link href={ROUTES.labBuilderBlockEdit(block.id)}>
+                <Pencil aria-hidden className="mr-2 h-4 w-4" />
+                Edit
+              </Link>
+            </Button>
+            <TextBlockDeleteButton blockId={block.id} />
+          </div>
+        )}
       </div>
       {latest?.summary && <p className="text-sm">{latest.summary}</p>}
       {(latest?.requires?.length ?? 0) > 0 && (
@@ -48,6 +66,11 @@ export default async function BlockPage({ params }: BlockPageProps) {
                 <span className="font-mono text-sm font-semibold">{v.version}</span>
                 {v.yanked_at && <Badge className="badge-destructive" variant="outline">Yanked</Badge>}
                 <span className="text-xs text-muted-foreground">{new Date(v.created_at).toLocaleDateString()}</span>
+                {canYank && !v.yanked_at && (
+                  <span className="ml-auto">
+                    <YankVersionButton blockId={block.id} version={v.version} versionId={v.id} />
+                  </span>
+                )}
               </div>
               {v.changelog && <p className="text-sm">{v.changelog}</p>}
               {v.yanked_reason && <p className="text-sm text-destructive">Yanked: {v.yanked_reason}</p>}

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import { apiGet, apiPost } from "@/lib/server/api";
+import { getCurrentUser } from "@/lib/server/auth";
 import { getMyPermissions } from "@/lib/server/permissions";
 import type {
   BlockDetail,
@@ -23,6 +24,21 @@ export async function requireLabAuthor(): Promise<string[]> {
   const perms = await getMyPermissions();
   if (!perms.includes(PERMISSIONS.LABAUTHOR.COMPOSE)) notFound();
   return perms;
+}
+
+/** Whether the caller may author org text blocks (the API enforces it too). */
+export async function canManageBlocks(): Promise<boolean> {
+  return (await getMyPermissions()).includes(PERMISSIONS.LABAUTHOR.MANAGE_BLOCKS);
+}
+
+/** Page guard for the text-block editor. */
+export async function requireBlockManager(): Promise<void> {
+  if (!(await canManageBlocks())) notFound();
+}
+
+/** Platform super_admins may yank block versions. */
+export async function isPlatformAdmin(): Promise<boolean> {
+  return (await getCurrentUser())?.platform_role === "super_admin";
 }
 
 export async function getRecipes(): Promise<Recipe[]> {

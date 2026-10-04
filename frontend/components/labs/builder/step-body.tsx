@@ -17,7 +17,7 @@ export function StepBody({ step, view, analysis, courseParam }: StepBodyProps) {
   const recipe = view.recipe;
   switch (step.type) {
     case "blocks":
-      return <BlockStep recipe={recipe} step={step} />;
+      return <BlockStep recipe={recipe} step={step} valid={analysis.valid} />;
     case "randomize":
       return <RandomizeStep analysis={analysis} blocks={view.blocks} recipe={recipe} />;
     case "build":

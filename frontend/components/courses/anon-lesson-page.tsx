@@ -7,7 +7,8 @@ import { getAnonProgress, setAnonModuleCompleted } from "@/lib/courses/anon-prog
 import { renderModuleMarkdown } from "@/lib/courses/markdown";
 import { computeCompletion } from "@/lib/courses/progress";
 import { MODULE_TYPE_LABEL } from "@/lib/courses/module-types";
-import type { CourseTree, ModuleProgress } from "@/lib/server/courses";
+import type { CourseTree, ModuleProgress, ModuleTranslation } from "@/lib/server/courses";
+import { LessonLanguageSwitcher } from "@/components/courses/lesson-language-switcher";
 import { CourseSidebarRail } from "@/components/courses/course-sidebar-rail";
 import { CourseSidebarDrawer } from "@/components/courses/course-sidebar-drawer";
 import { CourseProgressBar } from "@/components/courses/course-progress-bar";
@@ -24,6 +25,8 @@ import ROUTES from "@/lib/routes";
 interface AnonLessonPageProps {
   course: CourseTree;
   currentModuleId: string;
+  translations: ModuleTranslation[];
+  activeLocale: string | null;
 }
 
 // Module types docs/anonymous.md scopes anonymous reading to — everything
@@ -38,7 +41,7 @@ const READABLE_TYPES = new Set(["notes", "system_design"]);
 // ModuleProgress[] array computed from localStorage instead of the server —
 // only the interactive leaves (complete button, notes, reflection) have
 // anonymous counterparts, since those are the ones that write somewhere.
-export function AnonLessonPage({ course, currentModuleId }: AnonLessonPageProps) {
+export function AnonLessonPage({ course, currentModuleId, translations, activeLocale }: AnonLessonPageProps) {
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [reflections, setReflections] = useState<Record<string, string>>({});
@@ -81,7 +84,8 @@ export function AnonLessonPage({ course, currentModuleId }: AnonLessonPageProps)
   }
 
   const isReadable = READABLE_TYPES.has(currentModule.type);
-  const notesResult = isReadable && currentModule.content_body ? renderModuleMarkdown(currentModule.content_body) : null;
+  const activeBody = translations.find((t) => t.locale === activeLocale)?.content_body ?? currentModule.content_body;
+  const notesResult = isReadable && activeBody ? renderModuleMarkdown(activeBody) : null;
   const nextPath = ROUTES.courseLearnModule(course.slug, currentModule.id);
 
   const reflectionRequired = isReadable && !course.disable_reflection;
@@ -126,6 +130,10 @@ export function AnonLessonPage({ course, currentModuleId }: AnonLessonPageProps)
                 </Badge>
               )}
             </div>
+
+            {isReadable && notesResult && (
+              <LessonLanguageSwitcher activeLocale={activeLocale} basePath={nextPath} translations={translations} />
+            )}
 
             {isReadable && notesResult ? (
               <AnonModuleNotes

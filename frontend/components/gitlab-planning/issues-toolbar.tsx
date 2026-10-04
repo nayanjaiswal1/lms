@@ -34,7 +34,7 @@ export function IssuesToolbar({ page, state, density, bulk }: IssuesToolbarProps
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          <Button size="sm" variant="ghost" type="button">
+          <Button size="sm" type="button" variant="ghost">
             <Download aria-hidden className="size-4" />
             <span>Export CSV</span>
           </Button>
@@ -92,7 +92,7 @@ export function IssuesToolbar({ page, state, density, bulk }: IssuesToolbarProps
               </Link>
             ))}
           </div>
-          <Button aria-label="RSS feed" size="icon" variant="ghost" type="button">
+          <Button aria-label="RSS feed" size="icon" type="button" variant="ghost">
             <Rss aria-hidden className="size-4.5" />
           </Button>
         </div>
@@ -107,7 +107,7 @@ export function IssuesToolbar({ page, state, density, bulk }: IssuesToolbarProps
               <span className="m-label-sm flex items-center gap-1 rounded-lg bg-card px-2 py-0.5 text-foreground shadow-card" data-mtone={f.tone} key={f.key}>
                 <span className="text-muted-foreground">{f.key}:</span>
                 <span className={cn("font-semibold", f.tone === "neutral" ? "text-foreground" : "text-(--mc)")}>{f.value}</span>
-                <Button aria-label={`Remove ${f.key} filter`} className="ml-0.5 h-5 w-5 p-0" size="icon" variant="ghost" type="button">
+                <Button aria-label={`Remove ${f.key} filter`} className="ml-0.5 h-5 w-5 p-0" size="icon" type="button" variant="ghost">
                   <X aria-hidden className="size-3" />
                 </Button>
               </span>
@@ -118,7 +118,7 @@ export function IssuesToolbar({ page, state, density, bulk }: IssuesToolbarProps
               placeholder="Search or filter results..."
               type="search"
             />
-            <Button className="m-label-sm h-auto px-1.5 py-0.5 text-xs" variant="link" type="button">
+            <Button className="m-label-sm h-auto px-1.5 py-0.5 text-xs" type="button" variant="link">
               Clear all
             </Button>
           </div>
@@ -132,7 +132,7 @@ export function IssuesToolbar({ page, state, density, bulk }: IssuesToolbarProps
                 {page.sort_options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Button aria-label="Reverse sort direction" size="icon" variant="ghost" type="button">
+            <Button aria-label="Reverse sort direction" size="icon" type="button" variant="ghost">
               <ArrowDown aria-hidden className="size-4.5" />
             </Button>
           </div>
@@ -140,7 +140,7 @@ export function IssuesToolbar({ page, state, density, bulk }: IssuesToolbarProps
         <div className="flex flex-wrap items-center gap-1 pt-1">
           <span className="m-label-sm mr-1 text-muted-foreground">Quick filters:</span>
           {page.quick_filters.map((q) => (
-            <Button className="m-label-sm h-auto px-2.5 py-1" key={q.label} variant="ghost" type="button">
+            <Button className="m-label-sm h-auto px-2.5 py-1" key={q.label} type="button" variant="ghost">
               {q.dot && <span className="size-1.5 rounded-full bg-(--mc)" data-mtone={q.dot} />}
               <span>{q.label}</span>
               <ChevronDown aria-hidden className="size-3.5" />

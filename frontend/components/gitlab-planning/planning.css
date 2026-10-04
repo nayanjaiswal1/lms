@@ -1,3 +1,4 @@
+@reference "tailwindcss";
 /* Auto Expand Board — Stitch design tokens, scoped under .ae so nothing
    leaks into the app shell. The board ships its own light identity (slate +
    blue dashboard, Material-3 blue issues view), like What Now? / Habits do.
@@ -102,7 +103,7 @@
 
 /* ── Markdown preview (issue drawer) — reuses the global prose system. ── */
 
-.ae-md { @apply prose-content text-xs; }
+.ae-md { @apply text-xs; }
 .ae-md code { font-family: var(--font-mono), ui-monospace, monospace; }
 .ae-md pre { background: hsl(var(--terminal-chrome)); color: hsl(var(--terminal-foreground)); }
 

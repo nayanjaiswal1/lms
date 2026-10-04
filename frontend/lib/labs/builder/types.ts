@@ -39,8 +39,11 @@ export interface BlockManifest {
   provides?: string[];
   conflicts?: string[];
   app?: { language: string; features: string[] | null; slots: { name: string; type: string }[] | null; services?: string[] };
-  ticket?: { severity?: string; persona?: string; red_herrings?: string[] };
+  ticket?: { template_md?: string; severity?: string; persona?: string; red_herrings?: string[] };
   hints?: { ladder: string[] };
+  rubric?: { key_points: string[]; misconceptions?: string[] };
+  preset?: { target: string; values: Record<string, unknown> };
+  fault?: { chain?: BlockChain };
 }
 
 export interface BlockSummary {
@@ -83,10 +86,19 @@ export interface BlockDetail {
   versions: BlockVersionInfo[];
 }
 
+export type ChainMode = "masks" | "compounds";
+
+/** A fault that follows another fault of the recipe (`after` = its block key). */
+export interface BlockChain {
+  after: string;
+  mode: ChainMode;
+}
+
 export interface BlockRef {
   block_version_id: string;
   role?: string;
   pool?: string;
+  chain?: BlockChain;
   params?: Record<string, unknown>;
 }
 
@@ -123,6 +135,8 @@ export interface Recipe {
   created_at: string;
   updated_at: string;
   latest_build?: BuildRef;
+  updates_available: number;
+  yanked_blocks: number;
 }
 
 export interface RecipeBlockView {
@@ -141,6 +155,7 @@ export interface UpdateAvailable {
   block_key: string;
   pinned_version_id: string;
   pinned_version: string;
+  pinned_yanked: boolean;
   latest_version_id: string;
   latest_version: string;
   changelog: string;
@@ -171,6 +186,8 @@ export interface Candidate {
   blockers: string[];
   needs: string[];
   suggested: boolean;
+  /** Fault key this fault must be added chained after (it shares a slot with it). */
+  chain_after?: string;
 }
 
 export interface CheckResult {
@@ -229,6 +246,34 @@ export interface BuildView {
   finished_at: string | null;
   variants: { key: string; brief_md: string }[];
 }
+
+export interface TicketDraft {
+  draft: string;
+  persona: string;
+  recipe_hash: string;
+  cached: boolean;
+}
+
+export interface AffectedLab {
+  id: string;
+  org_id: string;
+  title: string;
+}
+
+/** The writable manifest of an org text block (labblock.Manifest subset). */
+export interface TextBlockManifest {
+  kind: TextBlockKind;
+  id?: string;
+  title: string;
+  summary: string;
+  changelog?: string;
+  ticket?: { template_md: string; severity?: string; persona?: string; red_herrings?: string[] };
+  hints?: { ladder: string[] };
+  rubric?: { key_points: string[]; misconceptions?: string[] };
+  preset?: { target: string; values: Record<string, unknown> };
+}
+
+export type TextBlockKind = "ticket" | "hints" | "rubric" | "preset";
 
 export interface PublishResult {
   lab_id: string;

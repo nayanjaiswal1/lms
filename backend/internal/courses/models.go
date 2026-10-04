@@ -287,25 +287,6 @@ type ModuleContent struct {
 	ContentURL *string      `json:"content_url,omitempty"`
 }
 
-type CourseOutline struct {
-	Title       string           `json:"title"`
-	Description string           `json:"description"`
-	Sections    []OutlineSection `json:"sections"`
-}
-
-type OutlineSection struct {
-	Title      string          `json:"title"`
-	GroupTitle *string         `json:"group_title"` // mirrors CourseSection.GroupTitle so the outline can nest sections too
-	Modules    []OutlineModule `json:"modules"`
-}
-
-type OutlineModule struct {
-	Title            string `json:"title"`
-	Type             string `json:"type"`
-	Description      string `json:"description"`
-	EstimatedMinutes int    `json:"estimated_minutes"`
-}
-
 // LearningContext is a single, pre-aggregated snapshot of where a student
 // currently stands — the answer to "what does my connected AI already know
 // without me re-explaining it." It exists because an MCP tool call only ever

@@ -80,8 +80,7 @@ func (h *Handler) HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateRoleRequest
-	if err := h.decodeJSON(r, &req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, err.Error())
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -136,8 +135,7 @@ func (h *Handler) HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 
 	roleID := chi.URLParam(r, "roleID")
 	var req UpdateRoleRequest
-	if err := h.decodeJSON(r, &req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, err.Error())
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -253,8 +251,7 @@ func (h *Handler) HandleSetRolePermissions(w http.ResponseWriter, r *http.Reques
 
 	roleID := chi.URLParam(r, "roleID")
 	var req SetPermissionsRequest
-	if err := h.decodeJSON(r, &req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, err.Error())
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -364,8 +361,7 @@ func (h *Handler) HandleAssignRole(w http.ResponseWriter, r *http.Request) {
 
 	userID := chi.URLParam(r, "userID")
 	var req AssignRoleRequest
-	if err := h.decodeJSON(r, &req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, err.Error())
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.RoleID == "" {
@@ -474,8 +470,7 @@ func (h *Handler) HandleGrantUserPermission(w http.ResponseWriter, r *http.Reque
 
 	userID := chi.URLParam(r, "userID")
 	var req GrantPermissionRequest
-	if err := h.decodeJSON(r, &req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, err.Error())
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.PermissionID == "" {
@@ -546,8 +541,7 @@ func (h *Handler) HandleSetUserStatus(w http.ResponseWriter, r *http.Request) {
 
 	userID := chi.URLParam(r, "userID")
 	var req SetUserStatusRequest
-	if err := h.decodeJSON(r, &req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, err.Error())
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if !ValidUserStatus(req.Status) {

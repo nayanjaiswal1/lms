@@ -1,6 +1,7 @@
 import { Shuffle } from "lucide-react";
 import { AxisControl } from "@/components/labs/builder/axis-control";
 import type { RecipeRef } from "@/components/labs/builder/use-save-spec";
+import { FAULT_POOL_OPTIONS } from "@/lib/labs/builder/options";
 import { axisValues, isRandomizable } from "@/lib/labs/builder/params";
 import { getBlock } from "@/lib/labs/builder/server";
 import { paramsOf } from "@/lib/labs/builder/spec";
@@ -22,7 +23,13 @@ export async function RandomizeStep({ recipe, blocks, analysis }: RandomizeStepP
       .map(([name, schema]) => ({ block: b, name, values: axisValues(schema) }));
   });
 
-  if (axes.length === 0) {
+  const pools = new Map<string, string[]>();
+  for (const ref of recipe.spec.blocks) {
+    const title = blocks.find((b) => b.block_version_id === ref.block_version_id)?.title;
+    if (ref.pool && title) pools.set(ref.pool, [...(pools.get(ref.pool) ?? []), title]);
+  }
+
+  if (axes.length === 0 && pools.size === 0) {
     return (
       <div className="empty-state">
         <Shuffle aria-hidden className="empty-state-icon" />
@@ -36,6 +43,12 @@ export async function RandomizeStep({ recipe, blocks, analysis }: RandomizeStepP
         {analysis.variant_count} variant{analysis.variant_count === 1 ? "" : "s"} will be built and verified
         {analysis.variant_total > analysis.variant_count ? ` (capped from ${analysis.variant_total})` : ""}.
       </p>
+      {[...pools].map(([pool, titles]) => (
+        <p className="card-base text-sm" key={pool}>
+          <span className="font-semibold">{FAULT_POOL_OPTIONS.find((p) => p.value === pool)?.label ?? pool}</span>: each student
+          gets one of {titles.join(", ")}.
+        </p>
+      ))}
       <ul className="flex flex-col gap-3">
         {axes.map((a) => (
           <li className="card-base flex flex-col gap-2" key={`${a.block.block_version_id}:${a.name}`}>

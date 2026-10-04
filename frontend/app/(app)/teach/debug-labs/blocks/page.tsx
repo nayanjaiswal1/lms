@@ -1,12 +1,13 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createLoader, type SearchParams } from "nuqs/server";
-import { Blocks } from "lucide-react";
+import { Blocks, Plus } from "lucide-react";
 import { BackLink } from "@/components/labs/builder/back-link";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { BlockLibraryFilters } from "@/components/labs/builder/block-library-filters";
 import { BLOCKS_ALL, blockLibraryParsers } from "@/lib/labs/builder/library-params";
-import { getBlocks, requireLabAuthor } from "@/lib/labs/builder/server";
+import { canManageBlocks, getBlocks, requireLabAuthor } from "@/lib/labs/builder/server";
 import ROUTES from "@/lib/routes";
 
 export const metadata: Metadata = { title: "Block library" };
@@ -17,11 +18,13 @@ interface BlockLibraryPageProps {
   searchParams: Promise<SearchParams>;
 }
 
-// Read-only block library (docs/debug-labs.md B4). Code blocks ship from the
-// repo (content/lab-blocks/, `coursegen blocks sync`); org text blocks arrive in Phase 2.
+// Block library (docs/debug-labs.md B4). Code blocks ship from the repo
+// (content/lab-blocks/, `coursegen blocks sync`); org text blocks (ticket,
+// hints, rubric, preset) are written here by anyone with labauthor.manage_blocks.
 export default async function BlockLibraryPage({ searchParams }: BlockLibraryPageProps) {
   await requireLabAuthor();
   const { kind, stack } = await loadFilters(searchParams);
+  const canManage = await canManageBlocks();
   const blocks = await getBlocks({
     kind: kind === BLOCKS_ALL ? undefined : kind,
     stack: stack === BLOCKS_ALL ? undefined : stack,
@@ -37,6 +40,14 @@ export default async function BlockLibraryPage({ searchParams }: BlockLibraryPag
             Every tested building block a debug lab can be composed from, with its version history and usage.
           </p>
         </div>
+        {canManage && (
+          <Button asChild>
+            <Link href={ROUTES.labBuilderBlockNew()}>
+              <Plus aria-hidden className="mr-2 h-4 w-4" />
+              New text block
+            </Link>
+          </Button>
+        )}
       </div>
       <BlockLibraryFilters />
       {blocks.length === 0 ? (
