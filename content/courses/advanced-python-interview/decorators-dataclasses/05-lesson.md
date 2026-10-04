@@ -4,7 +4,8 @@ id_key: advanced-python-interview/decorators-dataclasses/advanced-dataclass-feat
 course: advanced-python-interview
 section: decorators-dataclasses
 section_title: "Decorators, Dataclasses & Metaprogramming"
-section_position: 7
+section_position: 10
+section_group: Advanced
 title: "Advanced Dataclass Features"
 position: 4
 estimated_minutes: 12

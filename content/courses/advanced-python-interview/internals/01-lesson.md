@@ -1,45 +1,46 @@
 ---
 kind: lesson
-id_key: advanced-python-interview/internals/arrays
+id_key: advanced-python-interview/internals/cpython
 course: advanced-python-interview
 section: internals
 section_title: "Memory & the Interpreter"
-section_position: 0
-title: "Arrays (the `array` Module)"
+section_position: 5
+section_group: Advanced
+title: "CPython"
 position: 0
 estimated_minutes: 12
-source: ["fifty-advanced-python-concepts/1.arrays.py", "fifty-advanced-python-concepts/handbook/50_main_concepts_1_10.md"]
+source: ["fifty-advanced-python-concepts/34.python_bytecode.py", "fifty-advanced-python-concepts/handbook/50_main_concepts_1_10.md"]
 ---
-A Python `list` can hold anything — an int, a string, another list — in the same container. That flexibility costs memory: each element is a separate Python object, and the list itself stores an array of *pointers* to those objects, not the raw values. When you need a large, homogeneous run of numbers, the standard library's `array` module stores the raw values directly, packed the way a C array would be.
+"Python" is a language specification; **CPython** is the reference implementation almost everyone actually runs (`python3` on your machine is CPython unless you deliberately installed PyPy, Jython, or GraalPy). Knowing the difference — and what CPython specifically does under the hood — is what separates "I write Python" from "I understand what my Python program is actually doing."
 
-## Type-specific arrays
+## The pipeline: source → bytecode → PVM
 
-`array.array` takes a **type code** as its first argument — a single character that fixes what every element must be — and refuses anything that doesn't fit.
+CPython never interprets your `.py` text directly. It compiles it to **bytecode** — a lower-level, portable instruction set — and then the **Python Virtual Machine (PVM)**, a stack-based interpreter loop written in C, executes that bytecode instruction by instruction. You can see the bytecode for any function with `dis`:
 
 ```python
-from array import array
+import dis
 
-numbers = array('i', [1, 2, 3, 4, 5])  # 'i' = signed int
-numbers.append(6)
-numbers.extend([7, 8])
-numbers.insert(0, 0)
+def add(a, b):
+    return a + b
 
-print(numbers)          # array('i', [0, 1, 2, 3, 4, 5, 6, 7, 8])
-print(numbers.itemsize)  # 4 — bytes per element on this platform
-
-try:
-    numbers.append("nine")
-except TypeError as e:
-    print(f"rejected: {e}")  # array only holds ints once created with 'i'
+dis.dis(add)
+# 2           0 RESOURCE_ARG ...  (exact opcodes vary by version)
+#             LOAD_FAST                a
+#             LOAD_FAST                b
+#             BINARY_OP                +
+#             RETURN_VALUE
 ```
 
-`array` supports the same `.append`/`.extend`/`.insert` methods as `list`, so the API is familiar — the difference is entirely in storage. Common type codes: `'b'`/`'B'` (signed/unsigned byte), `'i'`/`'I'` (signed/unsigned int), `'f'`/`'d'` (float/double), `'u'` (unicode char, deprecated).
+This is also why a `.pyc` file exists in `__pycache__` — it's the cached compiled bytecode, so re-running the same script skips recompilation when the source hasn't changed.
 
-## Why this matters at the memory level
+## What CPython specifically gives you (and costs you)
 
-A `list` of a million ints stores a million separate `int` objects (each with its own refcount and type pointer) plus a million 8-byte pointers in the list's backing array. An `array('i', ...)` of a million ints stores exactly one contiguous block of 4-million bytes — no per-element object overhead at all. That's the trade you're making: `array` is dramatically more memory-efficient and cache-friendly for large runs of one numeric type, at the cost of losing per-element flexibility and Python-level dynamic typing.
+- **A huge standard library** and a stable C-API — this is *why* the PyPI ecosystem exists: NumPy, PyTorch, and most performance-critical packages are C extensions written directly against CPython's API, not portable across every Python implementation.
+- **Reference counting** for memory management (see the garbage-collection lesson) — a direct consequence of being written in C, and the reason the GIL exists at all.
+- **The GIL** — only one thread executes Python bytecode at a time, a direct consequence of reference counting needing to stay thread-safe cheaply (covered in depth in the next section).
+- **Slower raw execution** than a compiled language, since every bytecode instruction still goes through the PVM's interpreter loop rather than running as native machine code.
 
-In practice, `array` shows up under the hood of other tools (it backs parts of `struct`, and libraries like NumPy generalize the same idea to N dimensions) more often than it's reached for directly — but recognizing when a list's flexibility is pure overhead is the actual interview signal.
+Interviewers ask about CPython specifically to check whether you can reason about *why* Python behaves the way it does — why threads don't parallelize CPU work, why `id()` returns a memory address, why small integers are cached — rather than treating the language as a black box.
 
 ## Knowledge check
 
@@ -47,30 +48,30 @@ In practice, `array` shows up under the hood of other tools (it backs parts of `
 {
   "questions": [
     {
-      "id": "internals-arrays-q1",
+      "id": "internals-cpython-q1",
       "type": "mcq",
-      "prompt": "What must you specify when creating a Python array.array that a list never requires?",
+      "prompt": "What does CPython actually execute when you run a .py file?",
       "options": [
-        { "id": "a", "text": "A fixed maximum length" },
-        { "id": "b", "text": "A type code, fixing every element to the same type" },
-        { "id": "c", "text": "A custom hash function" },
-        { "id": "d", "text": "A thread-safety mode" }
+        { "id": "a", "text": "The raw source text, interpreted line by line" },
+        { "id": "b", "text": "Bytecode compiled from the source, executed by the Python Virtual Machine" },
+        { "id": "c", "text": "Native machine code, compiled ahead of time" },
+        { "id": "d", "text": "A translation into C source, compiled on the fly" }
       ],
       "correct": "b",
-      "explanation": "array.array('i', ...) fixes the element type via a one-character type code; mixing types raises TypeError, unlike a list."
+      "explanation": "CPython compiles source to bytecode (visible via the dis module, cached in __pycache__/*.pyc) and the PVM, a C-based interpreter loop, executes that bytecode."
     },
     {
-      "id": "internals-arrays-q2",
+      "id": "internals-cpython-q2",
       "type": "mcq",
-      "prompt": "Why is array more memory-efficient than list for a million integers?",
+      "prompt": "Which of these is a direct consequence of CPython being written in C and using reference counting?",
       "options": [
-        { "id": "a", "text": "It stores raw values in one contiguous block instead of a million separate int objects plus pointers" },
-        { "id": "b", "text": "It compresses the data automatically" },
-        { "id": "c", "text": "It uses a different garbage collector" },
-        { "id": "d", "text": "It stores values on disk instead of in RAM" }
+        { "id": "a", "text": "The Global Interpreter Lock, which keeps refcount updates thread-safe without per-object locks" },
+        { "id": "b", "text": "Python's dynamic typing" },
+        { "id": "c", "text": "List comprehensions" },
+        { "id": "d", "text": "The availability of type hints" }
       ],
       "correct": "a",
-      "explanation": "A list holds pointers to individually-allocated int objects; array packs raw values contiguously like a C array, eliminating per-element object overhead."
+      "explanation": "The GIL exists specifically because CPython uses cheap, non-atomic reference counting for memory management — the GIL is what keeps concurrent refcount updates from racing, at the cost of true multi-core parallelism for threads."
     }
   ]
 }

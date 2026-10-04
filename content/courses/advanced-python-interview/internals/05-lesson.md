@@ -1,57 +1,63 @@
 ---
 kind: lesson
-id_key: advanced-python-interview/internals/walrus-operator
+id_key: advanced-python-interview/serialization-data/bytes
 course: advanced-python-interview
 section: internals
 section_title: "Memory & the Interpreter"
-section_position: 0
-title: "Walrus Operator (`:=`)"
+section_position: 5
+section_group: Advanced
+title: "`bytes`"
 position: 4
-estimated_minutes: 10
-source: ["fifty-advanced-python-concepts/5.walrus_operator.py", "fifty-advanced-python-concepts/handbook/50_main_concepts_1_10.md"]
+estimated_minutes: 12
+source: ["fifty-advanced-python-concepts/33.bytes.py", "fifty-advanced-python-concepts/handbook/50_main_concepts_26_40.md"]
 ---
-The walrus operator (`:=`, officially the **assignment expression**, added in Python 3.8) lets you assign a value to a name *and* produce that value as the result of the expression, in one step. Plain `=` is a statement — it can't appear inside an `if` condition or a comprehension. `:=` can.
+A Python `str` is a sequence of Unicode characters — text, meant for humans to read. A `bytes` object is a sequence of raw integers in the range 0–255 — the actual binary data a file, a network socket, or an image format works with. Confusing the two (or forgetting to convert between them) is one of the most common sources of `UnicodeDecodeError`/`TypeError` bugs when working with files and network I/O.
 
-## Before and after
-
-```python
-my_dict = {"my_var": 42}
-
-def lookup_v1(d):
-    my_var = d.get("my_var")   # separate assignment statement
-    if my_var:
-        return my_var
-
-def lookup_v2(d):
-    if my_var := d.get("my_var"):  # assign AND test in one expression
-        return my_var
-```
-
-Both functions behave identically — `lookup_v2` just collapses "assign, then check" into a single line. The win compounds once the value being checked is expensive to compute or you'd otherwise have to write it twice.
-
-## Where it earns its keep
+## Writing and reading binary data
 
 ```python
-# Without walrus: call the expensive function twice, or add a throwaway line
-data = fetch_data()
-if data:
-    process(data)
+# Write binary data to a file
+with open("example.bin", "wb") as f:   # "wb" = write bytes
+    f.write(b"Binary data")
 
-# With walrus: compute once, inline in the condition
-if (data := fetch_data()):
-    process(data)
+# Read it back
+with open("example.bin", "rb") as f:   # "rb" = read bytes
+    data = f.read()
+    print(data)        # b'Binary data'
+    print(type(data))  # <class 'bytes'>
 ```
+
+The `b"..."` prefix creates a `bytes` literal. Opening a file in `"wb"`/`"rb"` mode (instead of `"w"`/`"r"`) tells Python to hand back raw bytes instead of trying to decode them as text — mixing modes (writing bytes to a text-mode file, or vice versa) raises a `TypeError` immediately.
+
+## Converting between `str` and `bytes`
+
+Text becomes bytes via an explicit **encoding**, and bytes become text via the matching **decoding**:
 
 ```python
-# Comprehensions: filter on a computed value without a nested function call
-values = [1, 2, 3, 4, 5, 6]
-results = [y for x in values if (y := x * x) > 10]
-print(results)  # [16, 25, 36] — y is both the filter and the yielded value
+text = "Hello, world"
+encoded = text.encode("utf-8")     # b'Hello, world'
+decoded = encoded.decode("utf-8")  # 'Hello, world'
+
+print(encoded, type(encoded))
+print(decoded, type(decoded))
 ```
 
-That comprehension example is the case a plain `=` genuinely cannot express at all: without `:=`, computing `x * x` once and both filtering *and* returning it would require a helper function or a `map`/`filter` chain — the walrus lets a comprehension reuse an intermediate value without recomputing it.
+If the bytes don't actually represent valid text in the encoding you decode with, `.decode()` raises `UnicodeDecodeError` — this is why "just decode it" is unsafe without knowing (or being told, e.g. via a `Content-Type` header) which encoding produced the bytes in the first place.
 
-The operator is deliberately minor — it doesn't change what's *possible* in Python, only how tersely a specific pattern (compute-then-check) can be written — but reaching for it in the right spot (a `while` loop reading chunks, a comprehension filtering on a derived value) is a small, reliable signal of comfort with the language.
+## `bytearray`: the mutable sibling
+
+`bytes` is immutable, like `str`. When binary data needs to be built up or modified in place — assembling a network packet piece by piece — `bytearray` is the mutable equivalent:
+
+```python
+buf = bytearray(b"Hello")
+buf[0] = ord("J")   # mutate a single byte in place
+buf.extend(b", world")
+print(bytes(buf))   # b'Jello, world'
+```
+
+## Why this matters
+
+`bytes` shows up anywhere Python talks to something that isn't Python: reading an image or audio file, parsing a binary network protocol, computing a hash (`hashlib` operates on bytes, not str), or streaming a large file without loading it fully as decoded text. Treating binary data as text — or text as binary — is a bug waiting for the first non-ASCII input.
 
 ## Knowledge check
 
@@ -59,30 +65,30 @@ The operator is deliberately minor — it doesn't change what's *possible* in Py
 {
   "questions": [
     {
-      "id": "internals-walrus-operator-q1",
+      "id": "serialization-data-bytes-q1",
       "type": "mcq",
-      "prompt": "What can `if (data := fetch_data()):` do that `data = fetch_data(); if data:` cannot?",
+      "prompt": "What's the fundamental difference between str and bytes in Python?",
       "options": [
-        { "id": "a", "text": "Nothing functionally different — it's purely a style preference for this exact case" },
-        { "id": "b", "text": "It skips calling fetch_data() entirely" },
-        { "id": "c", "text": "It makes fetch_data() run asynchronously" },
-        { "id": "d", "text": "It caches the result across multiple calls" }
+        { "id": "a", "text": "str is a sequence of Unicode characters for text; bytes is a sequence of raw 0-255 integers for binary data" },
+        { "id": "b", "text": "bytes is just a faster version of str with no functional difference" },
+        { "id": "c", "text": "str can only hold ASCII characters, bytes holds everything else" },
+        { "id": "d", "text": "They are interchangeable and Python converts automatically" }
       ],
       "correct": "a",
-      "explanation": "For a simple assign-then-check, := is equivalent to a separate assignment statement followed by a check — its real value shows up where a plain assignment statement isn't syntactically allowed at all, like inside a comprehension's condition."
+      "explanation": "str represents human-readable Unicode text; bytes represents raw binary data as integers 0-255. Converting between them always requires an explicit encode()/decode() step and an encoding name."
     },
     {
-      "id": "internals-walrus-operator-q2",
+      "id": "serialization-data-bytes-q2",
       "type": "mcq",
-      "prompt": "`[y for x in values if (y := x * x) > 10]` — why is the walrus operator necessary here, not just convenient?",
+      "prompt": "What happens if you call .decode('utf-8') on bytes that don't represent valid UTF-8 text?",
       "options": [
-        { "id": "a", "text": "A comprehension's filter clause can't contain a plain assignment statement, so without :=, x*x would need to be computed twice or via a helper" },
-        { "id": "b", "text": "List comprehensions don't support arithmetic without it" },
-        { "id": "c", "text": "It's required syntax for any comprehension with a filter" },
-        { "id": "d", "text": "It prevents the comprehension from allocating a new list" }
+        { "id": "a", "text": "Python silently returns an empty string" },
+        { "id": "b", "text": "It raises a UnicodeDecodeError" },
+        { "id": "c", "text": "It automatically detects and uses the correct encoding instead" },
+        { "id": "d", "text": "It returns the raw bytes unchanged" }
       ],
-      "correct": "a",
-      "explanation": "A comprehension's `if` clause is an expression context, not a statement context — plain `=` isn't valid there. The walrus operator is what lets the filter both compute and reuse x*x in one expression."
+      "correct": "b",
+      "explanation": "decode() assumes the bytes were produced with the specified encoding; if the byte sequence isn't valid under that encoding, Python raises UnicodeDecodeError rather than guessing."
     }
   ]
 }

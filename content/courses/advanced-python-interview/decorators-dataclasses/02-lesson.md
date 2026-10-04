@@ -1,96 +1,94 @@
 ---
 kind: lesson
-id_key: advanced-python-interview/decorators-dataclasses/dataclasses
+id_key: advanced-python-interview/decorators-dataclasses/functools
 course: advanced-python-interview
 section: decorators-dataclasses
 section_title: "Decorators, Dataclasses & Metaprogramming"
-section_position: 7
-title: "`dataclasses`"
+section_position: 10
+section_group: Advanced
+title: "`functools`"
 position: 1
-estimated_minutes: 12
-source: ["fifty-advanced-python-concepts/46.dataclasses.py", "fifty-advanced-python-concepts/handbook/50_main_concepts_41_52.md"]
+estimated_minutes: 15
+source: ["fifty-advanced-python-concepts/48.functools.py", "fifty-advanced-python-concepts/handbook/50_main_concepts_41_52.md"]
 ---
-Plain data-holding classes (DTOs, config objects, domain models) need `__init__`, `__repr__`, and usually `__eq__` — and writing them by hand is repetitive, error-prone boilerplate. `@dataclass` generates all three from a single class body of type-annotated fields.
+`functools` is the standard-library toolbox for working with functions themselves. Three tools from it come up constantly in senior interviews: `wraps` (fixes a subtle bug every hand-written decorator has), `lru_cache` (the built-in version of the memoization decorator from the previous section), and `reduce` (cumulative/fold operations).
 
-## By hand vs. `@dataclass`
+## `wraps`: preserving a decorated function's identity
 
-Written manually, a simple `Point` class looks like this:
-
-```python
-class Point:
-    def __init__(self, x: int, y: int):
-        self.x = x
-        self.y = y
-
-    def __repr__(self):
-        return f"Point(x={self.x}, y={self.y})"
-
-    def __eq__(self, other):
-        if not isinstance(other, Point):
-            return NotImplemented
-        return (self.x, self.y) == (other.x, other.y)
-
-point1 = Point(1, 2)
-point2 = Point(1, 2)
-print(point1)             # Point(x=1, y=2)
-print(point1 == point2)   # True
-```
-
-`@dataclass` generates exactly this — `__init__`, `__repr__`, `__eq__` — from the annotated fields alone:
+Every decorator written in the previous lesson has a hidden bug: once wrapped, the function's `__name__`, `__doc__`, and other metadata are replaced by the *wrapper's* — which breaks introspection, debuggers, and documentation tools.
 
 ```python
-from dataclasses import dataclass
+def my_decorator(func):
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    return wrapper
 
-@dataclass
-class Point:
-    x: int
-    y: int
+@my_decorator
+def greet(name):
+    """Say hello to name."""
+    return f"Hello, {name}"
 
-point1 = Point(1, 2)
-point2 = Point(1, 2)
-print(point1)             # Point(x=1, y=2)
-print(point1 == point2)   # True
+print(greet.__name__)  # 'wrapper' — wrong! should be 'greet'
+print(greet.__doc__)   # None — the docstring is gone
 ```
 
-Twelve lines become five, and there's no `__init__`/`__repr__`/`__eq__` logic to get subtly wrong or forget to update when a field is added.
-
-## Default values
-
-Fields can carry defaults, exactly like a normal function signature — and just like function defaults, every field with one must come after every field without one:
+`functools.wraps` fixes this by copying the original function's metadata onto the wrapper:
 
 ```python
-from dataclasses import dataclass
+from functools import wraps
 
-@dataclass
-class Person:
-    name: str
-    age: int = 30
-    city: str = "Unknown"
+def my_decorator(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    return wrapper
 
-person = Person(name="Alice")
-print(person)  # Person(name='Alice', age=30, city='Unknown')
+@my_decorator
+def greet(name):
+    """Say hello to name."""
+    return f"Hello, {name}"
+
+print(greet.__name__)  # 'greet' — correct
+print(greet.__doc__)   # 'Say hello to name.'
 ```
 
-## Immutability with `frozen=True`
+Any decorator you write for real code should apply `@wraps(func)` to its inner wrapper — it costs one line and prevents a class of confusing bugs downstream.
 
-Passing `frozen=True` makes every field write-once: any attempt to reassign an attribute after construction raises `FrozenInstanceError`, which is exactly what you want for a value object that should never be mutated after creation (a coordinate, a money amount, a cache key):
+## `lru_cache`: memoization without hand-rolling it
+
+The `cache` decorator from the previous lesson (a dict keyed by arguments) is exactly what `lru_cache` gives you for free, plus an eviction policy (Least Recently Used) so the cache doesn't grow unbounded:
 
 ```python
-from dataclasses import dataclass, FrozenInstanceError
+from functools import lru_cache
 
-@dataclass(frozen=True)
-class Point:
-    x: int
-    y: int
+@lru_cache(maxsize=3)
+def expensive_computation(x):
+    print(f"Computing {x}")
+    return x * x
 
-point = Point(1, 2)
-try:
-    point.x = 3
-except FrozenInstanceError as e:
-    print("blocked:", e)
+print(expensive_computation(2))  # Computing 2 -> 4
+print(expensive_computation(2))  # 4 (served from cache, no "Computing 2" print)
+print(expensive_computation(3))  # Computing 3 -> 9
 ```
 
-Frozen dataclasses are also hashable by default (as long as every field is hashable), so they can be used as dict keys or set members — a plain, mutable `@dataclass` is not hashable unless you opt in explicitly.
+`maxsize=3` caps the cache at 3 distinct argument combinations; once full, the least-recently-used entry is evicted to make room. `maxsize=None` makes it unbounded. Arguments must be hashable (this is a dict under the hood).
+
+## `reduce`: cumulative operations
+
+`reduce(function, iterable)` folds an iterable down to a single value by repeatedly applying a two-argument function — `reduce(f, [a, b, c])` computes `f(f(a, b), c)`:
+
+```python
+from functools import reduce
+
+numbers = [1, 2, 3, 4]
+product = reduce(lambda x, y: x * y, numbers)
+print(product)  # 24
+
+total = reduce(lambda x, y: x + y, numbers, 0)  # 0 is the starting value
+print(total)  # 10
+```
+
+`sum()` already covers the addition case — `reduce` earns its place for anything without a dedicated built-in: running max with custom comparison, merging dicts, composing a chain of functions.
 
 ## Knowledge check
 
@@ -98,43 +96,43 @@ Frozen dataclasses are also hashable by default (as long as every field is hasha
 {
   "questions": [
     {
-      "id": "decorators-dataclasses-dataclasses-q1",
+      "id": "decorators-dataclasses-functools-q1",
       "type": "mcq",
-      "prompt": "What does @dataclass generate from a class body of annotated fields?",
+      "prompt": "What bug does functools.wraps fix?",
       "options": [
-        { "id": "a", "text": "Only __init__" },
-        { "id": "b", "text": "__init__, __repr__, and __eq__ (by default)" },
-        { "id": "c", "text": "A full ORM mapping to a database table" },
-        { "id": "d", "text": "Nothing — @dataclass is purely a type-checking hint" }
+        { "id": "a", "text": "It makes decorated functions run faster" },
+        { "id": "b", "text": "Without it, the wrapped function's __name__, __doc__, and other metadata get replaced by the wrapper function's own metadata" },
+        { "id": "c", "text": "It prevents decorators from being stacked" },
+        { "id": "d", "text": "It adds automatic error handling to every decorator" }
       ],
       "correct": "b",
-      "explanation": "By default @dataclass generates __init__, __repr__, and __eq__ based on the declared fields, eliminating the most common boilerplate for data-holding classes."
+      "explanation": "A plain wrapper function shadows the original's __name__ and __doc__. @wraps(func) copies that metadata onto the wrapper so introspection and debugging still show the original function's identity."
     },
     {
-      "id": "decorators-dataclasses-dataclasses-q2",
+      "id": "decorators-dataclasses-functools-q2",
       "type": "mcq",
-      "prompt": "In `class Person: name: str; age: int = 30; city: str = \"Unknown\"`, why must age and city come after name?",
+      "prompt": "What does maxsize=3 do on @lru_cache(maxsize=3)?",
       "options": [
-        { "id": "a", "text": "Alphabetical ordering is required by dataclasses" },
-        { "id": "b", "text": "The generated __init__ behaves like a normal function signature — required parameters can't follow ones with defaults" },
-        { "id": "c", "text": "It's a stylistic convention only, not enforced" },
-        { "id": "d", "text": "Fields with defaults must always be declared first" }
+        { "id": "a", "text": "Limits the function to being called 3 times total" },
+        { "id": "b", "text": "Caps the cache at 3 distinct argument combinations, evicting the least-recently-used entry once full" },
+        { "id": "c", "text": "Runs the function on up to 3 threads in parallel" },
+        { "id": "d", "text": "Limits the result value to 3 bytes" }
       ],
       "correct": "b",
-      "explanation": "@dataclass builds __init__(self, name, age=30, city='Unknown') — an ordinary Python function signature, where a parameter without a default can't follow one that has one."
+      "explanation": "lru_cache keeps at most maxsize cached results, keyed by call arguments; the Least Recently Used entry is evicted first when the cache is full and a new argument combination arrives."
     },
     {
-      "id": "decorators-dataclasses-dataclasses-q3",
+      "id": "decorators-dataclasses-functools-q3",
       "type": "mcq",
-      "prompt": "What does frozen=True add to a dataclass?",
+      "prompt": "What does reduce(lambda x, y: x * y, [1, 2, 3, 4]) compute?",
       "options": [
-        { "id": "a", "text": "It makes field access slower but otherwise changes nothing" },
-        { "id": "b", "text": "It blocks attribute reassignment after construction (raising FrozenInstanceError) and makes instances hashable" },
-        { "id": "c", "text": "It prevents the class from being subclassed" },
-        { "id": "d", "text": "It automatically deep-copies the instance on every read" }
+        { "id": "a", "text": "[1, 2, 3, 4] unchanged" },
+        { "id": "b", "text": "((1 * 2) * 3) * 4 = 24" },
+        { "id": "c", "text": "1 + 2 + 3 + 4 = 10" },
+        { "id": "d", "text": "A generator that hasn't been consumed yet" }
       ],
       "correct": "b",
-      "explanation": "frozen=True raises FrozenInstanceError on any post-init attribute write, and makes the class hashable by default (assuming all fields are hashable) — useful for value objects used as dict keys."
+      "explanation": "reduce folds the iterable left to right, repeatedly applying the two-argument function: ((1*2)*3)*4 = 24."
     }
   ]
 }

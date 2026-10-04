@@ -4,7 +4,8 @@ id_key: advanced-python-interview/concurrency/multiprocessing
 course: advanced-python-interview
 section: concurrency
 section_title: "Concurrency & Parallelism"
-section_position: 1
+section_position: 7
+section_group: Advanced
 title: "Multiprocessing"
 position: 3
 estimated_minutes: 18

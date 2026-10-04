@@ -2,50 +2,2087 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-09-17T17:04:39Z
+-- Generated at: 2026-10-04T18:54:02Z
 -- ══════════════════════════════════════════════════════════════════════════
 
--- ─── Course: Advanced Python for Senior Interviews ─────────────────────────────────────────────
+-- ─── Course: Python: Fundamentals to Advanced ─────────────────────────────────────────────
 INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, is_free, is_public, estimated_hours)
-VALUES ('a575d044-3374-561b-9cf6-d44aa7b0f855', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'Advanced Python for Senior Interviews', 'advanced-python-interview', '54 deep-dive concepts that separate senior Python engineers from mid-level developers: CPython internals and memory management, the GIL, threading vs multiprocessing vs asyncio, full OOP (encapsulation, ABCs, MRO, polymorphism, the data model), iterators/generators, serialization, metaclasses, context managers, weak references, decorators, dataclasses, functools, descriptors, and advanced typing (protocols & generics). Every lesson ships runnable "Try it Yourself" Python code boxes.', NULL, 'advanced', ARRAY['python','interview-prep','concurrency','memory-management','advanced'], 'published', true, false, 12.3)
+VALUES ('a575d044-3374-561b-9cf6-d44aa7b0f855', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'Python: Fundamentals to Advanced', 'advanced-python-interview', 'One Python course from core language to senior-interview depth. The Fundamentals block covers types and mutability, copy semantics, functions, scope and closures, exceptions, OOP essentials, complexity, optimization and testing. The Advanced block covers CPython internals and memory, the GIL, threading vs multiprocessing vs asyncio, the data model, iterators and generators, serialization, metaclasses, context managers, weak references, decorators, dataclasses, functools, descriptors, and advanced typing. Every lesson ships runnable "Try it Yourself" Python code boxes.', NULL, 'intermediate', ARRAY['python','interview-prep','concurrency','memory-management','fundamentals','advanced'], 'published', true, false, 15.3)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, is_public=EXCLUDED.is_public, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();
 
--- Section: Memory & the Interpreter
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('012c80ac-4e8f-5205-8f62-ce79738eaa79', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Memory & the Interpreter', 0)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+UPDATE course_sections SET position = position + 100000 WHERE course_id = 'a575d044-3374-561b-9cf6-d44aa7b0f855';
+UPDATE course_modules SET position = position + 100000 WHERE course_id = 'a575d044-3374-561b-9cf6-d44aa7b0f855';
+
+-- Section: Core Language
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('ddde0231-8e2c-52dd-a516-cb2c457edee3', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Core Language', 0, 'Fundamentals')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('c32a7095-b38a-5f19-96fc-5fd87988b412', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '012c80ac-4e8f-5205-8f62-ce79738eaa79', 'Arrays (the `array` Module)', 'notes', 0, $md$A Python `list` can hold anything — an int, a string, another list — in the same container. That flexibility costs memory: each element is a separate Python object, and the list itself stores an array of *pointers* to those objects, not the raw values. When you need a large, homogeneous run of numbers, the standard library's `array` module stores the raw values directly, packed the way a C array would be.
+VALUES ('02cafbdd-120a-5fe5-8160-ade3ea6d4b0b', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'ddde0231-8e2c-52dd-a516-cb2c457edee3', 'How Python Runs & Data Types', 'notes', 0, $md$Opening interview questions usually probe two things: do you know what actually happens when you run a `.py` file, and do you understand which built-in types can change in place. Most "weird Python behavior" bugs trace back to one of those two.
 
-## Type-specific arrays
+## How CPython runs your code
 
-`array.array` takes a **type code** as its first argument — a single character that fixes what every element must be — and refuses anything that doesn't fit.
+Python is dynamically typed and object-oriented, and it is usually called "interpreted" — but the reference implementation (CPython) first **compiles** your source to bytecode, then a **Python Virtual Machine (PVM)** executes that bytecode instruction by instruction. Bytecode is cached in `.pyc` files so unchanged modules skip recompilation. There is no native machine code up front, which is why pure-Python loops are slower than compiled languages.
 
 ```python
-from array import array
+import dis
 
-numbers = array('i', [1, 2, 3, 4, 5])  # 'i' = signed int
-numbers.append(6)
-numbers.extend([7, 8])
-numbers.insert(0, 0)
+def f(a):
+    return a + 1
 
-print(numbers)          # array('i', [0, 1, 2, 3, 4, 5, 6, 7, 8])
-print(numbers.itemsize)  # 4 — bytes per element on this platform
-
-try:
-    numbers.append("nine")
-except TypeError as e:
-    print(f"rejected: {e}")  # array only holds ints once created with 'i'
+dis.dis(f)  # prints the bytecode the PVM runs: load a, load 1, add, return
 ```
 
-`array` supports the same `.append`/`.extend`/`.insert` methods as `list`, so the API is familiar — the difference is entirely in storage. Common type codes: `'b'`/`'B'` (signed/unsigned byte), `'i'`/`'I'` (signed/unsigned int), `'f'`/`'d'` (float/double), `'u'` (unicode char, deprecated).
+The exact opcode names differ between Python versions, but the shape is always the same: a short stack-machine program per function.
 
-## Why this matters at the memory level
+```text
+source (.py) -> CPython compiler -> bytecode (.pyc) -> PVM -> execution
+```
 
-A `list` of a million ints stores a million separate `int` objects (each with its own refcount and type pointer) plus a million 8-byte pointers in the list's backing array. An `array('i', ...)` of a million ints stores exactly one contiguous block of 4-million bytes — no per-element object overhead at all. That's the trade you're making: `array` is dramatically more memory-efficient and cache-friendly for large runs of one numeric type, at the cost of losing per-element flexibility and Python-level dynamic typing.
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "core-language-runs-q1",
+      "type": "mcq",
+      "prompt": "What does CPython do with your source file before executing it?",
+      "options": [
+        { "id": "a", "text": "Compiles it to native machine code for your CPU" },
+        { "id": "b", "text": "Compiles it to bytecode, which the Python Virtual Machine then executes" },
+        { "id": "c", "text": "Reads and executes each source character directly with no intermediate form" },
+        { "id": "d", "text": "Translates it to C and calls the system compiler" }
+      ],
+      "correct": "b",
+      "explanation": "CPython compiles source to bytecode (cached as .pyc) and the PVM interprets that bytecode. It does not emit native machine code."
+    }
+  ]
+}
+```
 
-In practice, `array` shows up under the hood of other tools (it backs parts of `struct`, and libraries like NumPy generalize the same idea to N dimensions) more often than it's reached for directly — but recognizing when a list's flexibility is pure overhead is the actual interview signal.
+## Mutable vs immutable types
+
+An **immutable** object cannot change after creation; "modifying" it really builds a new object. A **mutable** object changes in place, so every name bound to it sees the change.
+
+- Immutable: `int`, `float`, `bool`, `str`, `tuple`, `None`
+- Mutable: `list`, `set`, `dict`
+
+```python
+x = "hello"
+y = x
+y = "world"   # rebinds y to a new object
+print(x)      # hello
+
+a = [1, 2, 3]
+b = a         # same object, two names
+b.append(4)
+print(a)      # [1, 2, 3, 4]
+```
+
+A tuple is immutable, but only *shallowly*: it fixes which objects it holds, not whether those objects can change.
+
+```python
+t = ([1], 2)
+t[0].append(9)
+print(t)  # ([1, 9], 2)
+try:
+    t[1] = 3
+except TypeError as e:
+    print(e)  # 'tuple' object does not support item assignment
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "core-language-mutability-q1",
+      "type": "mcq",
+      "prompt": "After `a = [1, 2, 3]; b = a; b.append(4)`, what is `a`?",
+      "options": [
+        { "id": "a", "text": "[1, 2, 3]" },
+        { "id": "b", "text": "[1, 2, 3, 4]" },
+        { "id": "c", "text": "A TypeError is raised" },
+        { "id": "d", "text": "[4]" }
+      ],
+      "correct": "b",
+      "explanation": "Assignment copies the reference, not the list. Both names point to one mutable list, so the append is visible through both."
+    },
+    {
+      "id": "core-language-mutability-q2",
+      "type": "mcq",
+      "prompt": "Given `t = ([1], 2)`, which statement is true?",
+      "options": [
+        { "id": "a", "text": "`t[0].append(9)` raises TypeError because tuples are immutable" },
+        { "id": "b", "text": "`t[0].append(9)` works, but `t[1] = 3` raises TypeError" },
+        { "id": "c", "text": "Both operations work" },
+        { "id": "d", "text": "Both operations raise TypeError" }
+      ],
+      "correct": "b",
+      "explanation": "A tuple's slots cannot be reassigned, but a mutable object stored inside it can still be mutated."
+    }
+  ]
+}
+```
+
+## list vs tuple vs set vs dict
+
+| Type | Ordered | Mutable | Duplicates | Typical use |
+|---|---|---|---|---|
+| `list` | yes, indexed | yes | allowed | ordered, changing sequence |
+| `tuple` | yes, indexed | no | allowed | fixed record; hashable if its items are, so usable as a dict key |
+| `set` | no index | yes | removed | uniqueness, fast membership tests |
+| `dict` | insertion-ordered (3.7+) | yes | unique keys | key-to-value lookup |
+
+Dict keys and set members must be **hashable**, which in practice means immutable. A tuple of numbers works as a key; a list raises `TypeError: unhashable type`.
+
+```python
+print([1, 2, 2, 3])   # [1, 2, 2, 3]
+print((1, 2, 2, 3))   # (1, 2, 2, 3)
+print({1, 2, 2, 3})   # {1, 2, 3}
+print({(0, 0): "origin"}[(0, 0)])  # origin
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "core-language-containers-q1",
+      "type": "mcq",
+      "prompt": "Which of these can be used as a dictionary key?",
+      "options": [
+        { "id": "a", "text": "[1, 2]" },
+        { "id": "b", "text": "{1, 2}" },
+        { "id": "c", "text": "(1, 2)" },
+        { "id": "d", "text": "{'a': 1}" }
+      ],
+      "correct": "c",
+      "explanation": "Keys must be hashable. A tuple of hashable items is hashable; lists, sets and dicts are mutable and therefore unhashable."
+    }
+  ]
+}
+```
+
+## The mutable default argument trap
+
+Default values are evaluated **once**, when the `def` statement runs, not on each call. A mutable default is therefore one shared object across all calls.
+
+```python
+def add(item, lst=[]):
+    lst.append(item)
+    return lst
+
+print(add(1))  # [1]
+print(add(2))  # [1, 2] -- same list reused
+print(add.__defaults__)  # ([1, 2],)
+```
+
+The standard fix is a `None` sentinel, creating the list inside the body.
+
+```python
+def add(item, lst=None):
+    if lst is None:
+        lst = []
+    lst.append(item)
+    return lst
+
+print(add(1))  # [1]
+print(add(2))  # [2]
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "core-language-default-arg-q1",
+      "type": "mcq",
+      "prompt": "Why does `def add(item, lst=[])` accumulate items across calls?",
+      "options": [
+        { "id": "a", "text": "The default list is created once at function definition time and shared by every call" },
+        { "id": "b", "text": "Python caches the return value of every function" },
+        { "id": "c", "text": "Lists are global variables by default" },
+        { "id": "d", "text": "The default is re-evaluated each call but appended to the previous result" }
+      ],
+      "correct": "a",
+      "explanation": "Defaults are evaluated once when `def` executes. Use `None` and build a fresh list inside the function."
+    }
+  ]
+}
+```
+
+## Truthy and falsy values
+
+Every object has a boolean value, used implicitly by `if`, `while` and `filter`. The **falsy** ones are `0`, `0.0`, `""`, `[]`, `{}`, `()`, `set()`, `None` and `False`. Everything else is truthy — including the non-empty string `"0"`, a classic trap.
+
+```python
+a = [1, 0, "0", [], {}, (), "hello", ""]
+print(list(filter(bool, a)))  # [1, '0', 'hello']
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "core-language-truthy-q1",
+      "type": "mcq",
+      "prompt": "Which value is truthy?",
+      "options": [
+        { "id": "a", "text": "\"0\"" },
+        { "id": "b", "text": "0.0" },
+        { "id": "c", "text": "set()" },
+        { "id": "d", "text": "None" }
+      ],
+      "correct": "a",
+      "explanation": "Only empty or zero values are falsy. \"0\" is a non-empty string, so it is truthy."
+    }
+  ]
+}
+```
+
+## Original notes
+
+Your original wording from the Notes vault, kept verbatim for reference.
+
+#### What is Python?
+
+- **Interpreted** — executed line by line, not compiled to a native binary upfront.
+- **High level** — abstracts away memory management and low-level detail.
+- **Dynamically typed** — no variable type declarations; types are checked at runtime.
+- **Object-oriented** — everything is an object, including functions and classes themselves.
+- **General-purpose** — web, automation, ML, scripting, APIs, data science, etc.
+
+How it runs internally:
+
+```
+Your Python Code (.py)
+        ↓
+    Compiler (CPython)
+        ↓
+   Bytecode (.pyc file)
+        ↓
+Python Virtual Machine (PVM)
+        ↓
+Execution
+```
+
+See python-internals for what happens inside the PVM (reference counting, GC, pymalloc).
+
+
+#### Python Data Types
+
+**Immutable** (objects create new copies when modified) → `int`, `float`, `str`, `tuple`, `bool`
+**Mutable** (objects modify in place) → `list`, `set`, `dict`
+
+**Primitive (immutable) types** — value cannot be changed after creation.
+
+| Type | Example |
+|---|---|
+| `int` | `x = 5` |
+| `float` | `x = 3.14` |
+| `bool` | `x = True` |
+| `str` | `x = "hello"` |
+| `NoneType` | `x = None` |
+
+**Non-primitive (mutable) types** — value can be changed in place.
+
+| Type | Example |
+|---|---|
+| `list` | `x = [1, 2, 3]` |
+| `dict` | `x = {"a": 1}` |
+| `set` | `x = {1, 2, 3}` |
+
+**One exception — tuple** is non-primitive but immutable.
+
+| Type | Example |
+|---|---|
+| `tuple` | `x = (1, 2, 3)` |
+
+**Data types and mutability at a glance:**
+
+| Type | Examples | Mutable? |
+|---|---|---|
+| int | `10` | No |
+| float | `1.5` | No |
+| str | `"hello"` | No |
+| list | `[1,2,3]` | Yes |
+| tuple | `(1,2,3)` | No |
+| set | `{1,2,3}` | Yes |
+| dict | `{"a":1}` | Yes |
+| bool | `True/False` | No |
+
+**Why it matters in interviews:**
+
+```text
+# Immutable — reassignment creates a new object
+x = "hello"
+y = x
+y = "world"
+print(x)  # "hello" — x unchanged
+
+# Mutable — both point to same object
+a = [1, 2, 3]
+b = a
+b.append(4)
+print(a)  # [1, 2, 3, 4] — a is affected!
+```
+
+This is also why you should never use a mutable default argument in a function:
+
+```text
+# BAD
+def add(item, lst=[]):
+    lst.append(item)
+    return lst
+
+add(1)  # [1]
+add(2)  # [1, 2] — same list reused!
+
+# GOOD
+def add(item, lst=None):
+    if lst is None:
+        lst = []
+    lst.append(item)
+    return lst
+```
+
+
+#### Truthy and falsy values
+
+Every object has a boolean context, tested implicitly in `if`/`while`/`filter()`.
+
+**Falsy** — `0`, `0.0`, `""`, `[]`, `{}`, `()`, `set()`, `None`, `False`. Everything else is **truthy**.
+
+```text
+a = [1, 0, "0", [], {}, (), "hello", ""]
+list(filter(bool, a))  # [1, '0', 'hello'] — non-empty/non-zero survive
+```
+
+Rule of thumb: empty or zero → `False`, non-empty or non-zero → `True` (note `"0"` — a non-empty string — is truthy, a common trap).
+
+
+#### Difference between list, tuple, set, dict
+
+**List** — ordered, mutable collection
+- Created with square brackets: `[1, 2, 3]`
+- Allows duplicate values
+- Elements accessed by index: `my_list[0]`
+- Can be modified after creation (add, remove, change items)
+- Use when you need an ordered collection that might change
+
+**Tuple** — ordered, immutable collection
+- Created with parentheses: `(1, 2, 3)`
+- Allows duplicate values
+- Elements accessed by index: `my_tuple[0]`
+- Cannot be modified after creation (immutable)
+- Use when you need an ordered collection that shouldn't change, or as dictionary keys
+
+**Set** — unordered, mutable collection of unique items
+- Created with curly braces: `{1, 2, 3}`
+- No duplicate values (automatically removes duplicates)
+- No index access (unordered)
+- Can add/remove elements, but not change existing ones
+- Use when you need unique values or fast membership testing
+
+**Dictionary** — unordered collection of key-value pairs
+- Created with curly braces and colons: `{'name': 'Alice', 'age': 30}`
+- Keys must be unique and immutable (strings, numbers, tuples)
+- Values accessed by key: `my_dict['name']`
+- Mutable — can add, remove, or change key-value pairs
+- Use when you need to associate values with unique keys for fast lookup
+
+```text
+my_list = [1, 2, 2, 3]      # [1, 2, 2, 3] - keeps duplicates
+my_tuple = (1, 2, 2, 3)     # (1, 2, 2, 3) - can't change
+my_set = {1, 2, 2, 3}       # {1, 2, 3} - removes duplicates
+my_dict = {'a': 1, 'b': 2}  # maps keys to values
+```
+$md$, 12, $json$[{"id":"core-language-runs-q1","type":"mcq","correct":"b"},{"id":"core-language-mutability-q1","type":"mcq","correct":"b"},{"id":"core-language-mutability-q2","type":"mcq","correct":"b"},{"id":"core-language-containers-q1","type":"mcq","correct":"c"},{"id":"core-language-default-arg-q1","type":"mcq","correct":"a"},{"id":"core-language-truthy-q1","type":"mcq","correct":"a"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('f1133c07-28d5-5d55-aebe-7d44d092a06f', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'ddde0231-8e2c-52dd-a516-cb2c457edee3', 'Numbers: Base Conversion & Float Comparison', 'notes', 1, $md$Two staple warm-up questions: convert a number between bases, and explain why `0.1 + 0.2 != 0.3`. Both have short, precise answers.
+
+## Converting between number bases
+
+`bin`, `oct` and `hex` turn an int into a **string** with a `0b`/`0o`/`0x` prefix. `int(text, base)` goes the other way. To convert between two non-decimal bases, go through an int.
+
+```python
+print(bin(10), oct(10), hex(10))   # 0b1010 0o12 0xa
+print(int("1010", 2), int("12", 8), int("a", 16))  # 10 10 10
+print(hex(int("1010", 2)))         # 0xa
+print(bin(10)[2:])                 # 1010
+```
+
+`format()` avoids the prefix and controls case and padding.
+
+```python
+print(format(10, 'b'))     # 1010
+print(format(10, 'X'))     # A
+print(format(10, '#010b')) # 0b00001010
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "core-language-bases-q1",
+      "type": "mcq",
+      "prompt": "What does `int(\"a\", 16)` return?",
+      "options": [
+        { "id": "a", "text": "10" },
+        { "id": "b", "text": "'0xa'" },
+        { "id": "c", "text": "ValueError" },
+        { "id": "d", "text": "16" }
+      ],
+      "correct": "a",
+      "explanation": "int(text, base) parses the string in the given base and returns a decimal int; hex digit 'a' is 10."
+    },
+    {
+      "id": "core-language-bases-q2",
+      "type": "mcq",
+      "prompt": "Which call returns the binary digits of 10 without the `0b` prefix?",
+      "options": [
+        { "id": "a", "text": "bin(10)" },
+        { "id": "b", "text": "format(10, 'b')" },
+        { "id": "c", "text": "int(10, 2)" },
+        { "id": "d", "text": "hex(10)" }
+      ],
+      "correct": "b",
+      "explanation": "bin() keeps the prefix; format(10, 'b') returns '1010'. int(10, 2) is invalid because the first argument must be a string when a base is given."
+    }
+  ]
+}
+```
+
+## Infinity as a sentinel
+
+`float("inf")` (or the clearer `math.inf`) compares greater than every number, which makes it the natural starting value when tracking a running minimum. It exists only for floats: converting it to int fails.
+
+```python
+import math
+
+smallest = math.inf
+for n in [7, 3, 9]:
+    smallest = min(smallest, n)
+print(smallest)  # 3
+
+print(math.inf > 10**100)  # True
+try:
+    int(float("inf"))
+except OverflowError as e:
+    print(e)  # cannot convert float infinity to integer
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "core-language-inf-q1",
+      "type": "mcq",
+      "prompt": "What does `int(float(\"inf\"))` do?",
+      "options": [
+        { "id": "a", "text": "Returns a very large int" },
+        { "id": "b", "text": "Returns 0" },
+        { "id": "c", "text": "Raises OverflowError" },
+        { "id": "d", "text": "Returns None" }
+      ],
+      "correct": "c",
+      "explanation": "Infinity has no integer representation, so the conversion raises OverflowError."
+    }
+  ]
+}
+```
+
+## Comparing floats safely
+
+Floats are binary approximations, so many decimal fractions are not exact. Comparing with `==` is a bug waiting to happen. Use `math.isclose`, which applies a relative tolerance (default `1e-09`).
+
+```python
+import math
+
+print(0.1 + 0.2)                 # 0.30000000000000004
+print(0.1 + 0.2 == 0.3)          # False
+print(math.isclose(0.1 + 0.2, 0.3))  # True
+```
+
+The default is purely relative, so values near zero need an absolute tolerance too.
+
+```python
+import math
+
+print(math.isclose(1e-10, 2e-10))                 # False
+print(math.isclose(1e-10, 2e-10, abs_tol=1e-9))   # True
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "core-language-isclose-q1",
+      "type": "mcq",
+      "prompt": "Why is `0.1 + 0.2 == 0.3` False in Python?",
+      "options": [
+        { "id": "a", "text": "Python's + operator is imprecise for small numbers" },
+        { "id": "b", "text": "0.1 and 0.2 cannot be represented exactly in binary floating point, so the sum is slightly off 0.3" },
+        { "id": "c", "text": "Floats are stored as strings" },
+        { "id": "d", "text": "== always fails on floats" }
+      ],
+      "correct": "b",
+      "explanation": "IEEE-754 binary floats approximate most decimal fractions; the sum is 0.30000000000000004. Use math.isclose instead of ==."
+    },
+    {
+      "id": "core-language-isclose-q2",
+      "type": "mcq",
+      "prompt": "When comparing numbers very close to zero with `math.isclose`, what should you add?",
+      "options": [
+        { "id": "a", "text": "rel_tol=0" },
+        { "id": "b", "text": "An abs_tol value" },
+        { "id": "c", "text": "round() on both sides to 0 digits" },
+        { "id": "d", "text": "Nothing; the default always works" }
+      ],
+      "correct": "b",
+      "explanation": "The default tolerance is relative, which is useless near zero; abs_tol sets a fixed allowed difference."
+    }
+  ]
+}
+```
+
+## Decimal for money
+
+When exact decimal arithmetic is required, such as currency, use `decimal.Decimal`. Always build it from a **string**: building from a float captures the float's inexact value.
+
+```python
+from decimal import Decimal
+
+print(Decimal('0.1') + Decimal('0.2') == Decimal('0.3'))  # True
+print(Decimal(0.1))
+# 0.1000000000000000055511151231257827021181583404541015625
+```
+
+Another common approach for money is integer minor units (paise or cents), which avoids fractions entirely.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "core-language-decimal-q1",
+      "type": "mcq",
+      "prompt": "Which is the correct way to create an exact Decimal for 0.1?",
+      "options": [
+        { "id": "a", "text": "Decimal(0.1)" },
+        { "id": "b", "text": "Decimal('0.1')" },
+        { "id": "c", "text": "Decimal(1) / 10.0" },
+        { "id": "d", "text": "float(Decimal(0.1))" }
+      ],
+      "correct": "b",
+      "explanation": "Decimal(0.1) faithfully copies the float's binary error. Passing a string preserves the exact decimal value."
+    }
+  ]
+}
+```
+
+## Original notes
+
+Your original wording from the Notes vault, kept verbatim for reference.
+
+#### Number base conversion
+
+```text
+# Decimal → other (always returns a string)
+bin(10)   # '0b1010'
+oct(10)   # '0o12'
+hex(10)   # '0xa'
+
+# Other → decimal
+int("1010", 2)  # 10
+int("12", 8)    # 10
+int("a", 16)    # 10 — letters are valid in hex
+
+# Any → any, via decimal
+hex(int("1010", 2))  # '0xa'
+bin(int("a", 16))    # '0b1010'
+
+# Strip the 0b/0o/0x prefix
+bin(10)[2:]  # '1010'
+
+# format() as an alternative
+format(10, 'b')  # '1010'
+format(10, 'X')  # 'A' (uppercase hex)
+```
+
+`float("inf")` / `float("-inf")` give IEEE-754 infinity (`math.inf` is the cleaner spelling); `int("inf")` raises `ValueError`, and `int(float("inf"))` raises `OverflowError`. Common use: `min_val = float("inf")` as a running minimum tracker before a loop.
+
+**Comparing floats** — never compare with `==` directly; binary floats are approximate (`0.1 + 0.2 != 0.3`).
+
+```text
+round(0.1 + 0.2, 2) == round(0.3, 2)  # True — quick check, but you must pick a precision
+import math
+math.isclose(0.1 + 0.2, 0.3)          # True — the standard-library answer, sensible default tolerance
+from decimal import Decimal
+Decimal('0.1') + Decimal('0.2') == Decimal('0.3')  # True — exact decimal arithmetic, use for money
+```
+$md$, 10, $json$[{"id":"core-language-bases-q1","type":"mcq","correct":"a"},{"id":"core-language-bases-q2","type":"mcq","correct":"b"},{"id":"core-language-inf-q1","type":"mcq","correct":"c"},{"id":"core-language-isclose-q1","type":"mcq","correct":"b"},{"id":"core-language-isclose-q2","type":"mcq","correct":"b"},{"id":"core-language-decimal-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('f4aabe1c-871f-576a-b409-d2c19a36d868', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'ddde0231-8e2c-52dd-a516-cb2c457edee3', 'Shallow vs Deep Copy', 'notes', 2, $md$Assignment never copies in Python; it just adds another name for the same object. When you do need an independent copy of a container, the real question is how deep the copy goes.
+
+## Shallow copy
+
+A shallow copy builds a new outer container but fills it with **references to the same inner objects**. Replacing a top-level element affects only the copy; mutating a shared nested object affects both.
+
+```python
+import copy
+
+original = [1, 2, [3, 4]]
+shallow = copy.copy(original)  # same idea: original.copy(), list(original), original[:]
+
+shallow[2].append(5)  # mutates the shared inner list
+shallow[0] = 99       # rebinds a slot in the copy only
+print(original)  # [1, 2, [3, 4, 5]]
+print(shallow)   # [99, 2, [3, 4, 5]]
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "core-language-shallow-q1",
+      "type": "mcq",
+      "prompt": "After `s = copy.copy(o)` where `o = [1, 2, [3, 4]]`, you run `s[2].append(5)`. What is `o`?",
+      "options": [
+        { "id": "a", "text": "[1, 2, [3, 4]]" },
+        { "id": "b", "text": "[1, 2, [3, 4, 5]]" },
+        { "id": "c", "text": "[1, 2, [5]]" },
+        { "id": "d", "text": "An error is raised" }
+      ],
+      "correct": "b",
+      "explanation": "A shallow copy shares the inner list, so appending through the copy changes the original's nested list too."
+    },
+    {
+      "id": "core-language-shallow-q2",
+      "type": "mcq",
+      "prompt": "Which of these is NOT a shallow copy of list `x`?",
+      "options": [
+        { "id": "a", "text": "x[:]" },
+        { "id": "b", "text": "list(x)" },
+        { "id": "c", "text": "x.copy()" },
+        { "id": "d", "text": "y = x" }
+      ],
+      "correct": "d",
+      "explanation": "`y = x` creates no new object at all; both names refer to the same list."
+    }
+  ]
+}
+```
+
+## Deep copy
+
+`copy.deepcopy` recursively copies every nested object, so the result shares nothing mutable with the original. It also tracks objects it has already copied, so self-referencing structures do not recurse forever.
+
+```python
+import copy
+
+original = [1, 2, [3, 4]]
+deep = copy.deepcopy(original)
+deep[2].append(5)
+print(original)  # [1, 2, [3, 4]]
+print(deep)      # [1, 2, [3, 4, 5]]
+
+loop = [1]
+loop.append(loop)  # list containing itself
+clone = copy.deepcopy(loop)
+print(clone[1] is clone)  # True -- cycle preserved, no infinite recursion
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "core-language-deep-q1",
+      "type": "mcq",
+      "prompt": "What does `copy.deepcopy` guarantee that a shallow copy does not?",
+      "options": [
+        { "id": "a", "text": "Nested mutable objects are duplicated, so changing them in the copy leaves the original untouched" },
+        { "id": "b", "text": "The copy is faster to create" },
+        { "id": "c", "text": "Immutable values are converted to mutable ones" },
+        { "id": "d", "text": "The copy shares memory with the original" }
+      ],
+      "correct": "a",
+      "explanation": "deepcopy recursively duplicates nested objects, giving a fully independent structure at the cost of time and memory."
+    }
+  ]
+}
+```
+
+## Choosing between them, and the `[[0]*n]*n` trap
+
+Use a shallow copy for flat data, or when sharing inner objects is intended. Use a deep copy for nested mutable structures you will modify independently; it is slower and uses more memory.
+
+The same sharing bug appears when building grids. `*` repeats the **reference**, not the object.
+
+```python
+bad = [[0] * 2] * 2         # two references to one inner list
+bad[0][0] = 1
+print(bad)   # [[1, 0], [1, 0]]
+
+good = [[0] * 2 for _ in range(2)]  # a fresh inner list per row
+good[0][0] = 1
+print(good)  # [[1, 0], [0, 0]]
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "core-language-grid-q1",
+      "type": "mcq",
+      "prompt": "After `g = [[0] * 2] * 2; g[0][0] = 1`, what is `g`?",
+      "options": [
+        { "id": "a", "text": "[[1, 0], [0, 0]]" },
+        { "id": "b", "text": "[[1, 0], [1, 0]]" },
+        { "id": "c", "text": "[[0, 0], [0, 0]]" },
+        { "id": "d", "text": "[[1, 1], [1, 1]]" }
+      ],
+      "correct": "b",
+      "explanation": "Multiplying the outer list repeats the same inner list object, so both rows are one list. Use a list comprehension to build independent rows."
+    }
+  ]
+}
+```
+
+## Original notes
+
+Your original wording from the Notes vault, kept verbatim for reference.
+
+#### Deep copy vs shallow copy
+
+Copying objects is an important concept, especially when working with mutable data structures like lists and dictionaries.
+
+**Shallow copy** creates a new object but doesn't create copies of nested objects — it just copies references to them.
+
+```text
+import copy
+
+# Original list with nested list
+original = [1, 2, [3, 4]]
+
+# Shallow copy methods
+shallow1 = original.copy()
+shallow2 = list(original)
+shallow3 = original[:]
+shallow4 = copy.copy(original)
+
+# Modifying nested object affects both
+shallow1[2].append(5)
+print(original)  # [1, 2, [3, 4, 5]] - changed!
+print(shallow1)  # [1, 2, [3, 4, 5]]
+```
+
+With a shallow copy:
+- The outer container is duplicated
+- Inner objects are **shared** between original and copy
+- Changes to nested objects affect both copies
+
+**Deep copy** creates a completely independent copy, recursively copying all nested objects.
+
+```text
+import copy
+
+original = [1, 2, [3, 4]]
+deep = copy.deepcopy(original)
+
+# Modifying nested object only affects the deep copy
+deep[2].append(5)
+print(original)  # [1, 2, [3, 4]] - unchanged
+print(deep)      # [1, 2, [3, 4, 5]]
+```
+
+With a deep copy:
+- Everything is duplicated recursively
+- Changes to nested objects don't affect the original
+- Completely independent objects
+
+**When to use each:**
+
+Shallow copy when:
+- You have simple, flat data structures
+- You want to save memory
+- You're okay with nested objects being shared
+
+Deep copy when:
+- You have nested data structures
+- You need complete independence between objects
+- You want to avoid unintended side effects
+
+Deep copying can be slower and use more memory, especially with large, complex structures.
+$md$, 10, $json$[{"id":"core-language-shallow-q1","type":"mcq","correct":"b"},{"id":"core-language-shallow-q2","type":"mcq","correct":"d"},{"id":"core-language-deep-q1","type":"mcq","correct":"a"},{"id":"core-language-grid-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('cff72f5f-5902-55d4-9054-4837cf39da4c', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'ddde0231-8e2c-52dd-a516-cb2c457edee3', 'Monkey Patching', 'notes', 3, $md$Because classes, modules and functions are ordinary objects with mutable attributes, Python lets you change them while the program runs. That power is called monkey patching, and interviewers ask about it to see whether you know both the mechanism and why it is usually discouraged.
+
+## What monkey patching is
+
+Monkey patching means changing the behavior of an existing class, module or function at runtime, without editing its source. The name comes from "guerrilla patching" (quick unofficial fixes), misheard as "gorilla" and then "monkey". In Python it is just attribute assignment.
+
+```python
+class Calculator:
+    def add(self, a, b):
+        return a + b
+
+Calculator.add = lambda self, a, b: a + b + 10  # replace the method on the class
+
+print(Calculator().add(2, 3))  # 15, not 5
+```
+
+Patching the **class** affects every instance, including ones created earlier, because method lookup happens at call time. Patching a single **instance** affects only that object.
+
+```python
+class Greeter:
+    def hello(self):
+        return "hello"
+
+a, b = Greeter(), Greeter()
+a.hello = lambda: "patched"  # instance attribute shadows the class method
+print(a.hello(), b.hello())  # patched hello
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "core-language-patch-q1",
+      "type": "mcq",
+      "prompt": "What is monkey patching?",
+      "options": [
+        { "id": "a", "text": "Changing a class, module or function's behavior at runtime without editing its source" },
+        { "id": "b", "text": "Recompiling a module to bytecode" },
+        { "id": "c", "text": "Copying a function so the original is preserved" },
+        { "id": "d", "text": "Installing a patch release of a package" }
+      ],
+      "correct": "a",
+      "explanation": "It is runtime modification of existing code objects, done in Python by assigning to attributes."
+    },
+    {
+      "id": "core-language-patch-q2",
+      "type": "mcq",
+      "prompt": "You assign `Calculator.add = new_func` after creating `calc = Calculator()`. What does `calc.add(1, 2)` use?",
+      "options": [
+        { "id": "a", "text": "The old method, since calc already exists" },
+        { "id": "b", "text": "The new method, because lookup happens on the class at call time" },
+        { "id": "c", "text": "Neither; it raises AttributeError" },
+        { "id": "d", "text": "Both, and returns a tuple" }
+      ],
+      "correct": "b",
+      "explanation": "Instances do not copy methods; they look them up on the class when called, so the patched version is used."
+    }
+  ]
+}
+```
+
+## When it is used, and why it is risky
+
+Legitimate uses: a hotfix for a third-party bug you cannot wait on, working around a framework limitation, and replacing dependencies in tests (this is how `unittest.mock.patch` works, and it restores the original afterward).
+
+The downsides are serious. The change is invisible to anyone reading the original class, it can be silently undone or broken by a library upgrade, and load order decides which patch wins. Prefer subclassing, composition or dependency injection, and treat patching as a last resort that is documented, narrow and reversible.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "core-language-patch-risk-q1",
+      "type": "mcq",
+      "prompt": "Why is monkey patching generally considered a code smell?",
+      "options": [
+        { "id": "a", "text": "It is not allowed by the Python interpreter in production" },
+        { "id": "b", "text": "The changed behavior is invisible in the original source and can break when the patched library updates" },
+        { "id": "c", "text": "It always makes programs slower by a large factor" },
+        { "id": "d", "text": "It permanently modifies the library's files on disk" }
+      ],
+      "correct": "b",
+      "explanation": "Patches live outside the original definition, so readers miss them and upgrades can silently invalidate them."
+    },
+    {
+      "id": "core-language-patch-risk-q2",
+      "type": "mcq",
+      "prompt": "Which is a typical legitimate use of monkey patching?",
+      "options": [
+        { "id": "a", "text": "Temporarily replacing a network call with a fake during a unit test" },
+        { "id": "b", "text": "Renaming every method in your own codebase for style" },
+        { "id": "c", "text": "Avoiding writing a subclass in your own new code" },
+        { "id": "d", "text": "Hiding bugs from other developers" }
+      ],
+      "correct": "a",
+      "explanation": "Test doubles are the common accepted case, ideally through a scoped tool like unittest.mock.patch that restores the original."
+    }
+  ]
+}
+```
+
+## Original notes
+
+Your original wording from the Notes vault, kept verbatim for reference.
+
+#### What is monkey patching?
+
+Monkey patching is a technique where you modify or extend code at runtime by changing the behavior of classes, modules, or functions after they've been defined — without editing their source code.
+
+The term comes from "guerrilla patching" (making quick, unofficial fixes), which was misheard as "gorilla patching" and evolved into "monkey patching."
+
+**How it works** — in languages like Python, Ruby, or JavaScript, you can reassign methods or attributes of existing objects:
+
+```text
+# Original class
+class Calculator:
+    def add(self, a, b):
+        return a + b
+
+# Monkey patching - changing the method at runtime
+Calculator.add = lambda self, a, b: a + b + 10
+
+calc = Calculator()
+calc.add(2, 3)  # Returns 15 instead of 5
+```
+
+**Common uses:**
+- Fixing bugs in third-party libraries when you can't wait for an official patch
+- Adding functionality to libraries for testing purposes
+- Working around limitations in frameworks
+- Creating mock objects for unit tests
+
+**Downsides:** monkey patching is generally a code smell — it makes code harder to understand and maintain. Someone reading the original class definition won't see the changes, which leads to confusion and bugs. It's also fragile — if the library updates, patches can break or behave unexpectedly. Most developers treat it as a last resort, preferring subclassing, composition, or dependency injection when possible.
+$md$, 10, $json$[{"id":"core-language-patch-q1","type":"mcq","correct":"a"},{"id":"core-language-patch-q2","type":"mcq","correct":"b"},{"id":"core-language-patch-risk-q1","type":"mcq","correct":"b"},{"id":"core-language-patch-risk-q2","type":"mcq","correct":"a"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+-- Section: Functions & Scope
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('6e2b8cd1-14ce-5765-bcfb-849fc644bafa', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Functions & Scope', 1, 'Fundamentals')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('a13be90d-a670-59f6-b4a4-2d81243c2b43', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '6e2b8cd1-14ce-5765-bcfb-849fc644bafa', 'Function Arguments', 'notes', 0, $md$Interviewers love function signatures because one line reveals whether you know how Python binds arguments. This lesson covers every way a value can reach a parameter, and the order the language forces on them.
+
+## Positional and keyword arguments
+
+A **positional** argument is matched to a parameter by its place in the call. A **keyword** argument is matched by name, so order stops mattering and the call documents itself. You can mix them, but every positional argument must come before the first keyword argument.
+
+```python
+def calculate_cost(item, quantity, price):
+    return f"{item}: {quantity * price:.2f}"
+
+print(calculate_cost("apple", 5, 0.99))
+print(calculate_cost("apple", quantity=5, price=0.99))
+print(calculate_cost("apple", price=0.99, quantity=5))
+
+try:
+    eval('calculate_cost(item="apple", 5, 0.99)')
+except SyntaxError as e:
+    print("SyntaxError:", e.msg)
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "functions-arguments-q1",
+      "type": "mcq",
+      "prompt": "Which call to def f(a, b, c) is a SyntaxError?",
+      "options": [
+        { "id": "a", "text": "f(1, 2, c=3)" },
+        { "id": "b", "text": "f(1, c=3, b=2)" },
+        { "id": "c", "text": "f(a=1, 2, 3)" },
+        { "id": "d", "text": "f(c=3, b=2, a=1)" }
+      ],
+      "correct": "c",
+      "explanation": "A positional argument cannot follow a keyword argument. The other calls keep positionals first or use only keywords."
+    }
+  ]
+}
+```
+
+## Defaults are evaluated once
+
+A default value is created **once, when `def` executes**, and stored on the function object. Every call that omits the argument shares that same object. For immutable defaults (numbers, strings, `None`) this is harmless; for a list or dict it becomes shared state. The standard fix is a `None` sentinel. (The mutable-default trap is treated in depth in the core-language section; here, remember only the rule and the sentinel idiom.)
+
+```python
+def add_item(item, bucket=[]):
+    bucket.append(item)
+    return bucket
+
+print(add_item(1))
+print(add_item(2))
+print(add_item.__defaults__)
+
+def add_item_safe(item, bucket=None):
+    if bucket is None:
+        bucket = []
+    bucket.append(item)
+    return bucket
+
+print(add_item_safe(1))
+print(add_item_safe(2))
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "functions-arguments-q2",
+      "type": "mcq",
+      "prompt": "When is the default value expression in def f(x, y=[]) evaluated?",
+      "options": [
+        { "id": "a", "text": "Every time f is called without y" },
+        { "id": "b", "text": "Once, when the def statement runs" },
+        { "id": "c", "text": "Once, the first time f is called" },
+        { "id": "d", "text": "At import time of the caller" }
+      ],
+      "correct": "b",
+      "explanation": "Defaults are evaluated at function definition time and stored in __defaults__, so all calls share the same object."
+    }
+  ]
+}
+```
+
+## *args and **kwargs
+
+`*args` collects extra positional arguments into a **tuple**; `**kwargs` collects extra keyword arguments into a **dict**. The names are convention, the stars are the syntax. They are how wrappers and decorators forward whatever they were given.
+
+```python
+def average(*numbers):
+    return sum(numbers) / len(numbers)
+
+def print_info(**kwargs):
+    print(type(kwargs).__name__, kwargs)
+
+print(average(1, 2, 3))
+print_info(name="Alice", age=25)
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "functions-arguments-q3",
+      "type": "mcq",
+      "prompt": "Inside def f(*args, **kwargs), what are the types of args and kwargs?",
+      "options": [
+        { "id": "a", "text": "list and dict" },
+        { "id": "b", "text": "tuple and dict" },
+        { "id": "c", "text": "tuple and tuple" },
+        { "id": "d", "text": "list and list of pairs" }
+      ],
+      "correct": "b",
+      "explanation": "*args is packed into a tuple and **kwargs into a dict."
+    }
+  ]
+}
+```
+
+## Positional-only (/) and keyword-only (*) parameters
+
+Parameters before a bare `/` can only be passed by position (Python 3.8+), which lets you rename them later without breaking callers. Parameters after a bare `*` (or after `*args`) can only be passed by keyword, which forces readable call sites for flags.
+
+```python
+def divide(a, b, /):
+    return a / b
+
+def greet(name, *, greeting="Hello", excited=False):
+    return f"{greeting}, {name}" + ("!" if excited else "")
+
+print(divide(10, 2))
+print(greet("Bob", greeting="Hi", excited=True))
+
+for call in ("divide(a=10, b=2)", 'greet("Dave", "Howdy")'):
+    try:
+        eval(call)
+    except TypeError as e:
+        print("TypeError:", e)
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "functions-arguments-q4",
+      "type": "mcq",
+      "prompt": "Given def greet(name, *, greeting=\"Hello\"), what does greet(\"Dave\", \"Howdy\") do?",
+      "options": [
+        { "id": "a", "text": "Returns 'Howdy, Dave'" },
+        { "id": "b", "text": "Returns 'Hello, Dave'" },
+        { "id": "c", "text": "Raises TypeError because greeting is keyword-only" },
+        { "id": "d", "text": "Raises SyntaxError" }
+      ],
+      "correct": "c",
+      "explanation": "Parameters after the bare * must be passed by keyword; the extra positional argument has nowhere to go, so TypeError."
+    },
+    {
+      "id": "functions-arguments-q5",
+      "type": "mcq",
+      "prompt": "Why would you put / in a signature?",
+      "options": [
+        { "id": "a", "text": "To make the parameters required" },
+        { "id": "b", "text": "To force the preceding parameters to be passed positionally so their names can change freely" },
+        { "id": "c", "text": "To allow unlimited arguments" },
+        { "id": "d", "text": "To make the function faster" }
+      ],
+      "correct": "b",
+      "explanation": "Positional-only parameters are not part of the public keyword interface, so renaming them is not a breaking change."
+    }
+  ]
+}
+```
+
+## The full parameter order
+
+A signature must list parameter kinds in this order: positional-only, `/`, normal, `*args`, keyword-only, `**kwargs`. Any group may be absent, but the order is fixed.
+
+```python
+def ultimate(p1, p2, /, n1, n2, *args, k1, k2="default", **kwargs):
+    return p1, p2, n1, n2, args, k1, k2, kwargs
+
+print(ultimate(1, 2, 3, n2=4, k1="x", extra=True))
+print(ultimate(1, 2, 3, 4, 5, 6, k1="x"))
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "functions-arguments-q6",
+      "type": "mcq",
+      "prompt": "Which signature has a valid parameter order?",
+      "options": [
+        { "id": "a", "text": "def f(**kwargs, *args)" },
+        { "id": "b", "text": "def f(a, /, b, *args, c, **kwargs)" },
+        { "id": "c", "text": "def f(*args, a, /, b)" },
+        { "id": "d", "text": "def f(a, **kwargs, *, c)" }
+      ],
+      "correct": "b",
+      "explanation": "Order is positional-only, /, normal, *args, keyword-only, **kwargs. Option b follows it exactly."
+    }
+  ]
+}
+```
+
+## Unpacking in calls
+
+The stars also work at the **call site**: `*iterable` spreads items as positional arguments and `**mapping` spreads key/value pairs as keyword arguments. This is the mirror image of packing, and it is how wrappers forward arguments unchanged.
+
+```python
+def add(a, b, c):
+    return a + b + c
+
+def greet(first, last):
+    return f"Hello, {first} {last}"
+
+print(add(*[1, 2, 3]))
+print(greet(**{"first": "John", "last": "Doe"}))
+print(add(*(1, 2), **{"c": 10}))
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "functions-arguments-q7",
+      "type": "mcq",
+      "prompt": "What does greet(**{\"first\": \"John\", \"last\": \"Doe\"}) expand to?",
+      "options": [
+        { "id": "a", "text": "greet(\"first\", \"last\")" },
+        { "id": "b", "text": "greet(\"John\", \"Doe\")" },
+        { "id": "c", "text": "greet(first=\"John\", last=\"Doe\")" },
+        { "id": "d", "text": "greet({\"first\": \"John\", \"last\": \"Doe\"})" }
+      ],
+      "correct": "c",
+      "explanation": "** unpacks a mapping into keyword arguments, using its keys as parameter names."
+    }
+  ]
+}
+```
+
+## Original notes
+
+Your original wording from the Notes vault, kept verbatim for reference.
+
+#### Python Functions
+
+**What are functions?** A function is a reusable, self-contained block of code that performs a specific task.
+
+```text
+def function_name(parameters):
+    """Docstring - explains what function does"""
+    statement_1
+    statement_2
+    return result
+```
+
+Components: `def` keyword, `function_name` (valid identifier), optional `parameters`, `:` header terminator, indented body, optional `return`.
+
+```text
+def greet(name):
+    """Print a greeting message."""
+    print(f"Hello, {name}!")
+
+greet("Alice")  # Output: Hello, Alice!
+```
+
+**Why use functions?**
+
+1. **Abstraction** — hide complex details, show only the interface (name + parameters). Example: `len()` — you don't need to know how it counts.
+2. **Encapsulation** — variables inside a function are isolated, no conflicts with outer variables, data stays safe inside the function.
+3. **Modularity** — break large programs into smaller pieces, each function does one specific task, easier to understand and debug.
+4. **Reusability** — write once, use many times; change in one place updates everywhere.
+5. **Maintainability** — easier to find and fix bugs; well-named functions explain what the code does.
+6. **Testability** — test each function independently with clear inputs and outputs.
+
+
+##### Defining and calling
+
+```text
+def function_name():
+    pass  # empty function (stub)
+
+def add(a, b):
+    return a + b
+
+def greet(name, greeting="Hello"):
+    return f"{greeting}, {name}!"
+
+def get_min_max(numbers):
+    return min(numbers), max(numbers)  # returns tuple
+```
+
+Rules: function names follow variable naming rules; parameters must be valid identifiers; indentation is mandatory (4 spaces); `:` is required after the header; empty functions need `pass` or `...`.
+
+```text
+function_name()             # no arguments
+result = add(5, 3)          # store return value
+total = add(5, 3) + add(2, 4)  # use in expressions
+
+print(add)       # <function add at 0x...> — forgot the parentheses
+print(add(5, 3)) # 8 — actually calls it
+```
+
+
+##### Arguments deep dive
+
+**Positional arguments** — matched by order.
+
+```text
+def describe_pet(animal, name):
+    print(f"I have a {animal} named {name}")
+
+describe_pet("dog", "Buddy")  # correct
+describe_pet("Buddy", "dog")  # wrong order!
+```
+
+**Keyword arguments** — specified by parameter name, order-independent, more readable.
+
+```text
+describe_pet(animal="cat", name="Whiskers")
+describe_pet(name="Max", animal="hamster")  # order doesn't matter
+```
+
+**Mixing positional and keyword** — positional arguments must come before keyword arguments.
+
+```text
+def calculate_cost(item, quantity, price):
+    return quantity * price
+
+calculate_cost("apple", 5, 0.99)
+calculate_cost("apple", quantity=5, price=0.99)
+calculate_cost("apple", price=0.99, quantity=5)
+# calculate_cost(item="apple", 5, 0.99)  # SyntaxError - positional after keyword
+```
+
+**Default arguments** — the default is created once, at function definition time, not on each call. This is the mutable-default trap again:
+
+```text
+# WRONG
+def add_item(item, my_list=[]):
+    my_list.append(item)
+    return my_list
+
+add_item(1)  # [1]
+add_item(2)  # [1, 2] - NOT [2]! same list every call
+
+# CORRECT — use None as sentinel
+def add_item(item, my_list=None):
+    if my_list is None:
+        my_list = []
+    my_list.append(item)
+    return my_list
+```
+
+**`*args`** — packs any number of positional arguments into a tuple:
+
+```text
+def average(*numbers):
+    return sum(numbers) / len(numbers)
+
+average(1, 2, 3)  # 2.0
+```
+
+**`**kwargs`** — packs any number of keyword arguments into a dict:
+
+```text
+def print_info(**kwargs):
+    for key, value in kwargs.items():
+        print(f"{key}: {value}")
+
+print_info(name="Alice", age=25, city="NYC")
+```
+
+**Combining all argument types** — order matters:
+
+```text
+def func(pos1, pos2, *args, kw1, kw2, **kwargs):
+    pass
+
+def make_sandwich(bread, *fillings, sauce="mayo", **extras):
+    print(f"Bread: {bread}")
+    print(f"Fillings: {fillings}")
+    print(f"Sauce: {sauce}")
+    print(f"Extras: {extras}")
+```
+
+**Positional-only arguments** (Python 3.8+) — `/` marks the end of positional-only parameters:
+
+```text
+def divide(a, b, /):
+    return a / b
+
+divide(10, 2)       # works
+# divide(a=10, b=2) # TypeError
+```
+
+**Keyword-only arguments** — parameters after `*` or `*args` must be passed by keyword:
+
+```text
+def greet(name, *, greeting="Hello", excited=False):
+    msg = f"{greeting}, {name}"
+    if excited:
+        msg += "!"
+    return msg
+
+greet("Alice")                            # Hello, Alice
+greet("Bob", greeting="Hi")               # Hi, Bob
+# greet("Dave", "Howdy")                  # TypeError
+```
+
+**Complete argument order:**
+
+```text
+def ultimate_func(
+    pos_only1, pos_only2, /,           # positional-only
+    normal1, normal2,                   # normal (positional or keyword)
+    *args,                              # variable positional
+    kw_only1, kw_only2="default",       # keyword-only
+    **kwargs                            # variable keyword
+):
+    pass
+```
+
+
+##### Unpacking in function calls
+
+```text
+def add(a, b, c):
+    return a + b + c
+
+numbers = [1, 2, 3]
+result = add(*numbers)  # same as add(1, 2, 3)
+
+def greet(first, last):
+    print(f"Hello, {first} {last}")
+
+person = {"first": "John", "last": "Doe"}
+greet(**person)  # same as greet(first="John", last="Doe")
+```
+$md$, 13, $json$[{"id":"functions-arguments-q1","type":"mcq","correct":"c"},{"id":"functions-arguments-q2","type":"mcq","correct":"b"},{"id":"functions-arguments-q3","type":"mcq","correct":"b"},{"id":"functions-arguments-q4","type":"mcq","correct":"c"},{"id":"functions-arguments-q5","type":"mcq","correct":"b"},{"id":"functions-arguments-q6","type":"mcq","correct":"b"},{"id":"functions-arguments-q7","type":"mcq","correct":"c"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('2e2f5ef2-cd25-5b63-9cfa-48dd6df53cf7', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '6e2b8cd1-14ce-5765-bcfb-849fc644bafa', 'Scope (LEGB) & Closures', 'notes', 1, $md$Scope questions test whether you can predict which variable a name refers to. Python answers with a fixed lookup rule, and closures are what that rule enables once functions can be returned.
+
+## The LEGB lookup rule
+
+When Python reads a name it searches four scopes in order: **L**ocal (the current function), **E**nclosing (any outer functions), **G**lobal (the module), **B**uilt-in (`len`, `print`, ...). The first match wins, so an inner name *shadows* an outer one without changing it.
+
+```python
+x = "global"
+
+def outer():
+    x = "enclosing"
+
+    def inner():
+        x = "local"
+        print(x)
+
+    inner()
+    print(x)
+
+outer()
+print(x)
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "functions-scope-legb-closures-q1",
+      "type": "mcq",
+      "prompt": "In what order does Python look up a name?",
+      "options": [
+        { "id": "a", "text": "Global, Enclosing, Local, Built-in" },
+        { "id": "b", "text": "Local, Enclosing, Global, Built-in" },
+        { "id": "c", "text": "Built-in, Global, Enclosing, Local" },
+        { "id": "d", "text": "Local, Global, Enclosing, Built-in" }
+      ],
+      "correct": "b",
+      "explanation": "LEGB: Local, Enclosing, Global, Built-in."
+    }
+  ]
+}
+```
+
+## global and nonlocal
+
+Reading an outer name needs no declaration. **Rebinding** one does: `global x` says "this name is the module-level one" and `nonlocal x` says "this name is in the nearest enclosing function". Without them, assignment creates a new local. Note the two keywords target different variables even when names collide.
+
+```python
+x = 100
+
+def outer():
+    x = 10
+    def inner():
+        global x
+        x += 5
+        return x
+    print(inner())
+    print(x)
+
+outer()
+print(x)
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "functions-scope-legb-closures-q2",
+      "type": "mcq",
+      "prompt": "In the example, inner() declares global x and does x += 5. What happens to outer()'s own local x?",
+      "options": [
+        { "id": "a", "text": "It also becomes 15" },
+        { "id": "b", "text": "It is unchanged; only the module-level x was modified" },
+        { "id": "c", "text": "It is deleted" },
+        { "id": "d", "text": "It raises NameError" }
+      ],
+      "correct": "b",
+      "explanation": "global skips the enclosing scope and binds to the module-level name, so outer's local x stays 10."
+    }
+  ]
+}
+```
+
+## The UnboundLocalError trap
+
+If a name is assigned **anywhere** in a function body, the compiler treats it as local for the **whole** body. A read before that assignment does not fall back to the global; it fails.
+
+```python
+x = 5
+
+def foo():
+    print(x)
+    x = 10
+
+try:
+    foo()
+except UnboundLocalError as e:
+    print("UnboundLocalError:", e)
+```
+
+The fix is to rename the local, pass the value in, or declare `global x` if you truly mean to rebind the module variable.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "functions-scope-legb-closures-q3",
+      "type": "mcq",
+      "prompt": "Why does print(x) before x = 10 inside foo() raise UnboundLocalError even though a global x exists?",
+      "options": [
+        { "id": "a", "text": "Globals cannot be read inside functions" },
+        { "id": "b", "text": "The assignment makes x local for the entire function body, decided at compile time" },
+        { "id": "c", "text": "print cannot see variables" },
+        { "id": "d", "text": "Python runs the last line first" }
+      ],
+      "correct": "b",
+      "explanation": "Scope is determined statically per function: any assignment makes the name local throughout, so the early read hits an unset local."
+    }
+  ]
+}
+```
+
+## Closures
+
+A **closure** is an inner function that keeps access to variables of its enclosing function after that function has returned. Each call to the outer function creates a fresh set of those variables, so closures carry private, per-instance state. Use `nonlocal` to rebind them.
+
+```python
+def make_counter():
+    count = 0
+
+    def increment():
+        nonlocal count
+        count += 1
+        return count
+
+    return increment
+
+c1 = make_counter()
+print(c1(), c1())
+c2 = make_counter()
+print(c2())
+print(c1.__closure__[0].cell_contents)
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "functions-scope-legb-closures-q4",
+      "type": "mcq",
+      "prompt": "Two counters come from make_counter(). Calling the first twice and the second once gives which results?",
+      "options": [
+        { "id": "a", "text": "1, 2 then 3" },
+        { "id": "b", "text": "1, 2 then 1" },
+        { "id": "c", "text": "2, 2 then 1" },
+        { "id": "d", "text": "1, 1 then 1" }
+      ],
+      "correct": "b",
+      "explanation": "Every make_counter() call creates a new count variable, so each closure has independent state."
+    },
+    {
+      "id": "functions-scope-legb-closures-q5",
+      "type": "mcq",
+      "prompt": "What happens if increment() does count += 1 without nonlocal?",
+      "options": [
+        { "id": "a", "text": "It works the same" },
+        { "id": "b", "text": "UnboundLocalError, because count is treated as local" },
+        { "id": "c", "text": "It modifies a global count" },
+        { "id": "d", "text": "SyntaxError" }
+      ],
+      "correct": "b",
+      "explanation": "The augmented assignment makes count local to increment, and it is read before being set."
+    }
+  ]
+}
+```
+
+## Factory functions
+
+A function that builds and returns configured functions is a **factory**. The configuration lives in the closure, so you avoid classes or repeated arguments. This is also the mechanism underneath decorators.
+
+```python
+def create_validator(min_val, max_val):
+    def validate(value):
+        return min_val <= value <= max_val
+    return validate
+
+validate_age = create_validator(0, 120)
+print(validate_age(30), validate_age(150))
+
+def make_multiplier(n):
+    return lambda x: x * n
+
+double = make_multiplier(2)
+print(double(5))
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "functions-scope-legb-closures-q6",
+      "type": "mcq",
+      "prompt": "Where does validate_age remember min_val and max_val?",
+      "options": [
+        { "id": "a", "text": "In module-level globals" },
+        { "id": "b", "text": "In the closure cells captured from create_validator's call" },
+        { "id": "c", "text": "In the function's default arguments" },
+        { "id": "d", "text": "In a hidden class instance" }
+      ],
+      "correct": "b",
+      "explanation": "The inner function captures the enclosing variables as closure cells that outlive the outer call."
+    }
+  ]
+}
+```
+
+## Original notes
+
+Your original wording from the Notes vault, kept verbatim for reference.
+
+##### Scope & namespaces (LEGB)
+
+```text
+x = "global"
+
+def outer():
+    x = "enclosing"
+
+    def inner():
+        x = "local"
+        print(x)  # local
+
+    inner()
+    print(x)  # enclosing
+
+outer()
+print(x)  # global
+```
+
+Python resolves names in order: **L**ocal → **E**nclosing → **G**lobal → **B**uilt-in.
+
+Modifying a global from inside a function requires `global`; modifying an enclosing variable from a nested function requires `nonlocal`:
+
+```text
+x = 10
+
+def change_x():
+    global x
+    x = 20
+
+change_x()
+print(x)  # 20
+```
+
+**`UnboundLocalError` trap** — assigning to a name anywhere in a function makes Python treat it as local for the *entire* function body, even before the assignment line:
+
+```text
+x = 5
+def foo():
+    print(x)  # UnboundLocalError: local variable 'x' referenced before assignment
+    x = 10
+foo()
+```
+
+Python sees `x = 10` at compile time and marks `x` local to `foo`, so the earlier `print(x)` tries to read a local that doesn't exist yet — it does **not** fall back to the global. Fix with `global x` if you genuinely need to read-then-reassign the global.
+
+**Same name, different scopes** — `global`/`nonlocal` point at completely different variables that just share a name:
+
+```text
+x = 100                     # global x = 100
+def outer():
+    x = 10                  # local x in outer(), shadows global
+    def inner():
+        global x
+        x += 5               # modifies the GLOBAL x (100 -> 105), zero effect on outer()'s local x
+        return x
+    print(inner())           # 105
+    print(x)                 # 10 — outer's own local x, untouched
+outer()
+print(x)                     # 105 — global, now updated
+```
+
+
+##### Closures
+
+A closure is an inner function that remembers variables from its enclosing scope, even after the outer function has returned.
+
+```text
+def make_counter():
+    count = 0
+
+    def increment():
+        nonlocal count  # modify enclosing variable
+        count += 1
+        return count
+
+    return increment
+
+counter1 = make_counter()
+print(counter1())  # 1
+print(counter1())  # 2
+
+counter2 = make_counter()
+print(counter2())  # 1 (separate counter)
+```
+
+Use cases: factory functions, data hiding, callbacks with state, and the basis for how decorators work.
+$md$, 13, $json$[{"id":"functions-scope-legb-closures-q1","type":"mcq","correct":"b"},{"id":"functions-scope-legb-closures-q2","type":"mcq","correct":"b"},{"id":"functions-scope-legb-closures-q3","type":"mcq","correct":"b"},{"id":"functions-scope-legb-closures-q4","type":"mcq","correct":"b"},{"id":"functions-scope-legb-closures-q5","type":"mcq","correct":"b"},{"id":"functions-scope-legb-closures-q6","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('8cdceb2d-5918-54c9-999d-8bfd80dbaa6f', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '6e2b8cd1-14ce-5765-bcfb-849fc644bafa', 'Lambdas, Return Values, Type Hints & Pure Functions', 'notes', 2, $md$The last pieces of function fundamentals: when a lambda is enough, what a function actually hands back, what type hints do and do not do, and how to write functions that are easy to test.
+
+## Lambda limits
+
+A `lambda` is an anonymous function whose body is a **single expression**. It cannot contain statements (no assignment, `for`, `while`, `return`), and the expression's value is returned automatically. It shines as a throwaway `key=` argument; once you name it or need logic, use `def`.
+
+```python
+students = [{"n": "A", "grade": 80}, {"n": "B", "grade": 65}]
+print(sorted(students, key=lambda s: s["grade"]))
+
+square = lambda x: x ** 2
+print(square(5), square.__name__)
+
+def square_def(x):
+    return x ** 2
+print(square_def.__name__)
+```
+
+Assigning a lambda to a name gains nothing over `def` and loses a useful `__name__` in tracebacks.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "functions-in-practice-q1",
+      "type": "mcq",
+      "prompt": "Which is NOT allowed inside a lambda body?",
+      "options": [
+        { "id": "a", "text": "A conditional expression like x if x > 0 else -x" },
+        { "id": "b", "text": "A function call" },
+        { "id": "c", "text": "An assignment statement or for loop" },
+        { "id": "d", "text": "Arithmetic" }
+      ],
+      "correct": "c",
+      "explanation": "A lambda body is one expression; statements such as assignment, for, and while are not allowed."
+    }
+  ]
+}
+```
+
+## Return values
+
+A function returns exactly **one** object. `return a, b` builds a tuple, which callers usually unpack. A function with no `return`, or a bare `return`, returns `None`. Printing is not returning: a function that only prints gives its caller nothing to use.
+
+```python
+def min_max(numbers):
+    return min(numbers), max(numbers)
+
+low, high = min_max([3, 1, 4])
+print(low, high, min_max([3, 1, 4]))
+
+def greet(name):
+    print(f"Hello, {name}")
+
+result = greet("Ann")
+print(result)
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "functions-in-practice-q2",
+      "type": "mcq",
+      "prompt": "What does result hold after result = greet('Ann'), where greet only prints?",
+      "options": [
+        { "id": "a", "text": "The printed string" },
+        { "id": "b", "text": "An empty string" },
+        { "id": "c", "text": "None" },
+        { "id": "d", "text": "It raises an error" }
+      ],
+      "correct": "c",
+      "explanation": "Without an explicit return, a function implicitly returns None."
+    },
+    {
+      "id": "functions-in-practice-q3",
+      "type": "mcq",
+      "prompt": "What is the type of the value returned by return min(xs), max(xs)?",
+      "options": [
+        { "id": "a", "text": "Two separate values" },
+        { "id": "b", "text": "A list" },
+        { "id": "c", "text": "A tuple" },
+        { "id": "d", "text": "A set" }
+      ],
+      "correct": "c",
+      "explanation": "Comma-separated return values are packed into a single tuple."
+    }
+  ]
+}
+```
+
+## Type hints are not enforced
+
+Annotations like `a: int` and `-> int` are stored on the function but **never checked at runtime**. They serve editors, static checkers (mypy, pyright), and readers. Do not rely on them for validation; validate at the boundary yourself.
+
+```python
+def add(a: int, b: int) -> int:
+    return a + b
+
+print(add("hello", "world"))
+print(add.__annotations__)
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "functions-in-practice-q4",
+      "type": "mcq",
+      "prompt": "What happens when you call add(\"a\", \"b\") for def add(a: int, b: int) -> int?",
+      "options": [
+        { "id": "a", "text": "TypeError at call time" },
+        { "id": "b", "text": "It runs normally and returns 'ab'; only a static checker would complain" },
+        { "id": "c", "text": "SyntaxError at definition" },
+        { "id": "d", "text": "Python converts the strings to int" }
+      ],
+      "correct": "b",
+      "explanation": "Hints are metadata only; the interpreter performs no type enforcement."
+    }
+  ]
+}
+```
+
+## Guard clauses
+
+Handle invalid or trivial cases first and **return early**, leaving the main logic un-nested at the bottom. It flattens pyramids of `if`s and keeps the happy path readable.
+
+```python
+class User:
+    def __init__(self, active, allowed):
+        self.is_active = active
+        self.has_permission = allowed
+
+def process_user(user):
+    if user is None:
+        return None
+    if not user.is_active:
+        return None
+    if not user.has_permission:
+        return None
+    return "processed"
+
+print(process_user(None), process_user(User(True, False)), process_user(User(True, True)))
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "functions-in-practice-q5",
+      "type": "mcq",
+      "prompt": "What is the main benefit of guard clauses?",
+      "options": [
+        { "id": "a", "text": "They make the function run faster" },
+        { "id": "b", "text": "They reject bad input early and avoid deep nesting around the main logic" },
+        { "id": "c", "text": "They replace exceptions entirely" },
+        { "id": "d", "text": "They are required by Python" }
+      ],
+      "correct": "b",
+      "explanation": "Early returns handle edge cases up front so the main path stays flat and readable."
+    }
+  ]
+}
+```
+
+## Pure functions vs mutating input
+
+A **pure** function depends only on its arguments and returns a new value without changing anything else. Mutating an argument is a hidden side effect: the caller's data changes behind its back. Prefer returning a new object; it is also far easier to test.
+
+```python
+def double_in_place(numbers):
+    for i in range(len(numbers)):
+        numbers[i] *= 2
+    return numbers
+
+def double_pure(numbers):
+    return [n * 2 for n in numbers]
+
+a = [1, 2, 3]
+print(double_pure(a), a)
+print(double_in_place(a), a)
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "functions-in-practice-q6",
+      "type": "mcq",
+      "prompt": "After b = double_pure(a) versus b = double_in_place(a), how does the original list a differ?",
+      "options": [
+        { "id": "a", "text": "No difference" },
+        { "id": "b", "text": "double_pure leaves a unchanged; double_in_place changes it" },
+        { "id": "c", "text": "double_in_place leaves a unchanged; double_pure changes it" },
+        { "id": "d", "text": "Both change a" }
+      ],
+      "correct": "b",
+      "explanation": "The pure version builds a new list; the in-place version mutates the caller's list, a side effect."
+    }
+  ]
+}
+```
+
+## Original notes
+
+Your original wording from the Notes vault, kept verbatim for reference.
+
+##### Return statement
+
+```text
+def add(a, b):
+    return a + b
+
+def min_max(numbers):
+    return min(numbers), max(numbers)  # multiple return values as tuple
+
+def divide(a, b):
+    if b == 0:
+        return None  # early return
+    return a / b
+
+def greet(name):
+    print(f"Hello, {name}")
+    # no return statement -> implicitly returns None
+
+def make_multiplier(n):
+    def multiply(x):
+        return x * n
+    return multiply  # returning a function
+
+double = make_multiplier(2)
+print(double(5))  # 10
+```
+
+
+##### Lambda functions
+
+```text
+square = lambda x: x ** 2
+print(square(5))  # 25
+
+# with sorted()
+sorted_students = sorted(students, key=lambda s: s["grade"])
+
+# with map()
+squared = list(map(lambda x: x**2, numbers))
+
+# with filter()
+evens = list(filter(lambda x: x % 2 == 0, numbers))
+```
+
+Limitations: single expression only, no statements (no `if`/`while`/`for` as statements), less readable for complex logic, can't contain an explicit `return`.
+
+
+##### Type hints and docstrings
+
+```text
+def calculate_area(length: float, width: float) -> float:
+    """Calculate the area of a rectangle.
+
+    Args:
+        length: The length of the rectangle.
+        width: The width of the rectangle.
+
+    Returns:
+        The area of the rectangle.
+
+    Raises:
+        ValueError: If length or width is negative.
+    """
+    if length < 0 or width < 0:
+        raise ValueError("Dimensions must be positive")
+    return length * width
+```
+
+Python does **not** enforce type hints at runtime — they're for IDEs, static checkers (mypy, pyright), and documentation only:
+
+```text
+def add(a: int, b: int) -> int:
+    return a + b
+
+result = add("hello", "world")  # "helloworld" — runs fine, no TypeError
+# mypy would flag: Argument 1 to "add" has incompatible type "str"; expected "int"
+```
+
+
+##### Common patterns
+
+**Guard clauses (early returns)** instead of deeply nested `if`s:
+
+```text
+def process_user(user):
+    if user is None:
+        return None
+    if not user.is_active:
+        return None
+    if not user.has_permission:
+        return None
+    return do_something()
+```
+
+**Factory pattern:**
+
+```text
+def create_validator(min_val, max_val):
+    def validate(value):
+        return min_val <= value <= max_val
+    return validate
+
+validate_age = create_validator(0, 120)
+```
+
+**Pure functions vs side effects:**
+
+```text
+# BAD - mutates the input
+def double_list(numbers):
+    for i in range(len(numbers)):
+        numbers[i] *= 2
+    return numbers
+
+# GOOD - returns a new list, leaves input untouched
+def double_list(numbers):
+    return [n * 2 for n in numbers]
+```
+
+**Argument order checklist:** positional-only (before `/`) → regular positional/keyword → `*args` → keyword-only → `**kwargs`.
+
+**Common mistakes to avoid:** forgetting the parentheses when calling; mutable default arguments; too many parameters (more than ~5 usually means refactor); mixing side effects with return values; positional arguments after keyword arguments; undocumented complex functions; functions doing multiple unrelated things.
+$md$, 11, $json$[{"id":"functions-in-practice-q1","type":"mcq","correct":"c"},{"id":"functions-in-practice-q2","type":"mcq","correct":"c"},{"id":"functions-in-practice-q3","type":"mcq","correct":"c"},{"id":"functions-in-practice-q4","type":"mcq","correct":"b"},{"id":"functions-in-practice-q5","type":"mcq","correct":"b"},{"id":"functions-in-practice-q6","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('ba47e257-1a18-5b02-b22f-192526f144e0', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '6e2b8cd1-14ce-5765-bcfb-849fc644bafa', 'Not Returning Dicts & Lists from Functions', 'notes', 3, $md$Python passes arguments by **object reference** — a variable never holds a copy of a list or dict, it holds a reference to the same object everyone else who has that variable also points at. That has a direct, easy-to-miss consequence: a function that mutates a list or dict argument doesn't need to `return` it for the caller to see the change.
+
+## The pattern
+
+```python
+def add_n_copies(items, n):
+    for i in range(n):
+        items.append(n)
+    # no return statement at all
+
+my_list = []
+add_n_copies(my_list, 5)
+print(my_list)  # [5, 5, 5, 5, 5] — mutated in place, no return needed
+```
+
+`items` inside the function and `my_list` outside it are the same object — `id(items) == id(my_list)` is `True` for the whole call. `.append()` mutates that shared object, so the caller's variable reflects the change the instant the function returns (or even before, if another piece of code peeked at `my_list` mid-call from another thread).
+
+## Where this bites people
+
+The mirror image of this rule is the actual interview trap: relying on mutation when you *meant* to return a new value.
+
+```python
+def broken_scale(numbers, factor):
+    numbers = [n * factor for n in numbers]  # rebinds the LOCAL name only
+    return numbers
+
+original = [1, 2, 3]
+result = broken_scale(original, 10)
+print(original)  # [1, 2, 3] — untouched, because the function rebound `numbers`
+print(result)     # [30, 20 ,10]... [10, 20, 30] — the new list, via the return value
+```
+
+`numbers = [...]` inside the function rebinds the local name `numbers` to a brand-new list — it does not touch the object `original` still points to. This is the same reference semantics as the mutation example above, just applied to reassignment instead of `.append()`. The rule that falls out of both examples: if a function **mutates** its argument in place (`.append`, `.update`, `[:] = `, `del items[i]`), the caller sees it with no `return` needed; if a function **rebinds** the parameter name to a new object, the caller sees nothing unless the function returns it.
+
+Being explicit about which one you're doing — and returning a new object rather than silently mutating an argument the caller didn't expect to change — is usually the more maintainable choice, even though Python allows either.
 
 ## Knowledge check
 
@@ -53,39 +2090,3184 @@ In practice, `array` shows up under the hood of other tools (it backs parts of `
 {
   "questions": [
     {
-      "id": "internals-arrays-q1",
+      "id": "internals-no-return-mutable-q1",
       "type": "mcq",
-      "prompt": "What must you specify when creating a Python array.array that a list never requires?",
+      "prompt": "A function does `items.append(n)` on its list argument with no return statement. Does the caller see the change?",
       "options": [
-        { "id": "a", "text": "A fixed maximum length" },
-        { "id": "b", "text": "A type code, fixing every element to the same type" },
-        { "id": "c", "text": "A custom hash function" },
-        { "id": "d", "text": "A thread-safety mode" }
+        { "id": "a", "text": "No, lists are always copied into functions" },
+        { "id": "b", "text": "Yes — the parameter and the caller's variable reference the same list object, so mutating it in place is visible without returning anything" },
+        { "id": "c", "text": "Only if the function is decorated with @mutates" },
+        { "id": "d", "text": "Only in Python 2, not Python 3" }
       ],
       "correct": "b",
-      "explanation": "array.array('i', ...) fixes the element type via a one-character type code; mixing types raises TypeError, unlike a list."
+      "explanation": "Python passes object references. items and the caller's list are the same object, so in-place mutation (append, update, etc.) is visible to the caller immediately, with no return needed."
     },
     {
-      "id": "internals-arrays-q2",
+      "id": "internals-no-return-mutable-q2",
       "type": "mcq",
-      "prompt": "Why is array more memory-efficient than list for a million integers?",
+      "prompt": "Inside a function, `numbers = [n * 2 for n in numbers]` reassigns the parameter. Why doesn't the caller's original list change?",
       "options": [
-        { "id": "a", "text": "It stores raw values in one contiguous block instead of a million separate int objects plus pointers" },
-        { "id": "b", "text": "It compresses the data automatically" },
-        { "id": "c", "text": "It uses a different garbage collector" },
-        { "id": "d", "text": "It stores values on disk instead of in RAM" }
+        { "id": "a", "text": "List comprehensions are read-only and can't reassign" },
+        { "id": "b", "text": "Reassignment rebinds the local name to a new object — it doesn't mutate the object the caller's variable still points to" },
+        { "id": "c", "text": "Python silently copies lists on reassignment" },
+        { "id": "d", "text": "It does change, unless the function returns None" }
       ],
-      "correct": "a",
-      "explanation": "A list holds pointers to individually-allocated int objects; array packs raw values contiguously like a C array, eliminating per-element object overhead."
+      "correct": "b",
+      "explanation": "`numbers = [...]` makes the local name point at a new list; the caller's variable still points at the original object, unaffected. Only in-place mutation (not reassignment) is visible without a return."
     }
   ]
 }
 ```
-$md$, 12, $json$[{"id":"internals-arrays-q1","type":"mcq","correct":"b"},{"id":"internals-arrays-q2","type":"mcq","correct":"a"}]$json$::jsonb)
+$md$, 12, $json$[{"id":"internals-no-return-mutable-q1","type":"mcq","correct":"b"},{"id":"internals-no-return-mutable-q2","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('b56f5cd0-7e03-5c2b-b41f-83b550d4aeae', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '012c80ac-4e8f-5205-8f62-ce79738eaa79', 'Garbage Collection & Circular References', 'notes', 1, $md$CPython's primary memory-management strategy is **reference counting**: every object carries a count of how many things point to it, and the moment that count hits zero, the object is freed immediately — no separate "GC pause" required. `sys.getrefcount` lets you see this counter directly (it always reports one more than you'd expect, because passing the object into `getrefcount` itself creates a temporary reference).
+VALUES ('053dda60-8533-5328-894c-fe7282671bef', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '6e2b8cd1-14ce-5765-bcfb-849fc644bafa', 'Higher-Order Functions', 'notes', 4, $md$A higher-order function either takes a function as an argument, returns a function, or both. Python treats functions as first-class values — they can be stored in variables, passed around, and stored in data structures exactly like any other object — and higher-order functions are what you build once that's true.
+
+## Taking functions as arguments
+
+```python
+def validate(data, *validators):
+    for validator in validators:
+        if not validator(data):
+            return False
+    return True
+
+is_non_empty = lambda x: bool(x)
+is_alpha = lambda x: x.isalpha()
+
+print(validate("Python", is_non_empty, is_alpha))   # True
+print(validate("", is_non_empty, is_alpha))          # False — fails is_non_empty
+print(validate("Py3", is_non_empty, is_alpha))       # False — fails is_alpha
+```
+
+`validate` doesn't know or care what "valid" means — that logic lives entirely in whichever validator functions get passed in. Adding a new rule (`is_lowercase`, `max_length(20)`) never touches `validate` itself; this is the same shape as Django's form validators or FastAPI's dependency checks.
+
+## Returning functions: closures as configuration
+
+The other direction — a function that *returns* a function — lets you bake in configuration once and reuse the specialized result:
+
+```python
+def make_multiplier(factor):
+    def multiplier(x):
+        return x * factor
+    return multiplier
+
+double = make_multiplier(2)
+triple = make_multiplier(3)
+
+print(double(5))   # 10
+print(triple(5))   # 15
+```
+
+`double` and `triple` are both `multiplier` functions, but each closes over its own `factor` — this is a closure, and it's the mechanism behind decorators, middleware chains, and callback factories.
+
+## Why this matters at the senior level
+
+Higher-order functions are how you avoid rewriting the same control flow (loop-and-check, loop-and-transform) for every new rule. Instead, the control flow is written once and parameterized by behavior — the same principle behind `sorted(items, key=...)`, `map`/`filter`, and every decorator you've ever used.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "serialization-data-higher-order-functions-q1",
+      "type": "mcq",
+      "prompt": "What makes validate() in the example a higher-order function?",
+      "options": [
+        { "id": "a", "text": "It has more than one parameter" },
+        { "id": "b", "text": "It accepts other functions (validators) as arguments and calls them" },
+        { "id": "c", "text": "It uses a for loop" },
+        { "id": "d", "text": "It returns a boolean" }
+      ],
+      "correct": "b",
+      "explanation": "A higher-order function takes a function as input or returns one; validate() takes validator functions as *validators and invokes each one, making it higher-order."
+    },
+    {
+      "id": "serialization-data-higher-order-functions-q2",
+      "type": "mcq",
+      "prompt": "In make_multiplier, why do double and triple behave differently even though they share the same multiplier function body?",
+      "options": [
+        { "id": "a", "text": "Each call to make_multiplier creates a closure that remembers its own factor value" },
+        { "id": "b", "text": "Python randomly assigns different factor values" },
+        { "id": "c", "text": "double and triple are actually the same function object" },
+        { "id": "d", "text": "multiplier reads factor from a global variable that changes each time" }
+      ],
+      "correct": "a",
+      "explanation": "Each call to make_multiplier(factor) creates a new closure over that specific factor value, so the returned multiplier function 'remembers' the factor it was created with — 2 for double, 3 for triple."
+    }
+  ]
+}
+```
+$md$, 12, $json$[{"id":"serialization-data-higher-order-functions-q1","type":"mcq","correct":"b"},{"id":"serialization-data-higher-order-functions-q2","type":"mcq","correct":"a"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('32a73115-fde6-522e-9194-4cfad0123eea', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '6e2b8cd1-14ce-5765-bcfb-849fc644bafa', '`filter`', 'notes', 5, $md$`filter` is a built-in higher-order function: give it a predicate (a function returning `True`/`False`) and an iterable, and it returns an iterator yielding only the items the predicate accepted.
+
+## Replacing a manual loop
+
+```python
+numbers = [1, 2, 3, 4, 5, 6]
+
+# The loop version
+evens = []
+for n in numbers:
+    if n % 2 == 0:
+        evens.append(n)
+print(evens)  # [2, 4, 6]
+
+# The filter version — same result, one line
+evens = list(filter(lambda n: n % 2 == 0, numbers))
+print(evens)  # [2, 4, 6]
+```
+
+`filter` doesn't build a list itself — it returns a lazy iterator, so `list(...)` (or a `for` loop, or `next()`) is what actually pulls values through it. That laziness matters on large or infinite sequences: `filter` only evaluates the predicate on an item when something asks for the next result, instead of scanning the whole input up front.
+
+## `filter(None, iterable)`: dropping falsy values
+
+Passing `None` instead of a function tells `filter` to use each item's own truthiness as the predicate — a quick way to drop `None`/`0`/`""`/empty containers from a list:
+
+```python
+raw = [0, "hello", "", None, 42, [], "world"]
+cleaned = list(filter(None, raw))
+print(cleaned)  # ['hello', 42, 'world']
+```
+
+## `filter` vs. a list comprehension
+
+Both work; the choice is style. `[x for x in items if predicate(x)]` reads naturally when there's also a transformation happening (`[x * 2 for x in items if predicate(x)]`), while `filter(predicate, items)` reads cleanly when there's *only* filtering and the predicate already exists as a named function — `filter(is_valid, records)` is more self-documenting than `[r for r in records if is_valid(r)]`.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "serialization-data-filter-q1",
+      "type": "mcq",
+      "prompt": "What does filter(lambda n: n % 2 == 0, numbers) return, before wrapping it in list()?",
+      "options": [
+        { "id": "a", "text": "A list of even numbers" },
+        { "id": "b", "text": "A lazy iterator that yields even numbers only when consumed" },
+        { "id": "c", "text": "A tuple of even numbers" },
+        { "id": "d", "text": "A boolean indicating whether any even numbers exist" }
+      ],
+      "correct": "b",
+      "explanation": "filter() returns a lazy filter object (an iterator) — it doesn't evaluate the predicate on every item until something iterates over it, such as list() or a for loop."
+    },
+    {
+      "id": "serialization-data-filter-q2",
+      "type": "mcq",
+      "prompt": "What does filter(None, [0, \"hello\", \"\", None, 42]) return, as a list?",
+      "options": [
+        { "id": "a", "text": "[0, \"hello\", \"\", None, 42] — unchanged" },
+        { "id": "b", "text": "[\"hello\", 42] — only the truthy values" },
+        { "id": "c", "text": "[] — an empty list, since None isn't a valid predicate" },
+        { "id": "d", "text": "A TypeError is raised" }
+      ],
+      "correct": "b",
+      "explanation": "Passing None as the predicate tells filter to use each item's own truthiness — falsy values like 0, empty string, and None are dropped, leaving only 'hello' and 42."
+    }
+  ]
+}
+```
+$md$, 10, $json$[{"id":"serialization-data-filter-q1","type":"mcq","correct":"b"},{"id":"serialization-data-filter-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('de0f27d6-5b70-55f1-a0bf-9dbcd220b8a2', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '6e2b8cd1-14ce-5765-bcfb-849fc644bafa', 'Walrus Operator (`:=`)', 'notes', 6, $md$The walrus operator (`:=`, officially the **assignment expression**, added in Python 3.8) lets you assign a value to a name *and* produce that value as the result of the expression, in one step. Plain `=` is a statement — it can't appear inside an `if` condition or a comprehension. `:=` can.
+
+## Before and after
+
+```python
+my_dict = {"my_var": 42}
+
+def lookup_v1(d):
+    my_var = d.get("my_var")   # separate assignment statement
+    if my_var:
+        return my_var
+
+def lookup_v2(d):
+    if my_var := d.get("my_var"):  # assign AND test in one expression
+        return my_var
+```
+
+Both functions behave identically — `lookup_v2` just collapses "assign, then check" into a single line. The win compounds once the value being checked is expensive to compute or you'd otherwise have to write it twice.
+
+## Where it earns its keep
+
+```python
+# Without walrus: call the expensive function twice, or add a throwaway line
+data = fetch_data()
+if data:
+    process(data)
+
+# With walrus: compute once, inline in the condition
+if (data := fetch_data()):
+    process(data)
+```
+
+```python
+# Comprehensions: filter on a computed value without a nested function call
+values = [1, 2, 3, 4, 5, 6]
+results = [y for x in values if (y := x * x) > 10]
+print(results)  # [16, 25, 36] — y is both the filter and the yielded value
+```
+
+That comprehension example is the case a plain `=` genuinely cannot express at all: without `:=`, computing `x * x` once and both filtering *and* returning it would require a helper function or a `map`/`filter` chain — the walrus lets a comprehension reuse an intermediate value without recomputing it.
+
+The operator is deliberately minor — it doesn't change what's *possible* in Python, only how tersely a specific pattern (compute-then-check) can be written — but reaching for it in the right spot (a `while` loop reading chunks, a comprehension filtering on a derived value) is a small, reliable signal of comfort with the language.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "internals-walrus-operator-q1",
+      "type": "mcq",
+      "prompt": "What can `if (data := fetch_data()):` do that `data = fetch_data(); if data:` cannot?",
+      "options": [
+        { "id": "a", "text": "Nothing functionally different — it's purely a style preference for this exact case" },
+        { "id": "b", "text": "It skips calling fetch_data() entirely" },
+        { "id": "c", "text": "It makes fetch_data() run asynchronously" },
+        { "id": "d", "text": "It caches the result across multiple calls" }
+      ],
+      "correct": "a",
+      "explanation": "For a simple assign-then-check, := is equivalent to a separate assignment statement followed by a check — its real value shows up where a plain assignment statement isn't syntactically allowed at all, like inside a comprehension's condition."
+    },
+    {
+      "id": "internals-walrus-operator-q2",
+      "type": "mcq",
+      "prompt": "`[y for x in values if (y := x * x) > 10]` — why is the walrus operator necessary here, not just convenient?",
+      "options": [
+        { "id": "a", "text": "A comprehension's filter clause can't contain a plain assignment statement, so without :=, x*x would need to be computed twice or via a helper" },
+        { "id": "b", "text": "List comprehensions don't support arithmetic without it" },
+        { "id": "c", "text": "It's required syntax for any comprehension with a filter" },
+        { "id": "d", "text": "It prevents the comprehension from allocating a new list" }
+      ],
+      "correct": "a",
+      "explanation": "A comprehension's `if` clause is an expression context, not a statement context — plain `=` isn't valid there. The walrus operator is what lets the filter both compute and reuse x*x in one expression."
+    }
+  ]
+}
+```
+$md$, 10, $json$[{"id":"internals-walrus-operator-q1","type":"mcq","correct":"a"},{"id":"internals-walrus-operator-q2","type":"mcq","correct":"a"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+-- Section: Data Structures & Complexity
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('d5c56687-63d6-5979-9b71-094dbc193781', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Data Structures & Complexity', 2, 'Fundamentals')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('a274a895-f337-5b50-bebd-0bb6998b6922', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'd5c56687-63d6-5979-9b71-094dbc193781', 'Built-in Complexity & Comprehension Performance', 'notes', 0, $md$Interviewers love "what is the cost of this line?" Knowing the Big-O of the built-in containers lets you spot an accidental O(n²) at a glance. This lesson covers the cost table and why comprehensions are the idiomatic, faster way to build collections. For how `defaultdict`, `Counter` and `deque` are actually used, see the collections lesson in the Collections & OOP section; here we only care about their costs.
+
+## Complexity of list, dict, set and deque
+
+| Operation | list | dict / set | deque |
+|---|---|---|---|
+| Index access | O(1) | n/a (dict: O(1) by key) | O(n) in the middle |
+| Search (`in`) | O(n) | O(1) average | O(n) |
+| Append at end | O(1) amortized | O(1) average | O(1) |
+| Insert at start | O(n) | n/a | O(1) |
+| Delete | O(n) | O(1) average | O(1) at the ends |
+
+Two things drive almost every answer. A list is a contiguous array, so indexing is instant but inserting or deleting near the front shifts every later element. Dicts and sets are hash tables, so lookup is O(1) *on average* (worst case O(n) with pathological collisions). A `deque` makes both ends cheap but gives up fast random indexing.
+
+```python
+import timeit
+
+items = list(range(50_000))
+as_set = set(items)
+
+slow = timeit.timeit(lambda: 49_999 in items, number=200)
+fast = timeit.timeit(lambda: 49_999 in as_set, number=200)
+print(slow > fast * 10)  # True: list scan is O(n), set lookup is O(1)
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-builtin-complexity-q1",
+      "type": "mcq",
+      "prompt": "Which operation is O(n) on a list but O(1) on a deque?",
+      "options": [
+        { "id": "a", "text": "Indexing the middle element" },
+        { "id": "b", "text": "Inserting or popping at the front" },
+        { "id": "c", "text": "Checking membership with `in`" },
+        { "id": "d", "text": "Appending at the end" }
+      ],
+      "correct": "b",
+      "explanation": "A list must shift every element when the front changes; a deque is built for O(1) operations at both ends."
+    },
+    {
+      "id": "performance-testing-builtin-complexity-q2",
+      "type": "mcq",
+      "prompt": "Why is `x in some_set` O(1) on average while `x in some_list` is O(n)?",
+      "options": [
+        { "id": "a", "text": "Sets keep elements sorted and binary search them" },
+        { "id": "b", "text": "Sets are hash tables, so the element's hash points straight at its slot" },
+        { "id": "c", "text": "Sets cache the last lookup" },
+        { "id": "d", "text": "Lists cannot be compared with `==`" }
+      ],
+      "correct": "b",
+      "explanation": "Hashing jumps directly to the bucket; a list has no index on values, so it scans element by element."
+    }
+  ]
+}
+```
+
+## Why comprehensions beat loops
+
+A comprehension compiles to a specialised loop in CPython. Compared with `for ...: out.append(...)` it executes fewer bytecode instructions per item and skips the repeated attribute lookup and method call for `.append`. The gain is a constant factor, not a better Big-O, but it is real and the code is also shorter.
+
+```python
+def with_loop(n):
+    out = []
+    for x in range(n):
+        out.append(x * x)
+    return out
+
+def with_comprehension(n):
+    return [x * x for x in range(n)]
+
+assert with_loop(1000) == with_comprehension(1000)
+print("same result, comprehension has less per-item overhead")
+```
+
+Avoid comprehensions when the body has side effects (logging, DB writes) or deeply nested conditions; a plain loop is clearer there, and a comprehension used only for side effects builds a throwaway list.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-builtin-complexity-q3",
+      "type": "mcq",
+      "prompt": "Why is a list comprehension usually faster than an equivalent for-loop with `.append`?",
+      "options": [
+        { "id": "a", "text": "It changes the algorithm from O(n²) to O(n)" },
+        { "id": "b", "text": "It runs in parallel threads" },
+        { "id": "c", "text": "It uses fewer bytecode instructions and avoids a method call per item" },
+        { "id": "d", "text": "It skips building the result in memory" }
+      ],
+      "correct": "c",
+      "explanation": "Both are O(n); the comprehension just has lower constant overhead per element."
+    }
+  ]
+}
+```
+
+## Choosing list, set, dict or generator comprehension
+
+All four have the same shape; pick by the result you need.
+
+- **List `[...]`**: ordered, indexable, eager. All items are in memory at once.
+- **Set `{...}`**: de-duplicates and gives O(1) membership; slightly more work per item because each is hashed.
+- **Dict `{k: v ...}`**: builds a mapping cleanly, faster than assigning keys in a loop.
+- **Generator `(...)`**: lazy, constant memory, but single-pass and not indexable; a little slower per item because each value is produced on demand.
+
+```python
+nums = range(10)
+print([n % 3 for n in nums])          # [0, 1, 2, 0, 1, 2, 0, 1, 2, 0]
+print({n % 3 for n in nums})          # {0, 1, 2}
+print({n: n * n for n in range(4)})   # {0: 0, 1: 1, 2: 4, 3: 9}
+
+gen = (n * n for n in range(10**9))   # nothing computed yet
+print(next(gen), next(gen), next(gen))  # 0 1 4
+```
+
+Rule of thumb: need the whole thing more than once, use a list or set; streaming a huge sequence into `sum`, `any` or a file, use a generator.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-builtin-complexity-q4",
+      "type": "mcq",
+      "prompt": "You must total a billion computed values and never reuse them. Which is the best fit?",
+      "options": [
+        { "id": "a", "text": "`sum([f(x) for x in data])`" },
+        { "id": "b", "text": "`sum(f(x) for x in data)`" },
+        { "id": "c", "text": "`sum({f(x) for x in data})`" },
+        { "id": "d", "text": "A list comprehension stored in a variable" }
+      ],
+      "correct": "b",
+      "explanation": "A generator expression streams values one at a time with constant memory. The set version would also change the total by dropping duplicates."
+    }
+  ]
+}
+```
+
+## Original notes
+
+Your original wording from the Notes vault, kept verbatim for reference.
+
+#### Built-in complexity cheat sheet and the collections module
+
+**Time complexity of built-in containers:**
+
+| Operation | List | Dict / Set | Deque |
+|---|---|---|---|
+| Access by index | O(1) | — | O(n) |
+| Search (`in`) | O(n) | O(1) avg | O(n) |
+| Insert at end | O(1) amortized | O(1) avg | O(1) |
+| Insert at start | O(n) | — | O(1) |
+| Delete | O(n) | O(1) avg | O(1) at ends |
+
+**`collections` module — the go-to extensions:**
+
+```text
+from collections import defaultdict, Counter, deque, OrderedDict
+
+# defaultdict — no KeyError on a missing key
+d = defaultdict(list)
+d['a'].append(1)
+
+# Counter — frequency map
+c = Counter("banana")   # Counter({'a': 3, 'n': 2, 'b': 1})
+c.most_common(2)         # [('a', 3), ('n', 2)]
+
+# deque — O(1) push/pop at both ends (unlike list's O(n) at the front)
+q = deque(maxlen=3)
+q.appendleft(0); q.append(4)
+
+# heapq — min-heap on a plain list
+import heapq
+h = [3, 1, 4, 1, 5]
+heapq.heapify(h)
+heapq.heappush(h, 2)
+smallest = heapq.heappop(h)  # 1
+```
+
+
+#### Comprehension performance
+
+Comprehension performance refers to why list, set, dict, and generator comprehensions execute faster and more efficiently than equivalent `for` loops in Python.
+
+**Why comprehensions are faster:**
+- Implemented with dedicated bytecode in CPython
+- Fewer Python bytecode instructions than an equivalent loop
+- Avoid repeated method calls like `.append()`
+- Reduced temporary object creation
+
+```text
+# List comprehension (faster)
+squares = [x*x for x in range(1000)]
+
+# For loop (slower)
+squares = []
+for x in range(1000):
+    squares.append(x*x)
+```
+
+**Types & performance characteristics:**
+
+1. **List comprehension** — fastest way to build lists; eager evaluation (loads all data into memory).
+
+```text
+evens = [x for x in range(1_000_000) if x % 2 == 0]
+```
+
+2. **Set comprehension** — slightly slower than list comprehension; ensures uniqueness.
+
+```text
+unique = {x % 10 for x in range(1000)}
+```
+
+3. **Dict comprehension** — faster than manual dict construction; clean key-value mapping.
+
+```text
+squares = {x: x*x for x in range(1000)}
+```
+
+4. **Generator comprehension** — lazy evaluation, lowest memory usage, slightly slower per item.
+
+```text
+gen = (x*x for x in range(10**9))
+```
+
+**Performance comparison:**
+
+| Method | Speed | Memory |
+|---|---|---|
+| List comprehension | High | High |
+| For loop | Medium | High |
+| Generator | Medium | Low |
+
+**When to use:** simple transformations, filtering collections, creating lists/sets/dicts efficiently, large datasets (use generators).
+
+**When to avoid:** complex business logic, deeply nested conditions, side effects (logging, DB writes).
+
+*Correction: the source database had a second page titled "Explain comprehension performance," but its content was about human reading comprehension (accuracy, retention, prior knowledge) — an unrelated topic, not Python comprehension syntax. That content was dropped rather than merged in, since it didn't belong under this question and would have been actively misleading here.*
+
+Further reading: [Python DS Interview Questions](https://interviewkickstart.com/blogs/interview-questions/python-data-structures-interview-questions)
+$md$, 11, $json$[{"id":"performance-testing-builtin-complexity-q1","type":"mcq","correct":"b"},{"id":"performance-testing-builtin-complexity-q2","type":"mcq","correct":"b"},{"id":"performance-testing-builtin-complexity-q3","type":"mcq","correct":"c"},{"id":"performance-testing-builtin-complexity-q4","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('f2bc1121-1b22-595f-abf2-528d7c2f2f59', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'd5c56687-63d6-5979-9b71-094dbc193781', 'The `collections` Module', 'notes', 1, $md$Interviewers ask about `collections` because it's a quick signal of how much of the standard library you actually use day to day. The module ships specialized container types that replace common `dict`/`list` boilerplate with something faster and more expressive.
+
+## `defaultdict`: no more `if key not in dict`
+
+The classic counting pattern with a plain `dict` requires checking whether a key already exists before you can increment it:
+
+```python
+counts = {}
+for word in ["a", "b", "a", "c", "b", "a"]:
+    if word not in counts:
+        counts[word] = 0
+    counts[word] += 1
+print(counts)
+```
+
+`defaultdict` removes the check entirely by supplying a factory function that runs the first time a missing key is accessed:
+
+```python
+from collections import defaultdict
+
+default_dict = defaultdict(int)
+default_dict['a'] += 1
+default_dict['b'] += 5
+default_dict['a'] += 1
+
+print(dict(default_dict))
+print(default_dict['z'])  # missing key: factory int() -> 0, no KeyError
+```
+
+`defaultdict(int)` uses `int()` (which returns `0`) as the factory; `defaultdict(list)` is equally common for grouping items under keys without an `if key not in groups: groups[key] = []` guard.
+
+## `Counter`: `defaultdict(int)`, specialized
+
+`Counter` is purpose-built for the counting use case and adds convenience methods `defaultdict` doesn't have:
+
+```python
+from collections import Counter
+
+votes = Counter(["python", "go", "python", "rust", "python", "go"])
+print(votes)                # Counter({'python': 3, 'go': 2, 'rust': 1})
+print(votes.most_common(2)) # [('python', 3), ('go', 2)]
+print(votes["java"])        # 0 — missing keys don't raise, same as defaultdict
+```
+
+## `deque`: O(1) at both ends
+
+A plain `list` is backed by a contiguous array, so `list.insert(0, x)` and `list.pop(0)` are O(n) — every remaining element shifts. `deque` (double-ended queue) is backed by a doubly linked structure of blocks, making operations at *both* ends O(1):
+
+```python
+from collections import deque
+
+queue = deque([1, 2, 3])
+queue.appendleft(0)
+queue.append(4)
+print(queue)        # deque([0, 1, 2, 3, 4])
+print(queue.popleft())  # 0 — O(1), unlike list.pop(0)
+```
+
+This is why `deque` is the standard choice for BFS queues and sliding-window problems in coding interviews.
+
+## `OrderedDict`: mostly legacy now
+
+Before Python 3.7, plain `dict` did not guarantee insertion order — `OrderedDict` existed specifically to provide that guarantee. Since 3.7, regular `dict` preserves insertion order as a language guarantee, so `OrderedDict` is mainly useful today for its extra methods (`move_to_end`), not for ordering itself. Knowing this history is itself a common interview trivia question.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "oop-collections-collections-module-q1",
+      "type": "mcq",
+      "prompt": "What does `defaultdict(int)['missing_key']` return, given the key was never set?",
+      "options": [
+        { "id": "a", "text": "It raises a KeyError" },
+        { "id": "b", "text": "0 — int() is called as the factory and the result is stored under that key" },
+        { "id": "c", "text": "None" },
+        { "id": "d", "text": "It raises a TypeError because int is not callable with no arguments" }
+      ],
+      "correct": "b",
+      "explanation": "defaultdict calls its factory function (int() -> 0) the first time a missing key is accessed, stores the result, and returns it — no KeyError."
+    },
+    {
+      "id": "oop-collections-collections-module-q2",
+      "type": "mcq",
+      "prompt": "Why is `deque.popleft()` preferred over `list.pop(0)` for a queue?",
+      "options": [
+        { "id": "a", "text": "deque.popleft() is O(1); list.pop(0) is O(n) because every remaining element must shift" },
+        { "id": "b", "text": "list.pop(0) doesn't exist in Python 3" },
+        { "id": "c", "text": "deque uses less memory per element than list" },
+        { "id": "d", "text": "There is no difference; it's purely a style preference" }
+      ],
+      "correct": "a",
+      "explanation": "list is a contiguous array, so removing the first element shifts everything left — O(n). deque is a doubly linked structure with O(1) operations at both ends."
+    }
+  ]
+}
+```
+$md$, 15, $json$[{"id":"oop-collections-collections-module-q1","type":"mcq","correct":"b"},{"id":"oop-collections-collections-module-q2","type":"mcq","correct":"a"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('1643be0a-43e1-5005-85e6-02e8e24b5337', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'd5c56687-63d6-5979-9b71-094dbc193781', '`heapq`', 'notes', 2, $md$`heapq` gives Python a priority queue built on an ordinary list, kept in **binary heap** order: the smallest element is always at index `0`, and `heappush`/`heappop` maintain that invariant in `O(log n)` instead of the `O(n)` a naive "sort the list every time" approach would cost.
+
+## Why not just sort a list?
+
+A plain list can act as a priority queue if you re-sort it after every insert, but that's `O(n log n)` per insert. A heap only restores the invariant along one path from the leaf to the root (or root to leaf), so both `heappush` and `heappop` are `O(log n)` — the difference matters the moment a scheduler is handling thousands of tasks.
+
+## Building a task scheduler
+
+```python
+import heapq
+
+class TaskScheduler:
+    def __init__(self):
+        self.task_queue = []  # a min-heap of (priority, task_name) tuples
+
+    def add_task(self, priority, task_name):
+        # Lower priority number = executed sooner
+        heapq.heappush(self.task_queue, (priority, task_name))
+
+    def execute_task(self):
+        if not self.task_queue:
+            print("No tasks to execute.")
+            return
+        priority, task_name = heapq.heappop(self.task_queue)
+        print(f"Executing '{task_name}' (priority {priority})")
+
+    def peek_next_task(self):
+        if not self.task_queue:
+            print("No tasks in the queue.")
+            return
+        priority, task_name = self.task_queue[0]
+        print(f"Next up: '{task_name}' (priority {priority})")
+
+
+scheduler = TaskScheduler()
+scheduler.add_task(3, "Write report")
+scheduler.add_task(1, "Fix critical bug")
+scheduler.add_task(2, "Attend team meeting")
+
+scheduler.peek_next_task()   # Fix critical bug is priority 1 — heap keeps it at the front
+scheduler.execute_task()
+scheduler.execute_task()
+scheduler.execute_task()
+scheduler.execute_task()     # empty queue
+```
+
+`heapq` compares the tuples element by element, so `(1, "Fix critical bug")` sorts before `(2, "Attend team meeting")` purely on the first element — ties on priority fall back to comparing the task name, which is usually fine but worth knowing if two priorities can collide and the names aren't comparable (mixing types there raises `TypeError`).
+
+## Where this shows up
+
+Beyond task schedulers: Dijkstra's shortest-path algorithm pops the "closest known node" every iteration, event simulators pop the "next event in time," and `heapq.nlargest`/`heapq.nsmallest` give you the top-k of a collection without fully sorting it — all the same underlying idea of "give me the extreme element next, cheaply, repeatedly."
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "serialization-data-heapq-q1",
+      "type": "mcq",
+      "prompt": "Why is heapq.heappush faster than re-sorting a list after every insert?",
+      "options": [
+        { "id": "a", "text": "It only restores the heap invariant along one path, costing O(log n) instead of O(n log n)" },
+        { "id": "b", "text": "heapq stores data in a hash table instead of a list" },
+        { "id": "c", "text": "It skips maintaining any order at all" },
+        { "id": "d", "text": "Python lists are automatically kept sorted" }
+      ],
+      "correct": "a",
+      "explanation": "A heap only needs to bubble the new element up (or down) one path to the root, an O(log n) operation, versus O(n log n) to fully re-sort the list on every insert."
+    },
+    {
+      "id": "serialization-data-heapq-q2",
+      "type": "mcq",
+      "prompt": "In TaskScheduler, why does heapq.heappush use (priority, task_name) tuples with priority first?",
+      "options": [
+        { "id": "a", "text": "Tuples must always have exactly two elements" },
+        { "id": "b", "text": "heapq compares tuples element-by-element, so ordering by priority first makes the heap sort by priority" },
+        { "id": "c", "text": "task_name needs to come first for heapq to work at all" },
+        { "id": "d", "text": "It's arbitrary and has no effect on ordering" }
+      ],
+      "correct": "b",
+      "explanation": "heapq.heappush/heappop maintain min-heap order using Python's default tuple comparison, which compares the first element first — putting priority first means the heap orders by priority."
+    }
+  ]
+}
+```
+$md$, 12, $json$[{"id":"serialization-data-heapq-q1","type":"mcq","correct":"a"},{"id":"serialization-data-heapq-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('cc682f4a-b1cf-52b9-9e56-2ff6ff2d39a0', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'd5c56687-63d6-5979-9b71-094dbc193781', 'Advanced List Comprehensions', 'notes', 3, $md$A basic list comprehension — `[expr for x in iterable]` — is familiar to every Python developer. Senior-level fluency is knowing the extra clauses comprehensions support, and knowing when a comprehension stops being readable and a plain loop wins.
+
+## Nested loops inside a comprehension
+
+Multiple `for` clauses in one comprehension flatten nested structures, reading left to right exactly like nested `for` loops would:
+
+```python
+matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+flattened = [num for row in matrix for num in row]
+print(flattened)  # [1, 2, 3, 4, 5, 6, 7, 8, 9]
+```
+
+This is equivalent to:
+
+```python
+flattened = []
+for row in matrix:
+    for num in row:
+        flattened.append(num)
+```
+
+## Conditional expressions vs. filtering clauses
+
+These look similar but do different things. An `if/else` *before* the `for` is a conditional expression — it runs for every item and picks between two output values:
+
+```python
+numbers = [1, 2, 3, 4, 5]
+labels = ["even" if n % 2 == 0 else "odd" for n in numbers]
+print(labels)  # ['odd', 'even', 'odd', 'even', 'odd']
+```
+
+An `if` *after* the `for` (no `else`) is a filter — it decides whether the item appears in the output at all:
+
+```python
+numbers = [1, 2, 3, 4, 5, 6]
+evens_only = [n for n in numbers if n % 2 == 0]
+print(evens_only)  # [2, 4, 6]
+```
+
+The two combine: `[n for n in numbers if n % 2 == 0 if n > 2]` chains filters, and `["big" if n > 3 else "small" for n in numbers if n % 2 == 0]` filters first, then labels what survives.
+
+## Calling functions inline
+
+Any expression is valid as the output, including a function call:
+
+```python
+def celsius_to_fahrenheit(c):
+    return (c * 9 / 5) + 32
+
+temperatures_c = [0, 20, 30, 40]
+temperatures_f = [celsius_to_fahrenheit(t) for t in temperatures_c]
+print(temperatures_f)  # [32.0, 68.0, 86.0, 104.0]
+```
+
+## Knowing when to stop
+
+A comprehension is the right call when it stays a single, readable transformation. Once it needs more than one `if`/`for` clause stacked together, or the body has real side effects, a plain loop is more debuggable — you can't put a breakpoint inside a comprehension expression as easily as inside a loop body, and a comprehension that needs a comment to explain what it's doing has already lost the readability it was supposed to buy.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "serialization-data-advanced-list-comprehensions-q1",
+      "type": "mcq",
+      "prompt": "What's the difference between [\"even\" if n % 2 == 0 else \"odd\" for n in numbers] and [n for n in numbers if n % 2 == 0]?",
+      "options": [
+        { "id": "a", "text": "They produce identical output" },
+        { "id": "b", "text": "The first labels every item (conditional expression); the second filters out odd items entirely (filter clause)" },
+        { "id": "c", "text": "The first is invalid syntax" },
+        { "id": "d", "text": "The second labels every item; the first filters" }
+      ],
+      "correct": "b",
+      "explanation": "An if/else before the for is a conditional expression that runs on every item and picks an output value; an if after the for with no else is a filter that decides whether the item is included at all."
+    },
+    {
+      "id": "serialization-data-advanced-list-comprehensions-q2",
+      "type": "mcq",
+      "prompt": "When should a senior engineer prefer a plain for loop over a list comprehension?",
+      "options": [
+        { "id": "a", "text": "Never — comprehensions are always strictly better" },
+        { "id": "b", "text": "When the comprehension would need multiple stacked if/for clauses or real side effects, hurting readability and debuggability" },
+        { "id": "c", "text": "Only when the list has more than 100 items" },
+        { "id": "d", "text": "Comprehensions can't be used with functions, so any function call requires a loop" }
+      ],
+      "correct": "b",
+      "explanation": "Comprehensions are a readability tool. Once one needs multiple conditions/loops stacked together or has side effects, a plain loop is easier to read, debug, and set breakpoints in."
+    }
+  ]
+}
+```
+$md$, 12, $json$[{"id":"serialization-data-advanced-list-comprehensions-q1","type":"mcq","correct":"b"},{"id":"serialization-data-advanced-list-comprehensions-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+-- Section: Object-Oriented Python
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('7250ad7d-5dbf-51ef-a021-a3bc1a7a977d', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Object-Oriented Python', 3, 'Fundamentals')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('625b6756-3411-5780-9654-3580edac40d1', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '7250ad7d-5dbf-51ef-a021-a3bc1a7a977d', 'Encapsulation', 'notes', 0, $md$Encapsulation means hiding an object's internal state and forcing outside code to go through a controlled interface (methods) instead of reaching in and mutating fields directly. It protects invariants — rules that must always hold, like "balance can never go negative."
+
+## Python has no real "private" — it has a convention
+
+Unlike Java's `private` keyword, Python doesn't enforce access restrictions at the language level. Instead it uses naming conventions the whole ecosystem agrees to respect:
+
+- `self.balance` — public, anyone can read/write it
+- `self._balance` — single underscore, "internal use, but I trust you" (a hint, nothing more)
+- `self.__balance` — double underscore, triggers **name mangling**
+
+```python
+class BankAccount:
+    def __init__(self, owner, balance):
+        self.owner = owner
+        self.__balance = balance  # name-mangled to _BankAccount__balance
+
+    def deposit(self, amount):
+        if amount > 0:
+            self.__balance += amount
+
+    def withdraw(self, amount):
+        if 0 < amount <= self.__balance:
+            self.__balance -= amount
+
+    def get_balance(self):
+        return self.__balance  # controlled, read-only access
+
+account = BankAccount("Alice", 1000)
+account.deposit(500)
+account.withdraw(200)
+print(account.get_balance())  # 1300
+
+# The double underscore doesn't make this impossible, just inconvenient:
+print(account._BankAccount__balance)  # 1300 — name mangling, not real privacy
+```
+
+## What name mangling actually does
+
+`self.__balance` inside `BankAccount` is rewritten by the interpreter at compile time to `self._BankAccount__balance`. The point isn't security — it's collision avoidance in inheritance: if a subclass also defines `__balance`, the two don't clash, because each gets mangled with its own class name as the prefix. Treat it as "strongly discourage accidental external access," not "make private."
+
+## Why bother, if it's not enforced?
+
+The `deposit`/`withdraw` methods are the *only* way to change `__balance`, and both validate their input (`amount > 0`, `amount <= self.__balance`) before mutating state. If external code could write `account.balance = -500` directly, that invariant — balance never goes negative — would be trivial to break by accident. Encapsulation isn't about stopping malicious code; it's about making the one correct way to change state the only *easy* way to change state.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "oop-collections-encapsulation-q1",
+      "type": "mcq",
+      "prompt": "What does Python actually do with an attribute named `self.__balance` inside class `BankAccount`?",
+      "options": [
+        { "id": "a", "text": "Makes it truly inaccessible from outside the class, like Java's private" },
+        { "id": "b", "text": "Renames it to `self._BankAccount__balance` (name mangling) — still accessible, just inconvenient" },
+        { "id": "c", "text": "Raises a SyntaxError, since double underscores are reserved" },
+        { "id": "d", "text": "Turns it into a class variable shared by all instances" }
+      ],
+      "correct": "b",
+      "explanation": "Python has no enforced privacy. A double-underscore attribute is name-mangled to `_ClassName__attr`, which discourages accidental access but doesn't prevent it."
+    },
+    {
+      "id": "oop-collections-encapsulation-q2",
+      "type": "mcq",
+      "prompt": "Why does `BankAccount` expose `deposit()`/`withdraw()` methods instead of letting callers set `account.balance` directly?",
+      "options": [
+        { "id": "a", "text": "Direct attribute access is slower in Python" },
+        { "id": "b", "text": "So the class can validate every mutation (e.g. reject a negative withdrawal) and protect its invariants" },
+        { "id": "c", "text": "Because Python doesn't allow public numeric attributes" },
+        { "id": "d", "text": "It's purely a stylistic convention with no functional benefit" }
+      ],
+      "correct": "b",
+      "explanation": "Routing every state change through validated methods is how the class guarantees an invariant (balance never negative) stays true no matter how the object is used."
+    }
+  ]
+}
+```
+$md$, 12, $json$[{"id":"oop-collections-encapsulation-q1","type":"mcq","correct":"b"},{"id":"oop-collections-encapsulation-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('59de5905-92d5-5f7f-9371-28753755e3f0', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '7250ad7d-5dbf-51ef-a021-a3bc1a7a977d', 'Abstraction', 'notes', 1, $md$Abstraction is the design principle of exposing *what* an object does while hiding *how* it does it. Encapsulation (the previous lesson) is the mechanism — hiding fields behind methods; abstraction is the goal — presenting a simple contract so callers never need to know the implementation.
+
+## A contract, not an implementation
+
+In Python, the most common way to express "here is a contract every subclass must fulfill" is an Abstract Base Class:
+
+```python
+from abc import ABC, abstractmethod
+
+class Shape(ABC):
+    """Defines a strict contract for all shapes — no implementation here."""
+
+    @abstractmethod
+    def area(self) -> float:
+        """Return the area of the shape."""
+        ...
+
+    @abstractmethod
+    def perimeter(self) -> float:
+        """Return the perimeter of the shape."""
+        ...
+
+
+class Rectangle(Shape):
+    def __init__(self, width: float, height: float):
+        self.width = width
+        self.height = height
+
+    def area(self) -> float:
+        return self.width * self.height
+
+    def perimeter(self) -> float:
+        return 2 * (self.width + self.height)
+
+
+shape = Rectangle(5, 10)
+print(shape.area())       # 50
+print(shape.perimeter())  # 30
+```
+
+Code that calls `shape.area()` never needs to know it's a `Rectangle` computing `width * height` — it only needs to know every `Shape` has an `area()` method that returns a float. That's the whole point: the caller depends on the *abstraction* (`Shape`), not the *implementation* (`Rectangle`).
+
+## Why this matters at scale
+
+Without abstraction, callers end up branching on concrete types (`if isinstance(shape, Rectangle): ... elif isinstance(shape, Circle): ...`), which means every new shape requires editing every place that branches. With an abstract contract, adding `Triangle(Shape)` requires touching exactly one file — the caller code that already does `shape.area()` works unmodified. This is the same idea behind interfaces in Java/Go and protocols in TypeScript.
+
+## Abstraction vs. encapsulation, side by side
+
+- **Encapsulation**: `BankAccount` hides `__balance` behind `deposit()`/`withdraw()` — a *data hiding* mechanism.
+- **Abstraction**: `Shape` hides *how* area is computed behind a common `area()` signature — a *design* principle about what callers need to know.
+
+They're complementary, and interviewers often use "aren't these the same thing?" as a follow-up to see if you can articulate the distinction rather than just define both terms.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "oop-collections-abstraction-q1",
+      "type": "mcq",
+      "prompt": "What is the main benefit of code calling `shape.area()` on an abstract `Shape` instead of branching on `isinstance(shape, Rectangle)` etc.?",
+      "options": [
+        { "id": "a", "text": "It runs faster because isinstance checks are slow" },
+        { "id": "b", "text": "Adding a new shape type requires no changes to the calling code — it already works through the shared contract" },
+        { "id": "c", "text": "It avoids using the abc module, which is deprecated" },
+        { "id": "d", "text": "It removes the need for a Shape class entirely" }
+      ],
+      "correct": "b",
+      "explanation": "Calling code that depends on the abstract contract (area()) rather than concrete types doesn't need to change when a new shape is added, since every shape implements that same contract."
+    },
+    {
+      "id": "oop-collections-abstraction-q2",
+      "type": "mcq",
+      "prompt": "How does abstraction differ from encapsulation?",
+      "options": [
+        { "id": "a", "text": "They are exactly the same concept with two names" },
+        { "id": "b", "text": "Encapsulation hides an object's internal data behind methods; abstraction hides implementation details behind a shared contract callers rely on" },
+        { "id": "c", "text": "Abstraction only applies to abstract base classes; encapsulation only applies to modules" },
+        { "id": "d", "text": "Encapsulation is a Python-only concept; abstraction applies to all languages" }
+      ],
+      "correct": "b",
+      "explanation": "Encapsulation is the data-hiding mechanism (private-ish attributes plus accessor methods); abstraction is the design principle of exposing a simple contract and hiding the complexity behind it."
+    }
+  ]
+}
+```
+$md$, 12, $json$[{"id":"oop-collections-abstraction-q1","type":"mcq","correct":"b"},{"id":"oop-collections-abstraction-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('e44ac907-4848-5002-abb5-e72fa4c9cb54', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '7250ad7d-5dbf-51ef-a021-a3bc1a7a977d', 'Abstract Base Classes (`abc`)', 'notes', 2, $md$The previous lesson used `ABC` and `@abstractmethod` to illustrate abstraction as a *design idea*. This lesson is about the `abc` module's actual *mechanics* — what it enforces, when it enforces it, and how it differs from just raising `NotImplementedError` by hand.
+
+## The enforcement is real, and it's a `TypeError`
+
+```python
+from abc import ABC, abstractmethod
+
+class Shape(ABC):
+    @abstractmethod
+    def area(self):
+        pass
+
+    @abstractmethod
+    def perimeter(self):
+        pass
+
+    def concrete(self):
+        # ABCs can mix abstract methods with normal, already-implemented ones
+        return "Subscribe"
+
+
+class Rectangle(Shape):
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+
+    def area(self):
+        return self.width * self.height
+
+    def perimeter(self):
+        return 2 * (self.width + self.height)
+
+
+rect = Rectangle(4, 5)
+print(rect.area())       # 20
+print(rect.perimeter())  # 18
+print(rect.concrete())   # Subscribe — inherited, non-abstract method
+```
+
+Try to instantiate `Shape` itself, or a subclass that skips one of the abstract methods, and Python refuses at construction time:
+
+```python
+class IncompleteShape(Shape):
+    def area(self):
+        return 0
+    # perimeter() not implemented
+
+try:
+    shape = IncompleteShape()
+except TypeError as e:
+    print(f"TypeError: {e}")
+    # Can't instantiate abstract class IncompleteShape
+    # without an implementation for abstract method 'perimeter'
+```
+
+## Why this beats hand-rolled `NotImplementedError`
+
+A common alternative is a plain base class where unimplemented methods raise manually:
+
+```python
+class Shape:
+    def area(self):
+        raise NotImplementedError
+```
+
+That "contract" is only checked when `area()` is actually *called* — a subclass that forgets to override it will instantiate just fine and blow up later, at runtime, possibly in production. `ABC` + `@abstractmethod` moves that check to **instantiation time**: `IncompleteShape()` fails immediately, long before any code path calls `.perimeter()`. This is the concrete reason ABCs are considered "safer" than the `NotImplementedError` convention — the failure mode shifts from "surprises in production" to "the object never gets created."
+
+## `ABC` can still hold real logic
+
+`Shape.concrete()` above is not abstract — ABCs are not purely interfaces; they can mix abstract methods (the required contract) with fully implemented ones (shared behavior every subclass gets for free). This is exactly the pattern used throughout Django and FastAPI internals: an abstract base defines the required hooks, plus utility methods built on top of those hooks.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "oop-collections-abstract-base-classes-q1",
+      "type": "mcq",
+      "prompt": "When does Python raise an error if a subclass of an ABC fails to implement one of its `@abstractmethod`s?",
+      "options": [
+        { "id": "a", "text": "At import time, when the subclass is first defined" },
+        { "id": "b", "text": "At instantiation time — trying to construct the incomplete subclass raises TypeError" },
+        { "id": "c", "text": "Only when the missing method is actually called" },
+        { "id": "d", "text": "Never — ABC only issues a warning, not an error" }
+      ],
+      "correct": "b",
+      "explanation": "The abc module blocks instantiation of any concrete class that hasn't implemented every abstract method — the error surfaces immediately at construction, not later when the method happens to be called."
+    },
+    {
+      "id": "oop-collections-abstract-base-classes-q2",
+      "type": "mcq",
+      "prompt": "Why is `ABC` + `@abstractmethod` generally preferred over a base class that raises `NotImplementedError` by hand?",
+      "options": [
+        { "id": "a", "text": "ABC classes run faster at runtime" },
+        { "id": "b", "text": "ABC fails at instantiation time if a method is missing; NotImplementedError only fails when that specific method is later called" },
+        { "id": "c", "text": "NotImplementedError is deprecated in modern Python" },
+        { "id": "d", "text": "ABC classes cannot contain any concrete (non-abstract) methods, which is considered safer" }
+      ],
+      "correct": "b",
+      "explanation": "Hand-rolled NotImplementedError only surfaces the bug when the unimplemented method is actually invoked, which can be much later and in production. ABC enforcement happens the moment the incomplete class is instantiated."
+    }
+  ]
+}
+```
+$md$, 15, $json$[{"id":"oop-collections-abstract-base-classes-q1","type":"mcq","correct":"b"},{"id":"oop-collections-abstract-base-classes-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('e09ee0d5-fed8-5122-bf21-a7e8dbe6dad3', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '7250ad7d-5dbf-51ef-a021-a3bc1a7a977d', 'Inheritance', 'notes', 3, $md$Inheritance lets a subclass reuse a parent's attributes and methods, and override the ones that need to differ. It's the mechanism behind both abstraction (Shape/Rectangle) and polymorphism (next lesson) — but used carelessly it's also the single biggest source of tightly coupled, fragile object hierarchies.
+
+## Overriding a method
+
+```python
+class Animal:
+    def __init__(self, name):
+        self.name = name
+
+    def speak(self):
+        raise NotImplementedError("Subclasses must implement this method")
+
+class Dog(Animal):
+    def speak(self):
+        return f"{self.name} says Woof!"
+
+class Cat(Animal):
+    def speak(self):
+        return f"{self.name} says Meow!"
+
+dog = Dog("Buddy")
+cat = Cat("Kitty")
+print(dog.speak())  # Buddy says Woof!
+print(cat.speak())  # Kitty says Meow!
+```
+
+`Dog` and `Cat` both inherit `__init__` unchanged — `self.name = name` doesn't need to be repeated — but each overrides `speak()` with its own behavior. That's the reuse win: shared logic lives once, in `Animal`, and only the parts that genuinely differ are rewritten.
+
+## The design question: is `Animal` ever instantiated?
+
+`Animal.speak()` raises `NotImplementedError`, which signals "this class is never meant to be used directly — only subclassed." That's a real design decision with two options:
+
+- **The parent is never instantiated on its own** → make it an `ABC` (previous lesson). The interpreter then enforces the contract at instantiation time instead of trusting a comment and a raised exception.
+- **The parent is a genuinely usable, concrete class** (e.g. `Animal` could reasonably have a default `speak()` that returns `"..."`) → plain inheritance is the right tool, no `ABC` needed.
+
+Reaching for `NotImplementedError` in a concrete base class, as the example above does, is the middle ground the handbook material calls out directly: it *works*, but an `ABC` communicates the same intent to both the reader and the interpreter more clearly.
+
+## Where inheritance goes wrong
+
+Deep inheritance chains (`D(C)`, `C(B)`, `B(A)`) couple every subclass to decisions made several classes up, so a change to `A` can silently break `D` in ways that are hard to trace. The common senior-level guidance — "favor composition over inheritance" — isn't a rule against inheritance itself; it's a reminder to reach for it only when there's a genuine **is-a** relationship (`Dog` *is an* `Animal`), and to model **has-a** relationships (`Car` *has an* `Engine`) by holding a reference to an object instead of inheriting from it.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "oop-collections-inheritance-q1",
+      "type": "mcq",
+      "prompt": "In the Animal/Dog/Cat example, why don't Dog and Cat redefine `__init__`?",
+      "options": [
+        { "id": "a", "text": "They can't — subclasses are never allowed to have their own __init__" },
+        { "id": "b", "text": "Because they inherit Animal's __init__ unchanged, which already does everything they need" },
+        { "id": "c", "text": "Python auto-generates a blank __init__ for every subclass" },
+        { "id": "d", "text": "speak() implicitly calls __init__ every time" }
+      ],
+      "correct": "b",
+      "explanation": "Inheritance means a subclass automatically has every method the parent defines, including __init__, unless the subclass explicitly overrides it. Dog and Cat only override speak() because that's the only behavior that differs."
+    },
+    {
+      "id": "oop-collections-inheritance-q2",
+      "type": "mcq",
+      "prompt": "When is 'favor composition over inheritance' guidance actually pointing at?",
+      "options": [
+        { "id": "a", "text": "Inheritance should never be used in Python" },
+        { "id": "b", "text": "Prefer modeling has-a relationships (e.g. Car has an Engine) via composition, and reserve inheritance for genuine is-a relationships" },
+        { "id": "c", "text": "Composition is always faster at runtime than inheritance" },
+        { "id": "d", "text": "Multiple inheritance is banned in modern Python" }
+      ],
+      "correct": "b",
+      "explanation": "Inheritance is the right tool for a real is-a relationship (Dog is an Animal). Modeling has-a relationships as inheritance instead of composition is the classic path to fragile, deeply coupled hierarchies."
+    }
+  ]
+}
+```
+$md$, 12, $json$[{"id":"oop-collections-inheritance-q1","type":"mcq","correct":"b"},{"id":"oop-collections-inheritance-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('377cc8cf-f45e-505f-a13d-9e2ba01efcf3', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '7250ad7d-5dbf-51ef-a021-a3bc1a7a977d', 'Composition vs Inheritance, isinstance() vs type(), Overriding vs Overloading', 'notes', 4, $md$Three short questions that come up in almost every OOP interview round: when to build a class out of other objects, how to check types correctly, and what "overloading" means in a language that has none.
+
+## Composition: has-a design
+
+Inheritance models "is-a" (`Dog` is an `Animal`); composition models "has-a" (`Car` has an `Engine`). With composition the outer class holds another object and delegates to it. The parts are loosely coupled: you can swap the engine, test the car with a fake engine, and change `Engine` internals without touching a class hierarchy. The rule of thumb: if you are inheriting only to reuse code and the "is-a" sentence sounds wrong, compose instead.
+
+```python
+class Engine:
+    def start(self):
+        return "Engine started"
+
+class ElectricMotor:
+    def start(self):
+        return "Motor humming"
+
+class Car:
+    def __init__(self, engine):
+        self.engine = engine  # injected: Car HAS-A engine
+
+    def drive(self):
+        return self.engine.start()
+
+print(Car(Engine()).drive())
+print(Car(ElectricMotor()).drive())
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "exceptions-oop-composition-vs-inheritance-q1",
+      "type": "mcq",
+      "prompt": "Which is the best reason to prefer composition over inheritance?",
+      "options": [
+        { "id": "a", "text": "Parts can be swapped or faked without changing a class hierarchy, so coupling is looser" },
+        { "id": "b", "text": "Composition is faster at runtime" },
+        { "id": "c", "text": "Python forbids inheriting from more than one class" },
+        { "id": "d", "text": "Composition automatically exposes the inner object's methods" }
+      ],
+      "correct": "a",
+      "explanation": "A has-a relationship delegates to an injectable collaborator, avoiding rigid, deep hierarchies; delegation methods must still be written explicitly."
+    }
+  ]
+}
+```
+
+## isinstance() vs type()
+
+`type(x) == C` is an exact match: a subclass instance fails it. `isinstance(x, C)` also accepts subclasses (and tuples of classes), so it respects polymorphism and is what you want almost always. Use `type(x) is C` only when you truly need the exact class.
+
+```python
+class Animal:
+    pass
+
+class Dog(Animal):
+    pass
+
+d = Dog()
+print(type(d) == Animal)
+print(isinstance(d, Animal))
+print(isinstance(d, (int, Animal)))
+print(isinstance(True, int))  # bool subclasses int
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "exceptions-oop-composition-vs-inheritance-q2",
+      "type": "mcq",
+      "prompt": "Given `class Dog(Animal)` and `d = Dog()`, what do `type(d) == Animal` and `isinstance(d, Animal)` return?",
+      "options": [
+        { "id": "a", "text": "True and True" },
+        { "id": "b", "text": "False and True" },
+        { "id": "c", "text": "True and False" },
+        { "id": "d", "text": "False and False" }
+      ],
+      "correct": "b",
+      "explanation": "type() compares the exact class (Dog is not Animal); isinstance() walks the inheritance chain."
+    },
+    {
+      "id": "exceptions-oop-composition-vs-inheritance-q3",
+      "type": "mcq",
+      "prompt": "What does `isinstance(True, int)` return, and why?",
+      "options": [
+        { "id": "a", "text": "False, because True is a bool" },
+        { "id": "b", "text": "True, because bool is a subclass of int" },
+        { "id": "c", "text": "It raises TypeError" },
+        { "id": "d", "text": "True, because isinstance ignores subclasses" }
+      ],
+      "correct": "b",
+      "explanation": "bool inherits from int, so isinstance accepts it; type(True) == int would be False."
+    }
+  ]
+}
+```
+
+## Overriding vs overloading
+
+**Overriding**: a subclass redefines a parent's method with the same name and signature; Python supports it directly and the subclass version wins. **Overloading**: several methods with the same name but different parameter lists. Python does not support it: defining a name twice just rebinds it to the last definition.
+
+```python
+class Math:
+    def add(self, a, b):
+        return a + b
+
+    def add(self, a, b, c):  # replaces the first add
+        return a + b + c
+
+try:
+    Math().add(1, 2)
+except TypeError as e:
+    print(e)
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "exceptions-oop-composition-vs-inheritance-q4",
+      "type": "mcq",
+      "prompt": "What happens if a Python class defines `add(self, a, b)` and later `add(self, a, b, c)`?",
+      "options": [
+        { "id": "a", "text": "Python picks the right one by argument count" },
+        { "id": "b", "text": "The second definition replaces the first; only the 3-argument version exists" },
+        { "id": "c", "text": "SyntaxError at class creation" },
+        { "id": "d", "text": "Both exist and are tried in order" }
+      ],
+      "correct": "b",
+      "explanation": "A class body is ordinary assignment; the second def rebinds the name, so there is no overloading by signature."
+    }
+  ]
+}
+```
+
+## Simulating overloading
+
+Three idioms cover most needs. Default arguments handle optional parameters; `*args` handles a variable count; `functools.singledispatch` dispatches on the type of the first argument, the closest thing to real overloading.
+
+```python
+from functools import singledispatch
+
+def add(a, b=0, c=0):
+    return a + b + c
+
+def total(*nums):
+    return sum(nums)
+
+@singledispatch
+def describe(x):
+    return f"object: {x}"
+
+@describe.register
+def _(x: int):
+    return f"int: {x}"
+
+@describe.register
+def _(x: list):
+    return f"list of {len(x)}"
+
+print(add(1, 2), total(1, 2, 3, 4))
+print(describe(5), describe([1, 2]), describe("s"))
+```
+
+For methods inside a class use `functools.singledispatchmethod`.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "exceptions-oop-composition-vs-inheritance-q5",
+      "type": "mcq",
+      "prompt": "Which standard-library tool dispatches a function to different implementations based on the type of its first argument?",
+      "options": [
+        { "id": "a", "text": "functools.partial" },
+        { "id": "b", "text": "functools.singledispatch" },
+        { "id": "c", "text": "functools.lru_cache" },
+        { "id": "d", "text": "typing.overload at runtime" }
+      ],
+      "correct": "b",
+      "explanation": "singledispatch registers per-type implementations; typing.overload is only a hint for type checkers and has no runtime effect."
+    }
+  ]
+}
+```
+
+## Original notes
+
+Your original wording from the Notes vault, kept verbatim for reference.
+
+#### Composition vs inheritance
+
+**Inheritance** — "is-a" relationship (`Dog` IS-A `Animal`). **Composition** — "has-a" relationship (`Car` HAS-A `Engine`). Prefer composition when the relationship is "has-a" — it's more flexible and avoids deep inheritance chains.
+
+```text
+# Composition — loosely coupled
+class Engine:
+    def start(self):
+        return "Engine started"
+
+class Car:
+    def __init__(self):
+        self.engine = Engine()  # Car HAS-A Engine
+
+    def drive(self):
+        return self.engine.start()
+```
+
+
+##### `isinstance()` vs `type()`
+
+```text
+class Animal: pass
+class Dog(Animal): pass
+
+d = Dog()
+print(type(d) == Animal)     # False — type() is exact match only
+print(isinstance(d, Animal)) # True — isinstance checks the inheritance chain
+```
+
+> Use `isinstance()` in most cases — it respects inheritance.
+
+
+##### Method overriding vs overloading
+
+- **Overriding** — subclass defines a method with the same name as parent. Python supports this natively.
+- **Overloading** — same method name with different parameters. Python does NOT support this natively; simulate it with default arguments or `*args`.
+
+```text
+class Math:
+    def add(self, a, b=0, c=0):
+        return a + b + c
+
+Math().add(1, 2)  # 3 — simulated overloading
+```
+$md$, 12, $json$[{"id":"exceptions-oop-composition-vs-inheritance-q1","type":"mcq","correct":"a"},{"id":"exceptions-oop-composition-vs-inheritance-q2","type":"mcq","correct":"b"},{"id":"exceptions-oop-composition-vs-inheritance-q3","type":"mcq","correct":"b"},{"id":"exceptions-oop-composition-vs-inheritance-q4","type":"mcq","correct":"b"},{"id":"exceptions-oop-composition-vs-inheritance-q5","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('0f12c51a-0720-5715-b0aa-0222af498111', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '7250ad7d-5dbf-51ef-a021-a3bc1a7a977d', 'Polymorphism', 'notes', 5, $md$Polymorphism means "the same interface, different behavior" — code written against a shared method name works correctly no matter which concrete type actually gets passed in, as long as that type implements the method.
+
+## Same call, different behavior per type
+
+```python
+class Shape:
+    def area(self):
+        raise NotImplementedError("Subclasses must implement this method")
+
+class Rectangle(Shape):
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+
+    def area(self):
+        return self.width * self.height
+
+class Circle(Shape):
+    def __init__(self, radius):
+        self.radius = radius
+
+    def area(self):
+        return 3.14159 * self.radius * self.radius
+
+def print_area(shape):
+    print(f"The area is {shape.area()}")
+
+rectangle = Rectangle(5, 10)
+circle = Circle(7)
+
+print_area(rectangle)  # The area is 50
+print_area(circle)     # The area is 153.93899999999996
+```
+
+`print_area()` has no `if isinstance(shape, Rectangle)` branch anywhere. It calls `shape.area()` and trusts that whatever object it received knows how to answer that call correctly. Adding `Triangle(Shape)` tomorrow requires zero changes to `print_area()`.
+
+## Duck typing: Python doesn't even require the shared base class
+
+Because Python resolves `shape.area()` at call time by looking up `area` on the object's actual type — not by checking a declared type upfront — inheritance from `Shape` isn't strictly required for `print_area()` to work:
+
+```python
+class Square:  # doesn't inherit from Shape at all
+    def __init__(self, side):
+        self.side = side
+
+    def area(self):
+        return self.side ** 2
+
+print_area(Square(4))  # The area is 16 — works, no shared base class
+```
+
+"If it walks like a duck and quacks like a duck, it's a duck": `print_area()` doesn't care what `Square` *is*, only that it *has* an `area()` method. This is polymorphism without a formal interface — a hallmark of how dynamically typed languages differ from statically typed ones, and a near-guaranteed interview follow-up once you mention polymorphism.
+
+## Why it matters
+
+Without polymorphism, adding a new shape means finding every function that branches on shape type and adding a new branch to each one — a maintenance burden that grows with every new type. With it, new types are additive: write the class, implement the shared method, done.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "oop-collections-polymorphism-q1",
+      "type": "mcq",
+      "prompt": "What does `print_area(shape)` need to know about `shape` in order to work correctly?",
+      "options": [
+        { "id": "a", "text": "Its exact class name, checked via isinstance" },
+        { "id": "b", "text": "Only that it has an area() method that returns a number — nothing about its concrete type" },
+        { "id": "c", "text": "That it inherits from a specific base class named Shape" },
+        { "id": "d", "text": "Its memory address" }
+      ],
+      "correct": "b",
+      "explanation": "Polymorphic code calls the shared method and trusts the object to implement it correctly — it doesn't need to know or check the object's concrete type."
+    },
+    {
+      "id": "oop-collections-polymorphism-q2",
+      "type": "mcq",
+      "prompt": "Why does `print_area(Square(4))` work even though `Square` doesn't inherit from `Shape`?",
+      "options": [
+        { "id": "a", "text": "It doesn't — this would raise an AttributeError" },
+        { "id": "b", "text": "Python's duck typing: print_area only needs shape.area() to exist and be callable, regardless of the object's class hierarchy" },
+        { "id": "c", "text": "Square is automatically registered as a subclass of Shape" },
+        { "id": "d", "text": "print_area() silently converts Square into a Rectangle first" }
+      ],
+      "correct": "b",
+      "explanation": "Python looks up area on the object's actual type at call time — there's no compile-time interface check, so any object with a matching method works, shared base class or not."
+    }
+  ]
+}
+```
+$md$, 12, $json$[{"id":"oop-collections-polymorphism-q1","type":"mcq","correct":"b"},{"id":"oop-collections-polymorphism-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('3b4b225b-88a2-5fd7-9d54-ff6d8e9e7c79', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '7250ad7d-5dbf-51ef-a021-a3bc1a7a977d', '`@property`: Getters, Setters & Validation', 'notes', 6, $md$Python has no `get_x()`/`set_x()` convention because `@property` lets a plain attribute grow logic later without changing how callers use it. Callers write `person.age`; the class decides what happens behind it.
+
+## Getter: a method that reads like an attribute
+
+Decorating a method with `@property` makes `obj.name` call it with no parentheses. Store the real value in a "protected" attribute (`_age`) and expose the property under the public name. A property with no setter is read-only, which is the idiomatic way to expose computed or immutable values.
+
+```python
+class Circle:
+    def __init__(self, r):
+        self.r = r
+
+    @property
+    def area(self):
+        return 3.14159 * self.r ** 2
+
+c = Circle(2)
+print(c.area)
+try:
+    c.area = 5
+except AttributeError as e:
+    print("read-only:", type(e).__name__)
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "exceptions-oop-property-q1",
+      "type": "mcq",
+      "prompt": "What happens when you assign to a property defined with only a getter?",
+      "options": [
+        { "id": "a", "text": "The value is stored silently on the instance" },
+        { "id": "b", "text": "AttributeError is raised, making it read-only" },
+        { "id": "c", "text": "The getter is called with the new value" },
+        { "id": "d", "text": "The property is converted into a normal attribute" }
+      ],
+      "correct": "b",
+      "explanation": "A property is a data descriptor; without a setter, assignment raises AttributeError."
+    }
+  ]
+}
+```
+
+## Setter: validate on assignment
+
+Add a setter with `@<name>.setter`. It runs on every `obj.attr = value`, including inside `__init__` if you assign through the property (not the underscore field), so the invariant holds from construction onward.
+
+```python
+class Person:
+    def __init__(self, age):
+        self.age = age  # goes through the setter, so validation applies
+
+    @property
+    def age(self):
+        return self._age
+
+    @age.setter
+    def age(self, val):
+        if val < 0:
+            raise ValueError("Age must be >= 0")
+        self._age = val
+
+p = Person(30)
+p.age = 31
+print(p.age)
+try:
+    Person(-1)
+except ValueError as e:
+    print(e)
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "exceptions-oop-property-q2",
+      "type": "mcq",
+      "prompt": "Why does `__init__` assign `self.age = age` rather than `self._age = age`?",
+      "options": [
+        { "id": "a", "text": "So the setter's validation also runs when the object is constructed" },
+        { "id": "b", "text": "Because underscore attributes cannot be set in __init__" },
+        { "id": "c", "text": "It is faster" },
+        { "id": "d", "text": "Because the getter requires it" }
+      ],
+      "correct": "a",
+      "explanation": "Going through the property applies the same validation to the initial value; writing _age directly would bypass it."
+    }
+  ]
+}
+```
+
+## Why properties beat get/set methods
+
+You can start with a plain public attribute and later convert it into a property (adding validation, caching or computation) without breaking any caller, because the access syntax is identical. That is why Python style says: no getters and setters until you need logic. It also gives encapsulation without a `private` keyword, since writes funnel through code you control. Under the hood `property` is a descriptor implementing `__get__`/`__set__`, and an optional `@x.deleter` handles `del obj.x`.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "exceptions-oop-property-q3",
+      "type": "mcq",
+      "prompt": "What is the main advantage of starting with a plain attribute and switching to @property later?",
+      "options": [
+        { "id": "a", "text": "Callers' code (`obj.x`) stays unchanged while the class gains validation or computation" },
+        { "id": "b", "text": "Properties are stored in a faster slot" },
+        { "id": "c", "text": "It makes the attribute truly private" },
+        { "id": "d", "text": "It avoids needing __init__" }
+      ],
+      "correct": "a",
+      "explanation": "Property access syntax matches attribute access, so adding logic is backward compatible, unlike Java-style getX()/setX()."
+    }
+  ]
+}
+```
+
+## Original notes
+
+Your original wording from the Notes vault, kept verbatim for reference.
+
+##### `@property` — getter/setter with validation
+
+```text
+class Person:
+    def __init__(self, age):
+        self._age = age
+
+    @property
+    def age(self):             # getter — accessed like an attribute: person.age
+        return self._age
+
+    @age.setter
+    def age(self, val):        # setter — validated on assignment: person.age = val
+        if val < 0:
+            raise ValueError("Age must be >= 0")
+        self._age = val
+```
+
+`@property` turns a method into an attribute-like accessor, so callers write `person.age` instead of `person.get_age()`, while the setter still lets you validate or transform the value on assignment — the key mechanism for encapsulation in Python (see below), since there's no `private` keyword to enforce it otherwise.
+$md$, 10, $json$[{"id":"exceptions-oop-property-q1","type":"mcq","correct":"b"},{"id":"exceptions-oop-property-q2","type":"mcq","correct":"a"},{"id":"exceptions-oop-property-q3","type":"mcq","correct":"a"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('6bee287b-e3df-58d1-b78c-e20c80ccbc29', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '7250ad7d-5dbf-51ef-a021-a3bc1a7a977d', 'Mixins', 'notes', 7, $md$A mixin is a small class that packages one reusable behavior and is added to other classes through multiple inheritance. It is not meant to be instantiated on its own and does not describe what something *is*, only something extra it can *do*.
+
+## What a mixin looks like
+
+Name it with a `Mixin` suffix, give it methods only, and list it among the bases of the classes that need it.
+
+```python
+class LogMixin:
+    def log(self, msg):
+        print(f"[{self.__class__.__name__}] {msg}")
+
+class SerializeMixin:
+    def to_dict(self):
+        return dict(vars(self))
+
+class Base:
+    def __init__(self, name):
+        self.name = name
+
+class User(LogMixin, SerializeMixin, Base):
+    pass
+
+u = User("ann")
+u.log("hello")
+print(u.to_dict())
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "exceptions-oop-mixins-q1",
+      "type": "mcq",
+      "prompt": "What is a mixin?",
+      "options": [
+        { "id": "a", "text": "A class that adds reusable methods to other classes via multiple inheritance and is not used on its own" },
+        { "id": "b", "text": "A function that merges two dictionaries" },
+        { "id": "c", "text": "A class that must define __init__ to share state" },
+        { "id": "d", "text": "A special keyword for abstract classes" }
+      ],
+      "correct": "a",
+      "explanation": "Mixins are small single-purpose classes composed into others through inheritance to share behavior."
+    }
+  ]
+}
+```
+
+## Rules and ordering
+
+Place mixins before the main base class so their methods take priority in the lookup order, and Python resolves left to right. A mixin that wants to extend a method should call `super()` so the chain continues.
+
+```python
+class Base:
+    def hello(self):
+        return "base"
+
+class ShoutMixin:
+    def hello(self):
+        return super().hello().upper()
+
+class Good(ShoutMixin, Base):
+    pass
+
+class Bad(Base, ShoutMixin):
+    pass
+
+print(Good().hello())  # mixin first: wraps Base
+print(Bad().hello())   # Base wins, mixin never runs
+print([c.__name__ for c in Good.__mro__])
+```
+
+Other conventions: avoid `__init__` and shared state in mixins (they should rely only on the host class's attributes), and keep each mixin to one concern.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "exceptions-oop-mixins-q2",
+      "type": "mcq",
+      "prompt": "Why list mixins before the main base class, as in `class User(LogMixin, Base)`?",
+      "options": [
+        { "id": "a", "text": "Lookup goes left to right, so mixin methods override the base's and can wrap them with super()" },
+        { "id": "b", "text": "Python requires abstract classes to come last" },
+        { "id": "c", "text": "It makes the mixin instantiable" },
+        { "id": "d", "text": "The order has no effect" }
+      ],
+      "correct": "a",
+      "explanation": "The MRO follows base order, so earlier classes take precedence; putting the base first would shadow the mixin."
+    },
+    {
+      "id": "exceptions-oop-mixins-q3",
+      "type": "mcq",
+      "prompt": "Which is a good guideline for writing a mixin?",
+      "options": [
+        { "id": "a", "text": "Give it its own __init__ with state for every host class" },
+        { "id": "b", "text": "Keep it stateless, single-purpose, and rely on the host class's attributes" },
+        { "id": "c", "text": "Make it inherit from several unrelated mixins" },
+        { "id": "d", "text": "Use it to share constructor logic" }
+      ],
+      "correct": "b",
+      "explanation": "Mixins that manage state or constructors make multiple-inheritance chains fragile; keep them behavior-only."
+    }
+  ]
+}
+```
+
+## When to use a mixin
+
+Good fits: logging, caching, serialization, comparison helpers, behavior reused across unrelated classes while keeping hierarchies flat. Poor fits: sharing constructor logic, holding state, or anything better expressed as composition. If the behavior needs real collaborators, hold an object instead.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "exceptions-oop-mixins-q4",
+      "type": "mcq",
+      "prompt": "Which task suits a mixin best?",
+      "options": [
+        { "id": "a", "text": "Adding a to_dict() serialization method to many unrelated classes" },
+        { "id": "b", "text": "Sharing complex constructor setup between classes" },
+        { "id": "c", "text": "Managing a shared database connection pool" },
+        { "id": "d", "text": "Replacing every has-a relationship" }
+      ],
+      "correct": "a",
+      "explanation": "Stateless cross-cutting behavior like serialization or logging is the classic mixin use case."
+    }
+  ]
+}
+```
+
+## Original notes
+
+Your original wording from the Notes vault, kept verbatim for reference.
+
+#### Mixins
+
+A class that adds methods to other classes via multiple inheritance. Not meant to be used alone.
+
+##### Basic syntax
+
+```text
+class LogMixin:
+    def log(self, msg):
+        print(f"[{self.__class__.__name__}] {msg}")
+
+class User(LogMixin):
+    pass
+
+User().log("hello")  # [User] hello
+```
+
+##### Rules
+
+- Named with `Mixin` suffix by convention.
+- Avoid `__init__` — don't manage state.
+- Place mixins before the main base class.
+- A class can use multiple mixins.
+
+##### Multiple mixins
+
+```text
+class User(LogMixin, SerializeMixin, Base):
+    pass
+```
+
+##### MRO — Method Resolution Order
+
+Python looks up methods left to right.
+
+```text
+class MyClass(MixinB, MixinA, Base):
+    pass
+
+print(MyClass.__mro__)  # MyClass -> MixinB -> MixinA -> Base -> object
+```
+
+##### When to use
+
+| Use | Avoid |
+|---|---|
+| Logging, caching, serialization | Sharing `__init__` logic |
+| Reusable behavior across classes | Managing shared state |
+| Keeping inheritance flat | Deep inheritance chains |
+$md$, 10, $json$[{"id":"exceptions-oop-mixins-q1","type":"mcq","correct":"a"},{"id":"exceptions-oop-mixins-q2","type":"mcq","correct":"a"},{"id":"exceptions-oop-mixins-q3","type":"mcq","correct":"b"},{"id":"exceptions-oop-mixins-q4","type":"mcq","correct":"a"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('027353fc-0de4-52c8-a442-b0fc1832463c', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '7250ad7d-5dbf-51ef-a021-a3bc1a7a977d', '`@staticmethod` and `@classmethod`', 'notes', 8, $md$A regular method automatically receives the instance as its first argument (`self`). `@staticmethod` and `@classmethod` change what — if anything — gets passed in automatically, and each exists for a different reason.
+
+## `@classmethod`: receives the class, not the instance
+
+```python
+class BankAccount:
+    interest_rate = 0.03  # class-level default, shared unless overridden per-instance
+
+    def __init__(self, account_type, balance):
+        self.account_type = account_type
+        self.balance = balance
+
+    @staticmethod
+    def is_valid_transaction(amount):
+        """No self, no cls — behaves like a plain function namespaced under the class."""
+        return amount > 0
+
+    @classmethod
+    def create_savings_account(cls, initial_deposit):
+        """Factory method: cls is the class itself (BankAccount, or a subclass)."""
+        if not cls.is_valid_transaction(initial_deposit):
+            raise ValueError("Initial deposit must be positive.")
+        return cls("Savings", initial_deposit)  # cls(...) — works for subclasses too
+
+    @classmethod
+    def create_business_account(cls, initial_deposit):
+        if not cls.is_valid_transaction(initial_deposit):
+            raise ValueError("Initial deposit must be positive.")
+        account = cls("Business", initial_deposit)
+        account.interest_rate = 0.05  # business accounts get a higher rate
+        return account
+
+savings = BankAccount.create_savings_account(1000)
+business = BankAccount.create_business_account(5000)
+
+print(f"Savings: ${savings.balance}, rate {savings.interest_rate}")   # $1000, 0.03
+print(f"Business: ${business.balance}, rate {business.interest_rate}") # $5000, 0.05
+```
+
+`create_savings_account` and `create_business_account` are **factory methods** — alternate, named constructors. This is the single most common real-world use of `@classmethod`: `BankAccount.create_savings_account(1000)` reads far more clearly at the call site than `BankAccount("Savings", 1000)`, where the string `"Savings"` gives no hint what it means without reading the constructor.
+
+## `@staticmethod`: no automatic argument at all
+
+`is_valid_transaction` doesn't need `self` (it doesn't touch instance state) or `cls` (it doesn't touch class state) — it's pure logic that happens to belong conceptually to `BankAccount`. Marking it `@staticmethod` means it can be called on the class directly (`BankAccount.is_valid_transaction(-50)`) or on an instance (`account.is_valid_transaction(100)`) with identical behavior, since nothing is auto-injected either way.
+
+## Why `cls` (not the class name) inside a classmethod
+
+`create_savings_account` calls `cls(...)`, not `BankAccount(...)`, specifically so that if a subclass `PremiumAccount(BankAccount)` calls `PremiumAccount.create_savings_account(1000)`, `cls` is `PremiumAccount` — the factory correctly returns a `PremiumAccount` instance, not a plain `BankAccount`. Hardcoding the class name would silently break for every subclass.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "iterators-testing-staticmethod-classmethod-q1",
+      "type": "mcq",
+      "prompt": "What is automatically passed as the first argument to a method decorated with `@staticmethod`?",
+      "options": [
+        { "id": "a", "text": "self, the instance" },
+        { "id": "b", "text": "cls, the class" },
+        { "id": "c", "text": "Nothing — no argument is auto-injected" },
+        { "id": "d", "text": "Both self and cls" }
+      ],
+      "correct": "c",
+      "explanation": "@staticmethod strips the automatic first-argument injection entirely — it behaves like a plain function that happens to live in the class's namespace."
+    },
+    {
+      "id": "iterators-testing-staticmethod-classmethod-q2",
+      "type": "mcq",
+      "prompt": "Why does `create_savings_account` call `cls(...)` instead of `BankAccount(...)`?",
+      "options": [
+        { "id": "a", "text": "cls(...) is just a stylistic preference with no functional difference" },
+        { "id": "b", "text": "So that if a subclass inherits this classmethod, calling it on the subclass returns an instance of the subclass, not BankAccount" },
+        { "id": "c", "text": "BankAccount(...) would raise a NameError inside the class body" },
+        { "id": "d", "text": "cls(...) is required syntax for any method that returns an instance" }
+      ],
+      "correct": "b",
+      "explanation": "cls is bound to whichever class the method was actually called on. Using cls(...) instead of hardcoding the class name keeps factory methods correct for subclasses."
+    }
+  ]
+}
+```
+$md$, 12, $json$[{"id":"iterators-testing-staticmethod-classmethod-q1","type":"mcq","correct":"c"},{"id":"iterators-testing-staticmethod-classmethod-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+-- Section: Exceptions & Testing
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('b37c1248-560c-58a0-9553-a6f97e67bdc1', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Exceptions & Testing', 4, 'Fundamentals')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('bc8e48a1-61ea-539f-9b40-c9f844ab6038', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'b37c1248-560c-58a0-9553-a6f97e67bdc1', 'Exception Handling & How It Works Internally', 'notes', 0, $md$Exceptions are Python's normal error-propagation mechanism, so interviewers probe two layers: how you use `try`/`except` correctly, and what the interpreter does when something is raised. This lesson covers both.
+
+## try / except / else / finally
+
+Each clause has one job. `except` handles a failure, `else` runs only if the `try` body raised nothing, and `finally` runs no matter what (including on `return` or an unhandled exception). Keep the `try` body tiny so you only catch what you meant to catch, and put the success-path follow-up in `else`.
+
+```python
+def parse(text):
+    try:
+        value = int(text)
+    except ValueError:
+        print("not a number")
+        return None
+    else:
+        print("parsed ok")
+        return value
+    finally:
+        print("cleanup always runs")
+
+print(parse("42"))
+print(parse("abc"))
+```
+
+Catch specific exception types, never a bare `except:` (it also swallows `KeyboardInterrupt` and `SystemExit`). Catching `Exception` is the broadest reasonable net.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "exceptions-oop-exceptions-q1",
+      "type": "mcq",
+      "prompt": "When does the `else` block of a try statement run?",
+      "options": [
+        { "id": "a", "text": "Only when the try body completed without raising an exception" },
+        { "id": "b", "text": "Whenever an exception is raised" },
+        { "id": "c", "text": "Always, after finally" },
+        { "id": "d", "text": "Only when the exception is not caught" }
+      ],
+      "correct": "a",
+      "explanation": "else is the success path: it runs only if try finished without an exception, and exceptions raised inside else are not caught by the sibling except clauses."
+    },
+    {
+      "id": "exceptions-oop-exceptions-q2",
+      "type": "mcq",
+      "prompt": "Why is a bare `except:` considered bad practice?",
+      "options": [
+        { "id": "a", "text": "It is a syntax error in Python 3" },
+        { "id": "b", "text": "It also catches KeyboardInterrupt and SystemExit and hides real bugs" },
+        { "id": "c", "text": "It disables the finally block" },
+        { "id": "d", "text": "It is slower than except Exception" }
+      ],
+      "correct": "b",
+      "explanation": "A bare except catches BaseException subclasses too, so Ctrl+C and sys.exit() get swallowed and programming errors are silently hidden."
+    }
+  ]
+}
+```
+
+## Raising and chaining with raise ... from
+
+Use `raise` to signal failure and a bare `raise` inside `except` to re-raise the current exception unchanged. When you translate a low-level error into a domain error, use `raise NewError(...) from err` so the original is kept as `__cause__` and the traceback shows both. `from None` suppresses the chained context when it is just noise.
+
+```python
+class ConfigError(Exception):
+    pass
+
+def load(value):
+    try:
+        return int(value)
+    except ValueError as err:
+        raise ConfigError(f"bad port: {value!r}") from err
+
+try:
+    load("http")
+except ConfigError as e:
+    print(e)
+    print(type(e.__cause__).__name__)
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "exceptions-oop-exceptions-q3",
+      "type": "mcq",
+      "prompt": "What does `raise ConfigError(...) from err` accomplish?",
+      "options": [
+        { "id": "a", "text": "Stores err as __cause__ so the traceback shows the original failure that led to the new one" },
+        { "id": "b", "text": "Catches err and discards it" },
+        { "id": "c", "text": "Makes ConfigError a subclass of type(err)" },
+        { "id": "d", "text": "Re-raises err after ConfigError is handled" }
+      ],
+      "correct": "a",
+      "explanation": "Explicit chaining sets __cause__, preserving the root cause when you wrap a low-level error in a domain-specific one."
+    }
+  ]
+}
+```
+
+## Stack unwinding and exception tables
+
+When an exception is raised the runtime does not just jump to a handler. It performs **stack unwinding**: look for a matching handler in the current function; if none, run its cleanup code (`finally` blocks, destructors), pop that frame, and repeat in the caller, until a handler is found or the program terminates.
+
+To make the search possible the compiler emits **exception tables**: metadata mapping each protected code region (a `try` body) to its handler location, the exception types it catches, and any cleanup code. This general design is the table-based approach used by C++; the alternative, code-based (setjmp/longjmp style), embeds handler setup into the running code, so raising is cheaper but every call pays overhead.
+
+```text
+raise in f()  ->  look in f's table
+   no match   ->  run cleanup, pop f's frame
+              ->  look in caller's table  ->  ... until handler or exit
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "exceptions-oop-exceptions-q4",
+      "type": "mcq",
+      "prompt": "What happens when a raised exception finds no handler in the current function?",
+      "options": [
+        { "id": "a", "text": "The program terminates immediately" },
+        { "id": "b", "text": "Cleanup code runs, the frame is popped, and the search repeats in the caller" },
+        { "id": "c", "text": "The exception is silently ignored" },
+        { "id": "d", "text": "The interpreter restarts the function" }
+      ],
+      "correct": "b",
+      "explanation": "That repeated frame-by-frame search with cleanup is stack unwinding; the program only terminates if no frame handles the exception."
+    }
+  ]
+}
+```
+
+## How CPython implements it: block stack vs zero-cost tables
+
+Before Python 3.11, each frame kept a **block stack**: `SETUP_FINALLY`/`SETUP_WITH` bytecodes pushed an entry when entering a `try`, so even a `try` that never raised executed extra instructions. Errors propagated by C functions returning `NULL` while the exception sat in thread-local state (`PyErr_Occurred`).
+
+Since 3.11 CPython uses **zero-cost exception tables**: the compiler records, per code object, which bytecode offset ranges map to which handler offsets. Entering a `try` emits no instructions. Only when an exception occurs does the interpreter look the offset up in the table.
+
+You can see the table yourself:
+
+```python
+import dis
+
+def f():
+    try:
+        return 1 / 0
+    except ZeroDivisionError:
+        return 0
+
+dis.dis(f)  # the trailing "ExceptionTable:" section is the handler map (3.11+)
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "exceptions-oop-exceptions-q5",
+      "type": "mcq",
+      "prompt": "What changed in CPython 3.11 regarding try blocks?",
+      "options": [
+        { "id": "a", "text": "A try block now compiles to no setup instructions; handlers are found via an exception table only when an exception is raised" },
+        { "id": "b", "text": "try blocks were removed in favor of match statements" },
+        { "id": "c", "text": "Exceptions now use C++ frame-pointer unwinding" },
+        { "id": "d", "text": "The block stack was made larger" }
+      ],
+      "correct": "a",
+      "explanation": "Pre-3.11 used a per-frame block stack pushed by SETUP_FINALLY; 3.11 replaced it with zero-cost exception tables consulted lazily at raise time."
+    }
+  ]
+}
+```
+
+## Why raising is costly but try is free
+
+On the happy path a `try` costs nothing in 3.11+ (and little before), so wrapping code in `try` is not a performance concern. Raising, however, is real work: create the exception object, build a traceback entry per frame, look up tables, and unwind. That makes EAFP (`try: d[k] except KeyError`) great when failure is rare, but a poor choice when a key is missing most of the time, where `if k in d` or `d.get(k)` wins.
+
+```python
+import timeit
+
+d = {}
+
+def eafp():
+    try:
+        d["k"]
+    except KeyError:
+        pass
+
+def lbyl():
+    if "k" in d:
+        d["k"]
+
+print("raising is slower:", timeit.timeit(eafp, number=200_000) > timeit.timeit(lbyl, number=200_000))
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "exceptions-oop-exceptions-q6",
+      "type": "mcq",
+      "prompt": "When is `if key in d` a better choice than `try: d[key] except KeyError`?",
+      "options": [
+        { "id": "a", "text": "When the key is usually missing, because each raise costs far more than a membership check" },
+        { "id": "b", "text": "When the key is usually present, because try blocks are expensive" },
+        { "id": "c", "text": "Never; EAFP is always faster" },
+        { "id": "d", "text": "Only in Python versions before 3.11, where raising was free" }
+      ],
+      "correct": "a",
+      "explanation": "Entering try is free, but raising and unwinding is expensive, so frequent failures favor an explicit check."
+    },
+    {
+      "id": "exceptions-oop-exceptions-q7",
+      "type": "mcq",
+      "prompt": "Which statement about exception cost in CPython 3.11+ is correct?",
+      "options": [
+        { "id": "a", "text": "Cost is paid on every try entry, not on raise" },
+        { "id": "b", "text": "Cost is near zero on the no-exception path and paid when an exception is raised" },
+        { "id": "c", "text": "Both raising and entering try are free" },
+        { "id": "d", "text": "Raising is cheap but entering try is expensive" }
+      ],
+      "correct": "b",
+      "explanation": "Zero-cost tables move all the work (object creation, traceback, table lookup, unwinding) to the raise path."
+    }
+  ]
+}
+```
+
+## Original notes
+
+Your original wording from the Notes vault, kept verbatim for reference.
+
+#### How does exception handling work internally?
+
+Exception handling involves both compile-time and runtime components. This describes the general mechanism (as used in C++/Java-style runtimes); CPython's specific implementation is noted below.
+
+**The basic flow** — when an exception is raised, the runtime doesn't simply jump to a handler. It performs **stack unwinding**: systematically dismantling the call stack frame by frame, searching for an appropriate handler.
+
+**Key internal mechanisms:**
+
+*Exception tables* — the compiler generates metadata (exception/unwind tables) mapping code regions to their handlers: protected regions (try blocks), handler locations (except/catch blocks), type information for what each handler catches, and cleanup code locations (destructors, `finally` blocks).
+
+*The unwinding process*, when an exception is raised:
+1. The runtime searches the current function's exception table for a matching handler
+2. If found, it jumps to that handler
+3. If not found, it unwinds the stack frame — running cleanup code and destructors for local objects
+4. This repeats in the calling function
+5. Continues until a handler is found or the program terminates
+
+**Implementation approaches across languages:**
+- **Table-based (zero-cost)** — used by C++; stores exception info in separate tables. No runtime overhead when exceptions aren't raised, but raising is relatively expensive since tables must be searched.
+- **Code-based (setjmp/longjmp style)** — used by some older systems; embeds handler setup in the code itself. Faster to raise, but adds overhead to every function call.
+- **Hybrid approaches** — languages like Java mix both, with runtime support for stack traces and type checking.
+
+Example (C++):
+
+```text
+try {
+    throw MyException();
+}
+```
+
+The compiler generates code that allocates the exception object, populates type information, and calls a runtime function (e.g. `__cxa_throw()`) that begins unwinding using the platform ABI. The runtime walks backward through stack frames, consulting each function's exception tables, invoking destructors via cleanup handlers, until it finds a matching catch clause.
+
+*Correction: this description is written generically (with a C++ example) and doesn't say how CPython itself implements `try`/`except`. CPython does not use frame-pointer-based C++-style stack unwinding. Historically (pre-3.11) it used a per-frame "block stack" pushed by `SETUP_FINALLY`/`SETUP_WITH` bytecodes to record active `try` blocks, and propagated exceptions by returning `NULL` from C-level calls combined with thread-local exception state (`PyErr_Occurred`/`PyErr_SetString` etc.). Since Python 3.11, CPython switched to zero-cost exception tables (conceptually similar to the C++ table-based approach described above): the compiler emits a table mapping bytecode offsets to handler offsets, so `try` blocks cost nothing when no exception is raised, and lookup happens only when one is.*
+
+This is why exceptions can be expensive when raised — they involve real runtime work (table lookups, systematic cleanup) — but have minimal cost on the normal execution path.
+$md$, 14, $json$[{"id":"exceptions-oop-exceptions-q1","type":"mcq","correct":"a"},{"id":"exceptions-oop-exceptions-q2","type":"mcq","correct":"b"},{"id":"exceptions-oop-exceptions-q3","type":"mcq","correct":"a"},{"id":"exceptions-oop-exceptions-q4","type":"mcq","correct":"b"},{"id":"exceptions-oop-exceptions-q5","type":"mcq","correct":"a"},{"id":"exceptions-oop-exceptions-q6","type":"mcq","correct":"a"},{"id":"exceptions-oop-exceptions-q7","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('c7803662-3753-5c1c-80c3-f9d66f860c47', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'b37c1248-560c-58a0-9553-a6f97e67bdc1', 'Unit Testing with unittest', 'notes', 1, $md$`unittest` ships with Python and is the model many other frameworks follow. In an interview you are expected to write a small test class from memory, explain the setup and teardown hooks, and describe what makes a test good.
+
+## Structure of a test case
+
+Subclass `unittest.TestCase`. Every method whose name starts with `test_` is a test. `setUp` runs before each test and `tearDown` after each one; `setUpClass` and `tearDownClass` (class methods) run once per class, which suits expensive shared resources.
+
+```python
+import unittest
+
+def add(a, b):
+    return a + b
+
+class TestAdd(unittest.TestCase):
+    def setUp(self):
+        self.a = 10
+        self.b = 5
+
+    def test_add_positive(self):
+        self.assertEqual(add(self.a, self.b), 15)
+
+    def test_add_negative(self):
+        self.assertEqual(add(-1, -1), -2)
+
+    def test_add_zero(self):
+        self.assertEqual(add(0, 5), 5)
+
+suite = unittest.defaultTestLoader.loadTestsFromTestCase(TestAdd)
+result = unittest.TextTestRunner(verbosity=0).run(suite)
+print(result.testsRun, result.wasSuccessful())  # 3 True
+```
+
+In a real file you end with `if __name__ == "__main__": unittest.main()`. Run tests from the shell with `python -m unittest test_mymodule.py` for one file or `python -m unittest discover` to find all `test_*.py` files; `pytest` can run the same classes.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-unittest-basics-q1",
+      "type": "mcq",
+      "prompt": "Which hook runs once before all tests in a class rather than before each test?",
+      "options": [
+        { "id": "a", "text": "`setUp`" },
+        { "id": "b", "text": "`setUpClass`" },
+        { "id": "c", "text": "`tearDown`" },
+        { "id": "d", "text": "`__init__`" }
+      ],
+      "correct": "b",
+      "explanation": "`setUpClass` (a classmethod) runs once per class; `setUp` runs before every test method."
+    },
+    {
+      "id": "performance-testing-unittest-basics-q2",
+      "type": "mcq",
+      "prompt": "A method in a TestCase is named `check_total`. What happens when the suite runs?",
+      "options": [
+        { "id": "a", "text": "It runs as a test" },
+        { "id": "b", "text": "It is skipped because the name does not start with `test`" },
+        { "id": "c", "text": "It raises an error" },
+        { "id": "d", "text": "It runs only in `setUp`" }
+      ],
+      "correct": "b",
+      "explanation": "The loader only collects methods whose names start with `test`."
+    }
+  ]
+}
+```
+
+## Assertions and testing exceptions
+
+Use the specific assertion that matches intent; failure messages then show both values. The common ones are `assertEqual`, `assertNotEqual`, `assertTrue`, `assertFalse`, `assertIsNone`, `assertIn` and `assertRaises`. For exceptions, prefer the context-manager form: it lets you run a block and inspect the exception afterwards.
+
+```python
+import unittest
+
+def divide(a, b):
+    return a / b
+
+class TestDivide(unittest.TestCase):
+    def test_basic(self):
+        self.assertEqual(divide(10, 4), 2.5)
+        self.assertIn(2, [1, 2, 3])
+        self.assertIsNone(None)
+
+    def test_divide_by_zero(self):
+        with self.assertRaises(ZeroDivisionError) as ctx:
+            divide(10, 0)
+        self.assertIn("division", str(ctx.exception))
+
+result = unittest.TextTestRunner(verbosity=0).run(
+    unittest.defaultTestLoader.loadTestsFromTestCase(TestDivide)
+)
+print(result.wasSuccessful())  # True
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-unittest-basics-q3",
+      "type": "mcq",
+      "prompt": "How do you assert that `divide(10, 0)` raises `ZeroDivisionError`?",
+      "options": [
+        { "id": "a", "text": "`self.assertEqual(divide(10, 0), ZeroDivisionError)`" },
+        { "id": "b", "text": "`with self.assertRaises(ZeroDivisionError): divide(10, 0)`" },
+        { "id": "c", "text": "`self.assertIsNone(divide(10, 0))`" },
+        { "id": "d", "text": "A bare `try` without any assertion" }
+      ],
+      "correct": "b",
+      "explanation": "`assertRaises` as a context manager passes only if the block raises that exception, and it exposes the exception as `ctx.exception`."
+    }
+  ]
+}
+```
+
+## Arrange, Act, Assert and good test habits
+
+Structure each test in three steps: **Arrange** the inputs and objects, **Act** by calling the code under test, **Assert** on the outcome. Keep tests short and readable that way.
+
+Habits interviewers listen for:
+
+- Name files `test_*.py` and methods `test_<behavior>`.
+- Aim for one logical assertion per test, so a failure points at one thing.
+- Keep tests independent: no shared mutable state, no required order.
+- Mock external systems (database, network) so tests are fast and deterministic.
+
+```python
+import unittest
+
+class TestCart(unittest.TestCase):
+    def test_total_sums_prices(self):
+        # Arrange
+        prices = [3, 4, 5]
+        # Act
+        total = sum(prices)
+        # Assert
+        self.assertEqual(total, 12)
+
+result = unittest.TextTestRunner(verbosity=0).run(
+    unittest.defaultTestLoader.loadTestsFromTestCase(TestCart)
+)
+print(result.wasSuccessful())  # True
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-unittest-basics-q4",
+      "type": "mcq",
+      "prompt": "What does the AAA pattern stand for?",
+      "options": [
+        { "id": "a", "text": "Assert, Answer, Approve" },
+        { "id": "b", "text": "Arrange, Act, Assert" },
+        { "id": "c", "text": "Async, Await, Assert" },
+        { "id": "d", "text": "Authorize, Authenticate, Audit" }
+      ],
+      "correct": "b",
+      "explanation": "Set up the data, run the code under test, then check the result."
+    },
+    {
+      "id": "performance-testing-unittest-basics-q5",
+      "type": "mcq",
+      "prompt": "Why should unit tests be independent of each other?",
+      "options": [
+        { "id": "a", "text": "So they can run in any order, alone or in parallel, and a failure points at one cause" },
+        { "id": "b", "text": "Because unittest forbids shared helper methods" },
+        { "id": "c", "text": "To make them run slower and safer" },
+        { "id": "d", "text": "Because each test needs its own file" }
+      ],
+      "correct": "a",
+      "explanation": "Order-dependent tests are flaky and hard to debug; independence keeps them reliable."
+    }
+  ]
+}
+```
+
+## Original notes
+
+Your original wording from the Notes vault, kept verbatim for reference.
+
+##### Unit test structure in Python
+
+Python uses the built-in `unittest` module (or `pytest`) for writing unit tests.
+
+**Basic structure using `unittest`**
+```text
+import unittest
+from mymodule import add  # function being tested
+
+class TestAdd(unittest.TestCase):
+
+    def setUp(self):
+        """Runs before every test method"""
+        self.a = 10
+        self.b = 5
+
+    def tearDown(self):
+        """Runs after every test method"""
+        pass
+
+    def test_add_positive_numbers(self):
+        result = add(self.a, self.b)
+        self.assertEqual(result, 15)
+
+    def test_add_negative_numbers(self):
+        self.assertEqual(add(-1, -1), -2)
+
+    def test_add_zero(self):
+        self.assertEqual(add(0, 5), 5)
+
+if __name__ == "__main__":
+    unittest.main()
+```
+
+**Key components**
+
+| Component | Purpose |
+|---|---|
+| `unittest.TestCase` | Base class for all test classes |
+| `setUp()` | Runs before each test — initialize objects |
+| `tearDown()` | Runs after each test — cleanup |
+| `setUpClass()` | Runs once before all tests in the class |
+| `tearDownClass()` | Runs once after all tests in the class |
+| Test methods | Must start with `test_` |
+
+**Common assertions**
+```text
+self.assertEqual(a, b)        # a == b
+self.assertNotEqual(a, b)     # a != b
+self.assertTrue(x)            # bool(x) is True
+self.assertFalse(x)           # bool(x) is False
+self.assertIsNone(x)          # x is None
+self.assertIn(a, b)           # a in b
+self.assertRaises(ValueError, func, arg)  # func raises ValueError
+```
+
+**Testing exceptions**
+```text
+def test_divide_by_zero(self):
+    with self.assertRaises(ZeroDivisionError):
+        divide(10, 0)
+```
+
+**Running tests**
+```bash
+python -m unittest test_mymodule.py      # specific file
+python -m unittest discover              # auto-discover all test files
+pytest test_mymodule.py                  # using pytest
+```
+
+**AAA pattern (interview favourite)**
+
+Every test should follow Arrange → Act → Assert:
+```text
+def test_add(self):
+    # Arrange
+    a, b = 3, 4
+
+    # Act
+    result = add(a, b)
+
+    # Assert
+    self.assertEqual(result, 7)
+```
+
+Key rules to mention in interview:
+- Test file should be named `test_*.py` or `_test.py`
+- One assertion per test (ideally)
+- Tests should be independent — no dependency on each other
+- Mock external calls (DB, API) using `unittest.mock`
+$md$, 11, $json$[{"id":"performance-testing-unittest-basics-q1","type":"mcq","correct":"b"},{"id":"performance-testing-unittest-basics-q2","type":"mcq","correct":"b"},{"id":"performance-testing-unittest-basics-q3","type":"mcq","correct":"b"},{"id":"performance-testing-unittest-basics-q4","type":"mcq","correct":"b"},{"id":"performance-testing-unittest-basics-q5","type":"mcq","correct":"a"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('5fa2cd55-15cf-592a-a300-aaa03758e4eb', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'b37c1248-560c-58a0-9553-a6f97e67bdc1', 'Mocking with unittest.mock', 'notes', 2, $md$Mocking replaces a real dependency (HTTP call, database, file, clock) with a controllable fake so a test exercises only the unit in question and has no side effects. The standard tool is `unittest.mock`.
+
+## Mock and MagicMock
+
+A `Mock` accepts any attribute access or call and records how it was used, so you can assert on it afterwards. `MagicMock` is a `Mock` that also supports magic methods such as `__len__`, `__iter__` and `__str__`; prefer it when the code under test uses them.
+
+```python
+from unittest.mock import Mock, MagicMock
+
+m = Mock()
+m.method(1, 2)
+m.method.assert_called_once_with(1, 2)
+print(m.method.call_count)  # 1
+
+mm = MagicMock()
+mm.__len__.return_value = 3
+print(len(mm))  # 3
+```
+
+Common assertions: `assert_called_once_with(...)`, `assert_called_with(...)` (last call), `assert_not_called()`, plus the `call_count` and `call_args` attributes.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-mocking-q1",
+      "type": "mcq",
+      "prompt": "When is `MagicMock` preferable to `Mock`?",
+      "options": [
+        { "id": "a", "text": "When the code under test uses magic methods like `len()` or iteration on the object" },
+        { "id": "b", "text": "When you want the mock to raise on any attribute access" },
+        { "id": "c", "text": "When you need real network calls" },
+        { "id": "d", "text": "Never; they are identical" }
+      ],
+      "correct": "a",
+      "explanation": "MagicMock pre-configures dunder methods; plain Mock does not support them."
+    }
+  ]
+}
+```
+
+## patch: replace where it is used
+
+`patch` temporarily swaps a name for a mock and restores it when the test ends. Use it as a decorator (the mock is passed in as an argument) or as a context manager. The key rule: **patch the name where it is looked up, not where it is defined.** If `service.py` does `import requests` and calls `requests.get`, patch `service.requests.get`. If it does `from os.path import exists`, the name `exists` now lives in your module, so patch `service.exists`.
+
+```python
+import os
+from unittest.mock import patch
+
+def config_exists(path):
+    return os.path.exists(path)
+
+# Patch the name as this module looks it up: __main__.os.path.exists
+with patch("__main__.os.path.exists") as mock_exists:
+    mock_exists.return_value = True
+    print(config_exists("/no/such/file"))  # True, the fake answered
+    mock_exists.assert_called_once_with("/no/such/file")
+
+print(config_exists("/no/such/file"))  # False, patch is undone
+```
+
+In a normal project the pattern is simply `@patch("mymodule.requests.get")` on a test method, or `with patch("mymodule.os.path.exists") as mock_exists:`.
+
+```text
+@patch("mymodule.requests.get")
+def test_api_call(self, mock_get):
+    mock_get.return_value.status_code = 200
+    self.assertEqual(mymodule.fetch_data(), 200)
+    mock_get.assert_called_once()
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-mocking-q2",
+      "type": "mcq",
+      "prompt": "`mymodule.py` has `import requests` and calls `requests.get(...)`. What should the test patch?",
+      "options": [
+        { "id": "a", "text": "`mymodule.requests.get`, the name as the module under test looks it up" },
+        { "id": "b", "text": "Only the `requests` package source file" },
+        { "id": "c", "text": "`unittest.requests.get`" },
+        { "id": "d", "text": "Nothing; patch is not needed" }
+      ],
+      "correct": "a",
+      "explanation": "Patch where the name is used. For `from x import y`, the name `y` lives in your module, so patch `yourmodule.y`."
+    }
+  ]
+}
+```
+
+## return_value vs side_effect
+
+`return_value` sets what a call returns every time. `side_effect` is more flexible: an exception instance makes the call raise, an iterable returns its items one per call, and a function computes the result from the arguments.
+
+```python
+from unittest.mock import Mock
+
+m = Mock()
+m.return_value = 42
+print(m(), m())  # 42 42
+
+m.side_effect = ValueError("fail")
+try:
+    m()
+except ValueError as e:
+    print("raised", e)  # raised fail
+
+m.side_effect = [1, 2, 3]
+print(m(), m(), m())  # 1 2 3
+```
+
+Use `side_effect = [...]` to simulate a retry (fail, fail, succeed) and an exception to test your error handling.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-mocking-q3",
+      "type": "mcq",
+      "prompt": "You set `mock.side_effect = [10, 20]` and call the mock three times. What happens on the third call?",
+      "options": [
+        { "id": "a", "text": "It returns 20 again" },
+        { "id": "b", "text": "It returns None" },
+        { "id": "c", "text": "It raises StopIteration because the sequence is exhausted" },
+        { "id": "d", "text": "It returns 10 again" }
+      ],
+      "correct": "c",
+      "explanation": "An iterable side_effect yields one value per call and raises StopIteration when it runs out."
+    }
+  ]
+}
+```
+
+## patch.object and the overuse caveat
+
+`patch.object(target, "attribute", ...)` patches an attribute on a specific object or class, which avoids string paths and typos.
+
+```python
+from unittest.mock import patch
+
+class PaymentService:
+    def charge(self):
+        return "real charge"
+
+with patch.object(PaymentService, "charge", return_value="success") as mock_charge:
+    result = PaymentService().charge()
+    print(result)  # success
+    mock_charge.assert_called_once()
+
+print(PaymentService().charge())  # real charge, patch is undone after the block
+```
+
+Mocking has a cost. A mock verifies that you *called* something, not that the real thing works, and tests tied to exact call patterns break on harmless refactors. Mock at the boundaries you do not own (network, database, clock) and use real objects for your own pure logic.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-mocking-q4",
+      "type": "mcq",
+      "prompt": "What is the main risk of mocking too much?",
+      "options": [
+        { "id": "a", "text": "Mocks are slower than real objects" },
+        { "id": "b", "text": "Tests pass while real behavior is broken, and they become brittle against refactors" },
+        { "id": "c", "text": "Python limits the number of mocks per file" },
+        { "id": "d", "text": "Mocks cannot raise exceptions" }
+      ],
+      "correct": "b",
+      "explanation": "Mocks only prove calls were made as expected; over-mocking hides integration bugs and couples tests to implementation."
+    },
+    {
+      "id": "performance-testing-mocking-q5",
+      "type": "mcq",
+      "prompt": "After a `with patch.object(...)` block ends, what is the state of the patched attribute?",
+      "options": [
+        { "id": "a", "text": "It stays mocked for the rest of the process" },
+        { "id": "b", "text": "It is restored to its original value" },
+        { "id": "c", "text": "It is deleted" },
+        { "id": "d", "text": "It becomes None" }
+      ],
+      "correct": "b",
+      "explanation": "`patch` undoes itself on exit, whether the block succeeds or raises."
+    }
+  ]
+}
+```
+
+## Original notes
+
+Your original wording from the Notes vault, kept verbatim for reference.
+
+##### Mocking in Python
+
+**What is mocking?**
+Mocking is replacing real objects/functions with fake ones during testing to isolate the unit under test and avoid side effects (DB calls, API calls, file I/O, etc.). Python's built-in library: `unittest.mock`.
+
+**Core components**
+
+| Component | Purpose |
+|---|---|
+| `Mock` | Generic mock object |
+| `MagicMock` | Mock with magic methods (`__len__`, `__str__`, etc.) pre-configured |
+| `patch` | Temporarily replaces an object in a module |
+| `patch.object` | Patches an attribute on a specific object/class |
+
+**Basic mock usage**
+```text
+from unittest.mock import Mock
+
+mock = Mock()
+mock.method(1, 2)
+
+mock.method.assert_called_once_with(1, 2)  # passes
+print(mock.method.call_count)  # 1
+```
+
+**`patch` as decorator**
+```text
+from unittest.mock import patch
+
+# Patches where it's USED, not where it's defined
+@patch("mymodule.requests.get")
+def test_api_call(mock_get):
+    mock_get.return_value.status_code = 200
+    result = mymodule.fetch_data()
+    mock_get.assert_called_once()
+    assert result == 200
+```
+
+**`patch` as context manager**
+```text
+with patch("mymodule.os.path.exists") as mock_exists:
+    mock_exists.return_value = True
+    # test code here
+```
+
+**`return_value` vs `side_effect`**
+```text
+mock.return_value = 42          # always returns 42
+
+mock.side_effect = ValueError("fail")   # raises exception when called
+
+mock.side_effect = [1, 2, 3]    # returns 1, then 2, then 3 on successive calls
+```
+
+**`patch.object`**
+```text
+from unittest.mock import patch
+
+class PaymentService:
+    def charge(self): ...
+
+with patch.object(PaymentService, "charge", return_value="success") as mock_charge:
+    svc = PaymentService()
+    result = svc.charge()
+    assert result == "success"
+```
+
+Key interview points:
+- Patch where it's used, not where it's defined — e.g., if `mymodule.py` imports `requests`, patch `mymodule.requests`, not `requests.get` directly.
+- `MagicMock` is preferred over `Mock` when the code under test uses dunder methods.
+- `assert_called_once_with()`, `assert_called_with()`, `assert_not_called()` are the common assertion methods.
+- Mocking does not test real behavior — overuse leads to brittle tests.
+$md$, 12, $json$[{"id":"performance-testing-mocking-q1","type":"mcq","correct":"a"},{"id":"performance-testing-mocking-q2","type":"mcq","correct":"a"},{"id":"performance-testing-mocking-q3","type":"mcq","correct":"c"},{"id":"performance-testing-mocking-q4","type":"mcq","correct":"b"},{"id":"performance-testing-mocking-q5","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('a915b846-e56e-50e8-b9e9-11462996d503', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'b37c1248-560c-58a0-9553-a6f97e67bdc1', 'Dependency Injection', 'notes', 3, $md$Dependency Injection (DI) means a class receives the objects it depends on from the outside — usually through its constructor — instead of creating them itself internally. It sounds like a heavyweight framework concept (and in Java/Spring, it often is one), but in Python it's frequently just "pass the dependency as an argument."
+
+## Without DI: the dependency is hardcoded inside
+
+```python
+class PayPalService:
+    def process_payment(self, amount):
+        print(f"Processing payment of ${amount} through PayPal.")
+
+class PaymentProcessor:
+    def __init__(self):
+        self.payment_service = PayPalService()  # created internally — hardcoded
+
+    def pay(self, amount):
+        self.payment_service.process_payment(amount)
+
+processor = PaymentProcessor()
+processor.pay(100)
+```
+
+`PaymentProcessor` is permanently welded to `PayPalService`. Want to support Stripe? You have to edit `PaymentProcessor.__init__`. Want to unit-test `pay()` without making a real network call? You can't — every `PaymentProcessor` always constructs a real `PayPalService`.
+
+## With DI: the dependency is passed in
+
+```python
+class PayPalService:
+    def process_payment(self, amount):
+        print(f"Processing payment of ${amount} through PayPal.")
+
+class PaymentProcessor:
+    def __init__(self, payment_service):
+        self.payment_service = payment_service  # supplied by the caller
+
+    def pay(self, amount):
+        self.payment_service.process_payment(amount)
+
+payment_service = PayPalService()
+processor = PaymentProcessor(payment_service)
+processor.pay(100)
+```
+
+`PaymentProcessor` no longer knows or cares which payment provider it's using — it just calls `.process_payment()` on whatever it was handed (this is the polymorphism/duck-typing lesson applied in practice). Swapping in `StripeService()` requires zero changes to `PaymentProcessor` itself.
+
+## Why this is the whole point of testability
+
+```python
+class FakePaymentService:
+    def __init__(self):
+        self.calls = []
+
+    def process_payment(self, amount):
+        self.calls.append(amount)  # no real network call — just records the call
+
+fake = FakePaymentService()
+test_processor = PaymentProcessor(fake)
+test_processor.pay(100)
+
+assert fake.calls == [100]  # verify behavior without touching PayPal's real API
+```
+
+This is exactly how unit tests avoid hitting real external services: inject a fake/mock object that implements the same interface, and assert on what was called. Without constructor injection, there'd be no way to substitute `PayPalService` for `FakePaymentService` — the real dependency is baked in.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "iterators-testing-dependency-injection-q1",
+      "type": "mcq",
+      "prompt": "What is the key structural difference between the 'without DI' and 'with DI' versions of PaymentProcessor?",
+      "options": [
+        { "id": "a", "text": "The with-DI version doesn't have a pay() method" },
+        { "id": "b", "text": "The with-DI version receives payment_service as a constructor argument instead of constructing PayPalService internally" },
+        { "id": "c", "text": "The with-DI version uses async/await" },
+        { "id": "d", "text": "There is no real difference; both behave identically in every context" }
+      ],
+      "correct": "b",
+      "explanation": "Dependency injection moves object creation to the caller. PaymentProcessor stops constructing its own PayPalService and instead accepts any object with a compatible process_payment() method."
+    },
+    {
+      "id": "iterators-testing-dependency-injection-q2",
+      "type": "mcq",
+      "prompt": "Why does constructor injection make PaymentProcessor easier to unit test?",
+      "options": [
+        { "id": "a", "text": "It doesn't — testing difficulty is unrelated to how dependencies are constructed" },
+        { "id": "b", "text": "A test can pass in a fake/mock payment service instead of the real PayPalService, avoiding real network calls" },
+        { "id": "c", "text": "Constructor injection automatically generates test cases" },
+        { "id": "d", "text": "It removes the need for the pay() method to take an amount argument" }
+      ],
+      "correct": "b",
+      "explanation": "Because the dependency is supplied externally, a test can substitute a fake object that records calls instead of performing real side effects, then assert on what was recorded."
+    }
+  ]
+}
+```
+$md$, 15, $json$[{"id":"iterators-testing-dependency-injection-q1","type":"mcq","correct":"b"},{"id":"iterators-testing-dependency-injection-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('b29dfba0-d998-5454-948f-cdfaa34cc93d', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'b37c1248-560c-58a0-9553-a6f97e67bdc1', 'Parameterized Testing', 'notes', 4, $md$Parameterized testing runs the *same* test logic against many different inputs, instead of copy-pasting a near-identical test function once per input. It's a testing-maturity signal interviewers look for because duplicated test functions are exactly as much of a maintenance liability as duplicated production code.
+
+## The problem: one test function per input
+
+Without parameterization, testing a function against six input cases means six separate test functions, all with the same body and a different literal value — any change to the assertion logic has to be copy-pasted into all six.
+
+## `pytest.mark.parametrize`: one test body, many inputs
+
+```text
+import pytest
+
+@pytest.mark.parametrize("user_id,expected_name", [
+    (1, "Alice"),
+    (2, "Bob"),
+    (3, "Charlie"),
+    (8, "Gary"),
+    (99, "Unknown"),
+])
+def test_get_user_details(user_id, expected_name):
+    def fetch_user_details(user_id):
+        users = {1: "Alice", 2: "Bob", 3: "Charlie", 8: "Gary"}
+        return {"id": user_id, "name": users.get(user_id, "Unknown")}
+
+    response = fetch_user_details(user_id)
+    assert response["name"] == expected_name
+```
+
+`pytest` runs `test_get_user_details` once per tuple in the list, reporting each one as its own pass/fail — a failure on input `(3, "Charlie")` is reported distinctly from a failure on `(99, "Unknown")`, even though it's the same function body. (This needs `pytest` installed and run via the `pytest` CLI — it isn't something a plain `python file.py` invocation executes, since pytest discovers and drives `test_*` functions itself.)
+
+## The same idea, without a test framework
+
+The mechanism `pytest.mark.parametrize` provides is really just "loop over cases and assert each one" — worth seeing explicitly, since it's exactly what you'd reach for in a quick script or a language without a parametrize decorator:
+
+```python
+def fetch_user_details(user_id):
+    users = {1: "Alice", 2: "Bob", 3: "Charlie", 8: "Gary"}
+    return {"id": user_id, "name": users.get(user_id, "Unknown")}
+
+test_cases = [
+    (1, "Alice"),
+    (2, "Bob"),
+    (3, "Charlie"),
+    (8, "Gary"),
+    (99, "Unknown"),
+]
+
+failures = []
+for user_id, expected_name in test_cases:
+    actual = fetch_user_details(user_id)["name"]
+    if actual != expected_name:
+        failures.append((user_id, expected_name, actual))
+
+if failures:
+    print(f"{len(failures)} case(s) failed: {failures}")
+else:
+    print(f"All {len(test_cases)} cases passed.")
+```
+
+What `pytest.mark.parametrize` adds on top of this manual loop: each case is reported as an independent test result (so a failure in case 3 doesn't stop cases 4 and 5 from running and reporting), readable test names/IDs per case in the output, and integration with the rest of pytest's fixture and reporting machinery.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "iterators-testing-parameterized-testing-q1",
+      "type": "mcq",
+      "prompt": "What problem does `@pytest.mark.parametrize` solve compared to writing one test function per input case?",
+      "options": [
+        { "id": "a", "text": "It makes tests run in a separate process for isolation" },
+        { "id": "b", "text": "It lets one test body run against many inputs, each reported as an independent pass/fail, instead of duplicating the test function per case" },
+        { "id": "c", "text": "It automatically generates random test inputs" },
+        { "id": "d", "text": "It disables tests that are expected to fail" }
+      ],
+      "correct": "b",
+      "explanation": "parametrize decouples the test logic (written once) from the input data (a list of cases), and pytest reports each case's result independently."
+    },
+    {
+      "id": "iterators-testing-parameterized-testing-q2",
+      "type": "mcq",
+      "prompt": "Why can't the pytest-based test file be executed with a plain `python file.py` command?",
+      "options": [
+        { "id": "a", "text": "pytest syntax is not valid Python" },
+        { "id": "b", "text": "pytest discovers and drives test_* functions itself via its own CLI/runner — a bare python invocation never calls them" },
+        { "id": "c", "text": "parametrize requires an internet connection" },
+        { "id": "d", "text": "Test functions can only run inside Docker containers" }
+      ],
+      "correct": "b",
+      "explanation": "Running python file.py just defines the functions and decorators — nothing invokes test_get_user_details unless a test runner like pytest scans the file and calls it for each parametrized case."
+    }
+  ]
+}
+```
+$md$, 12, $json$[{"id":"iterators-testing-parameterized-testing-q1","type":"mcq","correct":"b"},{"id":"iterators-testing-parameterized-testing-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('d1e7628a-a1a8-5795-90d4-c14ce1972a6b', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'b37c1248-560c-58a0-9553-a6f97e67bdc1', 'Fixtures (Testing Setup & Teardown)', 'notes', 5, $md$A fixture provides a piece of test setup (a database connection, a temp file, an authenticated client) to any test that asks for it by name, and cleans it up afterward — without every test having to repeat that setup/teardown code itself.
+
+## `@pytest.fixture`: setup, `yield`, teardown
+
+```text
+import pytest
+import sqlite3
+
+@pytest.fixture
+def temp_db():
+    # Setup: runs before the test that uses this fixture
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)")
+    conn.execute("INSERT INTO users (name) VALUES ('Alice')")
+    yield conn
+    # Teardown: runs after the test finishes, even if it failed
+    conn.close()
+
+def test_query_user(temp_db):
+    cursor = temp_db.cursor()
+    cursor.execute("SELECT name FROM users WHERE id=1")
+    user = cursor.fetchone()
+    assert user[0] == "Alice"
+```
+
+pytest sees that `test_query_user` takes a parameter named `temp_db`, matches it against the fixture of the same name, runs `temp_db()` up to its `yield`, passes the yielded value (`conn`) into the test as the `temp_db` argument, runs the test, and then resumes the fixture *after* the `yield` to run teardown — regardless of whether the test passed or raised. This needs pytest's collection/injection machinery to run; it isn't triggered by a plain `python file.py`.
+
+## The same shape, without pytest: a context manager
+
+The setup / `yield` / teardown structure of a fixture is exactly the same shape as a context manager's `__enter__` / `yield` / `__exit__` (covered later in this course) — worth seeing side by side, since it demonstrates the underlying pattern in code you can run directly:
+
+```python
+from contextlib import contextmanager
+import sqlite3
+
+@contextmanager
+def temp_db():
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)")
+    conn.execute("INSERT INTO users (name) VALUES ('Alice')")
+    try:
+        yield conn          # setup done, hand the resource to the caller
+    finally:
+        conn.close()         # teardown, guaranteed even if the caller raises
+
+with temp_db() as conn:
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM users WHERE id=1")
+    user = cursor.fetchone()
+    assert user[0] == "Alice"
+    print(f"Fetched user: {user[0]}")
+```
+
+`@pytest.fixture` is, structurally, a generator-based context manager wired into pytest's dependency-injection-by-parameter-name system: a test requests a fixture by naming a parameter, pytest runs setup, hands over the yielded value, runs the test, then runs teardown — the same setup/`yield`/teardown shape as `@contextmanager`, just triggered by pytest's test collection instead of a `with` block.
+
+## Why fixtures matter beyond convenience
+
+Repeating `sqlite3.connect(":memory:")` + table creation + seed data in every test function that needs a database means a schema change requires editing every test. A shared fixture means the schema and seed data live in exactly one place, and every test that needs a database just declares a `temp_db` parameter.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "iterators-testing-pytest-fixtures-q1",
+      "type": "mcq",
+      "prompt": "In a pytest fixture using `yield`, what happens to the code after the `yield` statement?",
+      "options": [
+        { "id": "a", "text": "It never runs" },
+        { "id": "b", "text": "It runs as teardown, after the test that used the fixture finishes (pass or fail)" },
+        { "id": "c", "text": "It runs before the yielded value is handed to the test" },
+        { "id": "d", "text": "It only runs if the test raises an exception" }
+      ],
+      "correct": "b",
+      "explanation": "Everything before yield is setup; the yielded value is injected into the test; everything after yield is teardown, run once the test completes regardless of outcome."
+    },
+    {
+      "id": "iterators-testing-pytest-fixtures-q2",
+      "type": "mcq",
+      "prompt": "How does a test function access a fixture's value in pytest?",
+      "options": [
+        { "id": "a", "text": "By importing it explicitly with `import fixture`" },
+        { "id": "b", "text": "By declaring a parameter with the same name as the fixture — pytest matches by name and injects the yielded value" },
+        { "id": "c", "text": "By calling the fixture function directly inside the test body" },
+        { "id": "d", "text": "Fixtures are global variables automatically available everywhere" }
+      ],
+      "correct": "b",
+      "explanation": "pytest inspects each test function's parameter names, finds a fixture with a matching name, runs it, and passes the yielded value as that argument."
+    }
+  ]
+}
+```
+$md$, 12, $json$[{"id":"iterators-testing-pytest-fixtures-q1","type":"mcq","correct":"b"},{"id":"iterators-testing-pytest-fixtures-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+-- Section: Memory & the Interpreter
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('012c80ac-4e8f-5205-8f62-ce79738eaa79', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Memory & the Interpreter', 5, 'Advanced')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('4967c051-0c4e-5e52-b3e3-7192d2a24a03', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '012c80ac-4e8f-5205-8f62-ce79738eaa79', 'CPython', 'notes', 0, $md$"Python" is a language specification; **CPython** is the reference implementation almost everyone actually runs (`python3` on your machine is CPython unless you deliberately installed PyPy, Jython, or GraalPy). Knowing the difference — and what CPython specifically does under the hood — is what separates "I write Python" from "I understand what my Python program is actually doing."
+
+## The pipeline: source → bytecode → PVM
+
+CPython never interprets your `.py` text directly. It compiles it to **bytecode** — a lower-level, portable instruction set — and then the **Python Virtual Machine (PVM)**, a stack-based interpreter loop written in C, executes that bytecode instruction by instruction. You can see the bytecode for any function with `dis`:
+
+```python
+import dis
+
+def add(a, b):
+    return a + b
+
+dis.dis(add)
+# 2           0 RESOURCE_ARG ...  (exact opcodes vary by version)
+#             LOAD_FAST                a
+#             LOAD_FAST                b
+#             BINARY_OP                +
+#             RETURN_VALUE
+```
+
+This is also why a `.pyc` file exists in `__pycache__` — it's the cached compiled bytecode, so re-running the same script skips recompilation when the source hasn't changed.
+
+## What CPython specifically gives you (and costs you)
+
+- **A huge standard library** and a stable C-API — this is *why* the PyPI ecosystem exists: NumPy, PyTorch, and most performance-critical packages are C extensions written directly against CPython's API, not portable across every Python implementation.
+- **Reference counting** for memory management (see the garbage-collection lesson) — a direct consequence of being written in C, and the reason the GIL exists at all.
+- **The GIL** — only one thread executes Python bytecode at a time, a direct consequence of reference counting needing to stay thread-safe cheaply (covered in depth in the next section).
+- **Slower raw execution** than a compiled language, since every bytecode instruction still goes through the PVM's interpreter loop rather than running as native machine code.
+
+Interviewers ask about CPython specifically to check whether you can reason about *why* Python behaves the way it does — why threads don't parallelize CPU work, why `id()` returns a memory address, why small integers are cached — rather than treating the language as a black box.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "internals-cpython-q1",
+      "type": "mcq",
+      "prompt": "What does CPython actually execute when you run a .py file?",
+      "options": [
+        { "id": "a", "text": "The raw source text, interpreted line by line" },
+        { "id": "b", "text": "Bytecode compiled from the source, executed by the Python Virtual Machine" },
+        { "id": "c", "text": "Native machine code, compiled ahead of time" },
+        { "id": "d", "text": "A translation into C source, compiled on the fly" }
+      ],
+      "correct": "b",
+      "explanation": "CPython compiles source to bytecode (visible via the dis module, cached in __pycache__/*.pyc) and the PVM, a C-based interpreter loop, executes that bytecode."
+    },
+    {
+      "id": "internals-cpython-q2",
+      "type": "mcq",
+      "prompt": "Which of these is a direct consequence of CPython being written in C and using reference counting?",
+      "options": [
+        { "id": "a", "text": "The Global Interpreter Lock, which keeps refcount updates thread-safe without per-object locks" },
+        { "id": "b", "text": "Python's dynamic typing" },
+        { "id": "c", "text": "List comprehensions" },
+        { "id": "d", "text": "The availability of type hints" }
+      ],
+      "correct": "a",
+      "explanation": "The GIL exists specifically because CPython uses cheap, non-atomic reference counting for memory management — the GIL is what keeps concurrent refcount updates from racing, at the cost of true multi-core parallelism for threads."
+    }
+  ]
+}
+```
+$md$, 12, $json$[{"id":"internals-cpython-q1","type":"mcq","correct":"b"},{"id":"internals-cpython-q2","type":"mcq","correct":"a"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('ed523ce6-bc16-5a2b-96c7-f9cb8690a0df', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '012c80ac-4e8f-5205-8f62-ce79738eaa79', 'Bytecode & the `dis` Module', 'notes', 1, $md$Python source code isn't executed directly — it's first compiled into **bytecode**, a low-level instruction set for the CPython virtual machine, then that bytecode is what actually runs. You don't need to read bytecode day to day, but knowing it exists (and how to look at it) explains a surprising amount of Python's runtime behavior, and it's a question that separates "knows Python syntax" from "understands how Python actually executes."
+
+## Disassembling a function
+
+The `dis` module turns a function's compiled bytecode into human-readable instructions:
+
+```python
+import dis
+
+def count_to_ten():
+    total = 0
+    for i in range(10):
+        total += i
+    return total
+
+dis.dis(count_to_ten)
+```
+
+Running this prints a table of opcodes — things like `LOAD_FAST`, `LOAD_GLOBAL`, `CALL`, `STORE_FAST`, `POP_JUMP_IF_FALSE` — each corresponding to one step the interpreter takes: loading a local variable onto the stack, calling a function, jumping to loop back, and so on. `range(10)` compiles to a `LOAD_GLOBAL`+`CALL`, and the `for` loop compiles to a `GET_ITER`/`FOR_ITER` pair with a jump back to the top on each iteration.
+
+## Why senior engineers care
+
+A few places this pays off:
+
+- **Explaining "why is A faster than B"** — two pieces of code that look equally simple can compile to a different number of bytecode instructions. `dis.dis` is the tool that turns "I have a hunch" into "here's the extra `LOAD_ATTR` this version does that the other doesn't."
+- **Understanding CPython internals questions** — "what does the GIL actually protect?" and "why is `x += 1` not atomic?" both become concrete once you can see that even a simple augmented assignment is multiple separate bytecode instructions (`LOAD_FAST`, `BINARY_ADD`, `STORE_FAST`), any of which the interpreter can be preempted between.
+- **Spotting accidental global lookups** — a variable dis shows as `LOAD_GLOBAL` inside a hot loop (instead of `LOAD_FAST`) is a real, measurable slowdown, because global lookups go through a dict rather than a fixed local-variable slot.
+
+## What it isn't
+
+`dis` is a diagnostic tool, not something used in day-to-day application code, and bytecode is a CPython implementation detail — it isn't part of the language specification, changes between Python versions, and other implementations (PyPy, for instance) don't use the same instruction set at all. Knowing it exists, and being able to reach for it when a performance question needs a concrete answer, is the actual skill being tested.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "serialization-data-bytecode-dis-q1",
+      "type": "mcq",
+      "prompt": "What does dis.dis(some_function) show you?",
+      "options": [
+        { "id": "a", "text": "The function's docstring and type hints" },
+        { "id": "b", "text": "The low-level bytecode instructions the CPython VM executes for that function" },
+        { "id": "c", "text": "A performance benchmark of the function" },
+        { "id": "d", "text": "The machine code generated for the CPU" }
+      ],
+      "correct": "b",
+      "explanation": "dis.dis disassembles a function's compiled bytecode into readable opcodes (LOAD_FAST, CALL, etc.) — the actual instruction set the CPython interpreter executes, one level below Python source."
+    },
+    {
+      "id": "serialization-data-bytecode-dis-q2",
+      "type": "mcq",
+      "prompt": "Why does seeing dis reveals that even x += 1 compiles to multiple separate bytecode instructions matter for understanding the GIL?",
+      "options": [
+        { "id": "a", "text": "It doesn't relate to the GIL at all" },
+        { "id": "b", "text": "It shows the interpreter can be preempted between those instructions, which is why simple-looking operations like x += 1 aren't atomic across threads" },
+        { "id": "c", "text": "It proves the GIL makes all operations atomic automatically" },
+        { "id": "d", "text": "It means bytecode instructions always run in parallel" }
+      ],
+      "correct": "b",
+      "explanation": "Since x += 1 is really LOAD_FAST, BINARY_ADD, STORE_FAST as separate steps, a thread switch can happen between any of them, which is exactly why augmented assignment isn't thread-safe without a lock."
+    }
+  ]
+}
+```
+$md$, 15, $json$[{"id":"serialization-data-bytecode-dis-q1","type":"mcq","correct":"b"},{"id":"serialization-data-bytecode-dis-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('b56f5cd0-7e03-5c2b-b41f-83b550d4aeae', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '012c80ac-4e8f-5205-8f62-ce79738eaa79', 'Garbage Collection & Circular References', 'notes', 2, $md$CPython's primary memory-management strategy is **reference counting**: every object carries a count of how many things point to it, and the moment that count hits zero, the object is freed immediately — no separate "GC pause" required. `sys.getrefcount` lets you see this counter directly (it always reports one more than you'd expect, because passing the object into `getrefcount` itself creates a temporary reference).
 
 ```python
 import sys
@@ -167,41 +5349,36 @@ $md$, 15, $json$[{"id":"internals-garbage-collection-q1","type":"mcq","correct":
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('ba47e257-1a18-5b02-b22f-192526f144e0', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '012c80ac-4e8f-5205-8f62-ce79738eaa79', 'Not Returning Dicts & Lists from Functions', 'notes', 2, $md$Python passes arguments by **object reference** — a variable never holds a copy of a list or dict, it holds a reference to the same object everyone else who has that variable also points at. That has a direct, easy-to-miss consequence: a function that mutates a list or dict argument doesn't need to `return` it for the caller to see the change.
+VALUES ('c32a7095-b38a-5f19-96fc-5fd87988b412', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '012c80ac-4e8f-5205-8f62-ce79738eaa79', 'Arrays (the `array` Module)', 'notes', 3, $md$A Python `list` can hold anything — an int, a string, another list — in the same container. That flexibility costs memory: each element is a separate Python object, and the list itself stores an array of *pointers* to those objects, not the raw values. When you need a large, homogeneous run of numbers, the standard library's `array` module stores the raw values directly, packed the way a C array would be.
 
-## The pattern
+## Type-specific arrays
 
-```python
-def add_n_copies(items, n):
-    for i in range(n):
-        items.append(n)
-    # no return statement at all
-
-my_list = []
-add_n_copies(my_list, 5)
-print(my_list)  # [5, 5, 5, 5, 5] — mutated in place, no return needed
-```
-
-`items` inside the function and `my_list` outside it are the same object — `id(items) == id(my_list)` is `True` for the whole call. `.append()` mutates that shared object, so the caller's variable reflects the change the instant the function returns (or even before, if another piece of code peeked at `my_list` mid-call from another thread).
-
-## Where this bites people
-
-The mirror image of this rule is the actual interview trap: relying on mutation when you *meant* to return a new value.
+`array.array` takes a **type code** as its first argument — a single character that fixes what every element must be — and refuses anything that doesn't fit.
 
 ```python
-def broken_scale(numbers, factor):
-    numbers = [n * factor for n in numbers]  # rebinds the LOCAL name only
-    return numbers
+from array import array
 
-original = [1, 2, 3]
-result = broken_scale(original, 10)
-print(original)  # [1, 2, 3] — untouched, because the function rebound `numbers`
-print(result)     # [30, 20 ,10]... [10, 20, 30] — the new list, via the return value
+numbers = array('i', [1, 2, 3, 4, 5])  # 'i' = signed int
+numbers.append(6)
+numbers.extend([7, 8])
+numbers.insert(0, 0)
+
+print(numbers)          # array('i', [0, 1, 2, 3, 4, 5, 6, 7, 8])
+print(numbers.itemsize)  # 4 — bytes per element on this platform
+
+try:
+    numbers.append("nine")
+except TypeError as e:
+    print(f"rejected: {e}")  # array only holds ints once created with 'i'
 ```
 
-`numbers = [...]` inside the function rebinds the local name `numbers` to a brand-new list — it does not touch the object `original` still points to. This is the same reference semantics as the mutation example above, just applied to reassignment instead of `.append()`. The rule that falls out of both examples: if a function **mutates** its argument in place (`.append`, `.update`, `[:] = `, `del items[i]`), the caller sees it with no `return` needed; if a function **rebinds** the parameter name to a new object, the caller sees nothing unless the function returns it.
+`array` supports the same `.append`/`.extend`/`.insert` methods as `list`, so the API is familiar — the difference is entirely in storage. Common type codes: `'b'`/`'B'` (signed/unsigned byte), `'i'`/`'I'` (signed/unsigned int), `'f'`/`'d'` (float/double), `'u'` (unicode char, deprecated).
 
-Being explicit about which one you're doing — and returning a new object rather than silently mutating an argument the caller didn't expect to change — is usually the more maintainable choice, even though Python allows either.
+## Why this matters at the memory level
+
+A `list` of a million ints stores a million separate `int` objects (each with its own refcount and type pointer) plus a million 8-byte pointers in the list's backing array. An `array('i', ...)` of a million ints stores exactly one contiguous block of 4-million bytes — no per-element object overhead at all. That's the trade you're making: `array` is dramatically more memory-efficient and cache-friendly for large runs of one numeric type, at the cost of losing per-element flexibility and Python-level dynamic typing.
+
+In practice, `array` shows up under the hood of other tools (it backs parts of `struct`, and libraries like NumPy generalize the same idea to N dimensions) more often than it's reached for directly — but recognizing when a list's flexibility is pure overhead is the actual interview signal.
 
 ## Knowledge check
 
@@ -209,90 +5386,85 @@ Being explicit about which one you're doing — and returning a new object rathe
 {
   "questions": [
     {
-      "id": "internals-no-return-mutable-q1",
+      "id": "internals-arrays-q1",
       "type": "mcq",
-      "prompt": "A function does `items.append(n)` on its list argument with no return statement. Does the caller see the change?",
+      "prompt": "What must you specify when creating a Python array.array that a list never requires?",
       "options": [
-        { "id": "a", "text": "No, lists are always copied into functions" },
-        { "id": "b", "text": "Yes — the parameter and the caller's variable reference the same list object, so mutating it in place is visible without returning anything" },
-        { "id": "c", "text": "Only if the function is decorated with @mutates" },
-        { "id": "d", "text": "Only in Python 2, not Python 3" }
+        { "id": "a", "text": "A fixed maximum length" },
+        { "id": "b", "text": "A type code, fixing every element to the same type" },
+        { "id": "c", "text": "A custom hash function" },
+        { "id": "d", "text": "A thread-safety mode" }
       ],
       "correct": "b",
-      "explanation": "Python passes object references. items and the caller's list are the same object, so in-place mutation (append, update, etc.) is visible to the caller immediately, with no return needed."
+      "explanation": "array.array('i', ...) fixes the element type via a one-character type code; mixing types raises TypeError, unlike a list."
     },
     {
-      "id": "internals-no-return-mutable-q2",
+      "id": "internals-arrays-q2",
       "type": "mcq",
-      "prompt": "Inside a function, `numbers = [n * 2 for n in numbers]` reassigns the parameter. Why doesn't the caller's original list change?",
+      "prompt": "Why is array more memory-efficient than list for a million integers?",
       "options": [
-        { "id": "a", "text": "List comprehensions are read-only and can't reassign" },
-        { "id": "b", "text": "Reassignment rebinds the local name to a new object — it doesn't mutate the object the caller's variable still points to" },
-        { "id": "c", "text": "Python silently copies lists on reassignment" },
-        { "id": "d", "text": "It does change, unless the function returns None" }
+        { "id": "a", "text": "It stores raw values in one contiguous block instead of a million separate int objects plus pointers" },
+        { "id": "b", "text": "It compresses the data automatically" },
+        { "id": "c", "text": "It uses a different garbage collector" },
+        { "id": "d", "text": "It stores values on disk instead of in RAM" }
       ],
-      "correct": "b",
-      "explanation": "`numbers = [...]` makes the local name point at a new list; the caller's variable still points at the original object, unaffected. Only in-place mutation (not reassignment) is visible without a return."
+      "correct": "a",
+      "explanation": "A list holds pointers to individually-allocated int objects; array packs raw values contiguously like a C array, eliminating per-element object overhead."
     }
   ]
 }
 ```
-$md$, 12, $json$[{"id":"internals-no-return-mutable-q1","type":"mcq","correct":"b"},{"id":"internals-no-return-mutable-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+$md$, 12, $json$[{"id":"internals-arrays-q1","type":"mcq","correct":"b"},{"id":"internals-arrays-q2","type":"mcq","correct":"a"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('af5ce63e-3c3a-5f41-af28-d8d5952d9c0f', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '012c80ac-4e8f-5205-8f62-ce79738eaa79', 'Method Resolution Order (MRO)', 'notes', 3, $md$When a class inherits from multiple parents, and more than one of those parents defines the same method, which one wins? Python answers this with the **Method Resolution Order (MRO)** — a single, deterministic list of classes, computed once per class, that attribute and method lookup walks in order, stopping at the first match.
+VALUES ('87a4c4d0-9798-584d-a931-c0159146e404', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '012c80ac-4e8f-5205-8f62-ce79738eaa79', '`bytes`', 'notes', 4, $md$A Python `str` is a sequence of Unicode characters — text, meant for humans to read. A `bytes` object is a sequence of raw integers in the range 0–255 — the actual binary data a file, a network socket, or an image format works with. Confusing the two (or forgetting to convert between them) is one of the most common sources of `UnicodeDecodeError`/`TypeError` bugs when working with files and network I/O.
 
-## The simple case: left-to-right
-
-```python
-class A:
-    def greet(self):
-        print("Hello from A")
-
-class B:
-    def greet(self):
-        print("Hello from B")
-
-class C(A, B):
-    pass
-
-c = C()
-c.greet()          # Hello from A — A is listed first in C(A, B)
-print(C.__mro__)   # (C, A, B, object)
-```
-
-With no shared ancestor between `A` and `B`, the MRO is exactly the declaration order: `C`, then `A`, then `B`, then `object`. `c.greet()` finds `A.greet` first and stops.
-
-## The diamond problem
-
-The MRO gets interesting when the parents share a common ancestor — the classic **diamond**: `B` and `C` both inherit from `A`, and `D` inherits from both `B` and `C`.
+## Writing and reading binary data
 
 ```python
-class A:
-    def greet(self):
-        print("Hello from A")
+# Write binary data to a file
+with open("example.bin", "wb") as f:   # "wb" = write bytes
+    f.write(b"Binary data")
 
-class B(A):
-    pass
-
-class C(A):
-    def greet(self):
-        print("Hello from C")
-
-class D(B, C):
-    pass
-
-d = D()
-d.greet()          # Hello from C
-print(D.__mro__)   # (D, B, C, A, object)
+# Read it back
+with open("example.bin", "rb") as f:   # "rb" = read bytes
+    data = f.read()
+    print(data)        # b'Binary data'
+    print(type(data))  # <class 'bytes'>
 ```
 
-Naive left-to-right depth-first search would check `D` → `B` → `A` (finds `greet` here) and stop, silently ignoring `C`'s more specific override. CPython instead uses **C3 linearization**, an algorithm that guarantees two properties: a class always appears before its parents, and the declared order of a class's own bases is preserved. Under C3, `A` is pushed all the way to the end — past both `B` and `C` — because `A` is an ancestor of both and must be resolved *after* anything more specific. That's why `D.__mro__` puts `C` before `A`: `B` has no `greet` of its own, so the search falls through to `C`, which does — not to `A`, which would bypass `C`'s override entirely.
+The `b"..."` prefix creates a `bytes` literal. Opening a file in `"wb"`/`"rb"` mode (instead of `"w"`/`"r"`) tells Python to hand back raw bytes instead of trying to decode them as text — mixing modes (writing bytes to a text-mode file, or vice versa) raises a `TypeError` immediately.
+
+## Converting between `str` and `bytes`
+
+Text becomes bytes via an explicit **encoding**, and bytes become text via the matching **decoding**:
+
+```python
+text = "Hello, world"
+encoded = text.encode("utf-8")     # b'Hello, world'
+decoded = encoded.decode("utf-8")  # 'Hello, world'
+
+print(encoded, type(encoded))
+print(decoded, type(decoded))
+```
+
+If the bytes don't actually represent valid text in the encoding you decode with, `.decode()` raises `UnicodeDecodeError` — this is why "just decode it" is unsafe without knowing (or being told, e.g. via a `Content-Type` header) which encoding produced the bytes in the first place.
+
+## `bytearray`: the mutable sibling
+
+`bytes` is immutable, like `str`. When binary data needs to be built up or modified in place — assembling a network packet piece by piece — `bytearray` is the mutable equivalent:
+
+```python
+buf = bytearray(b"Hello")
+buf[0] = ord("J")   # mutate a single byte in place
+buf.extend(b", world")
+print(bytes(buf))   # b'Jello, world'
+```
 
 ## Why this matters
 
-MRO is the mechanism `super()` actually uses — `super().__init__()` doesn't call "the parent class," it calls "the next class in the current instance's MRO," which is exactly why cooperative multiple inheritance (every class in a chain calling `super()`) works correctly even in diamond shapes. Getting a class hierarchy wrong here doesn't raise an error — it silently calls the wrong method, which is what makes MRO bugs painful to track down in large codebases with deep or wide inheritance.
+`bytes` shows up anywhere Python talks to something that isn't Python: reading an image or audio file, parsing a binary network protocol, computing a hash (`hashlib` operates on bytes, not str), or streaming a large file without loading it fully as decoded text. Treating binary data as text — or text as binary — is a bug waiting for the first non-ASCII input.
 
 ## Knowledge check
 
@@ -300,80 +5472,77 @@ MRO is the mechanism `super()` actually uses — `super().__init__()` doesn't ca
 {
   "questions": [
     {
-      "id": "internals-mro-q1",
+      "id": "serialization-data-bytes-q1",
       "type": "mcq",
-      "prompt": "class C(A, B): pass, where both A and B define greet(). Which one does c.greet() call?",
+      "prompt": "What's the fundamental difference between str and bytes in Python?",
       "options": [
-        { "id": "a", "text": "B's, because it's evaluated last" },
-        { "id": "b", "text": "A's, because A is listed first in C(A, B) and the MRO checks bases left to right" },
-        { "id": "c", "text": "Both are called, in order" },
-        { "id": "d", "text": "It raises a TypeError for ambiguous inheritance" }
+        { "id": "a", "text": "str is a sequence of Unicode characters for text; bytes is a sequence of raw 0-255 integers for binary data" },
+        { "id": "b", "text": "bytes is just a faster version of str with no functional difference" },
+        { "id": "c", "text": "str can only hold ASCII characters, bytes holds everything else" },
+        { "id": "d", "text": "They are interchangeable and Python converts automatically" }
+      ],
+      "correct": "a",
+      "explanation": "str represents human-readable Unicode text; bytes represents raw binary data as integers 0-255. Converting between them always requires an explicit encode()/decode() step and an encoding name."
+    },
+    {
+      "id": "serialization-data-bytes-q2",
+      "type": "mcq",
+      "prompt": "What happens if you call .decode('utf-8') on bytes that don't represent valid UTF-8 text?",
+      "options": [
+        { "id": "a", "text": "Python silently returns an empty string" },
+        { "id": "b", "text": "It raises a UnicodeDecodeError" },
+        { "id": "c", "text": "It automatically detects and uses the correct encoding instead" },
+        { "id": "d", "text": "It returns the raw bytes unchanged" }
       ],
       "correct": "b",
-      "explanation": "With no shared ancestor, the MRO is simply the declaration order: C, A, B, object. Lookup stops at the first match, which is A."
-    },
-    {
-      "id": "internals-mro-q2",
-      "type": "mcq",
-      "prompt": "In the diamond D(B, C) where B(A) and C(A) both descend from A, and only C overrides greet(), why does d.greet() call C's version and not A's?",
-      "options": [
-        { "id": "a", "text": "C3 linearization places shared ancestor A after all of its more specific descendants (B and C), so the search reaches C's override before falling back to A" },
-        { "id": "b", "text": "Python always prefers the second base class in a diamond" },
-        { "id": "c", "text": "A's method is deleted automatically once subclassed twice" },
-        { "id": "d", "text": "It's undefined behavior and differs by Python version" }
-      ],
-      "correct": "a",
-      "explanation": "C3 linearization guarantees a class appears before its ancestors in the MRO. D's MRO is (D, B, C, A, object) — B has no greet of its own, so lookup falls through to C's override before ever reaching A."
+      "explanation": "decode() assumes the bytes were produced with the specified encoding; if the byte sequence isn't valid under that encoding, Python raises UnicodeDecodeError rather than guessing."
     }
   ]
 }
 ```
-$md$, 15, $json$[{"id":"internals-mro-q1","type":"mcq","correct":"b"},{"id":"internals-mro-q2","type":"mcq","correct":"a"}]$json$::jsonb)
+$md$, 12, $json$[{"id":"serialization-data-bytes-q1","type":"mcq","correct":"a"},{"id":"serialization-data-bytes-q2","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('de0f27d6-5b70-55f1-a0bf-9dbcd220b8a2', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '012c80ac-4e8f-5205-8f62-ce79738eaa79', 'Walrus Operator (`:=`)', 'notes', 4, $md$The walrus operator (`:=`, officially the **assignment expression**, added in Python 3.8) lets you assign a value to a name *and* produce that value as the result of the expression, in one step. Plain `=` is a statement — it can't appear inside an `if` condition or a comprehension. `:=` can.
+VALUES ('2c324319-4cc3-51b7-b0f6-7cf8dbcd914f', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '012c80ac-4e8f-5205-8f62-ce79738eaa79', '`memoryview`', 'notes', 5, $md$Slicing a `bytes` or `bytearray` object copies the sliced data into a brand-new object. For a million-byte buffer, slicing out even a small chunk means allocating and copying that chunk — wasted work if all you needed was to *look at* part of the buffer. `memoryview` fixes this by exposing the same underlying memory through a view, with no copy at all.
 
-## Before and after
-
-```python
-my_dict = {"my_var": 42}
-
-def lookup_v1(d):
-    my_var = d.get("my_var")   # separate assignment statement
-    if my_var:
-        return my_var
-
-def lookup_v2(d):
-    if my_var := d.get("my_var"):  # assign AND test in one expression
-        return my_var
-```
-
-Both functions behave identically — `lookup_v2` just collapses "assign, then check" into a single line. The win compounds once the value being checked is expensive to compute or you'd otherwise have to write it twice.
-
-## Where it earns its keep
+## Copy vs. view
 
 ```python
-# Without walrus: call the expensive function twice, or add a throwaway line
-data = fetch_data()
-if data:
-    process(data)
+import sys
 
-# With walrus: compute once, inline in the condition
-if (data := fetch_data()):
-    process(data)
+data = bytearray(b"A" * 10**6)  # 1,000,000 bytes
+mv = memoryview(data)
+
+# Slicing a memoryview creates another view — no copy
+mv_slice = mv[100:100000]
+
+# Slicing the bytearray directly copies ~99,900 bytes into a new object
+bytes_slice = data[100:100000]
+
+print(f"memoryview slice: {sys.getsizeof(mv_slice):,} bytes")
+print(f"bytearray slice:  {sys.getsizeof(bytes_slice):,} bytes")
 ```
+
+`mv_slice` reports a small, roughly constant size — it's just a window (a pointer, an offset, and a length) into `data`'s existing memory. `bytes_slice` reports a size proportional to the ~99,900 bytes it actually copied. The bigger the buffer and the more slicing you do, the more this gap matters.
+
+## Views can write back to the original
+
+Because a `memoryview` shares memory with its source (when the source is mutable, like `bytearray`), writing through the view changes the original:
 
 ```python
-# Comprehensions: filter on a computed value without a nested function call
-values = [1, 2, 3, 4, 5, 6]
-results = [y for x in values if (y := x * x) > 10]
-print(results)  # [16, 25, 36] — y is both the filter and the yielded value
+buf = bytearray(b"Hello, World!")
+mv = memoryview(buf)
+
+mv[0:5] = b"HELLO"   # writes directly into buf's memory, no copy
+print(buf)           # bytearray(b'HELLO, World!')
 ```
 
-That comprehension example is the case a plain `=` genuinely cannot express at all: without `:=`, computing `x * x` once and both filtering *and* returning it would require a helper function or a `map`/`filter` chain — the walrus lets a comprehension reuse an intermediate value without recomputing it.
+This cuts both ways — it's the whole point when you want in-place mutation of a large buffer, but it means a `memoryview` keeps its source object alive and mutable-through-the-view for as long as the view exists, which is worth remembering before handing a view out to code you don't control.
 
-The operator is deliberately minor — it doesn't change what's *possible* in Python, only how tersely a specific pattern (compute-then-check) can be written — but reaching for it in the right spot (a `while` loop reading chunks, a comprehension filtering on a derived value) is a small, reliable signal of comfort with the language.
+## Where this matters in practice
+
+Anywhere large binary payloads move through a program without needing full copies at every step: reading network buffers, processing large files in chunks, or feeding data into C extensions (NumPy, `struct`, `array`) that understand the buffer protocol directly. A web server parsing a large multipart upload, or a protocol parser slicing a byte stream into fields, is exactly the kind of hot path where "avoid the copy" turns into a measurable memory and latency win.
 
 ## Knowledge check
 
@@ -381,76 +5550,367 @@ The operator is deliberately minor — it doesn't change what's *possible* in Py
 {
   "questions": [
     {
-      "id": "internals-walrus-operator-q1",
+      "id": "serialization-data-memoryview-q1",
       "type": "mcq",
-      "prompt": "What can `if (data := fetch_data()):` do that `data = fetch_data(); if data:` cannot?",
+      "prompt": "Why does memoryview slicing use far less memory than slicing a bytearray directly?",
       "options": [
-        { "id": "a", "text": "Nothing functionally different — it's purely a style preference for this exact case" },
-        { "id": "b", "text": "It skips calling fetch_data() entirely" },
-        { "id": "c", "text": "It makes fetch_data() run asynchronously" },
-        { "id": "d", "text": "It caches the result across multiple calls" }
+        { "id": "a", "text": "memoryview compresses the data automatically" },
+        { "id": "b", "text": "A memoryview slice is a view (pointer + offset + length) into the existing memory, not a copy of the bytes" },
+        { "id": "c", "text": "memoryview only supports small buffers" },
+        { "id": "d", "text": "bytearray slicing is actually a bug that will be fixed" }
       ],
-      "correct": "a",
-      "explanation": "For a simple assign-then-check, := is equivalent to a separate assignment statement followed by a check — its real value shows up where a plain assignment statement isn't syntactically allowed at all, like inside a comprehension's condition."
+      "correct": "b",
+      "explanation": "Slicing a memoryview creates another lightweight view referencing the same underlying memory; slicing a bytearray directly allocates a new object and copies the sliced bytes into it."
     },
     {
-      "id": "internals-walrus-operator-q2",
+      "id": "serialization-data-memoryview-q2",
       "type": "mcq",
-      "prompt": "`[y for x in values if (y := x * x) > 10]` — why is the walrus operator necessary here, not just convenient?",
+      "prompt": "In `buf = bytearray(...); mv = memoryview(buf); mv[0:5] = b\"HELLO\"`, what happens to buf?",
       "options": [
-        { "id": "a", "text": "A comprehension's filter clause can't contain a plain assignment statement, so without :=, x*x would need to be computed twice or via a helper" },
-        { "id": "b", "text": "List comprehensions don't support arithmetic without it" },
-        { "id": "c", "text": "It's required syntax for any comprehension with a filter" },
-        { "id": "d", "text": "It prevents the comprehension from allocating a new list" }
+        { "id": "a", "text": "buf is unchanged — memoryview is always read-only" },
+        { "id": "b", "text": "buf's first 5 bytes are modified in place, since mv shares memory with buf" },
+        { "id": "c", "text": "A TypeError is raised because memoryview can't be assigned to" },
+        { "id": "d", "text": "A new bytearray is created, leaving buf untouched" }
       ],
-      "correct": "a",
-      "explanation": "A comprehension's `if` clause is an expression context, not a statement context — plain `=` isn't valid there. The walrus operator is what lets the filter both compute and reuse x*x in one expression."
+      "correct": "b",
+      "explanation": "Because memoryview shares memory with its mutable source, writing through the view mutates buf directly — no copy is made in either direction."
     }
   ]
 }
 ```
-$md$, 10, $json$[{"id":"internals-walrus-operator-q1","type":"mcq","correct":"a"},{"id":"internals-walrus-operator-q2","type":"mcq","correct":"a"}]$json$::jsonb)
+$md$, 12, $json$[{"id":"serialization-data-memoryview-q1","type":"mcq","correct":"b"},{"id":"serialization-data-memoryview-q2","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('21acad42-005b-5552-8ffa-110ec776bdf7', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '012c80ac-4e8f-5205-8f62-ce79738eaa79', '`operator.attrgetter`', 'notes', 5, $md$Sorting a list of objects by an attribute is usually written with a lambda: `sorted(people, key=lambda p: p.age)`. `operator.attrgetter` does the same job, implemented in C instead of as a Python-level closure — and, more importantly, it can reach into **nested** attributes using a dotted string, which a lambda can do too but only by hardcoding the path.
+VALUES ('5aa6fe70-68dc-5dd4-a70f-55268966ca22', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '012c80ac-4e8f-5205-8f62-ce79738eaa79', 'Optimizing Slow Python Code', 'notes', 6, $md$"How would you speed up slow Python code?" is a staple. The strong answer has an order: measure first, fix the algorithm and data structure, then reach for caching, vectorised libraries, and finally parallelism or compilation.
 
-## Basic use
+## Profile before you optimize
+
+Guessing where time goes is usually wrong. `cProfile` reports time per function; `line_profiler` (a third-party package) reports time per line of a function you decorate with `@profile`. Optimize only the hot spot, then measure again to confirm the change helped.
 
 ```python
-from operator import attrgetter
+import cProfile
+import io
+import pstats
 
-class Address:
-    def __init__(self, city, state):
-        self.city = city
-        self.state = state
+def slow_sum(n):
+    total = 0
+    for i in range(n):
+        total += i
+    return total
 
-class Person:
-    def __init__(self, name, address):
+def work():
+    return slow_sum(200_000)
+
+profiler = cProfile.Profile()
+profiler.enable()
+work()
+profiler.disable()
+
+stream = io.StringIO()
+pstats.Stats(profiler, stream=stream).sort_stats("cumulative").print_stats(5)
+print("slow_sum" in stream.getvalue())  # True: the report names the hot function
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-optimizing-slow-code-q1",
+      "type": "mcq",
+      "prompt": "What is the right first step when asked to speed up a slow Python program?",
+      "options": [
+        { "id": "a", "text": "Rewrite it in Cython" },
+        { "id": "b", "text": "Add multiprocessing" },
+        { "id": "c", "text": "Profile it to find the real bottleneck" },
+        { "id": "d", "text": "Replace every list with a generator" }
+      ],
+      "correct": "c",
+      "explanation": "Use cProfile (function level) or line_profiler (line level) so effort goes to the code that is actually slow."
+    }
+  ]
+}
+```
+
+## Use builtins, the right data structure, and less work per iteration
+
+Most wins are not clever. Built-ins and libraries such as NumPy run their loops in C. A set or dict turns a repeated O(n) scan into O(1). Work that does not change between iterations belongs before the loop.
+
+```python
+import math
+
+data = list(range(2000))
+lookups = list(range(0, 4000, 2))
+
+# Slow: O(n) list scan per lookup
+slow_hits = 0
+for x in lookups:
+    if x in data:
+        slow_hits += 1
+
+# Faster: set membership, builtin sum, invariant hoisted out of the loop
+data_set = set(data)
+fast_hits = sum(1 for x in lookups if x in data_set)
+
+factor = math.sqrt(2)  # computed once, not per iteration
+scaled = [x * factor for x in data]
+
+assert slow_hits == fast_hits == 1000
+print(fast_hits, len(scaled))  # 1000 2000
+```
+
+Use generator expressions instead of lists when you only iterate once, and `collections.deque` instead of a list when popping from the front.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-optimizing-slow-code-q2",
+      "type": "mcq",
+      "prompt": "Inside a loop you test `item in big_list` thousands of times. What is the best fix?",
+      "options": [
+        { "id": "a", "text": "Convert the list to a set once, before the loop" },
+        { "id": "b", "text": "Sort the list on every iteration" },
+        { "id": "c", "text": "Wrap the loop in a try/except" },
+        { "id": "d", "text": "Use a global variable for the list" }
+      ],
+      "correct": "a",
+      "explanation": "Set membership is O(1) on average versus O(n) for a list, and building the set once amortizes its cost."
+    },
+    {
+      "id": "performance-testing-optimizing-slow-code-q3",
+      "type": "mcq",
+      "prompt": "Why is `sum(values)` generally faster than a manual `for` loop that adds the values?",
+      "options": [
+        { "id": "a", "text": "Built-ins run their loop in C instead of the Python bytecode loop" },
+        { "id": "b", "text": "It skips type checks and may give wrong answers" },
+        { "id": "c", "text": "It runs on multiple cores" },
+        { "id": "d", "text": "It caches the result between calls" }
+      ],
+      "correct": "a",
+      "explanation": "The iteration happens inside the interpreter's C code, avoiding per-iteration bytecode overhead."
+    }
+  ]
+}
+```
+
+## Cache repeated work with lru_cache
+
+If a pure function is called repeatedly with the same arguments, memoize it. `functools.lru_cache` stores results keyed by the arguments (which must be hashable). Always set `maxsize` deliberately so the cache cannot grow without bound.
+
+```python
+from functools import lru_cache
+
+@lru_cache(maxsize=256)
+def fib(n):
+    return n if n < 2 else fib(n - 1) + fib(n - 2)
+
+print(fib(80))             # 23416728348467685, instant instead of exponential
+print(fib.cache_info())    # CacheInfo(hits=78, misses=81, maxsize=256, currsize=81)
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-optimizing-slow-code-q4",
+      "type": "mcq",
+      "prompt": "Which function is a good candidate for `@lru_cache`?",
+      "options": [
+        { "id": "a", "text": "One that returns the current time" },
+        { "id": "b", "text": "A pure, expensive function called repeatedly with the same hashable arguments" },
+        { "id": "c", "text": "One that writes to a database" },
+        { "id": "d", "text": "One whose arguments are always unique lists" }
+      ],
+      "correct": "b",
+      "explanation": "Caching only helps when results are deterministic and inputs repeat; arguments must be hashable, so list arguments fail."
+    }
+  ]
+}
+```
+
+## CPU-bound vs I/O-bound
+
+Diagnose which one you have before picking a tool. I/O-bound code (network, disk) waits, so `asyncio` or threads overlap the waiting. CPU-bound code needs real parallelism (`multiprocessing`) because of the GIL, or compilation: Numba JIT-compiles numeric functions, Cython lets you rewrite a hot section in C-like code. These come after algorithmic fixes, not before. See the concurrency section for the threading and multiprocessing details.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-optimizing-slow-code-q5",
+      "type": "mcq",
+      "prompt": "A service spends most of its time waiting on HTTP responses. Which tool fits best?",
+      "options": [
+        { "id": "a", "text": "asyncio (or threads) to overlap the waiting" },
+        { "id": "b", "text": "Cython" },
+        { "id": "c", "text": "A larger `lru_cache`" },
+        { "id": "d", "text": "Numba" }
+      ],
+      "correct": "a",
+      "explanation": "Waiting on I/O does not use the CPU, so overlapping the waits helps. Compilation tools speed up CPU-bound work."
+    }
+  ]
+}
+```
+
+## Interning and pymalloc
+
+CPython reuses some objects to save memory and time. **Interning**: small integers from -5 to 256 are preallocated singletons, and some strings (identifier-like ones) are shared. **pymalloc** is the allocator for objects of 512 bytes or less; it carves arenas into pools so small allocations avoid a system `malloc` call each time. Larger objects go to the system allocator.
+
+Consequence: use `==` for value comparison, never `is`. Identity of equal ints or strings is an implementation detail.
+
+```python
+a = int("100")
+b = int("100")
+print(a is b)   # True: 100 is in the small-int cache
+
+c = int("1000")
+d = int("1000")
+print(c is d)   # False: 1000 is outside the cache, separate objects
+print(c == d)   # True
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-optimizing-slow-code-q6",
+      "type": "mcq",
+      "prompt": "Which range of integers does CPython preallocate and reuse?",
+      "options": [
+        { "id": "a", "text": "0 to 100" },
+        { "id": "b", "text": "-5 to 256" },
+        { "id": "c", "text": "-128 to 127" },
+        { "id": "d", "text": "All integers below 1000" }
+      ],
+      "correct": "b",
+      "explanation": "Integers from -5 through 256 are cached singletons, which is why `a is b` can be True for small ints only."
+    },
+    {
+      "id": "performance-testing-optimizing-slow-code-q7",
+      "type": "mcq",
+      "prompt": "What does pymalloc handle?",
+      "options": [
+        { "id": "a", "text": "Allocations larger than 1 MB" },
+        { "id": "b", "text": "Reference counting" },
+        { "id": "c", "text": "Small object allocations up to 512 bytes, using pools and arenas" },
+        { "id": "d", "text": "Cycle detection" }
+      ],
+      "correct": "c",
+      "explanation": "pymalloc is a fast small-object allocator; larger requests fall through to the system allocator."
+    }
+  ]
+}
+```
+
+## Original notes
+
+Your original wording from the Notes vault, kept verbatim for reference.
+
+##### ★ 2026-09-23 — How do you optimize slow Python code?
+
+**Start with profiling** to identify bottlenecks rather than guessing. Use `cProfile` for function-level analysis or `line_profiler` for line-by-line timing. Focus optimization effort on the code that's actually slow.
+
+**Common optimization techniques:**
+- Use built-in functions and libraries like NumPy instead of pure Python loops — they're implemented in C and much faster (e.g. `sum()` instead of manually looping to add numbers).
+- Replace list comprehensions with generator expressions when you don't need the entire list in memory at once — reduces memory usage and can improve speed.
+- Avoid repeated calculations by caching results. `@lru_cache` is great for expensive function calls with repeated inputs.
+- Choose the right data structures — sets for membership testing instead of lists, dictionaries for lookups, `collections.deque` for queue operations.
+- Move computations out of loops when possible — if something doesn't change between iterations, calculate it once before the loop.
+
+**For more intensive optimization:**
+- `multiprocessing` for CPU-bound tasks, `asyncio` for I/O-bound operations
+- Numba to compile Python to machine code for number crunching, or Cython to rewrite critical sections
+
+Always measure before and after optimization to confirm you're actually improving performance — premature optimization often wastes time on code that doesn't matter.
+
+For memory/resource-specific anti-patterns in long-running async services (not just general speed), see async-memory-patterns.
+
+
+
+###### 3. Private heap & allocators
+- All Python objects live in a **private heap** managed by the interpreter — no direct `malloc`/`free`.
+- **pymalloc**: small-object allocator for allocations ≤512 bytes, using pools/arenas to avoid repeated OS allocator calls.
+- Larger objects fall through to the system allocator.
+
+
+###### 4. Optimizations worth knowing
+- **Interning**: small integers (-5 to 256) and some strings are cached/reused rather than reallocated.
+  ```python
+  a = 100
+  b = 100
+  a is b   # True — interned
+
+  a = 1000
+  b = 1000
+  a is b   # False (usually) — not interned
+  ```
+- **`__slots__`**: for classes with many instances, avoids the per-instance `__dict__`, cutting memory significantly.
+  ```python
+  class Point:
+      __slots__ = ('x', 'y')
+  ```
+$md$, 13, $json$[{"id":"performance-testing-optimizing-slow-code-q1","type":"mcq","correct":"c"},{"id":"performance-testing-optimizing-slow-code-q2","type":"mcq","correct":"a"},{"id":"performance-testing-optimizing-slow-code-q3","type":"mcq","correct":"a"},{"id":"performance-testing-optimizing-slow-code-q4","type":"mcq","correct":"b"},{"id":"performance-testing-optimizing-slow-code-q5","type":"mcq","correct":"a"},{"id":"performance-testing-optimizing-slow-code-q6","type":"mcq","correct":"b"},{"id":"performance-testing-optimizing-slow-code-q7","type":"mcq","correct":"c"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+-- Section: Memory Optimization
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('9611f948-d8bd-544b-ac64-8494c8344d6b', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Memory Optimization', 6, 'Advanced')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('cde878ce-2df0-5eae-9306-5373b1cf8837', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '9611f948-d8bd-544b-ac64-8494c8344d6b', 'weakref', 'notes', 0, $md$CPython's primary garbage-collection mechanism is reference counting: every object tracks how many references point to it, and gets freed the instant that count hits zero. A **weak reference**, from the `weakref` module, is a reference that points to an object *without* increasing its reference count — which is exactly the tool for breaking the one case reference counting can't handle on its own: two objects that reference each other.
+
+## The circular-reference problem
+
+```python
+class Node:
+    def __init__(self, name):
         self.name = name
-        self.address = address
+        self.next = None
 
-people = [
-    Person("Alice", Address("New York", "NY")),
-    Person("Bob", Address("Chicago", "IL")),
-    Person("Charlie", Address("Los Angeles", "CA")),
-]
 
-sorted_people = sorted(people, key=attrgetter("address.city"))
-print([p.name for p in sorted_people])  # ['Bob', 'Charlie', 'Alice']
+a = Node("A")
+b = Node("B")
+a.next = b
+b.next = a  # circular: a -> b -> a
+
+del a
+del b
+# Neither Node's refcount ever hits zero from these two variables alone —
+# each is still held by the other's .next. CPython's cyclic GC eventually
+# reclaims this, but only on its own schedule, not immediately.
 ```
 
-`attrgetter("address.city")` returns a callable equivalent to `lambda p: p.address.city` — but it accepts the attribute path as a **string**, which a lambda cannot without an `eval` or a chain of `getattr` calls.
+A plain reference count on `a` and `b` never reaches zero here, because each object keeps the other alive. CPython's separate cyclic garbage collector *does* eventually detect and clean up cycles like this — but only on its own generational schedule, not the instant the last external reference disappears. In long-running systems with many such objects, that delay is exactly the kind of thing senior interviews probe: not "will this ever leak" (it won't, permanently) but "do you understand why it isn't cleaned up immediately."
 
-## Why the string form matters
+## Breaking the cycle with `weakref.ref`
 
 ```python
-# A sort key chosen at runtime — e.g. from a query parameter or config file
-sort_key = "address.city"   # could just as easily be "name" or "address.state"
-sorted_people = sorted(people, key=attrgetter(sort_key))
+import weakref
+
+
+class Node:
+    def __init__(self, name):
+        self.name = name
+        self.next = None
+
+
+a = Node("A")
+b = Node("B")
+a.next = weakref.ref(b)  # a weak reference — doesn't increase b's refcount
+b.next = weakref.ref(a)  # same for a
+
+# A weakref.ref is callable: call it to get the live object back
+print(a.next().name)  # B
+print(b.next().name)  # A
 ```
 
-This is the actual reason to reach for `attrgetter` over a lambda: when the attribute to sort by isn't known until runtime (a user-selected column, a config-driven report), a lambda would need to build the path dynamically with `getattr` chains itself — `attrgetter` already does exactly that, and does it in C. `attrgetter` also accepts multiple attributes at once (`attrgetter("last_name", "first_name")` sorts by last name, then first name, as a tiebreak) and is a direct sibling of `operator.itemgetter` (the same idea for `obj[key]` access instead of `obj.attr`).
+`a.next` no longer holds a strong reference to `b` — it holds a `weakref.ref` object, which you call like a function to get `b` back (`a.next()` returns `b`, or `None` if `b` has already been garbage collected). Now `a` and `b` only stay alive as long as something *else* holds a strong reference to them; deleting the last strong reference to either one lets ordinary reference counting free it immediately, cycle or not.
+
+## Where this matters in practice
+
+Weak references are the standard tool for caches, observer/listener registries, and parent-child object graphs (a child holding a weak reference back to its parent) — anywhere you want object A to be able to *reach* object B without object A being a reason B stays alive. The next lesson covers `WeakKeyDictionary`/`WeakValueDictionary`, which package this exact pattern into a dict-like container.
 
 ## Knowledge check
 
@@ -458,68 +5918,114 @@ This is the actual reason to reach for `attrgetter` over a lambda: when the attr
 {
   "questions": [
     {
-      "id": "internals-operator-attrgetter-q1",
+      "id": "weakrefs-memory-weakref-q1",
       "type": "mcq",
-      "prompt": "What can attrgetter(\"address.city\") do that a lambda p: p.address.city cannot?",
+      "prompt": "What is the key difference between weakref.ref(obj) and a normal reference to obj?",
       "options": [
-        { "id": "a", "text": "Accept the attribute path as a runtime string, so the sort key can be chosen dynamically (e.g. from config) without writing new code" },
-        { "id": "b", "text": "Sort in descending order automatically" },
-        { "id": "c", "text": "Handle attributes that don't exist without raising an error" },
-        { "id": "d", "text": "Work on dictionaries as well as objects" }
+        { "id": "a", "text": "A weak reference is read-only and can't be reassigned" },
+        { "id": "b", "text": "A weak reference doesn't increase obj's reference count, so it doesn't keep obj alive by itself" },
+        { "id": "c", "text": "A weak reference is faster to dereference than a normal reference" },
+        { "id": "d", "text": "A weak reference only works on built-in types" }
       ],
-      "correct": "a",
-      "explanation": "Both express the same lookup, but attrgetter takes the path as a string, so it can be built at runtime from a variable — a lambda would need to hardcode the attribute chain or fall back to getattr/eval itself."
+      "correct": "b",
+      "explanation": "weakref.ref points to an object without contributing to its reference count, so the object can still be garbage collected even while the weak reference exists."
     },
     {
-      "id": "internals-operator-attrgetter-q2",
+      "id": "weakrefs-memory-weakref-q2",
       "type": "mcq",
-      "prompt": "Besides accepting a dynamic string path, what's another practical advantage of attrgetter over an equivalent lambda?",
+      "prompt": "Two objects hold plain (strong) references to each other and nothing else references them. What happens to their reference counts alone (ignoring the cyclic GC)?",
       "options": [
-        { "id": "a", "text": "It's implemented in C, making it faster than an equivalent Python-level lambda closure" },
-        { "id": "b", "text": "It automatically caches sort results" },
-        { "id": "c", "text": "It changes the objects it sorts" },
-        { "id": "d", "text": "It only works with tuples" }
+        { "id": "a", "text": "Both counts immediately drop to zero and the objects are freed" },
+        { "id": "b", "text": "Neither count reaches zero, because each object is kept alive by the other's reference" },
+        { "id": "c", "text": "Python raises a RecursionError" },
+        { "id": "d", "text": "Only one of the two objects is freed" }
       ],
-      "correct": "a",
-      "explanation": "attrgetter is implemented as a C-level callable in the operator module, which is measurably faster than an equivalent Python lambda for hot sort/key paths."
+      "correct": "b",
+      "explanation": "A pure reference cycle never hits a zero refcount through the cycle alone — each object's count is propped up by the other. CPython's separate cyclic GC eventually cleans these up, but not through simple refcounting."
+    },
+    {
+      "id": "weakrefs-memory-weakref-q3",
+      "type": "mcq",
+      "prompt": "How do you get the actual object back from a weakref.ref instance `r`?",
+      "options": [
+        { "id": "a", "text": "r.value" },
+        { "id": "b", "text": "r.get()" },
+        { "id": "c", "text": "Calling it: r() — returns the object, or None if it's been collected" },
+        { "id": "d", "text": "Indexing it: r[0]" }
+      ],
+      "correct": "c",
+      "explanation": "weakref.ref objects are callable — calling r() returns the referenced object if it's still alive, or None if it has already been garbage collected."
     }
   ]
 }
 ```
-$md$, 10, $json$[{"id":"internals-operator-attrgetter-q1","type":"mcq","correct":"a"},{"id":"internals-operator-attrgetter-q2","type":"mcq","correct":"a"}]$json$::jsonb)
+$md$, 12, $json$[{"id":"weakrefs-memory-weakref-q1","type":"mcq","correct":"b"},{"id":"weakrefs-memory-weakref-q2","type":"mcq","correct":"b"},{"id":"weakrefs-memory-weakref-q3","type":"mcq","correct":"c"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('4967c051-0c4e-5e52-b3e3-7192d2a24a03', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '012c80ac-4e8f-5205-8f62-ce79738eaa79', 'CPython', 'notes', 6, $md$"Python" is a language specification; **CPython** is the reference implementation almost everyone actually runs (`python3` on your machine is CPython unless you deliberately installed PyPy, Jython, or GraalPy). Knowing the difference — and what CPython specifically does under the hood — is what separates "I write Python" from "I understand what my Python program is actually doing."
+VALUES ('0c0d01bd-3bd0-522f-b7ed-1e9eacd28638', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '9611f948-d8bd-544b-ac64-8494c8344d6b', 'WeakKeyDictionary & WeakValueDictionary', 'notes', 1, $md$`weakref.ref` (from the previous lesson) is the low-level primitive. `WeakKeyDictionary` and `WeakValueDictionary`, from the same `weakref` module, package it into a dict-like container — the shape you'll actually reach for day to day when attaching extra data to objects you don't own the lifetime of.
 
-## The pipeline: source → bytecode → PVM
+## `WeakKeyDictionary`: metadata that disappears with its object
 
-CPython never interprets your `.py` text directly. It compiles it to **bytecode** — a lower-level, portable instruction set — and then the **Python Virtual Machine (PVM)**, a stack-based interpreter loop written in C, executes that bytecode instruction by instruction. You can see the bytecode for any function with `dis`:
+A `WeakKeyDictionary` holds its *keys* weakly. As soon as nothing else in the program references a key, that entry is dropped automatically — no manual cleanup required.
 
 ```python
-import dis
+from weakref import WeakKeyDictionary
 
-def add(a, b):
-    return a + b
 
-dis.dis(add)
-# 2           0 RESOURCE_ARG ...  (exact opcodes vary by version)
-#             LOAD_FAST                a
-#             LOAD_FAST                b
-#             BINARY_OP                +
-#             RETURN_VALUE
+class Widget:
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return f"Widget({self.name})"
+
+
+widget_metadata = WeakKeyDictionary()
+
+widget1 = Widget("Button1")
+widget2 = Widget("Button2")
+
+widget_metadata[widget1] = {"color": "blue", "size": "small"}
+widget_metadata[widget2] = {"color": "red", "size": "large"}
+
+print(list(widget_metadata.keys()))  # [Widget(Button1), Widget(Button2)]
+
+del widget1  # the only strong reference to widget1 is gone
+
+print(list(widget_metadata.keys()))  # [Widget(Button2)] -- widget1's entry vanished on its own
 ```
 
-This is also why a `.pyc` file exists in `__pycache__` — it's the cached compiled bytecode, so re-running the same script skips recompilation when the source hasn't changed.
+Compare this to a plain `dict`: `widget_metadata[widget1] = ...` in an ordinary dict would itself be a strong reference, keeping `widget1` alive forever even after `del widget1` — a classic accidental memory leak in any long-running cache. `WeakKeyDictionary` sidesteps that by design: the metadata's lifetime is tied *to* the object's lifetime, not the other way around.
 
-## What CPython specifically gives you (and costs you)
+## `WeakValueDictionary`: the mirror image
 
-- **A huge standard library** and a stable C-API — this is *why* the PyPI ecosystem exists: NumPy, PyTorch, and most performance-critical packages are C extensions written directly against CPython's API, not portable across every Python implementation.
-- **Reference counting** for memory management (see the garbage-collection lesson) — a direct consequence of being written in C, and the reason the GIL exists at all.
-- **The GIL** — only one thread executes Python bytecode at a time, a direct consequence of reference counting needing to stay thread-safe cheaply (covered in depth in the next section).
-- **Slower raw execution** than a compiled language, since every bytecode instruction still goes through the PVM's interpreter loop rather than running as native machine code.
+`WeakValueDictionary` does the same thing but on the *value* side — useful for registries where you look objects up by some stable key (an ID, a name) but don't want the registry itself to be the reason those objects stay alive:
 
-Interviewers ask about CPython specifically to check whether you can reason about *why* Python behaves the way it does — why threads don't parallelize CPU work, why `id()` returns a memory address, why small integers are cached — rather than treating the language as a black box.
+```python
+from weakref import WeakValueDictionary
+
+
+class Connection:
+    def __init__(self, conn_id):
+        self.conn_id = conn_id
+
+
+active_connections = WeakValueDictionary()
+
+conn = Connection("conn-42")
+active_connections["conn-42"] = conn
+
+print("conn-42" in active_connections)  # True
+
+del conn
+
+print("conn-42" in active_connections)  # False -- entry gone once the Connection was freed
+```
+
+## Why "keys or values, not both" matters
+
+Both variants only weaken *one* side of the mapping — the other side (the dict's values in `WeakKeyDictionary`, the dict's keys in `WeakValueDictionary`) is held strongly, as normal. This is a deliberate, useful asymmetry: in the widget example, the metadata dict `{"color": "blue", ...}` is a plain value held strongly — it just gets discarded, not weakened, once its weak key disappears. Reach for `WeakKeyDictionary` when you're attaching side-data to objects you don't control the lifetime of (framework objects, third-party instances), and `WeakValueDictionary` when you're building a lookup registry/cache and don't want membership in the cache to be a reason something stays alive.
 
 ## Knowledge check
 
@@ -527,41 +6033,621 @@ Interviewers ask about CPython specifically to check whether you can reason abou
 {
   "questions": [
     {
-      "id": "internals-cpython-q1",
+      "id": "weakrefs-memory-weak-key-dictionary-q1",
       "type": "mcq",
-      "prompt": "What does CPython actually execute when you run a .py file?",
+      "prompt": "In a WeakKeyDictionary, what happens to an entry when the last strong reference to its key object is deleted?",
       "options": [
-        { "id": "a", "text": "The raw source text, interpreted line by line" },
-        { "id": "b", "text": "Bytecode compiled from the source, executed by the Python Virtual Machine" },
-        { "id": "c", "text": "Native machine code, compiled ahead of time" },
-        { "id": "d", "text": "A translation into C source, compiled on the fly" }
+        { "id": "a", "text": "The entry stays forever until explicitly deleted" },
+        { "id": "b", "text": "The entry is automatically removed once the key object is garbage collected" },
+        { "id": "c", "text": "A KeyError is raised on the next access" },
+        { "id": "d", "text": "The key is replaced with None but the value remains" }
       ],
       "correct": "b",
-      "explanation": "CPython compiles source to bytecode (visible via the dis module, cached in __pycache__/*.pyc) and the PVM, a C-based interpreter loop, executes that bytecode."
+      "explanation": "WeakKeyDictionary holds its keys weakly. Once nothing else references the key object, it's garbage collected and its entry disappears from the dict automatically."
     },
     {
-      "id": "internals-cpython-q2",
+      "id": "weakrefs-memory-weak-key-dictionary-q2",
       "type": "mcq",
-      "prompt": "Which of these is a direct consequence of CPython being written in C and using reference counting?",
+      "prompt": "Why would storing widget -> metadata in a plain dict risk a memory leak that WeakKeyDictionary avoids?",
       "options": [
-        { "id": "a", "text": "The Global Interpreter Lock, which keeps refcount updates thread-safe without per-object locks" },
-        { "id": "b", "text": "Python's dynamic typing" },
-        { "id": "c", "text": "List comprehensions" },
-        { "id": "d", "text": "The availability of type hints" }
+        { "id": "a", "text": "Plain dicts are slower to look up" },
+        { "id": "b", "text": "A plain dict holds keys strongly, so the dict entry itself keeps the widget alive even after all other references to it are deleted" },
+        { "id": "c", "text": "Plain dicts can't use custom objects as keys at all" },
+        { "id": "d", "text": "Plain dicts automatically duplicate every key" }
       ],
-      "correct": "a",
-      "explanation": "The GIL exists specifically because CPython uses cheap, non-atomic reference counting for memory management — the GIL is what keeps concurrent refcount updates from racing, at the cost of true multi-core parallelism for threads."
+      "correct": "b",
+      "explanation": "A regular dict's key reference is a strong reference — the widget stays alive as long as it's a key in the dict, even if every other reference to it is gone, which is exactly the leak WeakKeyDictionary is designed to prevent."
     }
   ]
 }
 ```
-$md$, 12, $json$[{"id":"internals-cpython-q1","type":"mcq","correct":"b"},{"id":"internals-cpython-q2","type":"mcq","correct":"a"}]$json$::jsonb)
+$md$, 12, $json$[{"id":"weakrefs-memory-weak-key-dictionary-q1","type":"mcq","correct":"b"},{"id":"weakrefs-memory-weak-key-dictionary-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('c328f3b4-b903-5d25-8220-ba18de4584a2', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '9611f948-d8bd-544b-ac64-8494c8344d6b', 'Optimizing Memory with __slots__', 'notes', 2, $md$By default, every instance of a Python class carries its own `__dict__` — a full dictionary — to hold its attributes, even if every instance always has exactly the same fixed set of attribute names. `__slots__` lets you tell Python "this class only ever has these attributes," trading that flexibility for a meaningfully smaller memory footprint per instance.
+
+## The default: every instance gets a `__dict__`
+
+```python
+class UserProfile:
+    def __init__(self, username, email):
+        self.username = username
+        self.email = email
+
+
+u = UserProfile("alice", "alice@example.com")
+print(u.__dict__)          # {'username': 'alice', 'email': 'alice@example.com'}
+u.extra = "anything goes"  # works fine -- __dict__ accepts new keys freely
+print(u.__dict__)
+```
+
+That per-instance dict is flexible (you can bolt on `u.extra` at any time) but it isn't free: a dict has its own internal hash table overhead on top of the actual attribute values, and when you're creating millions of instances of a simple data-holding class, that overhead adds up.
+
+## `__slots__`: a fixed, dict-free attribute set
+
+```python
+class SlotsUserProfile:
+    __slots__ = ["username", "email"]
+
+    def __init__(self, username, email):
+        self.username = username
+        self.email = email
+
+
+s = SlotsUserProfile("bob", "bob@example.com")
+print(s.username, s.email)  # bob bob@example.com
+print(hasattr(s, "__dict__"))  # False -- there is no per-instance dict at all
+
+try:
+    s.extra = "not allowed"
+except AttributeError as e:
+    print(f"blocked: {e}")  # 'SlotsUserProfile' object has no attribute 'extra'
+```
+
+Declaring `__slots__ = ["username", "email"]` tells CPython to allocate fixed, fast slots for exactly those two attributes instead of a `__dict__` — and, as a side effect, blocks setting any attribute not named in the list. That restriction is the whole trade: you give up dynamic attribute assignment in exchange for a smaller, faster instance layout.
+
+## Measuring the difference
+
+`memory_profiler`'s `@profile` decorator (covered in the next lesson) is the tool the original notes use to show this at scale — but it needs the `mprof`/`python -m memory_profiler` runner, so it won't execute standalone here. The stdlib's own `sys.getsizeof` on a single instance already shows the shape of the difference, even though it only reports one object's shallow size, not the whole instance-plus-dict picture:
+
+```python
+import sys
+
+regular = UserProfile("carol", "carol@example.com")
+slotted = SlotsUserProfile("carol", "carol@example.com")
+
+print("regular instance:", sys.getsizeof(regular))          # the instance itself
+print("regular's __dict__:", sys.getsizeof(regular.__dict__))  # plus a whole dict
+print("slotted instance:", sys.getsizeof(slotted))          # no separate dict at all
+```
+
+At one instance this looks like a rounding error; multiply it by a million rows loaded from a database or a CSV and the missing per-instance `__dict__` becomes real, measurable memory saved.
+
+## The trade-off
+
+`__slots__` is best reserved for classes you instantiate a lot — data-holding value objects, nodes in a large tree or graph, rows loaded in bulk — not for every class by default. It removes dynamic attribute assignment, it doesn't mix cleanly with multiple inheritance unless every base class also defines (compatible) slots, and a subclass that doesn't itself declare `__slots__` gets a `__dict__` anyway, silently undoing the savings.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "weakrefs-memory-slots-q1",
+      "type": "mcq",
+      "prompt": "What does declaring __slots__ = [\"username\", \"email\"] prevent?",
+      "options": [
+        { "id": "a", "text": "Reading the username or email attributes" },
+        { "id": "b", "text": "Setting any attribute not named in __slots__, since there's no per-instance __dict__ to hold it" },
+        { "id": "c", "text": "Subclassing the class at all" },
+        { "id": "d", "text": "Calling __init__ more than once" }
+      ],
+      "correct": "b",
+      "explanation": "__slots__ replaces the per-instance __dict__ with fixed slots for exactly the named attributes, so assigning any other attribute name raises AttributeError."
+    },
+    {
+      "id": "weakrefs-memory-slots-q2",
+      "type": "mcq",
+      "prompt": "What kind of class benefits most from __slots__?",
+      "options": [
+        { "id": "a", "text": "A singleton class that's only ever instantiated once" },
+        { "id": "b", "text": "A simple, fixed-attribute class instantiated in very large numbers (e.g. millions of rows/nodes)" },
+        { "id": "c", "text": "A class that needs to support arbitrary dynamic attributes at runtime" },
+        { "id": "d", "text": "An abstract base class that's never instantiated directly" }
+      ],
+      "correct": "b",
+      "explanation": "The memory savings from skipping a per-instance __dict__ are negligible for one object but add up meaningfully at scale — the classic use case is a data-holding class created millions of times."
+    },
+    {
+      "id": "weakrefs-memory-slots-q3",
+      "type": "mcq",
+      "prompt": "If a subclass of a __slots__ class doesn't declare its own __slots__, what happens?",
+      "options": [
+        { "id": "a", "text": "It inherits the parent's memory savings automatically with no changes needed" },
+        { "id": "b", "text": "It silently gets a __dict__ of its own, undoing the memory savings for that subclass" },
+        { "id": "c", "text": "Python raises a TypeError at class-definition time" },
+        { "id": "d", "text": "The subclass can no longer be instantiated" }
+      ],
+      "correct": "b",
+      "explanation": "A subclass without its own __slots__ declaration gets a normal __dict__, which quietly defeats the point of the parent's __slots__ for instances of that subclass."
+    }
+  ]
+}
+```
+$md$, 12, $json$[{"id":"weakrefs-memory-slots-q1","type":"mcq","correct":"b"},{"id":"weakrefs-memory-slots-q2","type":"mcq","correct":"b"},{"id":"weakrefs-memory-slots-q3","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('dfefbab7-94a2-5e64-baf4-fbcc1a57d5f4', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '9611f948-d8bd-544b-ac64-8494c8344d6b', 'memory_profiler', 'notes', 3, $md$Knowing *that* a program uses too much memory is easy — knowing *which line* is responsible is the actual debugging work. `memory_profiler` is a third-party package built for exactly that: line-by-line memory usage inside a specific function.
+
+## The `@profile` decorator (needs its own runner)
+
+```python
+# requires: pip install memory-profiler, then run with `python -m memory_profiler script.py`
+# (the @profile decorator only activates under that runner -- it can't run standalone)
+from memory_profiler import profile
+
+
+@profile
+def my_function():
+    a = [i for i in range(100_000)]   # allocates a list of 100k ints
+    b = [i * 2 for i in a]            # allocates a second list
+    return b
+
+
+if __name__ == "__main__":
+    my_function()
+```
+
+Running that under `python -m memory_profiler script.py` prints a line-by-line table: memory usage before and after each line, and how much that line added. That per-line increment is the whole value proposition — a regular profiler tells you which *function* is slow, `memory_profiler` tells you which *line inside* that function is the one allocating memory you didn't expect.
+
+## Getting the same signal from the standard library
+
+`memory_profiler` needs to be installed and run through its own entry point, so it can't execute inside a plain `python file.py` run. The stdlib's `tracemalloc` module covers a lot of the same ground without an extra dependency — it can't attribute cost to individual source lines inside one profiler run the way `memory_profiler` can, but it can snapshot allocations and tell you where they came from:
+
+```python
+import tracemalloc
+
+tracemalloc.start()
+
+snapshot_before = tracemalloc.take_snapshot()
+
+a = [i for i in range(100_000)]
+b = [i * 2 for i in a]
+
+snapshot_after = tracemalloc.take_snapshot()
+
+top_stats = snapshot_after.compare_to(snapshot_before, "lineno")
+for stat in top_stats[:3]:
+    print(stat)
+
+tracemalloc.stop()
+```
+
+`compare_to` reports the size delta per allocation site (file + line number) between the two snapshots, which is the same "which line grew memory" question `memory_profiler` answers — `tracemalloc` just requires you to bracket the code with explicit snapshots instead of decorating a function.
+
+## When to reach for this
+
+Neither tool is something you run in production continuously — both add real overhead. Reach for line-level memory profiling when a specific function is suspected of a leak or excessive allocation and you've already narrowed the problem down that far (via `sys.getsizeof`, general monitoring, or just watching RSS climb); it's a targeted debugging tool, not a monitoring strategy.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "weakrefs-memory-memory-profiler-q1",
+      "type": "mcq",
+      "prompt": "What does memory_profiler's @profile decorator give you that a normal time-based profiler doesn't?",
+      "options": [
+        { "id": "a", "text": "Faster overall function execution" },
+        { "id": "b", "text": "A line-by-line breakdown of memory usage inside the decorated function" },
+        { "id": "c", "text": "Automatic memory leak fixes" },
+        { "id": "d", "text": "CPU usage instead of memory usage" }
+      ],
+      "correct": "b",
+      "explanation": "memory_profiler's @profile output shows memory before/after and the delta for each individual line in the function, pinpointing exactly which line is responsible for an allocation."
+    },
+    {
+      "id": "weakrefs-memory-memory-profiler-q2",
+      "type": "mcq",
+      "prompt": "Why can't the @profile-decorated example run under plain `python script.py`?",
+      "options": [
+        { "id": "a", "text": "It's a syntax error in modern Python" },
+        { "id": "b", "text": "@profile's line-by-line reporting only activates when run through the `python -m memory_profiler` entry point" },
+        { "id": "c", "text": "memory_profiler only works on macOS" },
+        { "id": "d", "text": "The function itself has a bug" }
+      ],
+      "correct": "b",
+      "explanation": "memory_profiler's line-by-line output requires its own runner (`python -m memory_profiler` or the `mprof` CLI) to hook into and report per-line memory deltas -- the decorator alone under plain python won't produce that report."
+    }
+  ]
+}
+```
+$md$, 12, $json$[{"id":"weakrefs-memory-memory-profiler-q1","type":"mcq","correct":"b"},{"id":"weakrefs-memory-memory-profiler-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('9bf76712-b21a-5949-8ea6-212611446507', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '9611f948-d8bd-544b-ac64-8494c8344d6b', 'sys.getsizeof()', 'notes', 4, $md$`sys.getsizeof(obj)` returns the number of bytes an object itself occupies in memory. It's the quickest way to compare the raw size of two objects — and the single most common mistake with it is assuming it accounts for more than it actually does.
+
+## What it measures: shallow size only
+
+```python
+import sys
+
+empty_list = []
+list_of_ten_ints = [0] * 10
+list_of_ten_big_objects = [object()] * 10
+
+print(sys.getsizeof(empty_list))            # base overhead of an empty list
+print(sys.getsizeof(list_of_ten_ints))      # bigger -- room for 10 pointers
+print(sys.getsizeof(list_of_ten_big_objects))  # same as the ints list!
+```
+
+The last two lines report *the same size*, even though one list holds ten small integers and the other holds ten `object()` instances. That's because `getsizeof` on a list only measures the list's own internal array of pointers — not the objects those pointers point to. Ten pointers is ten pointers, regardless of what they point at.
+
+## A concrete "gotcha": 10 million identical references
+
+```python
+import sys
+
+
+class MyClass:
+    my_var = "foo"
+
+
+my_list = [MyClass()] * 10_000_000  # ONE instance, referenced 10 million times
+
+print(len(my_list))               # 10000000
+print(sys.getsizeof(my_list))     # roughly the size of 10 million pointers -- not 10 million objects
+```
+
+`[MyClass()] * 10_000_000` creates a *single* `MyClass` instance and repeats the same reference ten million times — it does not call `MyClass()` ten million times. `sys.getsizeof(my_list)` reports the size of the list's pointer array (large, but nowhere near "ten million object instances" large), because it never looks past the pointers to measure what they point to. If you actually wanted ten million distinct instances, you'd need `[MyClass() for _ in range(10_000_000)]` — and even then, `getsizeof` on the resulting list would *still* only report the list's own pointer array, not the total size of every instance it points to.
+
+## Getting the deep size instead
+
+When you need the *total* memory a nested structure occupies — a dict of lists, a tree of objects — `getsizeof` alone under-reports it, because it never recurses. You have to walk the structure yourself (or use a library like `pympler.asizeof`) and sum `getsizeof` at every level:
+
+```python
+import sys
+
+def deep_size(obj, seen=None):
+    """Recursively sum getsizeof over a nested dict/list/tuple structure."""
+    seen = seen if seen is not None else set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    seen.add(obj_id)
+
+    size = sys.getsizeof(obj)
+    if isinstance(obj, dict):
+        size += sum(deep_size(k, seen) + deep_size(v, seen) for k, v in obj.items())
+    elif isinstance(obj, (list, tuple, set)):
+        size += sum(deep_size(item, seen) for item in obj)
+    return size
+
+
+nested = {"a": [1, 2, 3], "b": {"c": [4, 5]}}
+print(sys.getsizeof(nested))   # shallow -- just the dict's own overhead
+print(deep_size(nested))       # much larger -- recurses into every value
+```
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "weakrefs-memory-getsizeof-q1",
+      "type": "mcq",
+      "prompt": "sys.getsizeof([object()] * 10) and sys.getsizeof([0] * 10) report roughly the same size. Why?",
+      "options": [
+        { "id": "a", "text": "getsizeof always returns a fixed constant regardless of content" },
+        { "id": "b", "text": "A list's getsizeof measures its own array of pointers, not the size of the objects those pointers reference" },
+        { "id": "c", "text": "object() and 0 happen to be exactly the same size in Python" },
+        { "id": "d", "text": "Python caches all small lists to the same memory address" }
+      ],
+      "correct": "b",
+      "explanation": "getsizeof reports shallow size: for a list, that's the overhead of the list object plus its internal array of references, not the total size of whatever those references point to."
+    },
+    {
+      "id": "weakrefs-memory-getsizeof-q2",
+      "type": "mcq",
+      "prompt": "What does [MyClass()] * 10_000_000 actually create?",
+      "options": [
+        { "id": "a", "text": "10 million separate MyClass instances" },
+        { "id": "b", "text": "One MyClass instance, referenced 10 million times in the list" },
+        { "id": "c", "text": "A generator that lazily creates instances on access" },
+        { "id": "d", "text": "A MemoryError, since MyClass() can only be called once" }
+      ],
+      "correct": "b",
+      "explanation": "The * operator on a list repeats the same object reference; MyClass() is called exactly once, and the resulting single instance is referenced 10 million times."
+    },
+    {
+      "id": "weakrefs-memory-getsizeof-q3",
+      "type": "mcq",
+      "prompt": "How do you measure the total memory of a nested structure (e.g. a dict of lists), given that getsizeof doesn't recurse?",
+      "options": [
+        { "id": "a", "text": "sys.getsizeof always recurses automatically for dicts and lists" },
+        { "id": "b", "text": "Walk the structure yourself, summing getsizeof at every level (or use a library like pympler.asizeof)" },
+        { "id": "c", "text": "It's impossible to measure nested structures in Python" },
+        { "id": "d", "text": "Call sys.getsizeof(obj, deep=True)" }
+      ],
+      "correct": "b",
+      "explanation": "getsizeof only measures one object's shallow size. Getting a true total for a nested structure requires recursing through it yourself (tracking visited ids to avoid double-counting shared references) or using a dedicated deep-size library."
+    }
+  ]
+}
+```
+$md$, 10, $json$[{"id":"weakrefs-memory-getsizeof-q1","type":"mcq","correct":"b"},{"id":"weakrefs-memory-getsizeof-q2","type":"mcq","correct":"b"},{"id":"weakrefs-memory-getsizeof-q3","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('0938b850-0662-5f5c-8023-51295e46d69a', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '9611f948-d8bd-544b-ac64-8494c8344d6b', 'Memory & Resource Anti-Patterns in Async Services', 'notes', 5, $md$Long-running async services rarely fail from one big bug. They bloat from many small habits: too many copies alive at once, caches that never evict, tasks nobody tracks. This lesson condenses the common culprits into five themes you can name in an interview and check for in a code review.
+
+## Allocation and lifetime
+
+Memory peaks come from objects that live longer, or exist in more copies, than necessary.
+
+- **Build expensive objects inside the concurrency gate.** If you create a large string or rendered prompt *before* acquiring a semaphore, N tasks hold N copies at once. Create it after, so at most `limit` copies exist.
+- **`del` large objects after last use**, especially before an `await`; a local stays alive until the scope ends even if it is never read again.
+- **Do not accumulate everything, then serialize.** Objects and their serialized bytes coexist at peak. Serialize incrementally and drop the source.
+- **Avoid chains of string copies.** `s = s[:n]; s = s[:m]; s += tail` makes three objects; compute the cut position on the original and slice once.
+- **Buffer and copy coexist.** `buf.getvalue()` returns a copy while `buf` still holds the original. `del buf` right after (same for `StringIO`, `BytesIO`).
+
+```python
+import asyncio
+
+async def render(i):
+    return "x" * 1_000_000  # stand-in for an expensive rendered object
+
+async def worker(i, gate, results):
+    async with gate:                 # build inside the gate: at most 2 live at once
+        payload = await render(i)
+        results.append(len(payload))
+        del payload                  # release before the slot is freed
+
+async def main():
+    gate = asyncio.Semaphore(2)
+    results = []
+    await asyncio.gather(*(worker(i, gate, results) for i in range(6)))
+    print(results)
+
+asyncio.run(main())  # [1000000, 1000000, 1000000, 1000000, 1000000, 1000000]
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-async-memory-antipatterns-q1",
+      "type": "mcq",
+      "prompt": "Why should an expensive object be built inside a semaphore block rather than before it?",
+      "options": [
+        { "id": "a", "text": "Otherwise every waiting task already holds its own copy, so peak memory scales with total tasks, not the limit" },
+        { "id": "b", "text": "Semaphores free memory automatically on release" },
+        { "id": "c", "text": "It makes the object immutable" },
+        { "id": "d", "text": "Python forbids allocation outside async with" }
+      ],
+      "correct": "a",
+      "explanation": "The gate bounds concurrency only for code inside it; anything built earlier exists once per task."
+    },
+    {
+      "id": "performance-testing-async-memory-antipatterns-q2",
+      "type": "mcq",
+      "prompt": "After `data = buf.getvalue()`, what keeps peak memory high?",
+      "options": [
+        { "id": "a", "text": "`getvalue()` returns a view, not a copy" },
+        { "id": "b", "text": "The buffer still holds the original while `data` is a second copy" },
+        { "id": "c", "text": "Strings are always cached forever" },
+        { "id": "d", "text": "The garbage collector is disabled in async code" }
+      ],
+      "correct": "b",
+      "explanation": "Two copies coexist until you `del buf` (or let it leave scope)."
+    }
+  ]
+}
+```
+
+## Caching without bounds
+
+A cache is a deliberate memory leak unless it has a limit and a lifecycle.
+
+- **Unbounded dict caches** grow forever; add a max size and eviction (or a TTL).
+- **`@lru_cache` without a deliberate `maxsize`**: the default is 128, which hides intent. A zero-argument function only needs `maxsize=1`.
+- **Module-level caches never cleared** accumulate every request's data. Scope the cache to the request or task, or clear it at the boundary.
+
+```python
+from functools import lru_cache
+
+@lru_cache(maxsize=1)           # zero-arg config loader: one slot is enough
+def load_config():
+    return {"region": "ap-southeast-1"}
+
+print(load_config() is load_config())  # True
+print(load_config.cache_info().maxsize)  # 1
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-async-memory-antipatterns-q3",
+      "type": "mcq",
+      "prompt": "A module-level dict is filled on every request and never cleared. What is the problem?",
+      "options": [
+        { "id": "a", "text": "It makes requests slower only on the first call" },
+        { "id": "b", "text": "It accumulates data from every request and grows without bound" },
+        { "id": "c", "text": "Python deletes it automatically after each request" },
+        { "id": "d", "text": "It is thread-unsafe but memory-neutral" }
+      ],
+      "correct": "b",
+      "explanation": "Module globals live for the process lifetime, so unbounded growth is a leak. Clear it per task or bound it."
+    }
+  ]
+}
+```
+
+## Concurrency mistakes in asyncio
+
+- **Creating all coroutines up front and gating late.** `as_completed([f(x) for x in items])` creates every coroutine immediately; any setup before the semaphore runs N times in parallel. Move setup inside the gated section.
+- **Fire-and-forget `asyncio.create_task`.** The event loop keeps only a weak reference to tasks, so an untracked task can be garbage-collected mid-flight and is dropped at shutdown. Await it, or hold a reference and discard it when done.
+- **`asyncio.get_event_loop()`** is deprecated outside a running loop; inside async code use `asyncio.get_running_loop()`.
+- **A new client or connection pool per request.** Under load that is N pools and N TCP connections alive together. Share one client for the process.
+
+```python
+import asyncio
+
+background = set()
+
+def spawn(coro):
+    task = asyncio.create_task(coro)
+    background.add(task)                    # strong reference keeps it alive
+    task.add_done_callback(background.discard)
+    return task
+
+async def job():
+    await asyncio.sleep(0)
+    return "done"
+
+async def main():
+    task = spawn(job())
+    print(await task)       # done
+    print(len(background))  # 0
+
+asyncio.run(main())
+```
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-async-memory-antipatterns-q4",
+      "type": "mcq",
+      "prompt": "Why keep a reference to a task created with `asyncio.create_task`?",
+      "options": [
+        { "id": "a", "text": "Tasks only run when referenced by a variable name" },
+        { "id": "b", "text": "The loop holds tasks weakly, so an unreferenced task can be garbage-collected before it finishes" },
+        { "id": "c", "text": "It makes the task run on another thread" },
+        { "id": "d", "text": "References are needed to cancel the event loop" }
+      ],
+      "correct": "b",
+      "explanation": "Keep the task in a set (and discard on completion), or await it, so it is not collected mid-flight."
+    },
+    {
+      "id": "performance-testing-async-memory-antipatterns-q5",
+      "type": "mcq",
+      "prompt": "Creating a new HTTP client for every request in a high-traffic service mainly causes what?",
+      "options": [
+        { "id": "a", "text": "Better isolation with no cost" },
+        { "id": "b", "text": "Many clients and connections alive at peak concurrency, wasting RAM and sockets" },
+        { "id": "c", "text": "Automatic connection reuse" },
+        { "id": "d", "text": "A deprecation warning" }
+      ],
+      "correct": "b",
+      "explanation": "Share one client or pool so connections are reused and memory stays flat."
+    }
+  ]
+}
+```
+
+## I/O and loading
+
+- **Open a file once per call**, pass the handle down, and close after the last use, instead of reopening it in each helper.
+- **Do not read a whole file for metadata.** Use lazy or streaming reads (first page, header) when the format allows.
+- **Do not define classes or run imports inside hot functions.** The body re-executes on every call. Move it to module level or a lazy singleton.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-async-memory-antipatterns-q6",
+      "type": "mcq",
+      "prompt": "You only need a PDF's page count. What is the resource-friendly approach?",
+      "options": [
+        { "id": "a", "text": "Read the entire file into memory, then count" },
+        { "id": "b", "text": "Open it separately in every helper function" },
+        { "id": "c", "text": "Use a lazy or streaming read that touches only the header or metadata" },
+        { "id": "d", "text": "Convert it to a string first" }
+      ],
+      "correct": "c",
+      "explanation": "Reading less data means lower peak memory and faster responses."
+    }
+  ]
+}
+```
+
+## Process lifetime
+
+CPython's allocator often keeps freed memory in its own pools, so the process footprint does not shrink after one huge task even though the objects are gone. Two practical consequences:
+
+- **Recycle workers** after N tasks (for example Celery's `--max-tasks-per-child`) so the OS reclaims the bloated heap.
+- **Never attach per-task data to long-lived service objects.** Parsed results or rendered bytes stored on a process-lifetime instance are a leak; keep them in local variables.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "performance-testing-async-memory-antipatterns-q7",
+      "type": "mcq",
+      "prompt": "A worker's memory stays high after a single huge task finishes and the objects are freed. What is a standard mitigation?",
+      "options": [
+        { "id": "a", "text": "Call `gc.collect()` after every line" },
+        { "id": "b", "text": "Recycle the worker process after a set number of tasks" },
+        { "id": "c", "text": "Switch to global variables" },
+        { "id": "d", "text": "Increase the cache `maxsize`" }
+      ],
+      "correct": "b",
+      "explanation": "Freed memory may stay in Python's allocator pools; restarting the worker returns it to the OS."
+    }
+  ]
+}
+```
+
+## Original notes
+
+Your original wording from the Notes vault, kept verbatim for reference.
+
+See also: python-internals (CPython memory model these patterns build on — pymalloc/arenas referenced below), celery-redis-batching, eigenalign-engineering-notes (worker recycling, memory measurement in production).
+
+##### ★ 2026-09-23 — Memory & resource anti-patterns (async services)
+Checklist of leaks/peak-RAM problems found in long-running async Python services.
+
+**Allocation & lifetime**
+1. **Copies multiplied by concurrency** — building expensive objects (large strings, deep dicts, rendered prompts) *before* a concurrency gate means N copies exist at once. Build inside the gate so at most `concurrency_limit` copies live.
+2. **Large objects held across `await`** — a variable assigned before an `await` stays alive until deleted or the scope exits, even if unused afterwards. `del` it right after last use.
+3. **Results accumulated before serialization** — collecting all results then serializing the list means objects + serialized bytes coexist at peak. Serialize incrementally, delete the source immediately.
+4. **Intermediate string copies during truncation** — `s = s[:n]; s = s[:m]; s += suffix` creates three objects. Use `rfind(pattern, 0, end)` on the original and slice once.
+5. **Buffer + copy coexist** — `buf.getvalue()` returns a copy while `buf` still holds the original; `del buf` right after halves peak RAM. Same for `StringIO`, `BytesIO`, `memoryview`.
+6. **Render intermediates not freed** — a document object (python-docx `Document`, reportlab story list) still alive while its bytes are extracted. Free it before reading the bytes out.
+
+**Caching**
+1. **Unbounded in-memory cache** — a dict cache with no max size/eviction grows forever.
+2. **`@lru_cache` without explicit `maxsize`** — default is 128; a zero-arg or constant-arg function only needs `maxsize=1`. The silent default wastes slots and hides intent.
+3. **Cache not cleared between requests/tasks** — a module-level cache filled per request but never flushed accumulates every request's data. Clear it or scope it to the task boundary.
+
+**Concurrency**
+1. **Coroutines created upfront, semaphore applied too late** — `asyncio.as_completed([f(x) for x in items])` starts every coroutine immediately; expensive setup before the semaphore runs N times in parallel. Move setup inside the semaphore block.
+2. **Fire-and-forget `asyncio.create_task`** — untracked tasks can be garbage-collected mid-flight and are dropped on shutdown. Await directly or keep a reference (e.g. a set + `add_done_callback(set.discard)`).
+3. **`asyncio.get_event_loop()`** — deprecated without a running loop (3.10+ warning, later versions error). Use `asyncio.get_running_loop()` inside async code.
+4. **New client/connection per request** — N HTTP clients / DB pools alive at peak concurrency. Share one pool: less RAM, fewer TCP connections.
+
+**I/O & loading**
+1. **Same file opened multiple times in one call** — open once at the call site, pass the handle down, close after last use.
+2. **Whole file read when only metadata is needed** — use lazy/streaming reads where the format allows (first page, header).
+3. **Class defined inside a frequently called function** — the class body (or import) re-executes every call. Move to module level or a lazy singleton.
+
+**Process lifetime**
+1. **Python heap doesn't shrink after peak** — pymalloc keeps freed arenas in its own pool (see python-internals); one huge task leaves the process bloated. Recycle workers after N tasks (Celery `--max-tasks-per-child`).
+2. **Per-task data on long-lived service objects** — attaching parsed results/rendered bytes to a process-lifetime service instance is a leak. Keep task data in locals.
+$md$, 12, $json$[{"id":"performance-testing-async-memory-antipatterns-q1","type":"mcq","correct":"a"},{"id":"performance-testing-async-memory-antipatterns-q2","type":"mcq","correct":"b"},{"id":"performance-testing-async-memory-antipatterns-q3","type":"mcq","correct":"b"},{"id":"performance-testing-async-memory-antipatterns-q4","type":"mcq","correct":"b"},{"id":"performance-testing-async-memory-antipatterns-q5","type":"mcq","correct":"b"},{"id":"performance-testing-async-memory-antipatterns-q6","type":"mcq","correct":"c"},{"id":"performance-testing-async-memory-antipatterns-q7","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 -- Section: Concurrency & Parallelism
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('b27ee0eb-7aa7-5cd9-bb97-93c1544a7ef4', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Concurrency & Parallelism', 1)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('b27ee0eb-7aa7-5cd9-bb97-93c1544a7ef4', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Concurrency & Parallelism', 7, 'Advanced')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('6733d008-be77-5a1a-82a0-4637f0918fe9', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'b27ee0eb-7aa7-5cd9-bb97-93c1544a7ef4', 'The Global Interpreter Lock (GIL)', 'notes', 0, $md$The **Global Interpreter Lock (GIL)** is a single mutex inside CPython that ensures only one thread executes Python bytecode at any instant — even on a machine with 16 cores, and even with 16 Python threads running. It exists because CPython's reference counting (every object's refcount incremented/decremented on almost every operation) is not thread-safe by default; wrapping every single refcount update in its own lock would be correct but brutally slow, so CPython instead takes one coarse lock around bytecode execution itself.
@@ -1059,75 +7145,65 @@ Unlike languages where threads (or even processes, via certain OS mechanisms) sh
 $md$, 18, $json$[{"id":"concurrency-shared-memory-q1","type":"mcq","correct":"b"},{"id":"concurrency-shared-memory-q2","type":"mcq","correct":"a"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
--- Section: Collections & OOP Foundations
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('3258c6b9-73b9-558d-979e-cb499df7bc1a', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Collections & OOP Foundations', 2)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
-
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('f2bc1121-1b22-595f-abf2-528d7c2f2f59', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '3258c6b9-73b9-558d-979e-cb499df7bc1a', 'The `collections` Module', 'notes', 0, $md$Interviewers ask about `collections` because it's a quick signal of how much of the standard library you actually use day to day. The module ships specialized container types that replace common `dict`/`list` boilerplate with something faster and more expressive.
+VALUES ('343487da-2e28-5527-a8a6-4f53acaa0236', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'b27ee0eb-7aa7-5cd9-bb97-93c1544a7ef4', 'Multiprocessing with `Queue`', 'notes', 6, $md$Each `multiprocessing.Process` has its own memory space — unlike threads, processes can't share plain Python objects directly. `multiprocessing.Queue` is the standard way to move data safely between them: it pickles objects on the sending side, ships them through an OS pipe, and unpickles them on the receiving side, so it works as inter-process communication without any manual locking on your part.
 
-## `defaultdict`: no more `if key not in dict`
+## A multi-stage processing pipeline
 
-The classic counting pattern with a plain `dict` requires checking whether a key already exists before you can increment it:
-
-```python
-counts = {}
-for word in ["a", "b", "a", "c", "b", "a"]:
-    if word not in counts:
-        counts[word] = 0
-    counts[word] += 1
-print(counts)
-```
-
-`defaultdict` removes the check entirely by supplying a factory function that runs the first time a missing key is accessed:
+Chaining several processes through queues builds a pipeline: each stage reads from one queue and writes to the next.
 
 ```python
-from collections import defaultdict
+from multiprocessing import Process, Queue
 
-default_dict = defaultdict(int)
-default_dict['a'] += 1
-default_dict['b'] += 5
-default_dict['a'] += 1
+def producer(q1):
+    for x in [1, 2, 3]:
+        print("Producer:", x)
+        q1.put(x)
+    q1.put(None)  # sentinel: tells the next stage there's no more input
 
-print(dict(default_dict))
-print(default_dict['z'])  # missing key: factory int() -> 0, no KeyError
+def add_one(q1, q2):
+    while True:
+        x = q1.get()
+        if x is None:
+            q2.put(None)  # forward the sentinel downstream
+            break
+        y = x + 1
+        print("Add one:", y)
+        q2.put(y)
+
+def multiply(q2):
+    while True:
+        x = q2.get()
+        if x is None:
+            break
+        print("Multiply:", x * 5)
+
+if __name__ == "__main__":
+    q1 = Queue()
+    q2 = Queue()
+
+    p1 = Process(target=producer, args=(q1,))
+    p2 = Process(target=add_one, args=(q1, q2))
+    p3 = Process(target=multiply, args=(q2,))
+
+    p1.start()
+    p2.start()
+    p3.start()
+
+    p1.join()
+    p2.join()
+    p3.join()
 ```
 
-`defaultdict(int)` uses `int()` (which returns `0`) as the factory; `defaultdict(list)` is equally common for grouping items under keys without an `if key not in groups: groups[key] = []` guard.
+Three independent processes, three separate memory spaces — `add_one` never touches `producer`'s local `x` directly, it only ever sees values that were `put()` on `q1` and `get()` off it. The exact print interleaving isn't guaranteed (these are genuinely parallel processes), but the *set* of nine lines printed and each value's transformation (1→2→10, 2→3→15, 3→4→20) always holds.
 
-## `Counter`: `defaultdict(int)`, specialized
+## Why the sentinel matters here too
 
-`Counter` is purpose-built for the counting use case and adds convenience methods `defaultdict` doesn't have:
+Just like the `asyncio.Queue` producer/consumer pattern from the previous lesson, a worker looping on `while True: x = q.get()` has no way to know the stream has ended unless something tells it — `Queue.get()` blocks forever waiting for the next item otherwise. `None` (or any value that can't be a real data item) plays that role, and **each stage must forward it** to the next queue, or the downstream stage hangs waiting for its own sentinel that never arrives.
 
-```python
-from collections import Counter
+## `Queue` vs. shared memory
 
-votes = Counter(["python", "go", "python", "rust", "python", "go"])
-print(votes)                # Counter({'python': 3, 'go': 2, 'rust': 1})
-print(votes.most_common(2)) # [('python', 3), ('go', 2)]
-print(votes["java"])        # 0 — missing keys don't raise, same as defaultdict
-```
-
-## `deque`: O(1) at both ends
-
-A plain `list` is backed by a contiguous array, so `list.insert(0, x)` and `list.pop(0)` are O(n) — every remaining element shifts. `deque` (double-ended queue) is backed by a doubly linked structure of blocks, making operations at *both* ends O(1):
-
-```python
-from collections import deque
-
-queue = deque([1, 2, 3])
-queue.appendleft(0)
-queue.append(4)
-print(queue)        # deque([0, 1, 2, 3, 4])
-print(queue.popleft())  # 0 — O(1), unlike list.pop(0)
-```
-
-This is why `deque` is the standard choice for BFS queues and sliding-window problems in coding interviews.
-
-## `OrderedDict`: mostly legacy now
-
-Before Python 3.7, plain `dict` did not guarantee insertion order — `OrderedDict` existed specifically to provide that guarantee. Since 3.7, regular `dict` preserves insertion order as a language guarantee, so `OrderedDict` is mainly useful today for its extra methods (`move_to_end`), not for ordering itself. Knowing this history is itself a common interview trivia question.
+`Queue` is the right tool when processes are exchanging discrete *messages* — this is the message-passing model, and it avoids the GIL by using real OS-level processes instead of threads. When processes instead need to operate on the *same* large block of memory (a big NumPy array, for instance) without copying it through pickle on every exchange, `multiprocessing.shared_memory` (covered in an earlier lesson) is the better fit — `Queue` copies data on every `put`/`get`, which is fine for small messages but wasteful for large buffers.
 
 ## Knowledge check
 
@@ -1135,81 +7211,131 @@ Before Python 3.7, plain `dict` did not guarantee insertion order — `OrderedDi
 {
   "questions": [
     {
-      "id": "oop-collections-collections-module-q1",
+      "id": "async-typing-multiprocessing-queue-q1",
       "type": "mcq",
-      "prompt": "What does `defaultdict(int)['missing_key']` return, given the key was never set?",
+      "prompt": "Why can't add_one directly read producer's local variable x, the way a thread could read another thread's local variable?",
       "options": [
-        { "id": "a", "text": "It raises a KeyError" },
-        { "id": "b", "text": "0 — int() is called as the factory and the result is stored under that key" },
-        { "id": "c", "text": "None" },
-        { "id": "d", "text": "It raises a TypeError because int is not callable with no arguments" }
+        { "id": "a", "text": "It could — this is a limitation only of asyncio, not multiprocessing" },
+        { "id": "b", "text": "Each Process has its own separate memory space; the only way data crosses between them is by being explicitly sent through a mechanism like Queue" },
+        { "id": "c", "text": "Queue.put() automatically deletes the original variable from the sender" },
+        { "id": "d", "text": "Processes share memory but not variable names" }
       ],
       "correct": "b",
-      "explanation": "defaultdict calls its factory function (int() -> 0) the first time a missing key is accessed, stores the result, and returns it — no KeyError."
+      "explanation": "Unlike threads (which share one process's memory), each multiprocessing.Process gets its own separate memory space. Queue bridges that gap by pickling values, sending them through an OS pipe, and unpickling them on the other side."
     },
     {
-      "id": "oop-collections-collections-module-q2",
+      "id": "async-typing-multiprocessing-queue-q2",
       "type": "mcq",
-      "prompt": "Why is `deque.popleft()` preferred over `list.pop(0)` for a queue?",
+      "prompt": "What would happen if add_one received the None sentinel from q1 but did NOT forward it to q2 before breaking?",
       "options": [
-        { "id": "a", "text": "deque.popleft() is O(1); list.pop(0) is O(n) because every remaining element must shift" },
-        { "id": "b", "text": "list.pop(0) doesn't exist in Python 3" },
-        { "id": "c", "text": "deque uses less memory per element than list" },
-        { "id": "d", "text": "There is no difference; it's purely a style preference" }
+        { "id": "a", "text": "Nothing changes — multiply would still exit normally" },
+        { "id": "b", "text": "multiply's while True: x = q2.get() loop would block forever, since it never receives its own stop signal" },
+        { "id": "c", "text": "q2 would automatically close when add_one's process exits" },
+        { "id": "d", "text": "Python would raise a QueueClosedError" }
       ],
-      "correct": "a",
-      "explanation": "list is a contiguous array, so removing the first element shifts everything left — O(n). deque is a doubly linked structure with O(1) operations at both ends."
+      "correct": "b",
+      "explanation": "Each stage's sentinel only ends that stage's own loop. multiply is watching q2, not q1 — if add_one doesn't explicitly q2.put(None), multiply's q2.get() blocks forever waiting for a sentinel that will never arrive, and p3.join() hangs."
+    },
+    {
+      "id": "async-typing-multiprocessing-queue-q3",
+      "type": "mcq",
+      "prompt": "When is multiprocessing.shared_memory a better fit than Queue for inter-process data transfer?",
+      "options": [
+        { "id": "a", "text": "Never — Queue is always preferred regardless of data size" },
+        { "id": "b", "text": "When processes need to operate on the same large block of memory (e.g. a big array) without the overhead of pickling/copying it on every message" },
+        { "id": "c", "text": "Only when using threads instead of processes" },
+        { "id": "d", "text": "shared_memory and Queue solve unrelated problems and are never compared" }
+      ],
+      "correct": "b",
+      "explanation": "Queue copies data (via pickle) on every put/get, which is fine for small discrete messages but wasteful for large shared buffers. shared_memory avoids that copy by letting processes map the same underlying memory block directly."
     }
   ]
 }
 ```
-$md$, 15, $json$[{"id":"oop-collections-collections-module-q1","type":"mcq","correct":"b"},{"id":"oop-collections-collections-module-q2","type":"mcq","correct":"a"}]$json$::jsonb)
+$md$, 15, $json$[{"id":"async-typing-multiprocessing-queue-q1","type":"mcq","correct":"b"},{"id":"async-typing-multiprocessing-queue-q2","type":"mcq","correct":"b"},{"id":"async-typing-multiprocessing-queue-q3","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('625b6756-3411-5780-9654-3580edac40d1', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '3258c6b9-73b9-558d-979e-cb499df7bc1a', 'Encapsulation', 'notes', 1, $md$Encapsulation means hiding an object's internal state and forcing outside code to go through a controlled interface (methods) instead of reaching in and mutating fields directly. It protects invariants — rules that must always hold, like "balance can never go negative."
+VALUES ('bf8f5167-65ca-5076-b0a1-cbfce57e5f08', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'b27ee0eb-7aa7-5cd9-bb97-93c1544a7ef4', '`asyncio`', 'notes', 7, $md$Threads give you concurrency by having the OS preempt them; `asyncio` gives you concurrency by having your own code voluntarily yield control at `await` points, all on a single thread. No GIL contention, no locks needed for data that's never touched between `await`s — which makes it the standard choice for I/O-bound workloads (network calls, database queries, web scraping) where a thread would otherwise sit idle waiting on a socket.
 
-## Python has no real "private" — it has a convention
+## A single coroutine
 
-Unlike Java's `private` keyword, Python doesn't enforce access restrictions at the language level. Instead it uses naming conventions the whole ecosystem agrees to respect:
-
-- `self.balance` — public, anyone can read/write it
-- `self._balance` — single underscore, "internal use, but I trust you" (a hint, nothing more)
-- `self.__balance` — double underscore, triggers **name mangling**
+`async def` defines a coroutine function — calling it doesn't run the body, it returns a coroutine object that has to be driven by an event loop. `asyncio.run()` is that driver for top-level code:
 
 ```python
-class BankAccount:
-    def __init__(self, owner, balance):
-        self.owner = owner
-        self.__balance = balance  # name-mangled to _BankAccount__balance
+import asyncio
 
-    def deposit(self, amount):
-        if amount > 0:
-            self.__balance += amount
+async def greet():
+    print("Hello!")
+    await asyncio.sleep(1)  # yields control back to the event loop for 1 second
+    print("World!")
 
-    def withdraw(self, amount):
-        if 0 < amount <= self.__balance:
-            self.__balance -= amount
-
-    def get_balance(self):
-        return self.__balance  # controlled, read-only access
-
-account = BankAccount("Alice", 1000)
-account.deposit(500)
-account.withdraw(200)
-print(account.get_balance())  # 1300
-
-# The double underscore doesn't make this impossible, just inconvenient:
-print(account._BankAccount__balance)  # 1300 — name mangling, not real privacy
+asyncio.run(greet())
+# Hello!
+# (1 second pause)
+# World!
 ```
 
-## What name mangling actually does
+`await asyncio.sleep(1)` is not `time.sleep(1)` — it doesn't block the thread, it tells the event loop "wake me up in 1 second, and run something else meanwhile." With only one coroutine there's nothing else to run, but that's the mechanism concurrency is built on.
 
-`self.__balance` inside `BankAccount` is rewritten by the interpreter at compile time to `self._BankAccount__balance`. The point isn't security — it's collision avoidance in inheritance: if a subclass also defines `__balance`, the two don't clash, because each gets mangled with its own class name as the prefix. Treat it as "strongly discourage accidental external access," not "make private."
+## Running coroutines concurrently with `gather`
 
-## Why bother, if it's not enforced?
+`asyncio.gather` schedules multiple coroutines on the same event loop and lets them interleave at their `await` points:
 
-The `deposit`/`withdraw` methods are the *only* way to change `__balance`, and both validate their input (`amount > 0`, `amount <= self.__balance`) before mutating state. If external code could write `account.balance = -500` directly, that invariant — balance never goes negative — would be trivial to break by accident. Encapsulation isn't about stopping malicious code; it's about making the one correct way to change state the only *easy* way to change state.
+```python
+import asyncio
+
+async def task_1():
+    print("Task 1: Start")
+    await asyncio.sleep(0.2)
+    print("Task 1: End")
+
+async def task_2():
+    print("Task 2: Start")
+    await asyncio.sleep(0.1)
+    print("Task 2: End")
+
+async def main():
+    await asyncio.gather(task_1(), task_2())
+
+asyncio.run(main())
+# Task 1: Start
+# Task 2: Start
+# Task 2: End   (0.1s sleep finishes first)
+# Task 1: End   (0.2s sleep finishes second)
+```
+
+Both tasks start immediately — the "Start" prints happen back to back — then whichever one's `sleep` elapses first resumes first. Total wall-clock time is ~0.2s (the longer of the two), not ~0.3s (their sum), because they overlap instead of running sequentially.
+
+## Producer/consumer with `asyncio.Queue`
+
+`asyncio.Queue` coordinates coroutines the same way `queue.Queue` coordinates threads — but a consumer that loops forever must be given a way to know when to stop, or `gather` never returns. A sentinel value (`None`) signals "no more items":
+
+```python
+import asyncio
+
+async def producer(queue):
+    for i in range(3):
+        await asyncio.sleep(0.1)
+        await queue.put(f"item-{i}")
+        print(f"produced item-{i}")
+    await queue.put(None)  # sentinel: tells the consumer to stop
+
+async def consumer(queue):
+    while True:
+        item = await queue.get()
+        if item is None:
+            break
+        print(f"consumed {item}")
+
+async def main():
+    queue = asyncio.Queue()
+    await asyncio.gather(producer(queue), consumer(queue))
+
+asyncio.run(main())
+```
+
+Without that `await queue.put(None)` sentinel, `consumer`'s `while True: await queue.get()` would wait forever for an item that never arrives, and `gather` — which waits for *every* coroutine it was given — would hang indefinitely. This is the single most common bug in hand-written async producer/consumer code: always give the consumer an explicit stop signal.
 
 ## Knowledge check
 
@@ -1217,90 +7343,102 @@ The `deposit`/`withdraw` methods are the *only* way to change `__balance`, and b
 {
   "questions": [
     {
-      "id": "oop-collections-encapsulation-q1",
+      "id": "async-typing-asyncio-q1",
       "type": "mcq",
-      "prompt": "What does Python actually do with an attribute named `self.__balance` inside class `BankAccount`?",
+      "prompt": "What's the key difference between await asyncio.sleep(1) and time.sleep(1) inside a coroutine?",
       "options": [
-        { "id": "a", "text": "Makes it truly inaccessible from outside the class, like Java's private" },
-        { "id": "b", "text": "Renames it to `self._BankAccount__balance` (name mangling) — still accessible, just inconvenient" },
-        { "id": "c", "text": "Raises a SyntaxError, since double underscores are reserved" },
-        { "id": "d", "text": "Turns it into a class variable shared by all instances" }
+        { "id": "a", "text": "There is no difference — they behave identically" },
+        { "id": "b", "text": "asyncio.sleep yields control back to the event loop so other coroutines can run during the wait; time.sleep blocks the entire thread" },
+        { "id": "c", "text": "time.sleep is faster because it doesn't involve the event loop" },
+        { "id": "d", "text": "asyncio.sleep can only be used outside of async functions" }
       ],
       "correct": "b",
-      "explanation": "Python has no enforced privacy. A double-underscore attribute is name-mangled to `_ClassName__attr`, which discourages accidental access but doesn't prevent it."
+      "explanation": "await asyncio.sleep(1) suspends only the current coroutine and lets the event loop run other scheduled coroutines during that second. time.sleep(1) blocks the whole thread, starving every other coroutine too — a classic asyncio antipattern."
     },
     {
-      "id": "oop-collections-encapsulation-q2",
+      "id": "async-typing-asyncio-q2",
       "type": "mcq",
-      "prompt": "Why does `BankAccount` expose `deposit()`/`withdraw()` methods instead of letting callers set `account.balance` directly?",
+      "prompt": "In the gather(task_1(), task_2()) example, why does Task 2 finish before Task 1 even though task_1 was listed first?",
       "options": [
-        { "id": "a", "text": "Direct attribute access is slower in Python" },
-        { "id": "b", "text": "So the class can validate every mutation (e.g. reject a negative withdrawal) and protect its invariants" },
-        { "id": "c", "text": "Because Python doesn't allow public numeric attributes" },
-        { "id": "d", "text": "It's purely a stylistic convention with no functional benefit" }
+        { "id": "a", "text": "gather always runs coroutines in reverse order" },
+        { "id": "b", "text": "Both start immediately and interleave at their await points; task_2's shorter sleep(0.1) elapses before task_1's sleep(0.2), so it resumes and finishes first" },
+        { "id": "c", "text": "task_1 raised an exception and was skipped" },
+        { "id": "d", "text": "Order in gather() only affects print statements, not execution" }
       ],
       "correct": "b",
-      "explanation": "Routing every state change through validated methods is how the class guarantees an invariant (balance never negative) stays true no matter how the object is used."
+      "explanation": "gather starts every coroutine right away; they run cooperatively, and whichever one's await resolves first resumes first. task_2's 0.1s sleep finishes before task_1's 0.2s sleep, so it completes first regardless of argument order."
+    },
+    {
+      "id": "async-typing-asyncio-q3",
+      "type": "mcq",
+      "prompt": "What happens if the producer never puts a None sentinel on the queue, given a consumer written as `while True: item = await queue.get(); if item is None: break`?",
+      "options": [
+        { "id": "a", "text": "The consumer exits automatically once the producer finishes" },
+        { "id": "b", "text": "The consumer's await queue.get() blocks forever waiting for another item, and gather() never returns" },
+        { "id": "c", "text": "asyncio.Queue raises a TimeoutError after a default timeout" },
+        { "id": "d", "text": "The program exits cleanly since there's nothing left to consume" }
+      ],
+      "correct": "b",
+      "explanation": "Without a sentinel, the consumer has no signal to stop looping — its await queue.get() call simply waits forever for an item that will never come, and gather() waits for every coroutine it was given, so the whole program hangs."
     }
   ]
 }
 ```
-$md$, 12, $json$[{"id":"oop-collections-encapsulation-q1","type":"mcq","correct":"b"},{"id":"oop-collections-encapsulation-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+$md$, 20, $json$[{"id":"async-typing-asyncio-q1","type":"mcq","correct":"b"},{"id":"async-typing-asyncio-q2","type":"mcq","correct":"b"},{"id":"async-typing-asyncio-q3","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
+-- Section: Iterators & Generators
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('98b68cee-490d-5b44-a0f5-50f1333a1d8f', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Iterators & Generators', 8, 'Advanced')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('59de5905-92d5-5f7f-9371-28753755e3f0', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '3258c6b9-73b9-558d-979e-cb499df7bc1a', 'Abstraction', 'notes', 2, $md$Abstraction is the design principle of exposing *what* an object does while hiding *how* it does it. Encapsulation (the previous lesson) is the mechanism — hiding fields behind methods; abstraction is the goal — presenting a simple contract so callers never need to know the implementation.
+VALUES ('9ca8601e-3dd5-5468-a643-88bdc1e7a3af', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '98b68cee-490d-5b44-a0f5-50f1333a1d8f', 'Iterators', 'notes', 0, $md$Every `for x in obj:` loop in Python is powered by the **iterator protocol** — two dunder methods, `__iter__` and `__next__`. Understanding this protocol is what lets you explain *why* a `for` loop works on a list, a file, a dict, and a generator, all through the same syntax.
 
-## A contract, not an implementation
+## The protocol: `__iter__` + `__next__`
 
-In Python, the most common way to express "here is a contract every subclass must fulfill" is an Abstract Base Class:
+- `__iter__(self)` returns an **iterator** — an object that knows how to produce the next value. For an object that's already an iterator, this is conventionally `return self`.
+- `__next__(self)` returns the next value, or raises `StopIteration` when there's nothing left.
 
 ```python
-from abc import ABC, abstractmethod
+class MyIterator:
+    def __init__(self, start, end):
+        self.current = start
+        self.end = end
 
-class Shape(ABC):
-    """Defines a strict contract for all shapes — no implementation here."""
+    def __iter__(self):
+        return self  # an iterator returns itself here
 
-    @abstractmethod
-    def area(self) -> float:
-        """Return the area of the shape."""
-        ...
+    def __next__(self):
+        if self.current >= self.end:
+            raise StopIteration
+        value = self.current
+        self.current += 1
+        return value
 
-    @abstractmethod
-    def perimeter(self) -> float:
-        """Return the perimeter of the shape."""
-        ...
-
-
-class Rectangle(Shape):
-    def __init__(self, width: float, height: float):
-        self.width = width
-        self.height = height
-
-    def area(self) -> float:
-        return self.width * self.height
-
-    def perimeter(self) -> float:
-        return 2 * (self.width + self.height)
-
-
-shape = Rectangle(5, 10)
-print(shape.area())       # 50
-print(shape.perimeter())  # 30
+iterator = MyIterator(1, 5)
+for num in iterator:
+    print(num)  # 1, 2, 3, 4
 ```
 
-Code that calls `shape.area()` never needs to know it's a `Rectangle` computing `width * height` — it only needs to know every `Shape` has an `area()` method that returns a float. That's the whole point: the caller depends on the *abstraction* (`Shape`), not the *implementation* (`Rectangle`).
+`for num in iterator:` is doing this under the hood: call `iter(iterator)` once (returns `self`), then call `next(iterator)` repeatedly, catching `StopIteration` to know when to stop.
 
-## Why this matters at scale
+## Iterators are stateful and consumed once
 
-Without abstraction, callers end up branching on concrete types (`if isinstance(shape, Rectangle): ... elif isinstance(shape, Circle): ...`), which means every new shape requires editing every place that branches. With an abstract contract, adding `Triangle(Shape)` requires touching exactly one file — the caller code that already does `shape.area()` works unmodified. This is the same idea behind interfaces in Java/Go and protocols in TypeScript.
+```python
+iterator = MyIterator(1, 5)
+print(list(iterator))  # [1, 2, 3, 4]
+print(list(iterator))  # [] — already exhausted; current is now stuck at 5
+```
 
-## Abstraction vs. encapsulation, side by side
+This is the gotcha that separates iterators from collections like `list`: a `list` can be looped over any number of times because each `for` loop calls `__iter__` and gets a *fresh* iterator over the same data. `MyIterator.__iter__` returns `self` — the *same* stateful object — so once its internal `current` reaches `end`, every future iteration attempt starts already exhausted.
 
-- **Encapsulation**: `BankAccount` hides `__balance` behind `deposit()`/`withdraw()` — a *data hiding* mechanism.
-- **Abstraction**: `Shape` hides *how* area is computed behind a common `area()` signature — a *design* principle about what callers need to know.
+## Iterable vs. iterator — a distinction interviewers probe
 
-They're complementary, and interviewers often use "aren't these the same thing?" as a follow-up to see if you can articulate the distinction rather than just define both terms.
+- **Iterable**: any object with `__iter__` (a `list`, `dict`, `str`, or a custom class like `MyIterator`) — something you *can* call `iter()` on.
+- **Iterator**: the object `__iter__` returns — something with `__next__` that tracks position and can be *consumed*.
+
+Every iterator is iterable (its `__iter__` returns itself), but not every iterable is an iterator — a `list` is iterable but is not itself an iterator (calling `next()` directly on a list raises `TypeError`; you must first call `iter(my_list)`).
 
 ## Knowledge check
 
@@ -1308,108 +7446,89 @@ They're complementary, and interviewers often use "aren't these the same thing?"
 {
   "questions": [
     {
-      "id": "oop-collections-abstraction-q1",
+      "id": "iterators-testing-iterators-q1",
       "type": "mcq",
-      "prompt": "What is the main benefit of code calling `shape.area()` on an abstract `Shape` instead of branching on `isinstance(shape, Rectangle)` etc.?",
+      "prompt": "What must `__next__` do once there are no more values to produce?",
       "options": [
-        { "id": "a", "text": "It runs faster because isinstance checks are slow" },
-        { "id": "b", "text": "Adding a new shape type requires no changes to the calling code — it already works through the shared contract" },
-        { "id": "c", "text": "It avoids using the abc module, which is deprecated" },
-        { "id": "d", "text": "It removes the need for a Shape class entirely" }
+        { "id": "a", "text": "Return None" },
+        { "id": "b", "text": "Raise StopIteration" },
+        { "id": "c", "text": "Return an empty list" },
+        { "id": "d", "text": "Silently loop forever" }
       ],
       "correct": "b",
-      "explanation": "Calling code that depends on the abstract contract (area()) rather than concrete types doesn't need to change when a new shape is added, since every shape implements that same contract."
+      "explanation": "StopIteration is the signal the for loop (and iter()/next() machinery generally) listens for to know iteration is complete."
     },
     {
-      "id": "oop-collections-abstraction-q2",
+      "id": "iterators-testing-iterators-q2",
       "type": "mcq",
-      "prompt": "How does abstraction differ from encapsulation?",
+      "prompt": "Why does looping over the same `MyIterator` instance twice produce results the second time but not the first — i.e. why is the second loop empty?",
       "options": [
-        { "id": "a", "text": "They are exactly the same concept with two names" },
-        { "id": "b", "text": "Encapsulation hides an object's internal data behind methods; abstraction hides implementation details behind a shared contract callers rely on" },
-        { "id": "c", "text": "Abstraction only applies to abstract base classes; encapsulation only applies to modules" },
-        { "id": "d", "text": "Encapsulation is a Python-only concept; abstraction applies to all languages" }
+        { "id": "a", "text": "It isn't empty — this is a trick question" },
+        { "id": "b", "text": "__iter__ returns self, so both loops share the same stateful `current` counter, which the first loop already advanced to `end`" },
+        { "id": "c", "text": "Python automatically resets custom iterators between loops" },
+        { "id": "d", "text": "MyIterator can only be looped over inside a with block" }
       ],
       "correct": "b",
-      "explanation": "Encapsulation is the data-hiding mechanism (private-ish attributes plus accessor methods); abstraction is the design principle of exposing a simple contract and hiding the complexity behind it."
+      "explanation": "Because __iter__ returns self instead of a fresh object, both for loops operate on the exact same current/end state — the first loop exhausts it, so the second loop's first __next__ call immediately raises StopIteration."
     }
   ]
 }
 ```
-$md$, 12, $json$[{"id":"oop-collections-abstraction-q1","type":"mcq","correct":"b"},{"id":"oop-collections-abstraction-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+$md$, 15, $json$[{"id":"iterators-testing-iterators-q1","type":"mcq","correct":"b"},{"id":"iterators-testing-iterators-q2","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('e44ac907-4848-5002-abb5-e72fa4c9cb54', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '3258c6b9-73b9-558d-979e-cb499df7bc1a', 'Abstract Base Classes (`abc`)', 'notes', 3, $md$The previous lesson used `ABC` and `@abstractmethod` to illustrate abstraction as a *design idea*. This lesson is about the `abc` module's actual *mechanics* — what it enforces, when it enforces it, and how it differs from just raising `NotImplementedError` by hand.
+VALUES ('6a496224-0762-5fc9-9479-7ba522e96442', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '98b68cee-490d-5b44-a0f5-50f1333a1d8f', 'Generators', 'notes', 1, $md$A generator is the easy way to build something that satisfies the iterator protocol from the previous lesson, without hand-writing `__iter__`/`__next__`/`StopIteration` yourself. Any function containing `yield` becomes a **generator function** — calling it doesn't run its body; it returns a generator object that runs the body lazily, one `yield` at a time.
 
-## The enforcement is real, and it's a `TypeError`
-
-```python
-from abc import ABC, abstractmethod
-
-class Shape(ABC):
-    @abstractmethod
-    def area(self):
-        pass
-
-    @abstractmethod
-    def perimeter(self):
-        pass
-
-    def concrete(self):
-        # ABCs can mix abstract methods with normal, already-implemented ones
-        return "Subscribe"
-
-
-class Rectangle(Shape):
-    def __init__(self, width, height):
-        self.width = width
-        self.height = height
-
-    def area(self):
-        return self.width * self.height
-
-    def perimeter(self):
-        return 2 * (self.width + self.height)
-
-
-rect = Rectangle(4, 5)
-print(rect.area())       # 20
-print(rect.perimeter())  # 18
-print(rect.concrete())   # Subscribe — inherited, non-abstract method
-```
-
-Try to instantiate `Shape` itself, or a subclass that skips one of the abstract methods, and Python refuses at construction time:
+## Calling a generator function doesn't execute it
 
 ```python
-class IncompleteShape(Shape):
-    def area(self):
-        return 0
-    # perimeter() not implemented
+def my_generator():
+    yield 1
+    yield 2
+    yield 3
 
-try:
-    shape = IncompleteShape()
-except TypeError as e:
-    print(f"TypeError: {e}")
-    # Can't instantiate abstract class IncompleteShape
-    # without an implementation for abstract method 'perimeter'
+gen = my_generator()   # nothing has printed yet — no code inside has run
+print(next(gen))       # 1 — runs up to the first yield, pauses there
+print(next(gen))       # 2 — resumes, runs to the second yield
+print(next(gen))       # 3
+print(next(gen))       # raises StopIteration — body has run to completion
 ```
 
-## Why this beats hand-rolled `NotImplementedError`
+This is the detail interviewers probe most: `my_generator()` returns immediately with a generator object — none of the function body has executed. Execution only happens as `next()` is called, and each call resumes exactly where the previous one left off (all local variables preserved), rather than starting the function over.
 
-A common alternative is a plain base class where unimplemented methods raise manually:
+## `send()`: passing a value *into* a paused generator
+
+`yield` isn't just an output — it can also be an expression that receives a value:
 
 ```python
-class Shape:
-    def area(self):
-        raise NotImplementedError
+def generator_with_send():
+    value = yield "Start"       # pauses here, yielding "Start"
+    yield f"Received: {value}"  # resumes here when send() is called
+
+gen = generator_with_send()
+print(next(gen))          # Start — runs to the first yield
+print(gen.send("Data"))   # Received: Data — "Data" becomes `value`, runs to the next yield
 ```
 
-That "contract" is only checked when `area()` is actually *called* — a subclass that forgets to override it will instantiate just fine and blow up later, at runtime, possibly in production. `ABC` + `@abstractmethod` moves that check to **instantiation time**: `IncompleteShape()` fails immediately, long before any code path calls `.perimeter()`. This is the concrete reason ABCs are considered "safer" than the `NotImplementedError` convention — the failure mode shifts from "surprises in production" to "the object never gets created."
+`gen.send("Data")` does two things atomically: it resumes the paused generator with `"Data"` as the *result* of the `yield "Start"` expression, and it runs until the next `yield` (or `StopIteration`). The first `next(gen)` call is required before `send()` can pass a real value in — there's no paused `yield` expression to receive it until the generator has started.
 
-## `ABC` can still hold real logic
+## Why generators exist: laziness and memory
 
-`Shape.concrete()` above is not abstract — ABCs are not purely interfaces; they can mix abstract methods (the required contract) with fully implemented ones (shared behavior every subclass gets for free). This is exactly the pattern used throughout Django and FastAPI internals: an abstract base defines the required hooks, plus utility methods built on top of those hooks.
+```python
+def squares_list(n):
+    return [i * i for i in range(n)]   # builds the entire list in memory up front
+
+def squares_gen(n):
+    for i in range(n):
+        yield i * i                     # produces one value at a time, on demand
+
+# squares_list(10_000_000) allocates ~10 million ints immediately.
+# squares_gen(10_000_000) allocates nothing until you actually iterate it.
+total = sum(squares_gen(10_000_000))
+```
+
+`squares_gen` never holds more than one value in memory at a time — this is why generators are the standard tool for streaming large datasets, reading huge files line by line, or building infinite sequences that would be impossible to materialize as a list.
 
 ## Knowledge check
 
@@ -1417,213 +7536,44 @@ That "contract" is only checked when `area()` is actually *called* — a subclas
 {
   "questions": [
     {
-      "id": "oop-collections-abstract-base-classes-q1",
+      "id": "iterators-testing-generators-q1",
       "type": "mcq",
-      "prompt": "When does Python raise an error if a subclass of an ABC fails to implement one of its `@abstractmethod`s?",
+      "prompt": "What happens when you call `gen = my_generator()` on a function containing `yield`?",
       "options": [
-        { "id": "a", "text": "At import time, when the subclass is first defined" },
-        { "id": "b", "text": "At instantiation time — trying to construct the incomplete subclass raises TypeError" },
-        { "id": "c", "text": "Only when the missing method is actually called" },
-        { "id": "d", "text": "Never — ABC only issues a warning, not an error" }
+        { "id": "a", "text": "The entire function body runs immediately and gen holds the final return value" },
+        { "id": "b", "text": "Nothing in the function body executes yet — gen is a generator object, and execution starts on the first next(gen) call" },
+        { "id": "c", "text": "It raises a SyntaxError because generator functions can't be called directly" },
+        { "id": "d", "text": "It runs until the first yield and then returns None" }
       ],
       "correct": "b",
-      "explanation": "The abc module blocks instantiation of any concrete class that hasn't implemented every abstract method — the error surfaces immediately at construction, not later when the method happens to be called."
+      "explanation": "Calling a generator function only constructs the generator object. No code in the function body runs until next() is called on it."
     },
     {
-      "id": "oop-collections-abstract-base-classes-q2",
+      "id": "iterators-testing-generators-q2",
       "type": "mcq",
-      "prompt": "Why is `ABC` + `@abstractmethod` generally preferred over a base class that raises `NotImplementedError` by hand?",
+      "prompt": "Why is a generator preferred over building a full list for processing a very large dataset?",
       "options": [
-        { "id": "a", "text": "ABC classes run faster at runtime" },
-        { "id": "b", "text": "ABC fails at instantiation time if a method is missing; NotImplementedError only fails when that specific method is later called" },
-        { "id": "c", "text": "NotImplementedError is deprecated in modern Python" },
-        { "id": "d", "text": "ABC classes cannot contain any concrete (non-abstract) methods, which is considered safer" }
+        { "id": "a", "text": "Generators run faster per-element than list comprehensions in every case" },
+        { "id": "b", "text": "Generators produce one value at a time on demand, so memory usage stays constant instead of scaling with dataset size" },
+        { "id": "c", "text": "Lists cannot hold more than a few thousand elements" },
+        { "id": "d", "text": "Generators automatically parallelize the work across CPU cores" }
       ],
       "correct": "b",
-      "explanation": "Hand-rolled NotImplementedError only surfaces the bug when the unimplemented method is actually invoked, which can be much later and in production. ABC enforcement happens the moment the incomplete class is instantiated."
+      "explanation": "A list comprehension materializes every element in memory before you can use any of them. A generator yields one value at a time, so memory usage stays flat regardless of how many items are eventually produced."
     }
   ]
 }
 ```
-$md$, 15, $json$[{"id":"oop-collections-abstract-base-classes-q1","type":"mcq","correct":"b"},{"id":"oop-collections-abstract-base-classes-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+$md$, 15, $json$[{"id":"iterators-testing-generators-q1","type":"mcq","correct":"b"},{"id":"iterators-testing-generators-q2","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('e09ee0d5-fed8-5122-bf21-a7e8dbe6dad3', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '3258c6b9-73b9-558d-979e-cb499df7bc1a', 'Inheritance', 'notes', 4, $md$Inheritance lets a subclass reuse a parent's attributes and methods, and override the ones that need to differ. It's the mechanism behind both abstraction (Shape/Rectangle) and polymorphism (next lesson) — but used carelessly it's also the single biggest source of tightly coupled, fragile object hierarchies.
-
-## Overriding a method
-
-```python
-class Animal:
-    def __init__(self, name):
-        self.name = name
-
-    def speak(self):
-        raise NotImplementedError("Subclasses must implement this method")
-
-class Dog(Animal):
-    def speak(self):
-        return f"{self.name} says Woof!"
-
-class Cat(Animal):
-    def speak(self):
-        return f"{self.name} says Meow!"
-
-dog = Dog("Buddy")
-cat = Cat("Kitty")
-print(dog.speak())  # Buddy says Woof!
-print(cat.speak())  # Kitty says Meow!
-```
-
-`Dog` and `Cat` both inherit `__init__` unchanged — `self.name = name` doesn't need to be repeated — but each overrides `speak()` with its own behavior. That's the reuse win: shared logic lives once, in `Animal`, and only the parts that genuinely differ are rewritten.
-
-## The design question: is `Animal` ever instantiated?
-
-`Animal.speak()` raises `NotImplementedError`, which signals "this class is never meant to be used directly — only subclassed." That's a real design decision with two options:
-
-- **The parent is never instantiated on its own** → make it an `ABC` (previous lesson). The interpreter then enforces the contract at instantiation time instead of trusting a comment and a raised exception.
-- **The parent is a genuinely usable, concrete class** (e.g. `Animal` could reasonably have a default `speak()` that returns `"..."`) → plain inheritance is the right tool, no `ABC` needed.
-
-Reaching for `NotImplementedError` in a concrete base class, as the example above does, is the middle ground the handbook material calls out directly: it *works*, but an `ABC` communicates the same intent to both the reader and the interpreter more clearly.
-
-## Where inheritance goes wrong
-
-Deep inheritance chains (`D(C)`, `C(B)`, `B(A)`) couple every subclass to decisions made several classes up, so a change to `A` can silently break `D` in ways that are hard to trace. The common senior-level guidance — "favor composition over inheritance" — isn't a rule against inheritance itself; it's a reminder to reach for it only when there's a genuine **is-a** relationship (`Dog` *is an* `Animal`), and to model **has-a** relationships (`Car` *has an* `Engine`) by holding a reference to an object instead of inheriting from it.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "oop-collections-inheritance-q1",
-      "type": "mcq",
-      "prompt": "In the Animal/Dog/Cat example, why don't Dog and Cat redefine `__init__`?",
-      "options": [
-        { "id": "a", "text": "They can't — subclasses are never allowed to have their own __init__" },
-        { "id": "b", "text": "Because they inherit Animal's __init__ unchanged, which already does everything they need" },
-        { "id": "c", "text": "Python auto-generates a blank __init__ for every subclass" },
-        { "id": "d", "text": "speak() implicitly calls __init__ every time" }
-      ],
-      "correct": "b",
-      "explanation": "Inheritance means a subclass automatically has every method the parent defines, including __init__, unless the subclass explicitly overrides it. Dog and Cat only override speak() because that's the only behavior that differs."
-    },
-    {
-      "id": "oop-collections-inheritance-q2",
-      "type": "mcq",
-      "prompt": "When is 'favor composition over inheritance' guidance actually pointing at?",
-      "options": [
-        { "id": "a", "text": "Inheritance should never be used in Python" },
-        { "id": "b", "text": "Prefer modeling has-a relationships (e.g. Car has an Engine) via composition, and reserve inheritance for genuine is-a relationships" },
-        { "id": "c", "text": "Composition is always faster at runtime than inheritance" },
-        { "id": "d", "text": "Multiple inheritance is banned in modern Python" }
-      ],
-      "correct": "b",
-      "explanation": "Inheritance is the right tool for a real is-a relationship (Dog is an Animal). Modeling has-a relationships as inheritance instead of composition is the classic path to fragile, deeply coupled hierarchies."
-    }
-  ]
-}
-```
-$md$, 12, $json$[{"id":"oop-collections-inheritance-q1","type":"mcq","correct":"b"},{"id":"oop-collections-inheritance-q2","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+-- Section: Data Model & Descriptors
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('a1f87708-c87d-52ce-97b0-2349db4da084', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Data Model & Descriptors', 9, 'Advanced')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('0f12c51a-0720-5715-b0aa-0222af498111', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '3258c6b9-73b9-558d-979e-cb499df7bc1a', 'Polymorphism', 'notes', 5, $md$Polymorphism means "the same interface, different behavior" — code written against a shared method name works correctly no matter which concrete type actually gets passed in, as long as that type implements the method.
-
-## Same call, different behavior per type
-
-```python
-class Shape:
-    def area(self):
-        raise NotImplementedError("Subclasses must implement this method")
-
-class Rectangle(Shape):
-    def __init__(self, width, height):
-        self.width = width
-        self.height = height
-
-    def area(self):
-        return self.width * self.height
-
-class Circle(Shape):
-    def __init__(self, radius):
-        self.radius = radius
-
-    def area(self):
-        return 3.14159 * self.radius * self.radius
-
-def print_area(shape):
-    print(f"The area is {shape.area()}")
-
-rectangle = Rectangle(5, 10)
-circle = Circle(7)
-
-print_area(rectangle)  # The area is 50
-print_area(circle)     # The area is 153.93899999999996
-```
-
-`print_area()` has no `if isinstance(shape, Rectangle)` branch anywhere. It calls `shape.area()` and trusts that whatever object it received knows how to answer that call correctly. Adding `Triangle(Shape)` tomorrow requires zero changes to `print_area()`.
-
-## Duck typing: Python doesn't even require the shared base class
-
-Because Python resolves `shape.area()` at call time by looking up `area` on the object's actual type — not by checking a declared type upfront — inheritance from `Shape` isn't strictly required for `print_area()` to work:
-
-```python
-class Square:  # doesn't inherit from Shape at all
-    def __init__(self, side):
-        self.side = side
-
-    def area(self):
-        return self.side ** 2
-
-print_area(Square(4))  # The area is 16 — works, no shared base class
-```
-
-"If it walks like a duck and quacks like a duck, it's a duck": `print_area()` doesn't care what `Square` *is*, only that it *has* an `area()` method. This is polymorphism without a formal interface — a hallmark of how dynamically typed languages differ from statically typed ones, and a near-guaranteed interview follow-up once you mention polymorphism.
-
-## Why it matters
-
-Without polymorphism, adding a new shape means finding every function that branches on shape type and adding a new branch to each one — a maintenance burden that grows with every new type. With it, new types are additive: write the class, implement the shared method, done.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "oop-collections-polymorphism-q1",
-      "type": "mcq",
-      "prompt": "What does `print_area(shape)` need to know about `shape` in order to work correctly?",
-      "options": [
-        { "id": "a", "text": "Its exact class name, checked via isinstance" },
-        { "id": "b", "text": "Only that it has an area() method that returns a number — nothing about its concrete type" },
-        { "id": "c", "text": "That it inherits from a specific base class named Shape" },
-        { "id": "d", "text": "Its memory address" }
-      ],
-      "correct": "b",
-      "explanation": "Polymorphic code calls the shared method and trusts the object to implement it correctly — it doesn't need to know or check the object's concrete type."
-    },
-    {
-      "id": "oop-collections-polymorphism-q2",
-      "type": "mcq",
-      "prompt": "Why does `print_area(Square(4))` work even though `Square` doesn't inherit from `Shape`?",
-      "options": [
-        { "id": "a", "text": "It doesn't — this would raise an AttributeError" },
-        { "id": "b", "text": "Python's duck typing: print_area only needs shape.area() to exist and be callable, regardless of the object's class hierarchy" },
-        { "id": "c", "text": "Square is automatically registered as a subclass of Shape" },
-        { "id": "d", "text": "print_area() silently converts Square into a Rectangle first" }
-      ],
-      "correct": "b",
-      "explanation": "Python looks up area on the object's actual type at call time — there's no compile-time interface check, so any object with a matching method works, shared base class or not."
-    }
-  ]
-}
-```
-$md$, 12, $json$[{"id":"oop-collections-polymorphism-q1","type":"mcq","correct":"b"},{"id":"oop-collections-polymorphism-q2","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('0518f441-7052-525d-b58a-33edabd41fbf', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '3258c6b9-73b9-558d-979e-cb499df7bc1a', 'The Python Data Model (Magic / Dunder Methods)', 'notes', 6, $md$The Python data model is the set of special (`__dunder__`) methods that define how your objects interact with the language's own built-in operators and functions: `+`, `len()`, `print()`, `for ... in`, `with`, `==`, and more. Implementing the right dunder methods makes a custom class behave like a built-in type instead of a second-class citizen that needs its own bespoke API.
+VALUES ('0518f441-7052-525d-b58a-33edabd41fbf', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'a1f87708-c87d-52ce-97b0-2349db4da084', 'The Python Data Model (Magic / Dunder Methods)', 'notes', 0, $md$The Python data model is the set of special (`__dunder__`) methods that define how your objects interact with the language's own built-in operators and functions: `+`, `len()`, `print()`, `for ... in`, `with`, `==`, and more. Implementing the right dunder methods makes a custom class behave like a built-in type instead of a second-class citizen that needs its own bespoke API.
 
 ## Without the data model: everything needs its own method name
 
@@ -1720,1159 +7670,59 @@ print(v1)                # Vector(1, 2) — __repr__ backs print()/the REPL
 $md$, 15, $json$[{"id":"oop-collections-data-model-q1","type":"mcq","correct":"b"},{"id":"oop-collections-data-model-q2","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
--- Section: Iterators, Generators & Testing
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('afc6ff6d-37fb-5fc8-93df-95bef49ae58c', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Iterators, Generators & Testing', 3)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
-
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('9ca8601e-3dd5-5468-a643-88bdc1e7a3af', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'afc6ff6d-37fb-5fc8-93df-95bef49ae58c', 'Iterators', 'notes', 0, $md$Every `for x in obj:` loop in Python is powered by the **iterator protocol** — two dunder methods, `__iter__` and `__next__`. Understanding this protocol is what lets you explain *why* a `for` loop works on a list, a file, a dict, and a generator, all through the same syntax.
+VALUES ('af5ce63e-3c3a-5f41-af28-d8d5952d9c0f', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'a1f87708-c87d-52ce-97b0-2349db4da084', 'Method Resolution Order (MRO)', 'notes', 1, $md$When a class inherits from multiple parents, and more than one of those parents defines the same method, which one wins? Python answers this with the **Method Resolution Order (MRO)** — a single, deterministic list of classes, computed once per class, that attribute and method lookup walks in order, stopping at the first match.
 
-## The protocol: `__iter__` + `__next__`
-
-- `__iter__(self)` returns an **iterator** — an object that knows how to produce the next value. For an object that's already an iterator, this is conventionally `return self`.
-- `__next__(self)` returns the next value, or raises `StopIteration` when there's nothing left.
+## The simple case: left-to-right
 
 ```python
-class MyIterator:
-    def __init__(self, start, end):
-        self.current = start
-        self.end = end
-
-    def __iter__(self):
-        return self  # an iterator returns itself here
-
-    def __next__(self):
-        if self.current >= self.end:
-            raise StopIteration
-        value = self.current
-        self.current += 1
-        return value
-
-iterator = MyIterator(1, 5)
-for num in iterator:
-    print(num)  # 1, 2, 3, 4
-```
-
-`for num in iterator:` is doing this under the hood: call `iter(iterator)` once (returns `self`), then call `next(iterator)` repeatedly, catching `StopIteration` to know when to stop.
-
-## Iterators are stateful and consumed once
-
-```python
-iterator = MyIterator(1, 5)
-print(list(iterator))  # [1, 2, 3, 4]
-print(list(iterator))  # [] — already exhausted; current is now stuck at 5
-```
-
-This is the gotcha that separates iterators from collections like `list`: a `list` can be looped over any number of times because each `for` loop calls `__iter__` and gets a *fresh* iterator over the same data. `MyIterator.__iter__` returns `self` — the *same* stateful object — so once its internal `current` reaches `end`, every future iteration attempt starts already exhausted.
-
-## Iterable vs. iterator — a distinction interviewers probe
-
-- **Iterable**: any object with `__iter__` (a `list`, `dict`, `str`, or a custom class like `MyIterator`) — something you *can* call `iter()` on.
-- **Iterator**: the object `__iter__` returns — something with `__next__` that tracks position and can be *consumed*.
-
-Every iterator is iterable (its `__iter__` returns itself), but not every iterable is an iterator — a `list` is iterable but is not itself an iterator (calling `next()` directly on a list raises `TypeError`; you must first call `iter(my_list)`).
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "iterators-testing-iterators-q1",
-      "type": "mcq",
-      "prompt": "What must `__next__` do once there are no more values to produce?",
-      "options": [
-        { "id": "a", "text": "Return None" },
-        { "id": "b", "text": "Raise StopIteration" },
-        { "id": "c", "text": "Return an empty list" },
-        { "id": "d", "text": "Silently loop forever" }
-      ],
-      "correct": "b",
-      "explanation": "StopIteration is the signal the for loop (and iter()/next() machinery generally) listens for to know iteration is complete."
-    },
-    {
-      "id": "iterators-testing-iterators-q2",
-      "type": "mcq",
-      "prompt": "Why does looping over the same `MyIterator` instance twice produce results the second time but not the first — i.e. why is the second loop empty?",
-      "options": [
-        { "id": "a", "text": "It isn't empty — this is a trick question" },
-        { "id": "b", "text": "__iter__ returns self, so both loops share the same stateful `current` counter, which the first loop already advanced to `end`" },
-        { "id": "c", "text": "Python automatically resets custom iterators between loops" },
-        { "id": "d", "text": "MyIterator can only be looped over inside a with block" }
-      ],
-      "correct": "b",
-      "explanation": "Because __iter__ returns self instead of a fresh object, both for loops operate on the exact same current/end state — the first loop exhausts it, so the second loop's first __next__ call immediately raises StopIteration."
-    }
-  ]
-}
-```
-$md$, 15, $json$[{"id":"iterators-testing-iterators-q1","type":"mcq","correct":"b"},{"id":"iterators-testing-iterators-q2","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('6a496224-0762-5fc9-9479-7ba522e96442', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'afc6ff6d-37fb-5fc8-93df-95bef49ae58c', 'Generators', 'notes', 1, $md$A generator is the easy way to build something that satisfies the iterator protocol from the previous lesson, without hand-writing `__iter__`/`__next__`/`StopIteration` yourself. Any function containing `yield` becomes a **generator function** — calling it doesn't run its body; it returns a generator object that runs the body lazily, one `yield` at a time.
-
-## Calling a generator function doesn't execute it
-
-```python
-def my_generator():
-    yield 1
-    yield 2
-    yield 3
-
-gen = my_generator()   # nothing has printed yet — no code inside has run
-print(next(gen))       # 1 — runs up to the first yield, pauses there
-print(next(gen))       # 2 — resumes, runs to the second yield
-print(next(gen))       # 3
-print(next(gen))       # raises StopIteration — body has run to completion
-```
-
-This is the detail interviewers probe most: `my_generator()` returns immediately with a generator object — none of the function body has executed. Execution only happens as `next()` is called, and each call resumes exactly where the previous one left off (all local variables preserved), rather than starting the function over.
-
-## `send()`: passing a value *into* a paused generator
-
-`yield` isn't just an output — it can also be an expression that receives a value:
-
-```python
-def generator_with_send():
-    value = yield "Start"       # pauses here, yielding "Start"
-    yield f"Received: {value}"  # resumes here when send() is called
-
-gen = generator_with_send()
-print(next(gen))          # Start — runs to the first yield
-print(gen.send("Data"))   # Received: Data — "Data" becomes `value`, runs to the next yield
-```
-
-`gen.send("Data")` does two things atomically: it resumes the paused generator with `"Data"` as the *result* of the `yield "Start"` expression, and it runs until the next `yield` (or `StopIteration`). The first `next(gen)` call is required before `send()` can pass a real value in — there's no paused `yield` expression to receive it until the generator has started.
-
-## Why generators exist: laziness and memory
-
-```python
-def squares_list(n):
-    return [i * i for i in range(n)]   # builds the entire list in memory up front
-
-def squares_gen(n):
-    for i in range(n):
-        yield i * i                     # produces one value at a time, on demand
-
-# squares_list(10_000_000) allocates ~10 million ints immediately.
-# squares_gen(10_000_000) allocates nothing until you actually iterate it.
-total = sum(squares_gen(10_000_000))
-```
-
-`squares_gen` never holds more than one value in memory at a time — this is why generators are the standard tool for streaming large datasets, reading huge files line by line, or building infinite sequences that would be impossible to materialize as a list.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "iterators-testing-generators-q1",
-      "type": "mcq",
-      "prompt": "What happens when you call `gen = my_generator()` on a function containing `yield`?",
-      "options": [
-        { "id": "a", "text": "The entire function body runs immediately and gen holds the final return value" },
-        { "id": "b", "text": "Nothing in the function body executes yet — gen is a generator object, and execution starts on the first next(gen) call" },
-        { "id": "c", "text": "It raises a SyntaxError because generator functions can't be called directly" },
-        { "id": "d", "text": "It runs until the first yield and then returns None" }
-      ],
-      "correct": "b",
-      "explanation": "Calling a generator function only constructs the generator object. No code in the function body runs until next() is called on it."
-    },
-    {
-      "id": "iterators-testing-generators-q2",
-      "type": "mcq",
-      "prompt": "Why is a generator preferred over building a full list for processing a very large dataset?",
-      "options": [
-        { "id": "a", "text": "Generators run faster per-element than list comprehensions in every case" },
-        { "id": "b", "text": "Generators produce one value at a time on demand, so memory usage stays constant instead of scaling with dataset size" },
-        { "id": "c", "text": "Lists cannot hold more than a few thousand elements" },
-        { "id": "d", "text": "Generators automatically parallelize the work across CPU cores" }
-      ],
-      "correct": "b",
-      "explanation": "A list comprehension materializes every element in memory before you can use any of them. A generator yields one value at a time, so memory usage stays flat regardless of how many items are eventually produced."
-    }
-  ]
-}
-```
-$md$, 15, $json$[{"id":"iterators-testing-generators-q1","type":"mcq","correct":"b"},{"id":"iterators-testing-generators-q2","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('027353fc-0de4-52c8-a442-b0fc1832463c', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'afc6ff6d-37fb-5fc8-93df-95bef49ae58c', '`@staticmethod` and `@classmethod`', 'notes', 2, $md$A regular method automatically receives the instance as its first argument (`self`). `@staticmethod` and `@classmethod` change what — if anything — gets passed in automatically, and each exists for a different reason.
-
-## `@classmethod`: receives the class, not the instance
-
-```python
-class BankAccount:
-    interest_rate = 0.03  # class-level default, shared unless overridden per-instance
-
-    def __init__(self, account_type, balance):
-        self.account_type = account_type
-        self.balance = balance
-
-    @staticmethod
-    def is_valid_transaction(amount):
-        """No self, no cls — behaves like a plain function namespaced under the class."""
-        return amount > 0
-
-    @classmethod
-    def create_savings_account(cls, initial_deposit):
-        """Factory method: cls is the class itself (BankAccount, or a subclass)."""
-        if not cls.is_valid_transaction(initial_deposit):
-            raise ValueError("Initial deposit must be positive.")
-        return cls("Savings", initial_deposit)  # cls(...) — works for subclasses too
-
-    @classmethod
-    def create_business_account(cls, initial_deposit):
-        if not cls.is_valid_transaction(initial_deposit):
-            raise ValueError("Initial deposit must be positive.")
-        account = cls("Business", initial_deposit)
-        account.interest_rate = 0.05  # business accounts get a higher rate
-        return account
-
-savings = BankAccount.create_savings_account(1000)
-business = BankAccount.create_business_account(5000)
-
-print(f"Savings: ${savings.balance}, rate {savings.interest_rate}")   # $1000, 0.03
-print(f"Business: ${business.balance}, rate {business.interest_rate}") # $5000, 0.05
-```
-
-`create_savings_account` and `create_business_account` are **factory methods** — alternate, named constructors. This is the single most common real-world use of `@classmethod`: `BankAccount.create_savings_account(1000)` reads far more clearly at the call site than `BankAccount("Savings", 1000)`, where the string `"Savings"` gives no hint what it means without reading the constructor.
-
-## `@staticmethod`: no automatic argument at all
-
-`is_valid_transaction` doesn't need `self` (it doesn't touch instance state) or `cls` (it doesn't touch class state) — it's pure logic that happens to belong conceptually to `BankAccount`. Marking it `@staticmethod` means it can be called on the class directly (`BankAccount.is_valid_transaction(-50)`) or on an instance (`account.is_valid_transaction(100)`) with identical behavior, since nothing is auto-injected either way.
-
-## Why `cls` (not the class name) inside a classmethod
-
-`create_savings_account` calls `cls(...)`, not `BankAccount(...)`, specifically so that if a subclass `PremiumAccount(BankAccount)` calls `PremiumAccount.create_savings_account(1000)`, `cls` is `PremiumAccount` — the factory correctly returns a `PremiumAccount` instance, not a plain `BankAccount`. Hardcoding the class name would silently break for every subclass.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "iterators-testing-staticmethod-classmethod-q1",
-      "type": "mcq",
-      "prompt": "What is automatically passed as the first argument to a method decorated with `@staticmethod`?",
-      "options": [
-        { "id": "a", "text": "self, the instance" },
-        { "id": "b", "text": "cls, the class" },
-        { "id": "c", "text": "Nothing — no argument is auto-injected" },
-        { "id": "d", "text": "Both self and cls" }
-      ],
-      "correct": "c",
-      "explanation": "@staticmethod strips the automatic first-argument injection entirely — it behaves like a plain function that happens to live in the class's namespace."
-    },
-    {
-      "id": "iterators-testing-staticmethod-classmethod-q2",
-      "type": "mcq",
-      "prompt": "Why does `create_savings_account` call `cls(...)` instead of `BankAccount(...)`?",
-      "options": [
-        { "id": "a", "text": "cls(...) is just a stylistic preference with no functional difference" },
-        { "id": "b", "text": "So that if a subclass inherits this classmethod, calling it on the subclass returns an instance of the subclass, not BankAccount" },
-        { "id": "c", "text": "BankAccount(...) would raise a NameError inside the class body" },
-        { "id": "d", "text": "cls(...) is required syntax for any method that returns an instance" }
-      ],
-      "correct": "b",
-      "explanation": "cls is bound to whichever class the method was actually called on. Using cls(...) instead of hardcoding the class name keeps factory methods correct for subclasses."
-    }
-  ]
-}
-```
-$md$, 12, $json$[{"id":"iterators-testing-staticmethod-classmethod-q1","type":"mcq","correct":"c"},{"id":"iterators-testing-staticmethod-classmethod-q2","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('a915b846-e56e-50e8-b9e9-11462996d503', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'afc6ff6d-37fb-5fc8-93df-95bef49ae58c', 'Dependency Injection', 'notes', 3, $md$Dependency Injection (DI) means a class receives the objects it depends on from the outside — usually through its constructor — instead of creating them itself internally. It sounds like a heavyweight framework concept (and in Java/Spring, it often is one), but in Python it's frequently just "pass the dependency as an argument."
-
-## Without DI: the dependency is hardcoded inside
-
-```python
-class PayPalService:
-    def process_payment(self, amount):
-        print(f"Processing payment of ${amount} through PayPal.")
-
-class PaymentProcessor:
-    def __init__(self):
-        self.payment_service = PayPalService()  # created internally — hardcoded
-
-    def pay(self, amount):
-        self.payment_service.process_payment(amount)
-
-processor = PaymentProcessor()
-processor.pay(100)
-```
-
-`PaymentProcessor` is permanently welded to `PayPalService`. Want to support Stripe? You have to edit `PaymentProcessor.__init__`. Want to unit-test `pay()` without making a real network call? You can't — every `PaymentProcessor` always constructs a real `PayPalService`.
-
-## With DI: the dependency is passed in
-
-```python
-class PayPalService:
-    def process_payment(self, amount):
-        print(f"Processing payment of ${amount} through PayPal.")
-
-class PaymentProcessor:
-    def __init__(self, payment_service):
-        self.payment_service = payment_service  # supplied by the caller
-
-    def pay(self, amount):
-        self.payment_service.process_payment(amount)
-
-payment_service = PayPalService()
-processor = PaymentProcessor(payment_service)
-processor.pay(100)
-```
-
-`PaymentProcessor` no longer knows or cares which payment provider it's using — it just calls `.process_payment()` on whatever it was handed (this is the polymorphism/duck-typing lesson applied in practice). Swapping in `StripeService()` requires zero changes to `PaymentProcessor` itself.
-
-## Why this is the whole point of testability
-
-```python
-class FakePaymentService:
-    def __init__(self):
-        self.calls = []
-
-    def process_payment(self, amount):
-        self.calls.append(amount)  # no real network call — just records the call
-
-fake = FakePaymentService()
-test_processor = PaymentProcessor(fake)
-test_processor.pay(100)
-
-assert fake.calls == [100]  # verify behavior without touching PayPal's real API
-```
-
-This is exactly how unit tests avoid hitting real external services: inject a fake/mock object that implements the same interface, and assert on what was called. Without constructor injection, there'd be no way to substitute `PayPalService` for `FakePaymentService` — the real dependency is baked in.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "iterators-testing-dependency-injection-q1",
-      "type": "mcq",
-      "prompt": "What is the key structural difference between the 'without DI' and 'with DI' versions of PaymentProcessor?",
-      "options": [
-        { "id": "a", "text": "The with-DI version doesn't have a pay() method" },
-        { "id": "b", "text": "The with-DI version receives payment_service as a constructor argument instead of constructing PayPalService internally" },
-        { "id": "c", "text": "The with-DI version uses async/await" },
-        { "id": "d", "text": "There is no real difference; both behave identically in every context" }
-      ],
-      "correct": "b",
-      "explanation": "Dependency injection moves object creation to the caller. PaymentProcessor stops constructing its own PayPalService and instead accepts any object with a compatible process_payment() method."
-    },
-    {
-      "id": "iterators-testing-dependency-injection-q2",
-      "type": "mcq",
-      "prompt": "Why does constructor injection make PaymentProcessor easier to unit test?",
-      "options": [
-        { "id": "a", "text": "It doesn't — testing difficulty is unrelated to how dependencies are constructed" },
-        { "id": "b", "text": "A test can pass in a fake/mock payment service instead of the real PayPalService, avoiding real network calls" },
-        { "id": "c", "text": "Constructor injection automatically generates test cases" },
-        { "id": "d", "text": "It removes the need for the pay() method to take an amount argument" }
-      ],
-      "correct": "b",
-      "explanation": "Because the dependency is supplied externally, a test can substitute a fake object that records calls instead of performing real side effects, then assert on what was recorded."
-    }
-  ]
-}
-```
-$md$, 15, $json$[{"id":"iterators-testing-dependency-injection-q1","type":"mcq","correct":"b"},{"id":"iterators-testing-dependency-injection-q2","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('b29dfba0-d998-5454-948f-cdfaa34cc93d', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'afc6ff6d-37fb-5fc8-93df-95bef49ae58c', 'Parameterized Testing', 'notes', 4, $md$Parameterized testing runs the *same* test logic against many different inputs, instead of copy-pasting a near-identical test function once per input. It's a testing-maturity signal interviewers look for because duplicated test functions are exactly as much of a maintenance liability as duplicated production code.
-
-## The problem: one test function per input
-
-Without parameterization, testing a function against six input cases means six separate test functions, all with the same body and a different literal value — any change to the assertion logic has to be copy-pasted into all six.
-
-## `pytest.mark.parametrize`: one test body, many inputs
-
-```text
-import pytest
-
-@pytest.mark.parametrize("user_id,expected_name", [
-    (1, "Alice"),
-    (2, "Bob"),
-    (3, "Charlie"),
-    (8, "Gary"),
-    (99, "Unknown"),
-])
-def test_get_user_details(user_id, expected_name):
-    def fetch_user_details(user_id):
-        users = {1: "Alice", 2: "Bob", 3: "Charlie", 8: "Gary"}
-        return {"id": user_id, "name": users.get(user_id, "Unknown")}
-
-    response = fetch_user_details(user_id)
-    assert response["name"] == expected_name
-```
-
-`pytest` runs `test_get_user_details` once per tuple in the list, reporting each one as its own pass/fail — a failure on input `(3, "Charlie")` is reported distinctly from a failure on `(99, "Unknown")`, even though it's the same function body. (This needs `pytest` installed and run via the `pytest` CLI — it isn't something a plain `python file.py` invocation executes, since pytest discovers and drives `test_*` functions itself.)
-
-## The same idea, without a test framework
-
-The mechanism `pytest.mark.parametrize` provides is really just "loop over cases and assert each one" — worth seeing explicitly, since it's exactly what you'd reach for in a quick script or a language without a parametrize decorator:
-
-```python
-def fetch_user_details(user_id):
-    users = {1: "Alice", 2: "Bob", 3: "Charlie", 8: "Gary"}
-    return {"id": user_id, "name": users.get(user_id, "Unknown")}
-
-test_cases = [
-    (1, "Alice"),
-    (2, "Bob"),
-    (3, "Charlie"),
-    (8, "Gary"),
-    (99, "Unknown"),
-]
-
-failures = []
-for user_id, expected_name in test_cases:
-    actual = fetch_user_details(user_id)["name"]
-    if actual != expected_name:
-        failures.append((user_id, expected_name, actual))
-
-if failures:
-    print(f"{len(failures)} case(s) failed: {failures}")
-else:
-    print(f"All {len(test_cases)} cases passed.")
-```
-
-What `pytest.mark.parametrize` adds on top of this manual loop: each case is reported as an independent test result (so a failure in case 3 doesn't stop cases 4 and 5 from running and reporting), readable test names/IDs per case in the output, and integration with the rest of pytest's fixture and reporting machinery.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "iterators-testing-parameterized-testing-q1",
-      "type": "mcq",
-      "prompt": "What problem does `@pytest.mark.parametrize` solve compared to writing one test function per input case?",
-      "options": [
-        { "id": "a", "text": "It makes tests run in a separate process for isolation" },
-        { "id": "b", "text": "It lets one test body run against many inputs, each reported as an independent pass/fail, instead of duplicating the test function per case" },
-        { "id": "c", "text": "It automatically generates random test inputs" },
-        { "id": "d", "text": "It disables tests that are expected to fail" }
-      ],
-      "correct": "b",
-      "explanation": "parametrize decouples the test logic (written once) from the input data (a list of cases), and pytest reports each case's result independently."
-    },
-    {
-      "id": "iterators-testing-parameterized-testing-q2",
-      "type": "mcq",
-      "prompt": "Why can't the pytest-based test file be executed with a plain `python file.py` command?",
-      "options": [
-        { "id": "a", "text": "pytest syntax is not valid Python" },
-        { "id": "b", "text": "pytest discovers and drives test_* functions itself via its own CLI/runner — a bare python invocation never calls them" },
-        { "id": "c", "text": "parametrize requires an internet connection" },
-        { "id": "d", "text": "Test functions can only run inside Docker containers" }
-      ],
-      "correct": "b",
-      "explanation": "Running python file.py just defines the functions and decorators — nothing invokes test_get_user_details unless a test runner like pytest scans the file and calls it for each parametrized case."
-    }
-  ]
-}
-```
-$md$, 12, $json$[{"id":"iterators-testing-parameterized-testing-q1","type":"mcq","correct":"b"},{"id":"iterators-testing-parameterized-testing-q2","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('d1e7628a-a1a8-5795-90d4-c14ce1972a6b', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'afc6ff6d-37fb-5fc8-93df-95bef49ae58c', 'Fixtures (Testing Setup & Teardown)', 'notes', 5, $md$A fixture provides a piece of test setup (a database connection, a temp file, an authenticated client) to any test that asks for it by name, and cleans it up afterward — without every test having to repeat that setup/teardown code itself.
-
-## `@pytest.fixture`: setup, `yield`, teardown
-
-```text
-import pytest
-import sqlite3
-
-@pytest.fixture
-def temp_db():
-    # Setup: runs before the test that uses this fixture
-    conn = sqlite3.connect(":memory:")
-    conn.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)")
-    conn.execute("INSERT INTO users (name) VALUES ('Alice')")
-    yield conn
-    # Teardown: runs after the test finishes, even if it failed
-    conn.close()
-
-def test_query_user(temp_db):
-    cursor = temp_db.cursor()
-    cursor.execute("SELECT name FROM users WHERE id=1")
-    user = cursor.fetchone()
-    assert user[0] == "Alice"
-```
-
-pytest sees that `test_query_user` takes a parameter named `temp_db`, matches it against the fixture of the same name, runs `temp_db()` up to its `yield`, passes the yielded value (`conn`) into the test as the `temp_db` argument, runs the test, and then resumes the fixture *after* the `yield` to run teardown — regardless of whether the test passed or raised. This needs pytest's collection/injection machinery to run; it isn't triggered by a plain `python file.py`.
-
-## The same shape, without pytest: a context manager
-
-The setup / `yield` / teardown structure of a fixture is exactly the same shape as a context manager's `__enter__` / `yield` / `__exit__` (covered later in this course) — worth seeing side by side, since it demonstrates the underlying pattern in code you can run directly:
-
-```python
-from contextlib import contextmanager
-import sqlite3
-
-@contextmanager
-def temp_db():
-    conn = sqlite3.connect(":memory:")
-    conn.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)")
-    conn.execute("INSERT INTO users (name) VALUES ('Alice')")
-    try:
-        yield conn          # setup done, hand the resource to the caller
-    finally:
-        conn.close()         # teardown, guaranteed even if the caller raises
-
-with temp_db() as conn:
-    cursor = conn.cursor()
-    cursor.execute("SELECT name FROM users WHERE id=1")
-    user = cursor.fetchone()
-    assert user[0] == "Alice"
-    print(f"Fetched user: {user[0]}")
-```
-
-`@pytest.fixture` is, structurally, a generator-based context manager wired into pytest's dependency-injection-by-parameter-name system: a test requests a fixture by naming a parameter, pytest runs setup, hands over the yielded value, runs the test, then runs teardown — the same setup/`yield`/teardown shape as `@contextmanager`, just triggered by pytest's test collection instead of a `with` block.
-
-## Why fixtures matter beyond convenience
-
-Repeating `sqlite3.connect(":memory:")` + table creation + seed data in every test function that needs a database means a schema change requires editing every test. A shared fixture means the schema and seed data live in exactly one place, and every test that needs a database just declares a `temp_db` parameter.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "iterators-testing-pytest-fixtures-q1",
-      "type": "mcq",
-      "prompt": "In a pytest fixture using `yield`, what happens to the code after the `yield` statement?",
-      "options": [
-        { "id": "a", "text": "It never runs" },
-        { "id": "b", "text": "It runs as teardown, after the test that used the fixture finishes (pass or fail)" },
-        { "id": "c", "text": "It runs before the yielded value is handed to the test" },
-        { "id": "d", "text": "It only runs if the test raises an exception" }
-      ],
-      "correct": "b",
-      "explanation": "Everything before yield is setup; the yielded value is injected into the test; everything after yield is teardown, run once the test completes regardless of outcome."
-    },
-    {
-      "id": "iterators-testing-pytest-fixtures-q2",
-      "type": "mcq",
-      "prompt": "How does a test function access a fixture's value in pytest?",
-      "options": [
-        { "id": "a", "text": "By importing it explicitly with `import fixture`" },
-        { "id": "b", "text": "By declaring a parameter with the same name as the fixture — pytest matches by name and injects the yielded value" },
-        { "id": "c", "text": "By calling the fixture function directly inside the test body" },
-        { "id": "d", "text": "Fixtures are global variables automatically available everywhere" }
-      ],
-      "correct": "b",
-      "explanation": "pytest inspects each test function's parameter names, finds a fixture with a matching name, runs it, and passes the yielded value as that argument."
-    }
-  ]
-}
-```
-$md$, 12, $json$[{"id":"iterators-testing-pytest-fixtures-q1","type":"mcq","correct":"b"},{"id":"iterators-testing-pytest-fixtures-q2","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
--- Section: Serialization & Low-Level Data
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('9a0a66f7-732b-55cb-8e15-58d12d55865a', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Serialization & Low-Level Data', 4)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('ce39a83b-ee0e-5789-b144-43eac9c9601b', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '9a0a66f7-732b-55cb-8e15-58d12d55865a', 'Serialization & Deserialization', 'notes', 0, $md$Serialization turns a live Python object into a stream of bytes you can write to disk, send over a socket, or stash in a cache. Deserialization reverses it, rebuilding the object from those bytes. Anywhere state needs to outlive the process that created it — saved ML models, cached query results, session data — serialization is the mechanism underneath.
-
-## `pickle`: Python-native, full object graphs
-
-`pickle` can serialize almost any Python object — including custom classes, nested structures, and cyclic references — without you writing any conversion code.
-
-```python
-import pickle
-
-class Person:
-    def __init__(self, name, age):
-        self.name = name
-        self.age = age
-
+class A:
     def greet(self):
-        return f"Hello, my name is {self.name} and I am {self.age} years old."
+        print("Hello from A")
 
-person = Person("Alice", 30)
+class B:
+    def greet(self):
+        print("Hello from B")
 
-# Serialize to bytes, then to disk
-serialized = pickle.dumps(person)
-with open("person.pkl", "wb") as f:
-    f.write(serialized)
+class C(A, B):
+    pass
 
-# Deserialize back into a live object
-with open("person.pkl", "rb") as f:
-    loaded_person = pickle.loads(f.read())
-
-print(loaded_person.greet())
+c = C()
+c.greet()          # Hello from A — A is listed first in C(A, B)
+print(C.__mro__)   # (C, A, B, object)
 ```
 
-`pickle.loads` doesn't just restore data — it reconstructs a real `Person` instance, methods and all, because pickle stores enough information to re-import the class and rebuild `__dict__`.
+With no shared ancestor between `A` and `B`, the MRO is exactly the declaration order: `C`, then `A`, then `B`, then `object`. `c.greet()` finds `A.greet` first and stops.
 
-## The security trap: never unpickle untrusted data
+## The diamond problem
 
-That same power is pickle's biggest danger. Unpickling reconstructs objects by *executing* instructions embedded in the byte stream — a malicious pickle can call arbitrary code during `pickle.loads()`, not just build harmless data. Treat pickle as an internal, trusted-source format only (your own cache, your own job queue), never as a way to accept data from a client, a webhook, or any other outside system.
-
-## JSON: safe, interoperable, but limited
-
-When data needs to leave the Python world — an HTTP API, a config file another team's Go service reads — JSON is the right tool. `json.dumps`/`json.loads` only handle a fixed set of types (dicts, lists, strings, numbers, booleans, `None`), so arbitrary class instances need a manual `to_dict`/`from_dict` step, but in exchange you get a format that can't execute code on load and that every language can read.
+The MRO gets interesting when the parents share a common ancestor — the classic **diamond**: `B` and `C` both inherit from `A`, and `D` inherits from both `B` and `C`.
 
 ```python
-import json
+class A:
+    def greet(self):
+        print("Hello from A")
 
-class Person:
-    def __init__(self, name, age):
-        self.name = name
-        self.age = age
+class B(A):
+    pass
 
-    def to_dict(self):
-        return {"name": self.name, "age": self.age}
+class C(A):
+    def greet(self):
+        print("Hello from C")
 
-    @classmethod
-    def from_dict(cls, data):
-        return cls(data["name"], data["age"])
+class D(B, C):
+    pass
 
-person = Person("Alice", 30)
-payload = json.dumps(person.to_dict())
-print(payload)  # '{"name": "Alice", "age": 30}'
-
-restored = Person.from_dict(json.loads(payload))
-print(restored.name, restored.age)
+d = D()
+d.greet()          # Hello from C
+print(D.__mro__)   # (D, B, C, A, object)
 ```
 
-Picking between them is a trust-and-interoperability question, not a performance one: pickle for objects that stay inside your own Python process boundary, JSON for anything crossing a language or trust boundary.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "serialization-data-serialization-q1",
-      "type": "mcq",
-      "prompt": "Why is unpickling data from an untrusted source dangerous?",
-      "options": [
-        { "id": "a", "text": "pickle.loads() can execute arbitrary code embedded in the byte stream" },
-        { "id": "b", "text": "Pickled files are always larger than JSON files" },
-        { "id": "c", "text": "pickle cannot represent nested objects" },
-        { "id": "d", "text": "Pickle only works with strings and numbers" }
-      ],
-      "correct": "a",
-      "explanation": "Deserializing a pickle stream reconstructs objects by executing instructions in the stream itself, so a crafted pickle can run arbitrary code — never unpickle data from outside your trust boundary."
-    },
-    {
-      "id": "serialization-data-serialization-q2",
-      "type": "mcq",
-      "prompt": "Why would a team choose JSON over pickle for an HTTP API response?",
-      "options": [
-        { "id": "a", "text": "JSON preserves Python class methods, pickle doesn't" },
-        { "id": "b", "text": "JSON is a language-neutral, safe-to-parse text format any client can read" },
-        { "id": "c", "text": "JSON can serialize any Python object automatically, exactly like pickle" },
-        { "id": "d", "text": "pickle cannot be written to a file" }
-      ],
-      "correct": "b",
-      "explanation": "JSON only encodes basic data types and can't execute code on load, making it safe to accept from and send to any client regardless of language — the tradeoff is manual to_dict/from_dict conversion for custom classes."
-    }
-  ]
-}
-```
-$md$, 15, $json$[{"id":"serialization-data-serialization-q1","type":"mcq","correct":"a"},{"id":"serialization-data-serialization-q2","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('09f3cdff-5f4f-5301-abe9-8a106c73a4f0', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '9a0a66f7-732b-55cb-8e15-58d12d55865a', '`__getstate__` and `__setstate__`', 'notes', 1, $md$Not everything can be pickled. Open file handles, sockets, database connections, and thread locks all wrap operating-system resources that don't make sense as bytes — there is no way to serialize "an open file descriptor" and later reopen the exact same one. Pickling an object that holds one of these directly raises `TypeError: cannot pickle '_io.TextIOWrapper' object`.
-
-## The problem: unpicklable attributes
-
-```python
-class FileHandler:
-    def __init__(self, filename):
-        self.filename = filename
-        self.file = open(filename, "w")  # an open file object — not picklable
-
-    def write(self, data):
-        self.file.write(data)
-```
-
-`pickle.dumps(FileHandler("example.txt"))` fails outright, because `self.file` is a live OS resource, not data.
-
-## `__getstate__`: control what gets pickled
-
-Defining `__getstate__` lets an object hand pickle a *substitute* dict instead of its real `__dict__` — typically the real dict, minus the fields that can't survive serialization.
-
-```python
-import pickle
-
-class FileHandler:
-    def __init__(self, filename):
-        self.filename = filename
-        self.file = open(filename, "w")
-
-    def write(self, data):
-        self.file.write(data)
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        del state["file"]  # drop the unpicklable file object
-        return state
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        self.file = open(self.filename, "w")  # reopen it fresh
-
-handler = FileHandler("example.txt")
-handler.write("Hello, World!")
-
-serialized = pickle.dumps(handler)
-restored = pickle.loads(serialized)
-restored.write("Restored and still writable")
-print(restored.filename)
-```
-
-## `__setstate__`: rebuild what was dropped
-
-`__setstate__` is the mirror image, called during `pickle.loads()` with whatever `__getstate__` returned. It restores `self.__dict__` from the plain data, then reconstructs anything that was deliberately excluded — here, reopening the file using the `filename` that *was* preserved.
-
-The pattern is always the same: **keep the data that describes the resource (a filename, a host/port pair, a connection string), drop the live handle, and recreate the handle on the other side.** This is the exact mechanism that lets frameworks pickle objects holding database connections or open sockets — strip the connection in `__getstate__`, reconnect in `__setstate__`.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "serialization-data-getstate-setstate-q1",
-      "type": "mcq",
-      "prompt": "Why can't an open file object be pickled directly?",
-      "options": [
-        { "id": "a", "text": "Python forbids pickling any object with more than one attribute" },
-        { "id": "b", "text": "An open file wraps a live OS resource that has no meaningful byte representation to restore later" },
-        { "id": "c", "text": "File objects are too large to serialize efficiently" },
-        { "id": "d", "text": "pickle only supports built-in types like int and str" }
-      ],
-      "correct": "b",
-      "explanation": "An open file descriptor is tied to the running OS process; there's no way to serialize 'this exact open handle' and reconstruct it byte-for-byte on load, so pickle raises TypeError instead."
-    },
-    {
-      "id": "serialization-data-getstate-setstate-q2",
-      "type": "mcq",
-      "prompt": "In the FileHandler example, what does __setstate__ do that __getstate__ doesn't?",
-      "options": [
-        { "id": "a", "text": "It deletes the filename attribute" },
-        { "id": "b", "text": "It re-opens the file handle using the filename that was preserved in the pickled state" },
-        { "id": "c", "text": "It converts the object to JSON instead of pickle format" },
-        { "id": "d", "text": "It runs before pickling instead of after" }
-      ],
-      "correct": "b",
-      "explanation": "__getstate__ strips the unpicklable file object but keeps filename; __setstate__ restores __dict__ from that data and then recreates the file handle by reopening filename."
-    }
-  ]
-}
-```
-$md$, 12, $json$[{"id":"serialization-data-getstate-setstate-q1","type":"mcq","correct":"b"},{"id":"serialization-data-getstate-setstate-q2","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('1643be0a-43e1-5005-85e6-02e8e24b5337', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '9a0a66f7-732b-55cb-8e15-58d12d55865a', '`heapq`', 'notes', 2, $md$`heapq` gives Python a priority queue built on an ordinary list, kept in **binary heap** order: the smallest element is always at index `0`, and `heappush`/`heappop` maintain that invariant in `O(log n)` instead of the `O(n)` a naive "sort the list every time" approach would cost.
-
-## Why not just sort a list?
-
-A plain list can act as a priority queue if you re-sort it after every insert, but that's `O(n log n)` per insert. A heap only restores the invariant along one path from the leaf to the root (or root to leaf), so both `heappush` and `heappop` are `O(log n)` — the difference matters the moment a scheduler is handling thousands of tasks.
-
-## Building a task scheduler
-
-```python
-import heapq
-
-class TaskScheduler:
-    def __init__(self):
-        self.task_queue = []  # a min-heap of (priority, task_name) tuples
-
-    def add_task(self, priority, task_name):
-        # Lower priority number = executed sooner
-        heapq.heappush(self.task_queue, (priority, task_name))
-
-    def execute_task(self):
-        if not self.task_queue:
-            print("No tasks to execute.")
-            return
-        priority, task_name = heapq.heappop(self.task_queue)
-        print(f"Executing '{task_name}' (priority {priority})")
-
-    def peek_next_task(self):
-        if not self.task_queue:
-            print("No tasks in the queue.")
-            return
-        priority, task_name = self.task_queue[0]
-        print(f"Next up: '{task_name}' (priority {priority})")
-
-
-scheduler = TaskScheduler()
-scheduler.add_task(3, "Write report")
-scheduler.add_task(1, "Fix critical bug")
-scheduler.add_task(2, "Attend team meeting")
-
-scheduler.peek_next_task()   # Fix critical bug is priority 1 — heap keeps it at the front
-scheduler.execute_task()
-scheduler.execute_task()
-scheduler.execute_task()
-scheduler.execute_task()     # empty queue
-```
-
-`heapq` compares the tuples element by element, so `(1, "Fix critical bug")` sorts before `(2, "Attend team meeting")` purely on the first element — ties on priority fall back to comparing the task name, which is usually fine but worth knowing if two priorities can collide and the names aren't comparable (mixing types there raises `TypeError`).
-
-## Where this shows up
-
-Beyond task schedulers: Dijkstra's shortest-path algorithm pops the "closest known node" every iteration, event simulators pop the "next event in time," and `heapq.nlargest`/`heapq.nsmallest` give you the top-k of a collection without fully sorting it — all the same underlying idea of "give me the extreme element next, cheaply, repeatedly."
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "serialization-data-heapq-q1",
-      "type": "mcq",
-      "prompt": "Why is heapq.heappush faster than re-sorting a list after every insert?",
-      "options": [
-        { "id": "a", "text": "It only restores the heap invariant along one path, costing O(log n) instead of O(n log n)" },
-        { "id": "b", "text": "heapq stores data in a hash table instead of a list" },
-        { "id": "c", "text": "It skips maintaining any order at all" },
-        { "id": "d", "text": "Python lists are automatically kept sorted" }
-      ],
-      "correct": "a",
-      "explanation": "A heap only needs to bubble the new element up (or down) one path to the root, an O(log n) operation, versus O(n log n) to fully re-sort the list on every insert."
-    },
-    {
-      "id": "serialization-data-heapq-q2",
-      "type": "mcq",
-      "prompt": "In TaskScheduler, why does heapq.heappush use (priority, task_name) tuples with priority first?",
-      "options": [
-        { "id": "a", "text": "Tuples must always have exactly two elements" },
-        { "id": "b", "text": "heapq compares tuples element-by-element, so ordering by priority first makes the heap sort by priority" },
-        { "id": "c", "text": "task_name needs to come first for heapq to work at all" },
-        { "id": "d", "text": "It's arbitrary and has no effect on ordering" }
-      ],
-      "correct": "b",
-      "explanation": "heapq.heappush/heappop maintain min-heap order using Python's default tuple comparison, which compares the first element first — putting priority first means the heap orders by priority."
-    }
-  ]
-}
-```
-$md$, 12, $json$[{"id":"serialization-data-heapq-q1","type":"mcq","correct":"a"},{"id":"serialization-data-heapq-q2","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('053dda60-8533-5328-894c-fe7282671bef', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '9a0a66f7-732b-55cb-8e15-58d12d55865a', 'Higher-Order Functions', 'notes', 3, $md$A higher-order function either takes a function as an argument, returns a function, or both. Python treats functions as first-class values — they can be stored in variables, passed around, and stored in data structures exactly like any other object — and higher-order functions are what you build once that's true.
-
-## Taking functions as arguments
-
-```python
-def validate(data, *validators):
-    for validator in validators:
-        if not validator(data):
-            return False
-    return True
-
-is_non_empty = lambda x: bool(x)
-is_alpha = lambda x: x.isalpha()
-
-print(validate("Python", is_non_empty, is_alpha))   # True
-print(validate("", is_non_empty, is_alpha))          # False — fails is_non_empty
-print(validate("Py3", is_non_empty, is_alpha))       # False — fails is_alpha
-```
-
-`validate` doesn't know or care what "valid" means — that logic lives entirely in whichever validator functions get passed in. Adding a new rule (`is_lowercase`, `max_length(20)`) never touches `validate` itself; this is the same shape as Django's form validators or FastAPI's dependency checks.
-
-## Returning functions: closures as configuration
-
-The other direction — a function that *returns* a function — lets you bake in configuration once and reuse the specialized result:
-
-```python
-def make_multiplier(factor):
-    def multiplier(x):
-        return x * factor
-    return multiplier
-
-double = make_multiplier(2)
-triple = make_multiplier(3)
-
-print(double(5))   # 10
-print(triple(5))   # 15
-```
-
-`double` and `triple` are both `multiplier` functions, but each closes over its own `factor` — this is a closure, and it's the mechanism behind decorators, middleware chains, and callback factories.
-
-## Why this matters at the senior level
-
-Higher-order functions are how you avoid rewriting the same control flow (loop-and-check, loop-and-transform) for every new rule. Instead, the control flow is written once and parameterized by behavior — the same principle behind `sorted(items, key=...)`, `map`/`filter`, and every decorator you've ever used.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "serialization-data-higher-order-functions-q1",
-      "type": "mcq",
-      "prompt": "What makes validate() in the example a higher-order function?",
-      "options": [
-        { "id": "a", "text": "It has more than one parameter" },
-        { "id": "b", "text": "It accepts other functions (validators) as arguments and calls them" },
-        { "id": "c", "text": "It uses a for loop" },
-        { "id": "d", "text": "It returns a boolean" }
-      ],
-      "correct": "b",
-      "explanation": "A higher-order function takes a function as input or returns one; validate() takes validator functions as *validators and invokes each one, making it higher-order."
-    },
-    {
-      "id": "serialization-data-higher-order-functions-q2",
-      "type": "mcq",
-      "prompt": "In make_multiplier, why do double and triple behave differently even though they share the same multiplier function body?",
-      "options": [
-        { "id": "a", "text": "Each call to make_multiplier creates a closure that remembers its own factor value" },
-        { "id": "b", "text": "Python randomly assigns different factor values" },
-        { "id": "c", "text": "double and triple are actually the same function object" },
-        { "id": "d", "text": "multiplier reads factor from a global variable that changes each time" }
-      ],
-      "correct": "a",
-      "explanation": "Each call to make_multiplier(factor) creates a new closure over that specific factor value, so the returned multiplier function 'remembers' the factor it was created with — 2 for double, 3 for triple."
-    }
-  ]
-}
-```
-$md$, 12, $json$[{"id":"serialization-data-higher-order-functions-q1","type":"mcq","correct":"b"},{"id":"serialization-data-higher-order-functions-q2","type":"mcq","correct":"a"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('32a73115-fde6-522e-9194-4cfad0123eea', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '9a0a66f7-732b-55cb-8e15-58d12d55865a', '`filter`', 'notes', 4, $md$`filter` is a built-in higher-order function: give it a predicate (a function returning `True`/`False`) and an iterable, and it returns an iterator yielding only the items the predicate accepted.
-
-## Replacing a manual loop
-
-```python
-numbers = [1, 2, 3, 4, 5, 6]
-
-# The loop version
-evens = []
-for n in numbers:
-    if n % 2 == 0:
-        evens.append(n)
-print(evens)  # [2, 4, 6]
-
-# The filter version — same result, one line
-evens = list(filter(lambda n: n % 2 == 0, numbers))
-print(evens)  # [2, 4, 6]
-```
-
-`filter` doesn't build a list itself — it returns a lazy iterator, so `list(...)` (or a `for` loop, or `next()`) is what actually pulls values through it. That laziness matters on large or infinite sequences: `filter` only evaluates the predicate on an item when something asks for the next result, instead of scanning the whole input up front.
-
-## `filter(None, iterable)`: dropping falsy values
-
-Passing `None` instead of a function tells `filter` to use each item's own truthiness as the predicate — a quick way to drop `None`/`0`/`""`/empty containers from a list:
-
-```python
-raw = [0, "hello", "", None, 42, [], "world"]
-cleaned = list(filter(None, raw))
-print(cleaned)  # ['hello', 42, 'world']
-```
-
-## `filter` vs. a list comprehension
-
-Both work; the choice is style. `[x for x in items if predicate(x)]` reads naturally when there's also a transformation happening (`[x * 2 for x in items if predicate(x)]`), while `filter(predicate, items)` reads cleanly when there's *only* filtering and the predicate already exists as a named function — `filter(is_valid, records)` is more self-documenting than `[r for r in records if is_valid(r)]`.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "serialization-data-filter-q1",
-      "type": "mcq",
-      "prompt": "What does filter(lambda n: n % 2 == 0, numbers) return, before wrapping it in list()?",
-      "options": [
-        { "id": "a", "text": "A list of even numbers" },
-        { "id": "b", "text": "A lazy iterator that yields even numbers only when consumed" },
-        { "id": "c", "text": "A tuple of even numbers" },
-        { "id": "d", "text": "A boolean indicating whether any even numbers exist" }
-      ],
-      "correct": "b",
-      "explanation": "filter() returns a lazy filter object (an iterator) — it doesn't evaluate the predicate on every item until something iterates over it, such as list() or a for loop."
-    },
-    {
-      "id": "serialization-data-filter-q2",
-      "type": "mcq",
-      "prompt": "What does filter(None, [0, \"hello\", \"\", None, 42]) return, as a list?",
-      "options": [
-        { "id": "a", "text": "[0, \"hello\", \"\", None, 42] — unchanged" },
-        { "id": "b", "text": "[\"hello\", 42] — only the truthy values" },
-        { "id": "c", "text": "[] — an empty list, since None isn't a valid predicate" },
-        { "id": "d", "text": "A TypeError is raised" }
-      ],
-      "correct": "b",
-      "explanation": "Passing None as the predicate tells filter to use each item's own truthiness — falsy values like 0, empty string, and None are dropped, leaving only 'hello' and 42."
-    }
-  ]
-}
-```
-$md$, 10, $json$[{"id":"serialization-data-filter-q1","type":"mcq","correct":"b"},{"id":"serialization-data-filter-q2","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('cc682f4a-b1cf-52b9-9e56-2ff6ff2d39a0', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '9a0a66f7-732b-55cb-8e15-58d12d55865a', 'Advanced List Comprehensions', 'notes', 5, $md$A basic list comprehension — `[expr for x in iterable]` — is familiar to every Python developer. Senior-level fluency is knowing the extra clauses comprehensions support, and knowing when a comprehension stops being readable and a plain loop wins.
-
-## Nested loops inside a comprehension
-
-Multiple `for` clauses in one comprehension flatten nested structures, reading left to right exactly like nested `for` loops would:
-
-```python
-matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
-flattened = [num for row in matrix for num in row]
-print(flattened)  # [1, 2, 3, 4, 5, 6, 7, 8, 9]
-```
-
-This is equivalent to:
-
-```python
-flattened = []
-for row in matrix:
-    for num in row:
-        flattened.append(num)
-```
-
-## Conditional expressions vs. filtering clauses
-
-These look similar but do different things. An `if/else` *before* the `for` is a conditional expression — it runs for every item and picks between two output values:
-
-```python
-numbers = [1, 2, 3, 4, 5]
-labels = ["even" if n % 2 == 0 else "odd" for n in numbers]
-print(labels)  # ['odd', 'even', 'odd', 'even', 'odd']
-```
-
-An `if` *after* the `for` (no `else`) is a filter — it decides whether the item appears in the output at all:
-
-```python
-numbers = [1, 2, 3, 4, 5, 6]
-evens_only = [n for n in numbers if n % 2 == 0]
-print(evens_only)  # [2, 4, 6]
-```
-
-The two combine: `[n for n in numbers if n % 2 == 0 if n > 2]` chains filters, and `["big" if n > 3 else "small" for n in numbers if n % 2 == 0]` filters first, then labels what survives.
-
-## Calling functions inline
-
-Any expression is valid as the output, including a function call:
-
-```python
-def celsius_to_fahrenheit(c):
-    return (c * 9 / 5) + 32
-
-temperatures_c = [0, 20, 30, 40]
-temperatures_f = [celsius_to_fahrenheit(t) for t in temperatures_c]
-print(temperatures_f)  # [32.0, 68.0, 86.0, 104.0]
-```
-
-## Knowing when to stop
-
-A comprehension is the right call when it stays a single, readable transformation. Once it needs more than one `if`/`for` clause stacked together, or the body has real side effects, a plain loop is more debuggable — you can't put a breakpoint inside a comprehension expression as easily as inside a loop body, and a comprehension that needs a comment to explain what it's doing has already lost the readability it was supposed to buy.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "serialization-data-advanced-list-comprehensions-q1",
-      "type": "mcq",
-      "prompt": "What's the difference between [\"even\" if n % 2 == 0 else \"odd\" for n in numbers] and [n for n in numbers if n % 2 == 0]?",
-      "options": [
-        { "id": "a", "text": "They produce identical output" },
-        { "id": "b", "text": "The first labels every item (conditional expression); the second filters out odd items entirely (filter clause)" },
-        { "id": "c", "text": "The first is invalid syntax" },
-        { "id": "d", "text": "The second labels every item; the first filters" }
-      ],
-      "correct": "b",
-      "explanation": "An if/else before the for is a conditional expression that runs on every item and picks an output value; an if after the for with no else is a filter that decides whether the item is included at all."
-    },
-    {
-      "id": "serialization-data-advanced-list-comprehensions-q2",
-      "type": "mcq",
-      "prompt": "When should a senior engineer prefer a plain for loop over a list comprehension?",
-      "options": [
-        { "id": "a", "text": "Never — comprehensions are always strictly better" },
-        { "id": "b", "text": "When the comprehension would need multiple stacked if/for clauses or real side effects, hurting readability and debuggability" },
-        { "id": "c", "text": "Only when the list has more than 100 items" },
-        { "id": "d", "text": "Comprehensions can't be used with functions, so any function call requires a loop" }
-      ],
-      "correct": "b",
-      "explanation": "Comprehensions are a readability tool. Once one needs multiple conditions/loops stacked together or has side effects, a plain loop is easier to read, debug, and set breakpoints in."
-    }
-  ]
-}
-```
-$md$, 12, $json$[{"id":"serialization-data-advanced-list-comprehensions-q1","type":"mcq","correct":"b"},{"id":"serialization-data-advanced-list-comprehensions-q2","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('87a4c4d0-9798-584d-a931-c0159146e404', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '9a0a66f7-732b-55cb-8e15-58d12d55865a', '`bytes`', 'notes', 6, $md$A Python `str` is a sequence of Unicode characters — text, meant for humans to read. A `bytes` object is a sequence of raw integers in the range 0–255 — the actual binary data a file, a network socket, or an image format works with. Confusing the two (or forgetting to convert between them) is one of the most common sources of `UnicodeDecodeError`/`TypeError` bugs when working with files and network I/O.
-
-## Writing and reading binary data
-
-```python
-# Write binary data to a file
-with open("example.bin", "wb") as f:   # "wb" = write bytes
-    f.write(b"Binary data")
-
-# Read it back
-with open("example.bin", "rb") as f:   # "rb" = read bytes
-    data = f.read()
-    print(data)        # b'Binary data'
-    print(type(data))  # <class 'bytes'>
-```
-
-The `b"..."` prefix creates a `bytes` literal. Opening a file in `"wb"`/`"rb"` mode (instead of `"w"`/`"r"`) tells Python to hand back raw bytes instead of trying to decode them as text — mixing modes (writing bytes to a text-mode file, or vice versa) raises a `TypeError` immediately.
-
-## Converting between `str` and `bytes`
-
-Text becomes bytes via an explicit **encoding**, and bytes become text via the matching **decoding**:
-
-```python
-text = "Hello, world"
-encoded = text.encode("utf-8")     # b'Hello, world'
-decoded = encoded.decode("utf-8")  # 'Hello, world'
-
-print(encoded, type(encoded))
-print(decoded, type(decoded))
-```
-
-If the bytes don't actually represent valid text in the encoding you decode with, `.decode()` raises `UnicodeDecodeError` — this is why "just decode it" is unsafe without knowing (or being told, e.g. via a `Content-Type` header) which encoding produced the bytes in the first place.
-
-## `bytearray`: the mutable sibling
-
-`bytes` is immutable, like `str`. When binary data needs to be built up or modified in place — assembling a network packet piece by piece — `bytearray` is the mutable equivalent:
-
-```python
-buf = bytearray(b"Hello")
-buf[0] = ord("J")   # mutate a single byte in place
-buf.extend(b", world")
-print(bytes(buf))   # b'Jello, world'
-```
+Naive left-to-right depth-first search would check `D` → `B` → `A` (finds `greet` here) and stop, silently ignoring `C`'s more specific override. CPython instead uses **C3 linearization**, an algorithm that guarantees two properties: a class always appears before its parents, and the declared order of a class's own bases is preserved. Under C3, `A` is pushed all the way to the end — past both `B` and `C` — because `A` is an ancestor of both and must be resolved *after* anything more specific. That's why `D.__mro__` puts `C` before `A`: `B` has no `greet` of its own, so the search falls through to `C`, which does — not to `A`, which would bypass `C`'s override entirely.
 
 ## Why this matters
 
-`bytes` shows up anywhere Python talks to something that isn't Python: reading an image or audio file, parsing a binary network protocol, computing a hash (`hashlib` operates on bytes, not str), or streaming a large file without loading it fully as decoded text. Treating binary data as text — or text as binary — is a bug waiting for the first non-ASCII input.
+MRO is the mechanism `super()` actually uses — `super().__init__()` doesn't call "the parent class," it calls "the next class in the current instance's MRO," which is exactly why cooperative multiple inheritance (every class in a chain calling `super()`) works correctly even in diamond shapes. Getting a class hierarchy wrong here doesn't raise an error — it silently calls the wrong method, which is what makes MRO bugs painful to track down in large codebases with deep or wide inheritance.
 
 ## Knowledge check
 
@@ -2880,423 +7730,123 @@ print(bytes(buf))   # b'Jello, world'
 {
   "questions": [
     {
-      "id": "serialization-data-bytes-q1",
+      "id": "internals-mro-q1",
       "type": "mcq",
-      "prompt": "What's the fundamental difference between str and bytes in Python?",
+      "prompt": "class C(A, B): pass, where both A and B define greet(). Which one does c.greet() call?",
       "options": [
-        { "id": "a", "text": "str is a sequence of Unicode characters for text; bytes is a sequence of raw 0-255 integers for binary data" },
-        { "id": "b", "text": "bytes is just a faster version of str with no functional difference" },
-        { "id": "c", "text": "str can only hold ASCII characters, bytes holds everything else" },
-        { "id": "d", "text": "They are interchangeable and Python converts automatically" }
+        { "id": "a", "text": "B's, because it's evaluated last" },
+        { "id": "b", "text": "A's, because A is listed first in C(A, B) and the MRO checks bases left to right" },
+        { "id": "c", "text": "Both are called, in order" },
+        { "id": "d", "text": "It raises a TypeError for ambiguous inheritance" }
+      ],
+      "correct": "b",
+      "explanation": "With no shared ancestor, the MRO is simply the declaration order: C, A, B, object. Lookup stops at the first match, which is A."
+    },
+    {
+      "id": "internals-mro-q2",
+      "type": "mcq",
+      "prompt": "In the diamond D(B, C) where B(A) and C(A) both descend from A, and only C overrides greet(), why does d.greet() call C's version and not A's?",
+      "options": [
+        { "id": "a", "text": "C3 linearization places shared ancestor A after all of its more specific descendants (B and C), so the search reaches C's override before falling back to A" },
+        { "id": "b", "text": "Python always prefers the second base class in a diamond" },
+        { "id": "c", "text": "A's method is deleted automatically once subclassed twice" },
+        { "id": "d", "text": "It's undefined behavior and differs by Python version" }
       ],
       "correct": "a",
-      "explanation": "str represents human-readable Unicode text; bytes represents raw binary data as integers 0-255. Converting between them always requires an explicit encode()/decode() step and an encoding name."
-    },
-    {
-      "id": "serialization-data-bytes-q2",
-      "type": "mcq",
-      "prompt": "What happens if you call .decode('utf-8') on bytes that don't represent valid UTF-8 text?",
-      "options": [
-        { "id": "a", "text": "Python silently returns an empty string" },
-        { "id": "b", "text": "It raises a UnicodeDecodeError" },
-        { "id": "c", "text": "It automatically detects and uses the correct encoding instead" },
-        { "id": "d", "text": "It returns the raw bytes unchanged" }
-      ],
-      "correct": "b",
-      "explanation": "decode() assumes the bytes were produced with the specified encoding; if the byte sequence isn't valid under that encoding, Python raises UnicodeDecodeError rather than guessing."
+      "explanation": "C3 linearization guarantees a class appears before its ancestors in the MRO. D's MRO is (D, B, C, A, object) — B has no greet of its own, so lookup falls through to C's override before ever reaching A."
     }
   ]
 }
 ```
-$md$, 12, $json$[{"id":"serialization-data-bytes-q1","type":"mcq","correct":"a"},{"id":"serialization-data-bytes-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+$md$, 15, $json$[{"id":"internals-mro-q1","type":"mcq","correct":"b"},{"id":"internals-mro-q2","type":"mcq","correct":"a"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('ed523ce6-bc16-5a2b-96c7-f9cb8690a0df', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '9a0a66f7-732b-55cb-8e15-58d12d55865a', 'Bytecode & the `dis` Module', 'notes', 7, $md$Python source code isn't executed directly — it's first compiled into **bytecode**, a low-level instruction set for the CPython virtual machine, then that bytecode is what actually runs. You don't need to read bytecode day to day, but knowing it exists (and how to look at it) explains a surprising amount of Python's runtime behavior, and it's a question that separates "knows Python syntax" from "understands how Python actually executes."
+VALUES ('f75685cf-ea22-5da3-96ea-78efee05b98e', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'a1f87708-c87d-52ce-97b0-2349db4da084', 'Callable Objects (`__call__`)', 'notes', 2, $md$Defining `__call__` on a class makes its instances callable with `()`, exactly like a function. This matters when you need a function-like object that also carries persistent state — cleaner than a closure once that state needs to be inspected, updated, or shared after creation.
 
-## Disassembling a function
-
-The `dis` module turns a function's compiled bytecode into human-readable instructions:
+## A callable instance
 
 ```python
-import dis
+class Multiplier:
+    def __init__(self, factor):
+        self.factor = factor
 
-def count_to_ten():
-    total = 0
-    for i in range(10):
-        total += i
-    return total
+    def __call__(self, value):
+        return self.factor * value
 
-dis.dis(count_to_ten)
+doubler = Multiplier(2)
+tripler = Multiplier(3)
+
+print(doubler(5))  # 10 — calling the instance invokes __call__
+print(tripler(5))  # 15
+
+print(callable(doubler))  # True — instances of a class defining __call__ are callable
 ```
 
-Running this prints a table of opcodes — things like `LOAD_FAST`, `LOAD_GLOBAL`, `CALL`, `STORE_FAST`, `POP_JUMP_IF_FALSE` — each corresponding to one step the interpreter takes: loading a local variable onto the stack, calling a function, jumping to loop back, and so on. `range(10)` compiles to a `LOAD_GLOBAL`+`CALL`, and the `for` loop compiles to a `GET_ITER`/`FOR_ITER` pair with a jump back to the top on each iteration.
+`doubler(5)` is syntactic sugar for `doubler.__call__(5)`, the same way `len(x)` is sugar for `x.__len__()`. `doubler` and `tripler` are two independent objects, each holding its own `factor` — a closure could capture `factor` too, but couldn't offer `doubler.factor = 4` to reconfigure it after creation the way an attribute can.
 
-## Why senior engineers care
+## Closures vs. callable objects
 
-A few places this pays off:
-
-- **Explaining "why is A faster than B"** — two pieces of code that look equally simple can compile to a different number of bytecode instructions. `dis.dis` is the tool that turns "I have a hunch" into "here's the extra `LOAD_ATTR` this version does that the other doesn't."
-- **Understanding CPython internals questions** — "what does the GIL actually protect?" and "why is `x += 1` not atomic?" both become concrete once you can see that even a simple augmented assignment is multiple separate bytecode instructions (`LOAD_FAST`, `BINARY_ADD`, `STORE_FAST`), any of which the interpreter can be preempted between.
-- **Spotting accidental global lookups** — a variable dis shows as `LOAD_GLOBAL` inside a hot loop (instead of `LOAD_FAST`) is a real, measurable slowdown, because global lookups go through a dict rather than a fixed local-variable slot.
-
-## What it isn't
-
-`dis` is a diagnostic tool, not something used in day-to-day application code, and bytecode is a CPython implementation detail — it isn't part of the language specification, changes between Python versions, and other implementations (PyPy, for instance) don't use the same instruction set at all. Knowing it exists, and being able to reach for it when a performance question needs a concrete answer, is the actual skill being tested.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "serialization-data-bytecode-dis-q1",
-      "type": "mcq",
-      "prompt": "What does dis.dis(some_function) show you?",
-      "options": [
-        { "id": "a", "text": "The function's docstring and type hints" },
-        { "id": "b", "text": "The low-level bytecode instructions the CPython VM executes for that function" },
-        { "id": "c", "text": "A performance benchmark of the function" },
-        { "id": "d", "text": "The machine code generated for the CPU" }
-      ],
-      "correct": "b",
-      "explanation": "dis.dis disassembles a function's compiled bytecode into readable opcodes (LOAD_FAST, CALL, etc.) — the actual instruction set the CPython interpreter executes, one level below Python source."
-    },
-    {
-      "id": "serialization-data-bytecode-dis-q2",
-      "type": "mcq",
-      "prompt": "Why does seeing dis reveals that even x += 1 compiles to multiple separate bytecode instructions matter for understanding the GIL?",
-      "options": [
-        { "id": "a", "text": "It doesn't relate to the GIL at all" },
-        { "id": "b", "text": "It shows the interpreter can be preempted between those instructions, which is why simple-looking operations like x += 1 aren't atomic across threads" },
-        { "id": "c", "text": "It proves the GIL makes all operations atomic automatically" },
-        { "id": "d", "text": "It means bytecode instructions always run in parallel" }
-      ],
-      "correct": "b",
-      "explanation": "Since x += 1 is really LOAD_FAST, BINARY_ADD, STORE_FAST as separate steps, a thread switch can happen between any of them, which is exactly why augmented assignment isn't thread-safe without a lock."
-    }
-  ]
-}
-```
-$md$, 15, $json$[{"id":"serialization-data-bytecode-dis-q1","type":"mcq","correct":"b"},{"id":"serialization-data-bytecode-dis-q2","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('2c324319-4cc3-51b7-b0f6-7cf8dbcd914f', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '9a0a66f7-732b-55cb-8e15-58d12d55865a', '`memoryview`', 'notes', 8, $md$Slicing a `bytes` or `bytearray` object copies the sliced data into a brand-new object. For a million-byte buffer, slicing out even a small chunk means allocating and copying that chunk — wasted work if all you needed was to *look at* part of the buffer. `memoryview` fixes this by exposing the same underlying memory through a view, with no copy at all.
-
-## Copy vs. view
+A closure works fine for one piece of hidden state:
 
 ```python
-import sys
+def make_multiplier(factor):
+    def multiply(value):
+        return factor * value
+    return multiply
 
-data = bytearray(b"A" * 10**6)  # 1,000,000 bytes
-mv = memoryview(data)
-
-# Slicing a memoryview creates another view — no copy
-mv_slice = mv[100:100000]
-
-# Slicing the bytearray directly copies ~99,900 bytes into a new object
-bytes_slice = data[100:100000]
-
-print(f"memoryview slice: {sys.getsizeof(mv_slice):,} bytes")
-print(f"bytearray slice:  {sys.getsizeof(bytes_slice):,} bytes")
+doubler = make_multiplier(2)
+print(doubler(5))  # 10
 ```
 
-`mv_slice` reports a small, roughly constant size — it's just a window (a pointer, an offset, and a length) into `data`'s existing memory. `bytes_slice` reports a size proportional to the ~99,900 bytes it actually copied. The bigger the buffer and the more slicing you do, the more this gap matters.
-
-## Views can write back to the original
-
-Because a `memoryview` shares memory with its source (when the source is mutable, like `bytearray`), writing through the view changes the original:
+But once you need *multiple* pieces of state, methods that manipulate that state, or the ability to inspect/mutate it from outside, a callable class scales better than a closure with more and more captured variables:
 
 ```python
-buf = bytearray(b"Hello, World!")
-mv = memoryview(buf)
+class RateLimiter:
+    def __init__(self, max_calls):
+        self.max_calls = max_calls
+        self.calls_made = 0
 
-mv[0:5] = b"HELLO"   # writes directly into buf's memory, no copy
-print(buf)           # bytearray(b'HELLO, World!')
+    def __call__(self, *args, **kwargs):
+        if self.calls_made >= self.max_calls:
+            raise RuntimeError("rate limit exceeded")
+        self.calls_made += 1
+        return f"call #{self.calls_made} allowed"
+
+limiter = RateLimiter(max_calls=2)
+print(limiter())              # call #1 allowed
+print(limiter())              # call #2 allowed
+print(limiter.calls_made)     # 2 — state is directly inspectable
+try:
+    limiter()
+except RuntimeError as e:
+    print("blocked:", e)
 ```
-
-This cuts both ways — it's the whole point when you want in-place mutation of a large buffer, but it means a `memoryview` keeps its source object alive and mutable-through-the-view for as long as the view exists, which is worth remembering before handing a view out to code you don't control.
-
-## Where this matters in practice
-
-Anywhere large binary payloads move through a program without needing full copies at every step: reading network buffers, processing large files in chunks, or feeding data into C extensions (NumPy, `struct`, `array`) that understand the buffer protocol directly. A web server parsing a large multipart upload, or a protocol parser slicing a byte stream into fields, is exactly the kind of hot path where "avoid the copy" turns into a measurable memory and latency win.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "serialization-data-memoryview-q1",
-      "type": "mcq",
-      "prompt": "Why does memoryview slicing use far less memory than slicing a bytearray directly?",
-      "options": [
-        { "id": "a", "text": "memoryview compresses the data automatically" },
-        { "id": "b", "text": "A memoryview slice is a view (pointer + offset + length) into the existing memory, not a copy of the bytes" },
-        { "id": "c", "text": "memoryview only supports small buffers" },
-        { "id": "d", "text": "bytearray slicing is actually a bug that will be fixed" }
-      ],
-      "correct": "b",
-      "explanation": "Slicing a memoryview creates another lightweight view referencing the same underlying memory; slicing a bytearray directly allocates a new object and copies the sliced bytes into it."
-    },
-    {
-      "id": "serialization-data-memoryview-q2",
-      "type": "mcq",
-      "prompt": "In `buf = bytearray(...); mv = memoryview(buf); mv[0:5] = b\"HELLO\"`, what happens to buf?",
-      "options": [
-        { "id": "a", "text": "buf is unchanged — memoryview is always read-only" },
-        { "id": "b", "text": "buf's first 5 bytes are modified in place, since mv shares memory with buf" },
-        { "id": "c", "text": "A TypeError is raised because memoryview can't be assigned to" },
-        { "id": "d", "text": "A new bytearray is created, leaving buf untouched" }
-      ],
-      "correct": "b",
-      "explanation": "Because memoryview shares memory with its mutable source, writing through the view mutates buf directly — no copy is made in either direction."
-    }
-  ]
-}
-```
-$md$, 12, $json$[{"id":"serialization-data-memoryview-q1","type":"mcq","correct":"b"},{"id":"serialization-data-memoryview-q2","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
--- Section: Metaclasses & Context Managers
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('7de46a58-36de-5545-943b-2aa366816a0f', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Metaclasses & Context Managers', 5)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('057c09cb-7260-58b9-802e-4ea6c35c72cd', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '7de46a58-36de-5545-943b-2aa366816a0f', 'Metaclasses', 'notes', 0, $md$Every class you write in Python is itself an object — and like every object, it has a type. The type of a class is its **metaclass**. By default that metaclass is the built-in `type`, which means every `class Dog: ...` statement you've ever written was secretly a call to `type(...)`.
-
-## `class` is sugar for calling `type`
-
-```python
-class Dog:
-    pass
-
-# The class statement above is equivalent to calling type() directly:
-# type(name, bases, namespace) -> a new class
-Dog2 = type("Dog2", (), {})
-
-print(type(Dog))    # <class 'type'>
-print(type(Dog2))   # <class 'type'>
-print(Dog2().__class__.__name__)  # Dog2
-```
-
-`type` takes three arguments: the class's name, a tuple of base classes, and a dict of the class body's attributes and methods. The `class` keyword is just readable syntax for building that same call.
-
-## Writing your own metaclass
-
-A **metaclass** is a class that inherits from `type` and overrides `__new__` (or `__init__`) to hook into class *creation itself* — not instance creation. This lets you inspect, validate, or rewrite a class's attributes the moment the class is defined, before anyone ever instantiates it.
-
-```python
-class UpperAttrMeta(type):
-    def __new__(mcs, name, bases, namespace):
-        # Rewrite every non-dunder attribute name to uppercase
-        uppercase_namespace = {
-            (key.upper() if not key.startswith("__") else key): value
-            for key, value in namespace.items()
-        }
-        return super().__new__(mcs, name, bases, uppercase_namespace)
-
-
-class Config(metaclass=UpperAttrMeta):
-    timeout = 30
-    retries = 3
-
-
-print(Config.TIMEOUT)  # 30
-print(Config.RETRIES)  # 3
-print(hasattr(Config, "timeout"))  # False — it was rewritten at class-creation time
-```
-
-`UpperAttrMeta.__new__` runs once, when the `Config` class body finishes executing — not once per instance. Every `Config()` you create afterward already has uppercase attributes; the metaclass did its work at class-definition time.
-
-## When to actually reach for one
-
-Metaclasses are the most powerful hook Python gives you into the language itself, and that power is exactly why the common advice is "metaclasses are solutions in search of a problem" for application code. They're the right tool when you need to enforce a rule across *every subclass* automatically — registering every subclass in a registry, validating that required class attributes are present, or generating boilerplate methods — the kind of thing frameworks do (see the next lesson for how Django's ORM uses this). For everyday code, a class decorator, `__init_subclass__`, or a plain base class usually solves the same problem with far less indirection.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "metaclasses-context-managers-metaclasses-q1",
-      "type": "mcq",
-      "prompt": "What is the default metaclass of every Python class unless you specify otherwise?",
-      "options": [
-        { "id": "a", "text": "object" },
-        { "id": "b", "text": "type" },
-        { "id": "c", "text": "class" },
-        { "id": "d", "text": "meta" }
-      ],
-      "correct": "b",
-      "explanation": "Every class's type is `type` by default — the `class` statement is syntactic sugar for calling `type(name, bases, namespace)`."
-    },
-    {
-      "id": "metaclasses-context-managers-metaclasses-q2",
-      "type": "mcq",
-      "prompt": "When does a metaclass's __new__ method run?",
-      "options": [
-        { "id": "a", "text": "Every time an instance of the class is created" },
-        { "id": "b", "text": "Once, when the class itself is defined" },
-        { "id": "c", "text": "Only when the class is subclassed" },
-        { "id": "d", "text": "Every time an attribute on the class is accessed" }
-      ],
-      "correct": "b",
-      "explanation": "A metaclass's __new__/__init__ hook into class creation, not instance creation — they run once when the `class` statement executes, not per-instance."
-    },
-    {
-      "id": "metaclasses-context-managers-metaclasses-q3",
-      "type": "mcq",
-      "prompt": "What's the generally recommended alternative to a custom metaclass for everyday application code?",
-      "options": [
-        { "id": "a", "text": "There is no alternative — metaclasses are always required for class customization" },
-        { "id": "b", "text": "A class decorator, __init_subclass__, or a plain base class, which solve most problems with less indirection" },
-        { "id": "c", "text": "Rewriting the class as a set of module-level functions" },
-        { "id": "d", "text": "Using multiple inheritance instead" }
-      ],
-      "correct": "b",
-      "explanation": "Metaclasses are powerful but heavy machinery; simpler hooks like __init_subclass__ or class decorators cover most real-world needs with far less indirection."
-    }
-  ]
-}
-```
-$md$, 18, $json$[{"id":"metaclasses-context-managers-metaclasses-q1","type":"mcq","correct":"b"},{"id":"metaclasses-context-managers-metaclasses-q2","type":"mcq","correct":"b"},{"id":"metaclasses-context-managers-metaclasses-q3","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('6f261671-9a69-540a-a3dc-2cb5c6bd1edb', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '7de46a58-36de-5545-943b-2aa366816a0f', 'Metaclasses in Frameworks (Django Example)', 'notes', 1, $md$Django models look like magic the first time you see them:
-
-```python
-class Article(models.Model):
-    title = models.CharField(max_length=200)
-    views = models.IntegerField()
-```
-
-`title` and `views` are just class attributes assigned instances of `CharField`/`IntegerField` — yet Django somehow turns them into database columns, gives the class a `.objects` manager, and lets you call `Article.objects.filter(views__gt=100)`. None of that is written anywhere in the `Article` class body. This is the previous lesson's metaclass hook, applied at framework scale.
-
-## What actually happens at class-definition time
-
-`models.Model`'s metaclass (`ModelBase`, a subclass of `type`) intercepts every subclass's creation. When `class Article(models.Model): ...` executes, Python calls `ModelBase.__new__`, which walks the class's namespace, pulls out every attribute that's an instance of `Field`, and rewrites the class before it's ever used.
-
-```python
-class Field:
-    """Toy stand-in for django.db.models.CharField/IntegerField."""
-    def __init__(self, kind):
-        self.kind = kind
-
-
-class DatabaseManager:
-    def filter(self, **kwargs):
-        print(f"SELECT * FROM table WHERE {kwargs}")
-
-
-class ModelMeta(type):
-    def __new__(mcs, name, bases, namespace):
-        # Collect every attribute that's a Field instance
-        fields = {
-            key: value for key, value in namespace.items()
-            if isinstance(value, Field)
-        }
-        namespace["_meta"] = {"fields": fields}
-        namespace["objects"] = DatabaseManager()
-        return super().__new__(mcs, name, bases, namespace)
-
-
-class Model(metaclass=ModelMeta):
-    pass
-
-
-class Article(Model):
-    title = Field("char")
-    views = Field("int")
-
-
-print(Article._meta["fields"])   # {'title': <Field ...>, 'views': <Field ...>}
-Article.objects.filter(views__gt=100)  # SELECT * FROM table WHERE {'views__gt': 100}
-```
-
-`Article` never defines `_meta` or `objects` itself — `ModelMeta.__new__` injects both while the class is being built, before the module finishes importing. By the time your code runs `Article.objects`, the attribute has existed since class-definition time.
-
-## Why this explains framework "magic"
-
-This is the general pattern behind most "magic" class-based frameworks: a metaclass (or `__init_subclass__`) inspects the class body's declarative attributes — fields, routes, schema definitions — and generates the runtime machinery (database mappings, serializers, registries) automatically. Recognizing this pattern is what lets you read *any* unfamiliar framework's model/schema classes and know where to go looking for the code that's actually doing the work: the metaclass, not the subclass you're reading.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "metaclasses-context-managers-metaclasses-in-frameworks-q1",
-      "type": "mcq",
-      "prompt": "In the toy ModelMeta example, why does Article.objects exist even though Article never defines it?",
-      "options": [
-        { "id": "a", "text": "Python automatically adds an `objects` attribute to every class" },
-        { "id": "b", "text": "ModelMeta.__new__ injects `objects` into the namespace while the Article class is being built" },
-        { "id": "c", "text": "It's inherited from the built-in `object` class" },
-        { "id": "d", "text": "It's added lazily the first time Article() is instantiated" }
-      ],
-      "correct": "b",
-      "explanation": "The metaclass's __new__ runs once at class-creation time and rewrites the namespace dict before the class object is finalized — that's where `objects` and `_meta` come from."
-    },
-    {
-      "id": "metaclasses-context-managers-metaclasses-in-frameworks-q2",
-      "type": "mcq",
-      "prompt": "What general pattern does Django's ModelBase metaclass demonstrate?",
-      "options": [
-        { "id": "a", "text": "Inspecting a class's declarative attributes at definition time to auto-generate runtime machinery" },
-        { "id": "b", "text": "Encrypting class attributes for security" },
-        { "id": "c", "text": "Replacing all instance methods with static methods" },
-        { "id": "d", "text": "Preventing the class from ever being subclassed" }
-      ],
-      "correct": "a",
-      "explanation": "This is the general shape of most 'magic' class-based frameworks: a metaclass reads declarative class-body attributes (fields, routes, schemas) and generates supporting machinery automatically."
-    }
-  ]
-}
-```
-$md$, 12, $json$[{"id":"metaclasses-context-managers-metaclasses-in-frameworks-q1","type":"mcq","correct":"b"},{"id":"metaclasses-context-managers-metaclasses-in-frameworks-q2","type":"mcq","correct":"a"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('19fcbb96-7247-5931-ba34-e8323decf1a9', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '7de46a58-36de-5545-943b-2aa366816a0f', 'Nesting & Combining Context Managers', 'notes', 2, $md$A single `with` statement can manage more than one resource at once — and when the *number* of resources isn't known until runtime, `contextlib.ExitStack` lets you manage a dynamic pile of them with the same guaranteed cleanup a plain `with` gives you.
-
-## Multiple context managers on one `with` line
-
-```python
-with open("file1.txt", "w") as file1, open("file2.txt", "w") as file2:
-    file1.write("first")
-    file2.write("second")
-
-print("both files written and closed")
-```
-
-`file1` and `file2` are entered left to right and exited right to left, and — critically — if `file2`'s `open()` fails, `file1` is still closed correctly. This is exactly equivalent to nesting two separate `with` blocks; the comma-separated form is just flatter to read.
-
-## `ExitStack`: when you don't know how many resources up front
-
-The two-file example above only works because you know at *write time* that there are exactly two files. If the list of files comes from a variable — a config file, a directory listing, an API response — you can't write a fixed number of `with` clauses. `ExitStack` solves this by letting you push an arbitrary number of context managers onto a stack programmatically, and unwinds all of them (in reverse order) when the `with` block exits, exception or not.
-
-```python
-from contextlib import ExitStack
-
-filenames = ["file1.txt", "file2.txt", "file3.txt"]
-
-with ExitStack() as stack:
-    files = [stack.enter_context(open(name, "w")) for name in filenames]
-    for file_obj in files:
-        file_obj.write("Hello, World!")
-
-print(f"wrote and closed {len(filenames)} files")
-```
-
-`stack.enter_context(cm)` calls `cm.__enter__()` immediately and registers `cm.__exit__()` to run when the `ExitStack` itself exits — so `files` ends up holding three already-open file objects, and all three get closed automatically no matter how many there turn out to be or whether an exception happens partway through the loop.
 
 ## Where this shows up in real code
 
-Database connection pools, batches of temp files, and groups of related locks are the classic uses: any time "how many resources" is a runtime value rather than something you can spell out as a fixed number of `with` clauses. `ExitStack` also has `callback()` for registering plain cleanup functions (not just context managers) onto the same unwind-on-exit stack, which is handy for mixing "close this file" with "delete this temp directory" in one guaranteed-to-run teardown sequence.
+Strategy-pattern implementations (swap in different callable "strategy" objects that share an interface), scikit-learn-style transformers, and any decorator implemented as a class instead of a nested function all rely on `__call__`. A class-based decorator is a common real-world example:
+
+```python
+class CountCalls:
+    def __init__(self, func):
+        self.func = func
+        self.count = 0
+
+    def __call__(self, *args, **kwargs):
+        self.count += 1
+        return self.func(*args, **kwargs)
+
+@CountCalls
+def greet(name):
+    return f"Hello, {name}"
+
+print(greet("Ana"))   # Hello, Ana
+print(greet("Kim"))   # Hello, Kim
+print(greet.count)    # 2
+```
+
+`@CountCalls` here replaces `greet` with a `CountCalls` *instance* — `greet(...)` then works because that instance is callable.
 
 ## Knowledge check
 
@@ -3304,408 +7854,137 @@ Database connection pools, batches of temp files, and groups of related locks ar
 {
   "questions": [
     {
-      "id": "metaclasses-context-managers-nesting-context-managers-q1",
+      "id": "async-typing-callable-objects-q1",
       "type": "mcq",
-      "prompt": "In `with open(a) as f1, open(b) as f2:`, in what order are the context managers exited?",
+      "prompt": "What does doubler(5) actually invoke when doubler is an instance of a class defining __call__?",
       "options": [
-        { "id": "a", "text": "Left to right, same as entry order" },
-        { "id": "b", "text": "Right to left — reverse of entry order" },
-        { "id": "c", "text": "Simultaneously, order is undefined" },
-        { "id": "d", "text": "Whichever finishes writing first" }
+        { "id": "a", "text": "doubler.__init__(5)" },
+        { "id": "b", "text": "doubler.__call__(5)" },
+        { "id": "c", "text": "A new instance is created and its constructor is called" },
+        { "id": "d", "text": "It raises a TypeError — instances aren't callable in Python" }
       ],
       "correct": "b",
-      "explanation": "Context managers on one with-statement (or nested with-statements) are entered in order and exited in reverse order, like a stack."
+      "explanation": "Using () on an object calls its __call__ method — obj(5) is sugar for obj.__call__(5), the same relationship len(x) has to x.__len__()."
     },
     {
-      "id": "metaclasses-context-managers-nesting-context-managers-q2",
+      "id": "async-typing-callable-objects-q2",
       "type": "mcq",
-      "prompt": "Why would you reach for contextlib.ExitStack instead of a fixed `with a, b, c:` line?",
+      "prompt": "When does a callable class start to scale better than a closure for holding state?",
       "options": [
-        { "id": "a", "text": "ExitStack is faster at opening files" },
-        { "id": "b", "text": "When the number of context managers to manage isn't known until runtime" },
-        { "id": "c", "text": "ExitStack is required for any context manager involving files" },
-        { "id": "d", "text": "It removes the need for try/finally entirely, even outside context managers" }
+        { "id": "a", "text": "Never — closures are always the better choice" },
+        { "id": "b", "text": "Once you need multiple pieces of state, methods that operate on it, or the ability to inspect/mutate it from outside the callable" },
+        { "id": "c", "text": "Only when performance is critical, since closures are always slower" },
+        { "id": "d", "text": "Only in multithreaded code" }
       ],
       "correct": "b",
-      "explanation": "A `with a, b, c:` line requires a fixed, known-at-write-time number of context managers. ExitStack lets you push a runtime-determined number of them via enter_context() and still get guaranteed reverse-order cleanup."
+      "explanation": "A closure works fine for one hidden variable. Once state grows (multiple fields, methods, external inspection like limiter.calls_made), a class with __call__ organizes that far better than a growing set of captured closure variables."
+    },
+    {
+      "id": "async-typing-callable-objects-q3",
+      "type": "mcq",
+      "prompt": "In `@CountCalls` applied to greet, what does greet refer to after decoration?",
+      "options": [
+        { "id": "a", "text": "The original greet function, unchanged" },
+        { "id": "b", "text": "A CountCalls instance wrapping the original function — callable because CountCalls defines __call__" },
+        { "id": "c", "text": "The CountCalls class itself" },
+        { "id": "d", "text": "None — class-based decorators aren't valid syntax" }
+      ],
+      "correct": "b",
+      "explanation": "@CountCalls calls CountCalls(greet), producing an instance. greet is rebound to that instance; greet(\"Ana\") works because CountCalls.__call__ makes instances callable, forwarding to the wrapped function."
     }
   ]
 }
 ```
-$md$, 15, $json$[{"id":"metaclasses-context-managers-nesting-context-managers-q1","type":"mcq","correct":"b"},{"id":"metaclasses-context-managers-nesting-context-managers-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+$md$, 10, $json$[{"id":"async-typing-callable-objects-q1","type":"mcq","correct":"b"},{"id":"async-typing-callable-objects-q2","type":"mcq","correct":"b"},{"id":"async-typing-callable-objects-q3","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('0cf7e9b3-11c9-5dc2-8824-655a38ed5420', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '7de46a58-36de-5545-943b-2aa366816a0f', 'Custom Context Managers', 'notes', 3, $md$`with` isn't magic reserved for `open()` — any object that implements `__enter__`/`__exit__` (or any generator function wrapped in `@contextmanager`) can be used after `with`. Writing your own is one of the highest-leverage patterns for guaranteed cleanup in senior-level Python code.
+VALUES ('79723416-8c0d-54d9-ac46-a56ab7accfc4', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'a1f87708-c87d-52ce-97b0-2349db4da084', 'Descriptors (Typed + CachedProperty)', 'notes', 3, $md$`@property` is the descriptor you already know — descriptors are the general mechanism behind it. A descriptor is any object defining `__get__`/`__set__` (or just `__get__`) and assigned as a *class* attribute; Python routes attribute access on instances through those methods instead of a plain `__dict__` lookup. This is how validated attributes, cached properties, and ORM fields are all built under the hood.
 
-## The class-based form: `__enter__` and `__exit__`
+## Data descriptors: `__get__` and `__set__`
 
-```python
-class Timer:
-    def __enter__(self):
-        import time
-        self._start = time.perf_counter()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        import time
-        elapsed = time.perf_counter() - self._start
-        print(f"elapsed: {elapsed:.4f}s")
-        return False  # False (or None) means: don't suppress exceptions
-
-
-with Timer():
-    total = sum(i * i for i in range(1_000_000))
-```
-
-`__enter__`'s return value becomes the `as` target. `__exit__` receives the exception type/value/traceback if the block raised (all `None` if it didn't) — returning a truthy value from `__exit__` swallows the exception, which is almost never what you want, so `return False`/`None` explicitly.
-
-## The generator form: `@contextmanager`
-
-Writing a class for every context manager is boilerplate for simple cases. `contextlib.contextmanager` turns a single generator function — one `yield` splitting "setup" from "teardown" — into the same protocol:
+A descriptor defining both `__get__` and `__set__` is a **data descriptor** — it takes priority over the instance's own `__dict__` for every access, which is what lets it enforce rules on every read and write:
 
 ```python
-import sqlite3
-from contextlib import contextmanager
+from typing import Any
 
+class Typed:
+    """Enforces a type on every assignment to the attribute it manages."""
 
-@contextmanager
-def database_connection(db_name):
-    """Everything before yield is __enter__; everything after (in finally) is __exit__."""
-    conn = sqlite3.connect(db_name)
-    try:
-        print("connection opened")
-        yield conn
-    finally:
-        conn.close()
-        print("connection closed")
-
-
-with database_connection(":memory:") as conn:
-    cursor = conn.cursor()
-    cursor.execute("CREATE TABLE users (id INTEGER, name TEXT)")
-    cursor.execute("INSERT INTO users VALUES (?, ?)", (1, "Alice"))
-    conn.commit()
-    print("row inserted")
-```
-
-The code before `yield conn` runs on `__enter__`; whatever's passed to `yield` becomes the `as` target; the code after `yield` — wrapped in `try/finally` — runs on `__exit__`, whether the `with` block succeeded or raised. This is the far more common style in production code: it reads top-to-bottom like a script instead of splitting setup/teardown across two separate methods.
-
-## Class-based vs. generator-based: when to pick which
-
-Reach for `@contextmanager` by default — it's shorter and the setup/teardown logic stays visually adjacent. Drop to a full class when the context manager needs to hold reusable state across multiple `__enter__`/`__exit__` cycles (the same instance used in several separate `with` blocks), or needs to inspect the exception details in `__exit__` beyond "did one happen" (deciding whether to log, retry, or suppress based on `exc_type`).
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "metaclasses-context-managers-custom-context-managers-q1",
-      "type": "mcq",
-      "prompt": "In the @contextmanager generator style, what does the code *after* `yield` correspond to?",
-      "options": [
-        { "id": "a", "text": "__enter__" },
-        { "id": "b", "text": "__exit__, running whether the with-block succeeded or raised (when wrapped in try/finally)" },
-        { "id": "c", "text": "It never runs unless an exception occurs" },
-        { "id": "d", "text": "The __init__ of the generator function" }
-      ],
-      "correct": "b",
-      "explanation": "Everything before yield is entry logic; everything after yield (typically in a finally block) is exit/teardown logic, running regardless of whether the with-block raised."
-    },
-    {
-      "id": "metaclasses-context-managers-custom-context-managers-q2",
-      "type": "mcq",
-      "prompt": "What happens if a class-based context manager's __exit__ method returns True?",
-      "options": [
-        { "id": "a", "text": "Nothing different from returning False" },
-        { "id": "b", "text": "Any exception raised inside the with-block is suppressed instead of propagating" },
-        { "id": "c", "text": "The with-block is re-executed" },
-        { "id": "d", "text": "It raises a TypeError, since __exit__ must return None" }
-      ],
-      "correct": "b",
-      "explanation": "A truthy return from __exit__ tells Python to swallow the exception rather than let it propagate — which is why __exit__ should return False/None unless you specifically intend to suppress errors."
-    }
-  ]
-}
-```
-$md$, 15, $json$[{"id":"metaclasses-context-managers-custom-context-managers-q1","type":"mcq","correct":"b"},{"id":"metaclasses-context-managers-custom-context-managers-q2","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
--- Section: Weak References & Memory Optimization
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('1066ac11-c4df-5350-a31f-89e642dd32ae', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Weak References & Memory Optimization', 6)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('cde878ce-2df0-5eae-9306-5373b1cf8837', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '1066ac11-c4df-5350-a31f-89e642dd32ae', 'weakref', 'notes', 0, $md$CPython's primary garbage-collection mechanism is reference counting: every object tracks how many references point to it, and gets freed the instant that count hits zero. A **weak reference**, from the `weakref` module, is a reference that points to an object *without* increasing its reference count — which is exactly the tool for breaking the one case reference counting can't handle on its own: two objects that reference each other.
-
-## The circular-reference problem
-
-```python
-class Node:
-    def __init__(self, name):
+    def __init__(self, name: str, expected_type: type) -> None:
         self.name = name
-        self.next = None
+        self.expected_type = expected_type
 
+    def __get__(self, instance: Any, owner: type = None) -> Any:
+        if instance is None:
+            return self  # accessed on the class itself, e.g. Point.x
+        return instance.__dict__.get(self.name)
 
-a = Node("A")
-b = Node("B")
-a.next = b
-b.next = a  # circular: a -> b -> a
+    def __set__(self, instance: Any, value: Any) -> None:
+        if not isinstance(value, self.expected_type):
+            raise TypeError(f"{self.name} must be {self.expected_type.__name__}")
+        instance.__dict__[self.name] = value
 
-del a
-del b
-# Neither Node's refcount ever hits zero from these two variables alone —
-# each is still held by the other's .next. CPython's cyclic GC eventually
-# reclaims this, but only on its own schedule, not immediately.
-```
+class Point:
+    x = Typed("x", int)  # descriptors are declared at the CLASS level
+    y = Typed("y", int)
 
-A plain reference count on `a` and `b` never reaches zero here, because each object keeps the other alive. CPython's separate cyclic garbage collector *does* eventually detect and clean up cycles like this — but only on its own generational schedule, not the instant the last external reference disappears. In long-running systems with many such objects, that delay is exactly the kind of thing senior interviews probe: not "will this ever leak" (it won't, permanently) but "do you understand why it isn't cleaned up immediately."
+    def __init__(self, x: int, y: int) -> None:
+        self.x = x  # routed through Typed.__set__
+        self.y = y
 
-## Breaking the cycle with `weakref.ref`
-
-```python
-import weakref
-
-
-class Node:
-    def __init__(self, name):
-        self.name = name
-        self.next = None
-
-
-a = Node("A")
-b = Node("B")
-a.next = weakref.ref(b)  # a weak reference — doesn't increase b's refcount
-b.next = weakref.ref(a)  # same for a
-
-# A weakref.ref is callable: call it to get the live object back
-print(a.next().name)  # B
-print(b.next().name)  # A
-```
-
-`a.next` no longer holds a strong reference to `b` — it holds a `weakref.ref` object, which you call like a function to get `b` back (`a.next()` returns `b`, or `None` if `b` has already been garbage collected). Now `a` and `b` only stay alive as long as something *else* holds a strong reference to them; deleting the last strong reference to either one lets ordinary reference counting free it immediately, cycle or not.
-
-## Where this matters in practice
-
-Weak references are the standard tool for caches, observer/listener registries, and parent-child object graphs (a child holding a weak reference back to its parent) — anywhere you want object A to be able to *reach* object B without object A being a reason B stays alive. The next lesson covers `WeakKeyDictionary`/`WeakValueDictionary`, which package this exact pattern into a dict-like container.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "weakrefs-memory-weakref-q1",
-      "type": "mcq",
-      "prompt": "What is the key difference between weakref.ref(obj) and a normal reference to obj?",
-      "options": [
-        { "id": "a", "text": "A weak reference is read-only and can't be reassigned" },
-        { "id": "b", "text": "A weak reference doesn't increase obj's reference count, so it doesn't keep obj alive by itself" },
-        { "id": "c", "text": "A weak reference is faster to dereference than a normal reference" },
-        { "id": "d", "text": "A weak reference only works on built-in types" }
-      ],
-      "correct": "b",
-      "explanation": "weakref.ref points to an object without contributing to its reference count, so the object can still be garbage collected even while the weak reference exists."
-    },
-    {
-      "id": "weakrefs-memory-weakref-q2",
-      "type": "mcq",
-      "prompt": "Two objects hold plain (strong) references to each other and nothing else references them. What happens to their reference counts alone (ignoring the cyclic GC)?",
-      "options": [
-        { "id": "a", "text": "Both counts immediately drop to zero and the objects are freed" },
-        { "id": "b", "text": "Neither count reaches zero, because each object is kept alive by the other's reference" },
-        { "id": "c", "text": "Python raises a RecursionError" },
-        { "id": "d", "text": "Only one of the two objects is freed" }
-      ],
-      "correct": "b",
-      "explanation": "A pure reference cycle never hits a zero refcount through the cycle alone — each object's count is propped up by the other. CPython's separate cyclic GC eventually cleans these up, but not through simple refcounting."
-    },
-    {
-      "id": "weakrefs-memory-weakref-q3",
-      "type": "mcq",
-      "prompt": "How do you get the actual object back from a weakref.ref instance `r`?",
-      "options": [
-        { "id": "a", "text": "r.value" },
-        { "id": "b", "text": "r.get()" },
-        { "id": "c", "text": "Calling it: r() — returns the object, or None if it's been collected" },
-        { "id": "d", "text": "Indexing it: r[0]" }
-      ],
-      "correct": "c",
-      "explanation": "weakref.ref objects are callable — calling r() returns the referenced object if it's still alive, or None if it has already been garbage collected."
-    }
-  ]
-}
-```
-$md$, 12, $json$[{"id":"weakrefs-memory-weakref-q1","type":"mcq","correct":"b"},{"id":"weakrefs-memory-weakref-q2","type":"mcq","correct":"b"},{"id":"weakrefs-memory-weakref-q3","type":"mcq","correct":"c"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('0c0d01bd-3bd0-522f-b7ed-1e9eacd28638', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '1066ac11-c4df-5350-a31f-89e642dd32ae', 'WeakKeyDictionary & WeakValueDictionary', 'notes', 1, $md$`weakref.ref` (from the previous lesson) is the low-level primitive. `WeakKeyDictionary` and `WeakValueDictionary`, from the same `weakref` module, package it into a dict-like container — the shape you'll actually reach for day to day when attaching extra data to objects you don't own the lifetime of.
-
-## `WeakKeyDictionary`: metadata that disappears with its object
-
-A `WeakKeyDictionary` holds its *keys* weakly. As soon as nothing else in the program references a key, that entry is dropped automatically — no manual cleanup required.
-
-```python
-from weakref import WeakKeyDictionary
-
-
-class Widget:
-    def __init__(self, name):
-        self.name = name
-
-    def __repr__(self):
-        return f"Widget({self.name})"
-
-
-widget_metadata = WeakKeyDictionary()
-
-widget1 = Widget("Button1")
-widget2 = Widget("Button2")
-
-widget_metadata[widget1] = {"color": "blue", "size": "small"}
-widget_metadata[widget2] = {"color": "red", "size": "large"}
-
-print(list(widget_metadata.keys()))  # [Widget(Button1), Widget(Button2)]
-
-del widget1  # the only strong reference to widget1 is gone
-
-print(list(widget_metadata.keys()))  # [Widget(Button2)] -- widget1's entry vanished on its own
-```
-
-Compare this to a plain `dict`: `widget_metadata[widget1] = ...` in an ordinary dict would itself be a strong reference, keeping `widget1` alive forever even after `del widget1` — a classic accidental memory leak in any long-running cache. `WeakKeyDictionary` sidesteps that by design: the metadata's lifetime is tied *to* the object's lifetime, not the other way around.
-
-## `WeakValueDictionary`: the mirror image
-
-`WeakValueDictionary` does the same thing but on the *value* side — useful for registries where you look objects up by some stable key (an ID, a name) but don't want the registry itself to be the reason those objects stay alive:
-
-```python
-from weakref import WeakValueDictionary
-
-
-class Connection:
-    def __init__(self, conn_id):
-        self.conn_id = conn_id
-
-
-active_connections = WeakValueDictionary()
-
-conn = Connection("conn-42")
-active_connections["conn-42"] = conn
-
-print("conn-42" in active_connections)  # True
-
-del conn
-
-print("conn-42" in active_connections)  # False -- entry gone once the Connection was freed
-```
-
-## Why "keys or values, not both" matters
-
-Both variants only weaken *one* side of the mapping — the other side (the dict's values in `WeakKeyDictionary`, the dict's keys in `WeakValueDictionary`) is held strongly, as normal. This is a deliberate, useful asymmetry: in the widget example, the metadata dict `{"color": "blue", ...}` is a plain value held strongly — it just gets discarded, not weakened, once its weak key disappears. Reach for `WeakKeyDictionary` when you're attaching side-data to objects you don't control the lifetime of (framework objects, third-party instances), and `WeakValueDictionary` when you're building a lookup registry/cache and don't want membership in the cache to be a reason something stays alive.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "weakrefs-memory-weak-key-dictionary-q1",
-      "type": "mcq",
-      "prompt": "In a WeakKeyDictionary, what happens to an entry when the last strong reference to its key object is deleted?",
-      "options": [
-        { "id": "a", "text": "The entry stays forever until explicitly deleted" },
-        { "id": "b", "text": "The entry is automatically removed once the key object is garbage collected" },
-        { "id": "c", "text": "A KeyError is raised on the next access" },
-        { "id": "d", "text": "The key is replaced with None but the value remains" }
-      ],
-      "correct": "b",
-      "explanation": "WeakKeyDictionary holds its keys weakly. Once nothing else references the key object, it's garbage collected and its entry disappears from the dict automatically."
-    },
-    {
-      "id": "weakrefs-memory-weak-key-dictionary-q2",
-      "type": "mcq",
-      "prompt": "Why would storing widget -> metadata in a plain dict risk a memory leak that WeakKeyDictionary avoids?",
-      "options": [
-        { "id": "a", "text": "Plain dicts are slower to look up" },
-        { "id": "b", "text": "A plain dict holds keys strongly, so the dict entry itself keeps the widget alive even after all other references to it are deleted" },
-        { "id": "c", "text": "Plain dicts can't use custom objects as keys at all" },
-        { "id": "d", "text": "Plain dicts automatically duplicate every key" }
-      ],
-      "correct": "b",
-      "explanation": "A regular dict's key reference is a strong reference — the widget stays alive as long as it's a key in the dict, even if every other reference to it is gone, which is exactly the leak WeakKeyDictionary is designed to prevent."
-    }
-  ]
-}
-```
-$md$, 12, $json$[{"id":"weakrefs-memory-weak-key-dictionary-q1","type":"mcq","correct":"b"},{"id":"weakrefs-memory-weak-key-dictionary-q2","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('c328f3b4-b903-5d25-8220-ba18de4584a2', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '1066ac11-c4df-5350-a31f-89e642dd32ae', 'Optimizing Memory with __slots__', 'notes', 2, $md$By default, every instance of a Python class carries its own `__dict__` — a full dictionary — to hold its attributes, even if every instance always has exactly the same fixed set of attribute names. `__slots__` lets you tell Python "this class only ever has these attributes," trading that flexibility for a meaningfully smaller memory footprint per instance.
-
-## The default: every instance gets a `__dict__`
-
-```python
-class UserProfile:
-    def __init__(self, username, email):
-        self.username = username
-        self.email = email
-
-
-u = UserProfile("alice", "alice@example.com")
-print(u.__dict__)          # {'username': 'alice', 'email': 'alice@example.com'}
-u.extra = "anything goes"  # works fine -- __dict__ accepts new keys freely
-print(u.__dict__)
-```
-
-That per-instance dict is flexible (you can bolt on `u.extra` at any time) but it isn't free: a dict has its own internal hash table overhead on top of the actual attribute values, and when you're creating millions of instances of a simple data-holding class, that overhead adds up.
-
-## `__slots__`: a fixed, dict-free attribute set
-
-```python
-class SlotsUserProfile:
-    __slots__ = ["username", "email"]
-
-    def __init__(self, username, email):
-        self.username = username
-        self.email = email
-
-
-s = SlotsUserProfile("bob", "bob@example.com")
-print(s.username, s.email)  # bob bob@example.com
-print(hasattr(s, "__dict__"))  # False -- there is no per-instance dict at all
+p = Point(3, 4)
+print(p.x, p.y)  # 3 4 — routed through Typed.__get__
 
 try:
-    s.extra = "not allowed"
-except AttributeError as e:
-    print(f"blocked: {e}")  # 'SlotsUserProfile' object has no attribute 'extra'
+    p.x = 2.5
+except TypeError as e:
+    print("blocked:", e)  # x must be int
 ```
 
-Declaring `__slots__ = ["username", "email"]` tells CPython to allocate fixed, fast slots for exactly those two attributes instead of a `__dict__` — and, as a side effect, blocks setting any attribute not named in the list. That restriction is the whole trade: you give up dynamic attribute assignment in exchange for a smaller, faster instance layout.
+`Point.x` and `Point.y` are the *same* `Typed` instance shared by every `Point` — the actual per-instance value lives in `instance.__dict__["x"]`, not on the descriptor itself. That's why `__set__` writes to `instance.__dict__[self.name]` rather than `self.value = value`: storing it on `self` would make every `Point` share one `x`.
 
-## Measuring the difference
+## Non-data descriptors: caching with just `__get__`
 
-`memory_profiler`'s `@profile` decorator (covered in the next lesson) is the tool the original notes use to show this at scale — but it needs the `mprof`/`python -m memory_profiler` runner, so it won't execute standalone here. The stdlib's own `sys.getsizeof` on a single instance already shows the shape of the difference, even though it only reports one object's shallow size, not the whole instance-plus-dict picture:
+A descriptor defining only `__get__` (no `__set__`) is a **non-data descriptor** — and the instance's own `__dict__` takes priority over it once something is stored there under the same name. That asymmetry is exactly what makes a cheap cached-property pattern possible: compute once, then let the plain instance attribute shadow the descriptor on every later access:
 
 ```python
-import sys
+class CachedProperty:
+    def __init__(self, func):
+        self.func = func
+        self.__doc__ = func.__doc__
 
-regular = UserProfile("carol", "carol@example.com")
-slotted = SlotsUserProfile("carol", "carol@example.com")
+    def __get__(self, instance, owner=None):
+        if instance is None:
+            return self
+        value = self.func(instance)
+        instance.__dict__[self.func.__name__] = value  # shadows this descriptor from now on
+        return value
 
-print("regular instance:", sys.getsizeof(regular))          # the instance itself
-print("regular's __dict__:", sys.getsizeof(regular.__dict__))  # plus a whole dict
-print("slotted instance:", sys.getsizeof(slotted))          # no separate dict at all
+class Point:
+    x = Typed("x", int)
+    y = Typed("y", int)
+
+    def __init__(self, x: int, y: int) -> None:
+        self.x = x
+        self.y = y
+
+    @CachedProperty
+    def hypot(self):
+        print("computing hypot")
+        from math import hypot
+        return hypot(self.x, self.y)
+
+p = Point(3, 4)
+print(p.hypot)  # "computing hypot" printed, then 5.0
+print(p.hypot)  # 5.0 — no "computing hypot" print; instance.__dict__["hypot"] now shadows the descriptor
 ```
 
-At one instance this looks like a rounding error; multiply it by a million rows loaded from a database or a CSV and the missing per-instance `__dict__` becomes real, measurable memory saved.
+The first `p.hypot` access finds nothing under `"hypot"` in `p.__dict__`, so Python falls back to the class-level `CachedProperty` descriptor's `__get__`, which computes the value *and* stores it directly on the instance. The second access finds `"hypot"` already in `p.__dict__` and returns that directly — the descriptor's `__get__` never even runs again, because a non-data descriptor loses to an instance attribute of the same name.
 
-## The trade-off
+## Why `Typed` doesn't have this problem
 
-`__slots__` is best reserved for classes you instantiate a lot — data-holding value objects, nodes in a large tree or graph, rows loaded in bulk — not for every class by default. It removes dynamic attribute assignment, it doesn't mix cleanly with multiple inheritance unless every base class also defines (compatible) slots, and a subclass that doesn't itself declare `__slots__` gets a `__dict__` anyway, silently undoing the savings.
+`Typed` defines `__set__`, making it a *data* descriptor — data descriptors always win over `instance.__dict__`, even after a value has been assigned. That's the difference that matters: use a data descriptor when every access must be validated (there's no safe point to "stop checking"), and a non-data descriptor when the first computation should permanently short-circuit future lookups.
 
 ## Knowledge check
 
@@ -3713,102 +7992,89 @@ At one instance this looks like a rounding error; multiply it by a million rows 
 {
   "questions": [
     {
-      "id": "weakrefs-memory-slots-q1",
+      "id": "async-typing-descriptors-q1",
       "type": "mcq",
-      "prompt": "What does declaring __slots__ = [\"username\", \"email\"] prevent?",
+      "prompt": "Why does Typed.__set__ store the value in instance.__dict__[self.name] instead of on self (the descriptor)?",
       "options": [
-        { "id": "a", "text": "Reading the username or email attributes" },
-        { "id": "b", "text": "Setting any attribute not named in __slots__, since there's no per-instance __dict__ to hold it" },
-        { "id": "c", "text": "Subclassing the class at all" },
-        { "id": "d", "text": "Calling __init__ more than once" }
+        { "id": "a", "text": "It's just a style preference with no functional effect" },
+        { "id": "b", "text": "The Typed instance (e.g. Point.x) is shared by every Point instance — storing the value on self would make all Points share one x" },
+        { "id": "c", "text": "instance.__dict__ is faster to write to than a plain attribute" },
+        { "id": "d", "text": "Python requires descriptors to never store any state" }
       ],
       "correct": "b",
-      "explanation": "__slots__ replaces the per-instance __dict__ with fixed slots for exactly the named attributes, so assigning any other attribute name raises AttributeError."
+      "explanation": "Point.x is one Typed object shared across every Point instance. Storing per-instance data on that shared descriptor would leak state between unrelated instances — instance.__dict__ keeps each Point's x separate."
     },
     {
-      "id": "weakrefs-memory-slots-q2",
+      "id": "async-typing-descriptors-q2",
       "type": "mcq",
-      "prompt": "What kind of class benefits most from __slots__?",
+      "prompt": "Why does the second access to p.hypot NOT print \"computing hypot\" again?",
       "options": [
-        { "id": "a", "text": "A singleton class that's only ever instantiated once" },
-        { "id": "b", "text": "A simple, fixed-attribute class instantiated in very large numbers (e.g. millions of rows/nodes)" },
-        { "id": "c", "text": "A class that needs to support arbitrary dynamic attributes at runtime" },
-        { "id": "d", "text": "An abstract base class that's never instantiated directly" }
+        { "id": "a", "text": "CachedProperty.__get__ has internal logic that skips computation on even-numbered calls" },
+        { "id": "b", "text": "The first access stored the result directly in instance.__dict__[\"hypot\"], which — since CachedProperty is a non-data descriptor (no __set__) — now takes priority over the descriptor on every later lookup" },
+        { "id": "c", "text": "Python automatically caches all @property-style decorators" },
+        { "id": "d", "text": "hypot becomes a class attribute after the first call" }
       ],
       "correct": "b",
-      "explanation": "The memory savings from skipping a per-instance __dict__ are negligible for one object but add up meaningfully at scale — the classic use case is a data-holding class created millions of times."
+      "explanation": "A non-data descriptor (only __get__, no __set__) loses to an instance attribute of the same name. Once p.__dict__[\"hypot\"] exists, Python finds it before ever consulting the CachedProperty descriptor again."
     },
     {
-      "id": "weakrefs-memory-slots-q3",
+      "id": "async-typing-descriptors-q3",
       "type": "mcq",
-      "prompt": "If a subclass of a __slots__ class doesn't declare its own __slots__, what happens?",
+      "prompt": "Why does Typed keep enforcing type checks on every write, while CachedProperty stops running after the first read?",
       "options": [
-        { "id": "a", "text": "It inherits the parent's memory savings automatically with no changes needed" },
-        { "id": "b", "text": "It silently gets a __dict__ of its own, undoing the memory savings for that subclass" },
-        { "id": "c", "text": "Python raises a TypeError at class-definition time" },
-        { "id": "d", "text": "The subclass can no longer be instantiated" }
+        { "id": "a", "text": "Typed defines __set__ (a data descriptor, which always overrides instance.__dict__); CachedProperty only defines __get__ (a non-data descriptor, which instance.__dict__ overrides once populated)" },
+        { "id": "b", "text": "Typed is simply written with a while loop and CachedProperty isn't" },
+        { "id": "c", "text": "There is no real difference — both behave identically" },
+        { "id": "d", "text": "CachedProperty is deprecated in favor of Typed" }
       ],
-      "correct": "b",
-      "explanation": "A subclass without its own __slots__ declaration gets a normal __dict__, which quietly defeats the point of the parent's __slots__ for instances of that subclass."
+      "correct": "a",
+      "explanation": "Data descriptors (with __set__) always take priority over instance.__dict__, so every p.x = value keeps going through Typed.__set__. Non-data descriptors (only __get__) lose to instance.__dict__ once a same-named entry exists there, which is exactly the mechanism CachedProperty uses to short-circuit future computation."
     }
   ]
 }
 ```
-$md$, 12, $json$[{"id":"weakrefs-memory-slots-q1","type":"mcq","correct":"b"},{"id":"weakrefs-memory-slots-q2","type":"mcq","correct":"b"},{"id":"weakrefs-memory-slots-q3","type":"mcq","correct":"b"}]$json$::jsonb)
+$md$, 15, $json$[{"id":"async-typing-descriptors-q1","type":"mcq","correct":"b"},{"id":"async-typing-descriptors-q2","type":"mcq","correct":"b"},{"id":"async-typing-descriptors-q3","type":"mcq","correct":"a"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('dfefbab7-94a2-5e64-baf4-fbcc1a57d5f4', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '1066ac11-c4df-5350-a31f-89e642dd32ae', 'memory_profiler', 'notes', 3, $md$Knowing *that* a program uses too much memory is easy — knowing *which line* is responsible is the actual debugging work. `memory_profiler` is a third-party package built for exactly that: line-by-line memory usage inside a specific function.
+VALUES ('21acad42-005b-5552-8ffa-110ec776bdf7', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'a1f87708-c87d-52ce-97b0-2349db4da084', '`operator.attrgetter`', 'notes', 4, $md$Sorting a list of objects by an attribute is usually written with a lambda: `sorted(people, key=lambda p: p.age)`. `operator.attrgetter` does the same job, implemented in C instead of as a Python-level closure — and, more importantly, it can reach into **nested** attributes using a dotted string, which a lambda can do too but only by hardcoding the path.
 
-## The `@profile` decorator (needs its own runner)
-
-```python
-# requires: pip install memory-profiler, then run with `python -m memory_profiler script.py`
-# (the @profile decorator only activates under that runner -- it can't run standalone)
-from memory_profiler import profile
-
-
-@profile
-def my_function():
-    a = [i for i in range(100_000)]   # allocates a list of 100k ints
-    b = [i * 2 for i in a]            # allocates a second list
-    return b
-
-
-if __name__ == "__main__":
-    my_function()
-```
-
-Running that under `python -m memory_profiler script.py` prints a line-by-line table: memory usage before and after each line, and how much that line added. That per-line increment is the whole value proposition — a regular profiler tells you which *function* is slow, `memory_profiler` tells you which *line inside* that function is the one allocating memory you didn't expect.
-
-## Getting the same signal from the standard library
-
-`memory_profiler` needs to be installed and run through its own entry point, so it can't execute inside a plain `python file.py` run. The stdlib's `tracemalloc` module covers a lot of the same ground without an extra dependency — it can't attribute cost to individual source lines inside one profiler run the way `memory_profiler` can, but it can snapshot allocations and tell you where they came from:
+## Basic use
 
 ```python
-import tracemalloc
+from operator import attrgetter
 
-tracemalloc.start()
+class Address:
+    def __init__(self, city, state):
+        self.city = city
+        self.state = state
 
-snapshot_before = tracemalloc.take_snapshot()
+class Person:
+    def __init__(self, name, address):
+        self.name = name
+        self.address = address
 
-a = [i for i in range(100_000)]
-b = [i * 2 for i in a]
+people = [
+    Person("Alice", Address("New York", "NY")),
+    Person("Bob", Address("Chicago", "IL")),
+    Person("Charlie", Address("Los Angeles", "CA")),
+]
 
-snapshot_after = tracemalloc.take_snapshot()
-
-top_stats = snapshot_after.compare_to(snapshot_before, "lineno")
-for stat in top_stats[:3]:
-    print(stat)
-
-tracemalloc.stop()
+sorted_people = sorted(people, key=attrgetter("address.city"))
+print([p.name for p in sorted_people])  # ['Bob', 'Charlie', 'Alice']
 ```
 
-`compare_to` reports the size delta per allocation site (file + line number) between the two snapshots, which is the same "which line grew memory" question `memory_profiler` answers — `tracemalloc` just requires you to bracket the code with explicit snapshots instead of decorating a function.
+`attrgetter("address.city")` returns a callable equivalent to `lambda p: p.address.city` — but it accepts the attribute path as a **string**, which a lambda cannot without an `eval` or a chain of `getattr` calls.
 
-## When to reach for this
+## Why the string form matters
 
-Neither tool is something you run in production continuously — both add real overhead. Reach for line-level memory profiling when a specific function is suspected of a leak or excessive allocation and you've already narrowed the problem down that far (via `sys.getsizeof`, general monitoring, or just watching RSS climb); it's a targeted debugging tool, not a monitoring strategy.
+```python
+# A sort key chosen at runtime — e.g. from a query parameter or config file
+sort_key = "address.city"   # could just as easily be "name" or "address.state"
+sorted_people = sorted(people, key=attrgetter(sort_key))
+```
+
+This is the actual reason to reach for `attrgetter` over a lambda: when the attribute to sort by isn't known until runtime (a user-selected column, a config-driven report), a lambda would need to build the path dynamically with `getattr` chains itself — `attrgetter` already does exactly that, and does it in C. `attrgetter` also accepts multiple attributes at once (`attrgetter("last_name", "first_name")` sorts by last name, then first name, as a tiebreak) and is a direct sibling of `operator.itemgetter` (the same idea for `obj[key]` access instead of `obj.attr`).
 
 ## Knowledge check
 
@@ -3816,156 +8082,41 @@ Neither tool is something you run in production continuously — both add real o
 {
   "questions": [
     {
-      "id": "weakrefs-memory-memory-profiler-q1",
+      "id": "internals-operator-attrgetter-q1",
       "type": "mcq",
-      "prompt": "What does memory_profiler's @profile decorator give you that a normal time-based profiler doesn't?",
+      "prompt": "What can attrgetter(\"address.city\") do that a lambda p: p.address.city cannot?",
       "options": [
-        { "id": "a", "text": "Faster overall function execution" },
-        { "id": "b", "text": "A line-by-line breakdown of memory usage inside the decorated function" },
-        { "id": "c", "text": "Automatic memory leak fixes" },
-        { "id": "d", "text": "CPU usage instead of memory usage" }
+        { "id": "a", "text": "Accept the attribute path as a runtime string, so the sort key can be chosen dynamically (e.g. from config) without writing new code" },
+        { "id": "b", "text": "Sort in descending order automatically" },
+        { "id": "c", "text": "Handle attributes that don't exist without raising an error" },
+        { "id": "d", "text": "Work on dictionaries as well as objects" }
       ],
-      "correct": "b",
-      "explanation": "memory_profiler's @profile output shows memory before/after and the delta for each individual line in the function, pinpointing exactly which line is responsible for an allocation."
+      "correct": "a",
+      "explanation": "Both express the same lookup, but attrgetter takes the path as a string, so it can be built at runtime from a variable — a lambda would need to hardcode the attribute chain or fall back to getattr/eval itself."
     },
     {
-      "id": "weakrefs-memory-memory-profiler-q2",
+      "id": "internals-operator-attrgetter-q2",
       "type": "mcq",
-      "prompt": "Why can't the @profile-decorated example run under plain `python script.py`?",
+      "prompt": "Besides accepting a dynamic string path, what's another practical advantage of attrgetter over an equivalent lambda?",
       "options": [
-        { "id": "a", "text": "It's a syntax error in modern Python" },
-        { "id": "b", "text": "@profile's line-by-line reporting only activates when run through the `python -m memory_profiler` entry point" },
-        { "id": "c", "text": "memory_profiler only works on macOS" },
-        { "id": "d", "text": "The function itself has a bug" }
+        { "id": "a", "text": "It's implemented in C, making it faster than an equivalent Python-level lambda closure" },
+        { "id": "b", "text": "It automatically caches sort results" },
+        { "id": "c", "text": "It changes the objects it sorts" },
+        { "id": "d", "text": "It only works with tuples" }
       ],
-      "correct": "b",
-      "explanation": "memory_profiler's line-by-line output requires its own runner (`python -m memory_profiler` or the `mprof` CLI) to hook into and report per-line memory deltas -- the decorator alone under plain python won't produce that report."
+      "correct": "a",
+      "explanation": "attrgetter is implemented as a C-level callable in the operator module, which is measurably faster than an equivalent Python lambda for hot sort/key paths."
     }
   ]
 }
 ```
-$md$, 12, $json$[{"id":"weakrefs-memory-memory-profiler-q1","type":"mcq","correct":"b"},{"id":"weakrefs-memory-memory-profiler-q2","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('9bf76712-b21a-5949-8ea6-212611446507', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '1066ac11-c4df-5350-a31f-89e642dd32ae', 'sys.getsizeof()', 'notes', 4, $md$`sys.getsizeof(obj)` returns the number of bytes an object itself occupies in memory. It's the quickest way to compare the raw size of two objects — and the single most common mistake with it is assuming it accounts for more than it actually does.
-
-## What it measures: shallow size only
-
-```python
-import sys
-
-empty_list = []
-list_of_ten_ints = [0] * 10
-list_of_ten_big_objects = [object()] * 10
-
-print(sys.getsizeof(empty_list))            # base overhead of an empty list
-print(sys.getsizeof(list_of_ten_ints))      # bigger -- room for 10 pointers
-print(sys.getsizeof(list_of_ten_big_objects))  # same as the ints list!
-```
-
-The last two lines report *the same size*, even though one list holds ten small integers and the other holds ten `object()` instances. That's because `getsizeof` on a list only measures the list's own internal array of pointers — not the objects those pointers point to. Ten pointers is ten pointers, regardless of what they point at.
-
-## A concrete "gotcha": 10 million identical references
-
-```python
-import sys
-
-
-class MyClass:
-    my_var = "foo"
-
-
-my_list = [MyClass()] * 10_000_000  # ONE instance, referenced 10 million times
-
-print(len(my_list))               # 10000000
-print(sys.getsizeof(my_list))     # roughly the size of 10 million pointers -- not 10 million objects
-```
-
-`[MyClass()] * 10_000_000` creates a *single* `MyClass` instance and repeats the same reference ten million times — it does not call `MyClass()` ten million times. `sys.getsizeof(my_list)` reports the size of the list's pointer array (large, but nowhere near "ten million object instances" large), because it never looks past the pointers to measure what they point to. If you actually wanted ten million distinct instances, you'd need `[MyClass() for _ in range(10_000_000)]` — and even then, `getsizeof` on the resulting list would *still* only report the list's own pointer array, not the total size of every instance it points to.
-
-## Getting the deep size instead
-
-When you need the *total* memory a nested structure occupies — a dict of lists, a tree of objects — `getsizeof` alone under-reports it, because it never recurses. You have to walk the structure yourself (or use a library like `pympler.asizeof`) and sum `getsizeof` at every level:
-
-```python
-import sys
-
-def deep_size(obj, seen=None):
-    """Recursively sum getsizeof over a nested dict/list/tuple structure."""
-    seen = seen if seen is not None else set()
-    obj_id = id(obj)
-    if obj_id in seen:
-        return 0
-    seen.add(obj_id)
-
-    size = sys.getsizeof(obj)
-    if isinstance(obj, dict):
-        size += sum(deep_size(k, seen) + deep_size(v, seen) for k, v in obj.items())
-    elif isinstance(obj, (list, tuple, set)):
-        size += sum(deep_size(item, seen) for item in obj)
-    return size
-
-
-nested = {"a": [1, 2, 3], "b": {"c": [4, 5]}}
-print(sys.getsizeof(nested))   # shallow -- just the dict's own overhead
-print(deep_size(nested))       # much larger -- recurses into every value
-```
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "weakrefs-memory-getsizeof-q1",
-      "type": "mcq",
-      "prompt": "sys.getsizeof([object()] * 10) and sys.getsizeof([0] * 10) report roughly the same size. Why?",
-      "options": [
-        { "id": "a", "text": "getsizeof always returns a fixed constant regardless of content" },
-        { "id": "b", "text": "A list's getsizeof measures its own array of pointers, not the size of the objects those pointers reference" },
-        { "id": "c", "text": "object() and 0 happen to be exactly the same size in Python" },
-        { "id": "d", "text": "Python caches all small lists to the same memory address" }
-      ],
-      "correct": "b",
-      "explanation": "getsizeof reports shallow size: for a list, that's the overhead of the list object plus its internal array of references, not the total size of whatever those references point to."
-    },
-    {
-      "id": "weakrefs-memory-getsizeof-q2",
-      "type": "mcq",
-      "prompt": "What does [MyClass()] * 10_000_000 actually create?",
-      "options": [
-        { "id": "a", "text": "10 million separate MyClass instances" },
-        { "id": "b", "text": "One MyClass instance, referenced 10 million times in the list" },
-        { "id": "c", "text": "A generator that lazily creates instances on access" },
-        { "id": "d", "text": "A MemoryError, since MyClass() can only be called once" }
-      ],
-      "correct": "b",
-      "explanation": "The * operator on a list repeats the same object reference; MyClass() is called exactly once, and the resulting single instance is referenced 10 million times."
-    },
-    {
-      "id": "weakrefs-memory-getsizeof-q3",
-      "type": "mcq",
-      "prompt": "How do you measure the total memory of a nested structure (e.g. a dict of lists), given that getsizeof doesn't recurse?",
-      "options": [
-        { "id": "a", "text": "sys.getsizeof always recurses automatically for dicts and lists" },
-        { "id": "b", "text": "Walk the structure yourself, summing getsizeof at every level (or use a library like pympler.asizeof)" },
-        { "id": "c", "text": "It's impossible to measure nested structures in Python" },
-        { "id": "d", "text": "Call sys.getsizeof(obj, deep=True)" }
-      ],
-      "correct": "b",
-      "explanation": "getsizeof only measures one object's shallow size. Getting a true total for a nested structure requires recursing through it yourself (tracking visited ids to avoid double-counting shared references) or using a dedicated deep-size library."
-    }
-  ]
-}
-```
-$md$, 10, $json$[{"id":"weakrefs-memory-getsizeof-q1","type":"mcq","correct":"b"},{"id":"weakrefs-memory-getsizeof-q2","type":"mcq","correct":"b"},{"id":"weakrefs-memory-getsizeof-q3","type":"mcq","correct":"b"}]$json$::jsonb)
+$md$, 10, $json$[{"id":"internals-operator-attrgetter-q1","type":"mcq","correct":"a"},{"id":"internals-operator-attrgetter-q2","type":"mcq","correct":"a"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 -- Section: Decorators, Dataclasses & Metaprogramming
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('6ff93f4a-2837-5cbd-9213-c1c70cc0ba4d', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Decorators, Dataclasses & Metaprogramming', 7)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('6ff93f4a-2837-5cbd-9213-c1c70cc0ba4d', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Decorators, Dataclasses & Metaprogramming', 10, 'Advanced')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('1488a14d-359f-5da5-acd9-e3f9dc41e0e4', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '6ff93f4a-2837-5cbd-9213-c1c70cc0ba4d', 'Advanced Decorators', 'notes', 0, $md$A basic decorator wraps a function to add one piece of behavior — logging, say. Senior interviews probe further: can a decorator carry its own state across calls? Can several stack together? Can it take arguments? Can it modify a *class* instead of a function? All four come up constantly in real codebases (caching, auth, rate limiting, ORMs), so being fluent with them is a strong signal.
@@ -4149,7 +8300,243 @@ $md$, 15, $json$[{"id":"decorators-dataclasses-advanced-decorators-q1","type":"m
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('68278478-0018-59f8-85bc-d81d5d7478a1', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '6ff93f4a-2837-5cbd-9213-c1c70cc0ba4d', '`dataclasses`', 'notes', 1, $md$Plain data-holding classes (DTOs, config objects, domain models) need `__init__`, `__repr__`, and usually `__eq__` — and writing them by hand is repetitive, error-prone boilerplate. `@dataclass` generates all three from a single class body of type-annotated fields.
+VALUES ('9d1d56cf-d50f-553e-b700-ba9df3bb2658', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '6ff93f4a-2837-5cbd-9213-c1c70cc0ba4d', '`functools`', 'notes', 1, $md$`functools` is the standard-library toolbox for working with functions themselves. Three tools from it come up constantly in senior interviews: `wraps` (fixes a subtle bug every hand-written decorator has), `lru_cache` (the built-in version of the memoization decorator from the previous section), and `reduce` (cumulative/fold operations).
+
+## `wraps`: preserving a decorated function's identity
+
+Every decorator written in the previous lesson has a hidden bug: once wrapped, the function's `__name__`, `__doc__`, and other metadata are replaced by the *wrapper's* — which breaks introspection, debuggers, and documentation tools.
+
+```python
+def my_decorator(func):
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    return wrapper
+
+@my_decorator
+def greet(name):
+    """Say hello to name."""
+    return f"Hello, {name}"
+
+print(greet.__name__)  # 'wrapper' — wrong! should be 'greet'
+print(greet.__doc__)   # None — the docstring is gone
+```
+
+`functools.wraps` fixes this by copying the original function's metadata onto the wrapper:
+
+```python
+from functools import wraps
+
+def my_decorator(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    return wrapper
+
+@my_decorator
+def greet(name):
+    """Say hello to name."""
+    return f"Hello, {name}"
+
+print(greet.__name__)  # 'greet' — correct
+print(greet.__doc__)   # 'Say hello to name.'
+```
+
+Any decorator you write for real code should apply `@wraps(func)` to its inner wrapper — it costs one line and prevents a class of confusing bugs downstream.
+
+## `lru_cache`: memoization without hand-rolling it
+
+The `cache` decorator from the previous lesson (a dict keyed by arguments) is exactly what `lru_cache` gives you for free, plus an eviction policy (Least Recently Used) so the cache doesn't grow unbounded:
+
+```python
+from functools import lru_cache
+
+@lru_cache(maxsize=3)
+def expensive_computation(x):
+    print(f"Computing {x}")
+    return x * x
+
+print(expensive_computation(2))  # Computing 2 -> 4
+print(expensive_computation(2))  # 4 (served from cache, no "Computing 2" print)
+print(expensive_computation(3))  # Computing 3 -> 9
+```
+
+`maxsize=3` caps the cache at 3 distinct argument combinations; once full, the least-recently-used entry is evicted to make room. `maxsize=None` makes it unbounded. Arguments must be hashable (this is a dict under the hood).
+
+## `reduce`: cumulative operations
+
+`reduce(function, iterable)` folds an iterable down to a single value by repeatedly applying a two-argument function — `reduce(f, [a, b, c])` computes `f(f(a, b), c)`:
+
+```python
+from functools import reduce
+
+numbers = [1, 2, 3, 4]
+product = reduce(lambda x, y: x * y, numbers)
+print(product)  # 24
+
+total = reduce(lambda x, y: x + y, numbers, 0)  # 0 is the starting value
+print(total)  # 10
+```
+
+`sum()` already covers the addition case — `reduce` earns its place for anything without a dedicated built-in: running max with custom comparison, merging dicts, composing a chain of functions.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "decorators-dataclasses-functools-q1",
+      "type": "mcq",
+      "prompt": "What bug does functools.wraps fix?",
+      "options": [
+        { "id": "a", "text": "It makes decorated functions run faster" },
+        { "id": "b", "text": "Without it, the wrapped function's __name__, __doc__, and other metadata get replaced by the wrapper function's own metadata" },
+        { "id": "c", "text": "It prevents decorators from being stacked" },
+        { "id": "d", "text": "It adds automatic error handling to every decorator" }
+      ],
+      "correct": "b",
+      "explanation": "A plain wrapper function shadows the original's __name__ and __doc__. @wraps(func) copies that metadata onto the wrapper so introspection and debugging still show the original function's identity."
+    },
+    {
+      "id": "decorators-dataclasses-functools-q2",
+      "type": "mcq",
+      "prompt": "What does maxsize=3 do on @lru_cache(maxsize=3)?",
+      "options": [
+        { "id": "a", "text": "Limits the function to being called 3 times total" },
+        { "id": "b", "text": "Caps the cache at 3 distinct argument combinations, evicting the least-recently-used entry once full" },
+        { "id": "c", "text": "Runs the function on up to 3 threads in parallel" },
+        { "id": "d", "text": "Limits the result value to 3 bytes" }
+      ],
+      "correct": "b",
+      "explanation": "lru_cache keeps at most maxsize cached results, keyed by call arguments; the Least Recently Used entry is evicted first when the cache is full and a new argument combination arrives."
+    },
+    {
+      "id": "decorators-dataclasses-functools-q3",
+      "type": "mcq",
+      "prompt": "What does reduce(lambda x, y: x * y, [1, 2, 3, 4]) compute?",
+      "options": [
+        { "id": "a", "text": "[1, 2, 3, 4] unchanged" },
+        { "id": "b", "text": "((1 * 2) * 3) * 4 = 24" },
+        { "id": "c", "text": "1 + 2 + 3 + 4 = 10" },
+        { "id": "d", "text": "A generator that hasn't been consumed yet" }
+      ],
+      "correct": "b",
+      "explanation": "reduce folds the iterable left to right, repeatedly applying the two-argument function: ((1*2)*3)*4 = 24."
+    }
+  ]
+}
+```
+$md$, 15, $json$[{"id":"decorators-dataclasses-functools-q1","type":"mcq","correct":"b"},{"id":"decorators-dataclasses-functools-q2","type":"mcq","correct":"b"},{"id":"decorators-dataclasses-functools-q3","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('e19573e1-5baf-5b54-b4dd-1b4dbc6c72b6', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '6ff93f4a-2837-5cbd-9213-c1c70cc0ba4d', 'Metaprogramming', 'notes', 2, $md$Metaprogramming is code that writes, inspects, or modifies other code — at runtime, in Python's case, rather than at compile time. It's not a single feature; it's a category that decorators, metaclasses, dynamic attribute creation, and runtime introspection all belong to. Every ORM, dependency-injection container, and test framework you've used leans on it heavily, so recognizing the pattern (and its readability cost) is a senior-level skill in its own right.
+
+## The three levers Python gives you
+
+**1. Decorators** — wrap or rewrite a function/class definition at the moment it's created (covered in the previous lesson). This is metaprogramming at the *function/class* level.
+
+**2. Metaclasses** — a metaclass controls how a *class itself* is built, the same way a class controls how its instances are built. `type` is the default metaclass for every class in Python; a custom metaclass hooks into that process (covered in a later lesson).
+
+**3. Dynamic attribute creation & inspection** — building or reading attributes at runtime instead of writing them out in source. `type()` called with three arguments creates a class on the fly:
+
+```python
+def greet(self):
+    return f"Hi, I'm {self.name}"
+
+Person = type("Person", (), {"greet": greet, "species": "human"})
+
+p = Person()
+p.name = "Ana"
+print(p.greet())     # Hi, I'm Ana
+print(p.species)     # human
+print(type(Person))  # <class 'type'>
+```
+
+`class Person: ...` is sugar for exactly this call — the interpreter builds the class body into a namespace dict and calls `type(name, bases, namespace)` on it. Writing that call directly is how frameworks generate classes from data they don't know about until runtime (an ORM building a model class from a database schema, for instance).
+
+## Runtime inspection: `getattr`/`setattr`/`hasattr`
+
+The introspection half of metaprogramming — reading or writing attributes by *name*, computed at runtime rather than known at write time:
+
+```python
+class Config:
+    debug = False
+    timeout = 30
+
+settings = {"debug": True, "retries": 3}
+cfg = Config()
+for key, value in settings.items():
+    setattr(cfg, key, value)   # cfg.debug = True; cfg.retries = 3
+
+print(cfg.debug, cfg.timeout, cfg.retries)  # True 30 3
+print(getattr(cfg, "missing", "default"))   # "default" — no AttributeError
+```
+
+This is how a config loader can populate arbitrary settings from a JSON file, or a serializer can round-trip arbitrary fields, without a hardcoded `if key == "debug": self.debug = value` branch per field.
+
+## Where the industry uses this
+
+- **ORMs** (Django, SQLAlchemy): a metaclass turns class-level attribute declarations (`name = CharField()`) into database column mappings.
+- **Dependency injection containers**: inspect a function's parameter names/annotations at runtime and auto-supply matching registered objects.
+- **Test frameworks** (pytest): discover functions named `test_*` via introspection, then wrap them with fixtures via decorators.
+
+## The cost
+
+Every lever above makes code *dynamic* — which also makes it harder to trace with a plain text search, harder for static type checkers to verify, and harder to debug because the "definition" of behavior isn't sitting in one readable place. The senior-level judgment call isn't "can I do this with metaprogramming" (usually yes) but "does the flexibility this buys pay for the readability it costs" — reach for it when you're building a reusable framework surface, not for one-off application code.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "decorators-dataclasses-metaprogramming-q1",
+      "type": "mcq",
+      "prompt": "Which of these is NOT one of Python's core metaprogramming mechanisms?",
+      "options": [
+        { "id": "a", "text": "Decorators" },
+        { "id": "b", "text": "Metaclasses" },
+        { "id": "c", "text": "List comprehensions" },
+        { "id": "d", "text": "Dynamic attribute creation with setattr/type()" }
+      ],
+      "correct": "c",
+      "explanation": "List comprehensions are ordinary syntax for building a list — they don't modify or generate code at runtime. Decorators, metaclasses, and dynamic attribute creation all do."
+    },
+    {
+      "id": "decorators-dataclasses-metaprogramming-q2",
+      "type": "mcq",
+      "prompt": "What does `type(\"Person\", (), {\"species\": \"human\"})` do?",
+      "options": [
+        { "id": "a", "text": "Returns the string \"Person\"" },
+        { "id": "b", "text": "Creates a new class named Person with no bases and a species class attribute — equivalent to a `class Person:` statement" },
+        { "id": "c", "text": "Raises a TypeError because type() only takes one argument" },
+        { "id": "d", "text": "Creates an instance of an existing Person class" }
+      ],
+      "correct": "b",
+      "explanation": "type() called with three arguments (name, bases tuple, namespace dict) builds a new class object — exactly what a `class` statement compiles down to internally."
+    },
+    {
+      "id": "decorators-dataclasses-metaprogramming-q3",
+      "type": "mcq",
+      "prompt": "What's the main tradeoff to weigh before reaching for metaprogramming in application code?",
+      "options": [
+        { "id": "a", "text": "Metaprogramming always makes code run slower, so it should be avoided for performance" },
+        { "id": "b", "text": "It buys flexibility at the cost of readability and traceability — harder to grep, harder for type checkers, harder to debug" },
+        { "id": "c", "text": "Python forbids metaprogramming outside of the standard library" },
+        { "id": "d", "text": "It only works inside classes, never with plain functions" }
+      ],
+      "correct": "b",
+      "explanation": "Dynamic behavior (metaclasses, runtime attribute creation, etc.) is harder to trace statically. It's the right tool when building a reusable framework surface, not a default for one-off code."
+    }
+  ]
+}
+```
+$md$, 15, $json$[{"id":"decorators-dataclasses-metaprogramming-q1","type":"mcq","correct":"c"},{"id":"decorators-dataclasses-metaprogramming-q2","type":"mcq","correct":"b"},{"id":"decorators-dataclasses-metaprogramming-q3","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('68278478-0018-59f8-85bc-d81d5d7478a1', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '6ff93f4a-2837-5cbd-9213-c1c70cc0ba4d', '`dataclasses`', 'notes', 3, $md$Plain data-holding classes (DTOs, config objects, domain models) need `__init__`, `__repr__`, and usually `__eq__` — and writing them by hand is repetitive, error-prone boilerplate. `@dataclass` generates all three from a single class body of type-annotated fields.
 
 ## By hand vs. `@dataclass`
 
@@ -4279,242 +8666,6 @@ Frozen dataclasses are also hashable by default (as long as every field is hasha
 }
 ```
 $md$, 12, $json$[{"id":"decorators-dataclasses-dataclasses-q1","type":"mcq","correct":"b"},{"id":"decorators-dataclasses-dataclasses-q2","type":"mcq","correct":"b"},{"id":"decorators-dataclasses-dataclasses-q3","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('e19573e1-5baf-5b54-b4dd-1b4dbc6c72b6', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '6ff93f4a-2837-5cbd-9213-c1c70cc0ba4d', 'Metaprogramming', 'notes', 2, $md$Metaprogramming is code that writes, inspects, or modifies other code — at runtime, in Python's case, rather than at compile time. It's not a single feature; it's a category that decorators, metaclasses, dynamic attribute creation, and runtime introspection all belong to. Every ORM, dependency-injection container, and test framework you've used leans on it heavily, so recognizing the pattern (and its readability cost) is a senior-level skill in its own right.
-
-## The three levers Python gives you
-
-**1. Decorators** — wrap or rewrite a function/class definition at the moment it's created (covered in the previous lesson). This is metaprogramming at the *function/class* level.
-
-**2. Metaclasses** — a metaclass controls how a *class itself* is built, the same way a class controls how its instances are built. `type` is the default metaclass for every class in Python; a custom metaclass hooks into that process (covered in a later lesson).
-
-**3. Dynamic attribute creation & inspection** — building or reading attributes at runtime instead of writing them out in source. `type()` called with three arguments creates a class on the fly:
-
-```python
-def greet(self):
-    return f"Hi, I'm {self.name}"
-
-Person = type("Person", (), {"greet": greet, "species": "human"})
-
-p = Person()
-p.name = "Ana"
-print(p.greet())     # Hi, I'm Ana
-print(p.species)     # human
-print(type(Person))  # <class 'type'>
-```
-
-`class Person: ...` is sugar for exactly this call — the interpreter builds the class body into a namespace dict and calls `type(name, bases, namespace)` on it. Writing that call directly is how frameworks generate classes from data they don't know about until runtime (an ORM building a model class from a database schema, for instance).
-
-## Runtime inspection: `getattr`/`setattr`/`hasattr`
-
-The introspection half of metaprogramming — reading or writing attributes by *name*, computed at runtime rather than known at write time:
-
-```python
-class Config:
-    debug = False
-    timeout = 30
-
-settings = {"debug": True, "retries": 3}
-cfg = Config()
-for key, value in settings.items():
-    setattr(cfg, key, value)   # cfg.debug = True; cfg.retries = 3
-
-print(cfg.debug, cfg.timeout, cfg.retries)  # True 30 3
-print(getattr(cfg, "missing", "default"))   # "default" — no AttributeError
-```
-
-This is how a config loader can populate arbitrary settings from a JSON file, or a serializer can round-trip arbitrary fields, without a hardcoded `if key == "debug": self.debug = value` branch per field.
-
-## Where the industry uses this
-
-- **ORMs** (Django, SQLAlchemy): a metaclass turns class-level attribute declarations (`name = CharField()`) into database column mappings.
-- **Dependency injection containers**: inspect a function's parameter names/annotations at runtime and auto-supply matching registered objects.
-- **Test frameworks** (pytest): discover functions named `test_*` via introspection, then wrap them with fixtures via decorators.
-
-## The cost
-
-Every lever above makes code *dynamic* — which also makes it harder to trace with a plain text search, harder for static type checkers to verify, and harder to debug because the "definition" of behavior isn't sitting in one readable place. The senior-level judgment call isn't "can I do this with metaprogramming" (usually yes) but "does the flexibility this buys pay for the readability it costs" — reach for it when you're building a reusable framework surface, not for one-off application code.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "decorators-dataclasses-metaprogramming-q1",
-      "type": "mcq",
-      "prompt": "Which of these is NOT one of Python's core metaprogramming mechanisms?",
-      "options": [
-        { "id": "a", "text": "Decorators" },
-        { "id": "b", "text": "Metaclasses" },
-        { "id": "c", "text": "List comprehensions" },
-        { "id": "d", "text": "Dynamic attribute creation with setattr/type()" }
-      ],
-      "correct": "c",
-      "explanation": "List comprehensions are ordinary syntax for building a list — they don't modify or generate code at runtime. Decorators, metaclasses, and dynamic attribute creation all do."
-    },
-    {
-      "id": "decorators-dataclasses-metaprogramming-q2",
-      "type": "mcq",
-      "prompt": "What does `type(\"Person\", (), {\"species\": \"human\"})` do?",
-      "options": [
-        { "id": "a", "text": "Returns the string \"Person\"" },
-        { "id": "b", "text": "Creates a new class named Person with no bases and a species class attribute — equivalent to a `class Person:` statement" },
-        { "id": "c", "text": "Raises a TypeError because type() only takes one argument" },
-        { "id": "d", "text": "Creates an instance of an existing Person class" }
-      ],
-      "correct": "b",
-      "explanation": "type() called with three arguments (name, bases tuple, namespace dict) builds a new class object — exactly what a `class` statement compiles down to internally."
-    },
-    {
-      "id": "decorators-dataclasses-metaprogramming-q3",
-      "type": "mcq",
-      "prompt": "What's the main tradeoff to weigh before reaching for metaprogramming in application code?",
-      "options": [
-        { "id": "a", "text": "Metaprogramming always makes code run slower, so it should be avoided for performance" },
-        { "id": "b", "text": "It buys flexibility at the cost of readability and traceability — harder to grep, harder for type checkers, harder to debug" },
-        { "id": "c", "text": "Python forbids metaprogramming outside of the standard library" },
-        { "id": "d", "text": "It only works inside classes, never with plain functions" }
-      ],
-      "correct": "b",
-      "explanation": "Dynamic behavior (metaclasses, runtime attribute creation, etc.) is harder to trace statically. It's the right tool when building a reusable framework surface, not a default for one-off code."
-    }
-  ]
-}
-```
-$md$, 15, $json$[{"id":"decorators-dataclasses-metaprogramming-q1","type":"mcq","correct":"c"},{"id":"decorators-dataclasses-metaprogramming-q2","type":"mcq","correct":"b"},{"id":"decorators-dataclasses-metaprogramming-q3","type":"mcq","correct":"b"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('9d1d56cf-d50f-553e-b700-ba9df3bb2658', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '6ff93f4a-2837-5cbd-9213-c1c70cc0ba4d', '`functools`', 'notes', 3, $md$`functools` is the standard-library toolbox for working with functions themselves. Three tools from it come up constantly in senior interviews: `wraps` (fixes a subtle bug every hand-written decorator has), `lru_cache` (the built-in version of the memoization decorator from the previous section), and `reduce` (cumulative/fold operations).
-
-## `wraps`: preserving a decorated function's identity
-
-Every decorator written in the previous lesson has a hidden bug: once wrapped, the function's `__name__`, `__doc__`, and other metadata are replaced by the *wrapper's* — which breaks introspection, debuggers, and documentation tools.
-
-```python
-def my_decorator(func):
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    return wrapper
-
-@my_decorator
-def greet(name):
-    """Say hello to name."""
-    return f"Hello, {name}"
-
-print(greet.__name__)  # 'wrapper' — wrong! should be 'greet'
-print(greet.__doc__)   # None — the docstring is gone
-```
-
-`functools.wraps` fixes this by copying the original function's metadata onto the wrapper:
-
-```python
-from functools import wraps
-
-def my_decorator(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    return wrapper
-
-@my_decorator
-def greet(name):
-    """Say hello to name."""
-    return f"Hello, {name}"
-
-print(greet.__name__)  # 'greet' — correct
-print(greet.__doc__)   # 'Say hello to name.'
-```
-
-Any decorator you write for real code should apply `@wraps(func)` to its inner wrapper — it costs one line and prevents a class of confusing bugs downstream.
-
-## `lru_cache`: memoization without hand-rolling it
-
-The `cache` decorator from the previous lesson (a dict keyed by arguments) is exactly what `lru_cache` gives you for free, plus an eviction policy (Least Recently Used) so the cache doesn't grow unbounded:
-
-```python
-from functools import lru_cache
-
-@lru_cache(maxsize=3)
-def expensive_computation(x):
-    print(f"Computing {x}")
-    return x * x
-
-print(expensive_computation(2))  # Computing 2 -> 4
-print(expensive_computation(2))  # 4 (served from cache, no "Computing 2" print)
-print(expensive_computation(3))  # Computing 3 -> 9
-```
-
-`maxsize=3` caps the cache at 3 distinct argument combinations; once full, the least-recently-used entry is evicted to make room. `maxsize=None` makes it unbounded. Arguments must be hashable (this is a dict under the hood).
-
-## `reduce`: cumulative operations
-
-`reduce(function, iterable)` folds an iterable down to a single value by repeatedly applying a two-argument function — `reduce(f, [a, b, c])` computes `f(f(a, b), c)`:
-
-```python
-from functools import reduce
-
-numbers = [1, 2, 3, 4]
-product = reduce(lambda x, y: x * y, numbers)
-print(product)  # 24
-
-total = reduce(lambda x, y: x + y, numbers, 0)  # 0 is the starting value
-print(total)  # 10
-```
-
-`sum()` already covers the addition case — `reduce` earns its place for anything without a dedicated built-in: running max with custom comparison, merging dicts, composing a chain of functions.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "decorators-dataclasses-functools-q1",
-      "type": "mcq",
-      "prompt": "What bug does functools.wraps fix?",
-      "options": [
-        { "id": "a", "text": "It makes decorated functions run faster" },
-        { "id": "b", "text": "Without it, the wrapped function's __name__, __doc__, and other metadata get replaced by the wrapper function's own metadata" },
-        { "id": "c", "text": "It prevents decorators from being stacked" },
-        { "id": "d", "text": "It adds automatic error handling to every decorator" }
-      ],
-      "correct": "b",
-      "explanation": "A plain wrapper function shadows the original's __name__ and __doc__. @wraps(func) copies that metadata onto the wrapper so introspection and debugging still show the original function's identity."
-    },
-    {
-      "id": "decorators-dataclasses-functools-q2",
-      "type": "mcq",
-      "prompt": "What does maxsize=3 do on @lru_cache(maxsize=3)?",
-      "options": [
-        { "id": "a", "text": "Limits the function to being called 3 times total" },
-        { "id": "b", "text": "Caps the cache at 3 distinct argument combinations, evicting the least-recently-used entry once full" },
-        { "id": "c", "text": "Runs the function on up to 3 threads in parallel" },
-        { "id": "d", "text": "Limits the result value to 3 bytes" }
-      ],
-      "correct": "b",
-      "explanation": "lru_cache keeps at most maxsize cached results, keyed by call arguments; the Least Recently Used entry is evicted first when the cache is full and a new argument combination arrives."
-    },
-    {
-      "id": "decorators-dataclasses-functools-q3",
-      "type": "mcq",
-      "prompt": "What does reduce(lambda x, y: x * y, [1, 2, 3, 4]) compute?",
-      "options": [
-        { "id": "a", "text": "[1, 2, 3, 4] unchanged" },
-        { "id": "b", "text": "((1 * 2) * 3) * 4 = 24" },
-        { "id": "c", "text": "1 + 2 + 3 + 4 = 10" },
-        { "id": "d", "text": "A generator that hasn't been consumed yet" }
-      ],
-      "correct": "b",
-      "explanation": "reduce folds the iterable left to right, repeatedly applying the two-argument function: ((1*2)*3)*4 = 24."
-    }
-  ]
-}
-```
-$md$, 15, $json$[{"id":"decorators-dataclasses-functools-q1","type":"mcq","correct":"b"},{"id":"decorators-dataclasses-functools-q2","type":"mcq","correct":"b"},{"id":"decorators-dataclasses-functools-q3","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
@@ -4649,92 +8800,56 @@ print(task)  # TaskWithField(description='Do laundry', completed=False)
 $md$, 12, $json$[{"id":"decorators-dataclasses-advanced-dataclass-features-q1","type":"mcq","correct":"b"},{"id":"decorators-dataclasses-advanced-dataclass-features-q2","type":"mcq","correct":"b"},{"id":"decorators-dataclasses-advanced-dataclass-features-q3","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
--- Section: Async, Callables & Advanced Typing
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('ebcdcec0-ab75-508e-ae00-d10a40e41ba9', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Async, Callables & Advanced Typing', 8)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
-
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('bf8f5167-65ca-5076-b0a1-cbfce57e5f08', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'ebcdcec0-ab75-508e-ae00-d10a40e41ba9', '`asyncio`', 'notes', 0, $md$Threads give you concurrency by having the OS preempt them; `asyncio` gives you concurrency by having your own code voluntarily yield control at `await` points, all on a single thread. No GIL contention, no locks needed for data that's never touched between `await`s — which makes it the standard choice for I/O-bound workloads (network calls, database queries, web scraping) where a thread would otherwise sit idle waiting on a socket.
+VALUES ('057c09cb-7260-58b9-802e-4ea6c35c72cd', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '6ff93f4a-2837-5cbd-9213-c1c70cc0ba4d', 'Metaclasses', 'notes', 5, $md$Every class you write in Python is itself an object — and like every object, it has a type. The type of a class is its **metaclass**. By default that metaclass is the built-in `type`, which means every `class Dog: ...` statement you've ever written was secretly a call to `type(...)`.
 
-## A single coroutine
-
-`async def` defines a coroutine function — calling it doesn't run the body, it returns a coroutine object that has to be driven by an event loop. `asyncio.run()` is that driver for top-level code:
+## `class` is sugar for calling `type`
 
 ```python
-import asyncio
+class Dog:
+    pass
 
-async def greet():
-    print("Hello!")
-    await asyncio.sleep(1)  # yields control back to the event loop for 1 second
-    print("World!")
+# The class statement above is equivalent to calling type() directly:
+# type(name, bases, namespace) -> a new class
+Dog2 = type("Dog2", (), {})
 
-asyncio.run(greet())
-# Hello!
-# (1 second pause)
-# World!
+print(type(Dog))    # <class 'type'>
+print(type(Dog2))   # <class 'type'>
+print(Dog2().__class__.__name__)  # Dog2
 ```
 
-`await asyncio.sleep(1)` is not `time.sleep(1)` — it doesn't block the thread, it tells the event loop "wake me up in 1 second, and run something else meanwhile." With only one coroutine there's nothing else to run, but that's the mechanism concurrency is built on.
+`type` takes three arguments: the class's name, a tuple of base classes, and a dict of the class body's attributes and methods. The `class` keyword is just readable syntax for building that same call.
 
-## Running coroutines concurrently with `gather`
+## Writing your own metaclass
 
-`asyncio.gather` schedules multiple coroutines on the same event loop and lets them interleave at their `await` points:
+A **metaclass** is a class that inherits from `type` and overrides `__new__` (or `__init__`) to hook into class *creation itself* — not instance creation. This lets you inspect, validate, or rewrite a class's attributes the moment the class is defined, before anyone ever instantiates it.
 
 ```python
-import asyncio
+class UpperAttrMeta(type):
+    def __new__(mcs, name, bases, namespace):
+        # Rewrite every non-dunder attribute name to uppercase
+        uppercase_namespace = {
+            (key.upper() if not key.startswith("__") else key): value
+            for key, value in namespace.items()
+        }
+        return super().__new__(mcs, name, bases, uppercase_namespace)
 
-async def task_1():
-    print("Task 1: Start")
-    await asyncio.sleep(0.2)
-    print("Task 1: End")
 
-async def task_2():
-    print("Task 2: Start")
-    await asyncio.sleep(0.1)
-    print("Task 2: End")
+class Config(metaclass=UpperAttrMeta):
+    timeout = 30
+    retries = 3
 
-async def main():
-    await asyncio.gather(task_1(), task_2())
 
-asyncio.run(main())
-# Task 1: Start
-# Task 2: Start
-# Task 2: End   (0.1s sleep finishes first)
-# Task 1: End   (0.2s sleep finishes second)
+print(Config.TIMEOUT)  # 30
+print(Config.RETRIES)  # 3
+print(hasattr(Config, "timeout"))  # False — it was rewritten at class-creation time
 ```
 
-Both tasks start immediately — the "Start" prints happen back to back — then whichever one's `sleep` elapses first resumes first. Total wall-clock time is ~0.2s (the longer of the two), not ~0.3s (their sum), because they overlap instead of running sequentially.
+`UpperAttrMeta.__new__` runs once, when the `Config` class body finishes executing — not once per instance. Every `Config()` you create afterward already has uppercase attributes; the metaclass did its work at class-definition time.
 
-## Producer/consumer with `asyncio.Queue`
+## When to actually reach for one
 
-`asyncio.Queue` coordinates coroutines the same way `queue.Queue` coordinates threads — but a consumer that loops forever must be given a way to know when to stop, or `gather` never returns. A sentinel value (`None`) signals "no more items":
-
-```python
-import asyncio
-
-async def producer(queue):
-    for i in range(3):
-        await asyncio.sleep(0.1)
-        await queue.put(f"item-{i}")
-        print(f"produced item-{i}")
-    await queue.put(None)  # sentinel: tells the consumer to stop
-
-async def consumer(queue):
-    while True:
-        item = await queue.get()
-        if item is None:
-            break
-        print(f"consumed {item}")
-
-async def main():
-    queue = asyncio.Queue()
-    await asyncio.gather(producer(queue), consumer(queue))
-
-asyncio.run(main())
-```
-
-Without that `await queue.put(None)` sentinel, `consumer`'s `while True: await queue.get()` would wait forever for an item that never arrives, and `gather` — which waits for *every* coroutine it was given — would hang indefinitely. This is the single most common bug in hand-written async producer/consumer code: always give the consumer an explicit stop signal.
+Metaclasses are the most powerful hook Python gives you into the language itself, and that power is exactly why the common advice is "metaclasses are solutions in search of a problem" for application code. They're the right tool when you need to enforce a rule across *every subclass* automatically — registering every subclass in a registry, validating that required class attributes are present, or generating boilerplate methods — the kind of thing frameworks do (see the next lesson for how Django's ORM uses this). For everyday code, a class decorator, `__init_subclass__`, or a plain base class usually solves the same problem with far less indirection.
 
 ## Knowledge check
 
@@ -4742,136 +8857,187 @@ Without that `await queue.put(None)` sentinel, `consumer`'s `while True: await q
 {
   "questions": [
     {
-      "id": "async-typing-asyncio-q1",
+      "id": "metaclasses-context-managers-metaclasses-q1",
       "type": "mcq",
-      "prompt": "What's the key difference between await asyncio.sleep(1) and time.sleep(1) inside a coroutine?",
+      "prompt": "What is the default metaclass of every Python class unless you specify otherwise?",
       "options": [
-        { "id": "a", "text": "There is no difference — they behave identically" },
-        { "id": "b", "text": "asyncio.sleep yields control back to the event loop so other coroutines can run during the wait; time.sleep blocks the entire thread" },
-        { "id": "c", "text": "time.sleep is faster because it doesn't involve the event loop" },
-        { "id": "d", "text": "asyncio.sleep can only be used outside of async functions" }
+        { "id": "a", "text": "object" },
+        { "id": "b", "text": "type" },
+        { "id": "c", "text": "class" },
+        { "id": "d", "text": "meta" }
       ],
       "correct": "b",
-      "explanation": "await asyncio.sleep(1) suspends only the current coroutine and lets the event loop run other scheduled coroutines during that second. time.sleep(1) blocks the whole thread, starving every other coroutine too — a classic asyncio antipattern."
+      "explanation": "Every class's type is `type` by default — the `class` statement is syntactic sugar for calling `type(name, bases, namespace)`."
     },
     {
-      "id": "async-typing-asyncio-q2",
+      "id": "metaclasses-context-managers-metaclasses-q2",
       "type": "mcq",
-      "prompt": "In the gather(task_1(), task_2()) example, why does Task 2 finish before Task 1 even though task_1 was listed first?",
+      "prompt": "When does a metaclass's __new__ method run?",
       "options": [
-        { "id": "a", "text": "gather always runs coroutines in reverse order" },
-        { "id": "b", "text": "Both start immediately and interleave at their await points; task_2's shorter sleep(0.1) elapses before task_1's sleep(0.2), so it resumes and finishes first" },
-        { "id": "c", "text": "task_1 raised an exception and was skipped" },
-        { "id": "d", "text": "Order in gather() only affects print statements, not execution" }
+        { "id": "a", "text": "Every time an instance of the class is created" },
+        { "id": "b", "text": "Once, when the class itself is defined" },
+        { "id": "c", "text": "Only when the class is subclassed" },
+        { "id": "d", "text": "Every time an attribute on the class is accessed" }
       ],
       "correct": "b",
-      "explanation": "gather starts every coroutine right away; they run cooperatively, and whichever one's await resolves first resumes first. task_2's 0.1s sleep finishes before task_1's 0.2s sleep, so it completes first regardless of argument order."
+      "explanation": "A metaclass's __new__/__init__ hook into class creation, not instance creation — they run once when the `class` statement executes, not per-instance."
     },
     {
-      "id": "async-typing-asyncio-q3",
+      "id": "metaclasses-context-managers-metaclasses-q3",
       "type": "mcq",
-      "prompt": "What happens if the producer never puts a None sentinel on the queue, given a consumer written as `while True: item = await queue.get(); if item is None: break`?",
+      "prompt": "What's the generally recommended alternative to a custom metaclass for everyday application code?",
       "options": [
-        { "id": "a", "text": "The consumer exits automatically once the producer finishes" },
-        { "id": "b", "text": "The consumer's await queue.get() blocks forever waiting for another item, and gather() never returns" },
-        { "id": "c", "text": "asyncio.Queue raises a TimeoutError after a default timeout" },
-        { "id": "d", "text": "The program exits cleanly since there's nothing left to consume" }
+        { "id": "a", "text": "There is no alternative — metaclasses are always required for class customization" },
+        { "id": "b", "text": "A class decorator, __init_subclass__, or a plain base class, which solve most problems with less indirection" },
+        { "id": "c", "text": "Rewriting the class as a set of module-level functions" },
+        { "id": "d", "text": "Using multiple inheritance instead" }
       ],
       "correct": "b",
-      "explanation": "Without a sentinel, the consumer has no signal to stop looping — its await queue.get() call simply waits forever for an item that will never come, and gather() waits for every coroutine it was given, so the whole program hangs."
+      "explanation": "Metaclasses are powerful but heavy machinery; simpler hooks like __init_subclass__ or class decorators cover most real-world needs with far less indirection."
     }
   ]
 }
 ```
-$md$, 20, $json$[{"id":"async-typing-asyncio-q1","type":"mcq","correct":"b"},{"id":"async-typing-asyncio-q2","type":"mcq","correct":"b"},{"id":"async-typing-asyncio-q3","type":"mcq","correct":"b"}]$json$::jsonb)
+$md$, 18, $json$[{"id":"metaclasses-context-managers-metaclasses-q1","type":"mcq","correct":"b"},{"id":"metaclasses-context-managers-metaclasses-q2","type":"mcq","correct":"b"},{"id":"metaclasses-context-managers-metaclasses-q3","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('f75685cf-ea22-5da3-96ea-78efee05b98e', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'ebcdcec0-ab75-508e-ae00-d10a40e41ba9', 'Callable Objects (`__call__`)', 'notes', 1, $md$Defining `__call__` on a class makes its instances callable with `()`, exactly like a function. This matters when you need a function-like object that also carries persistent state — cleaner than a closure once that state needs to be inspected, updated, or shared after creation.
-
-## A callable instance
+VALUES ('6f261671-9a69-540a-a3dc-2cb5c6bd1edb', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '6ff93f4a-2837-5cbd-9213-c1c70cc0ba4d', 'Metaclasses in Frameworks (Django Example)', 'notes', 6, $md$Django models look like magic the first time you see them:
 
 ```python
-class Multiplier:
-    def __init__(self, factor):
-        self.factor = factor
-
-    def __call__(self, value):
-        return self.factor * value
-
-doubler = Multiplier(2)
-tripler = Multiplier(3)
-
-print(doubler(5))  # 10 — calling the instance invokes __call__
-print(tripler(5))  # 15
-
-print(callable(doubler))  # True — instances of a class defining __call__ are callable
+class Article(models.Model):
+    title = models.CharField(max_length=200)
+    views = models.IntegerField()
 ```
 
-`doubler(5)` is syntactic sugar for `doubler.__call__(5)`, the same way `len(x)` is sugar for `x.__len__()`. `doubler` and `tripler` are two independent objects, each holding its own `factor` — a closure could capture `factor` too, but couldn't offer `doubler.factor = 4` to reconfigure it after creation the way an attribute can.
+`title` and `views` are just class attributes assigned instances of `CharField`/`IntegerField` — yet Django somehow turns them into database columns, gives the class a `.objects` manager, and lets you call `Article.objects.filter(views__gt=100)`. None of that is written anywhere in the `Article` class body. This is the previous lesson's metaclass hook, applied at framework scale.
 
-## Closures vs. callable objects
+## What actually happens at class-definition time
 
-A closure works fine for one piece of hidden state:
+`models.Model`'s metaclass (`ModelBase`, a subclass of `type`) intercepts every subclass's creation. When `class Article(models.Model): ...` executes, Python calls `ModelBase.__new__`, which walks the class's namespace, pulls out every attribute that's an instance of `Field`, and rewrites the class before it's ever used.
 
 ```python
-def make_multiplier(factor):
-    def multiply(value):
-        return factor * value
-    return multiply
+class Field:
+    """Toy stand-in for django.db.models.CharField/IntegerField."""
+    def __init__(self, kind):
+        self.kind = kind
 
-doubler = make_multiplier(2)
-print(doubler(5))  # 10
+
+class DatabaseManager:
+    def filter(self, **kwargs):
+        print(f"SELECT * FROM table WHERE {kwargs}")
+
+
+class ModelMeta(type):
+    def __new__(mcs, name, bases, namespace):
+        # Collect every attribute that's a Field instance
+        fields = {
+            key: value for key, value in namespace.items()
+            if isinstance(value, Field)
+        }
+        namespace["_meta"] = {"fields": fields}
+        namespace["objects"] = DatabaseManager()
+        return super().__new__(mcs, name, bases, namespace)
+
+
+class Model(metaclass=ModelMeta):
+    pass
+
+
+class Article(Model):
+    title = Field("char")
+    views = Field("int")
+
+
+print(Article._meta["fields"])   # {'title': <Field ...>, 'views': <Field ...>}
+Article.objects.filter(views__gt=100)  # SELECT * FROM table WHERE {'views__gt': 100}
 ```
 
-But once you need *multiple* pieces of state, methods that manipulate that state, or the ability to inspect/mutate it from outside, a callable class scales better than a closure with more and more captured variables:
+`Article` never defines `_meta` or `objects` itself — `ModelMeta.__new__` injects both while the class is being built, before the module finishes importing. By the time your code runs `Article.objects`, the attribute has existed since class-definition time.
+
+## Why this explains framework "magic"
+
+This is the general pattern behind most "magic" class-based frameworks: a metaclass (or `__init_subclass__`) inspects the class body's declarative attributes — fields, routes, schema definitions — and generates the runtime machinery (database mappings, serializers, registries) automatically. Recognizing this pattern is what lets you read *any* unfamiliar framework's model/schema classes and know where to go looking for the code that's actually doing the work: the metaclass, not the subclass you're reading.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "metaclasses-context-managers-metaclasses-in-frameworks-q1",
+      "type": "mcq",
+      "prompt": "In the toy ModelMeta example, why does Article.objects exist even though Article never defines it?",
+      "options": [
+        { "id": "a", "text": "Python automatically adds an `objects` attribute to every class" },
+        { "id": "b", "text": "ModelMeta.__new__ injects `objects` into the namespace while the Article class is being built" },
+        { "id": "c", "text": "It's inherited from the built-in `object` class" },
+        { "id": "d", "text": "It's added lazily the first time Article() is instantiated" }
+      ],
+      "correct": "b",
+      "explanation": "The metaclass's __new__ runs once at class-creation time and rewrites the namespace dict before the class object is finalized — that's where `objects` and `_meta` come from."
+    },
+    {
+      "id": "metaclasses-context-managers-metaclasses-in-frameworks-q2",
+      "type": "mcq",
+      "prompt": "What general pattern does Django's ModelBase metaclass demonstrate?",
+      "options": [
+        { "id": "a", "text": "Inspecting a class's declarative attributes at definition time to auto-generate runtime machinery" },
+        { "id": "b", "text": "Encrypting class attributes for security" },
+        { "id": "c", "text": "Replacing all instance methods with static methods" },
+        { "id": "d", "text": "Preventing the class from ever being subclassed" }
+      ],
+      "correct": "a",
+      "explanation": "This is the general shape of most 'magic' class-based frameworks: a metaclass reads declarative class-body attributes (fields, routes, schemas) and generates supporting machinery automatically."
+    }
+  ]
+}
+```
+$md$, 12, $json$[{"id":"metaclasses-context-managers-metaclasses-in-frameworks-q1","type":"mcq","correct":"b"},{"id":"metaclasses-context-managers-metaclasses-in-frameworks-q2","type":"mcq","correct":"a"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+-- Section: Context Managers
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('aa8e2103-5171-536c-8e60-276955af7a4d', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Context Managers', 11, 'Advanced')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('19fcbb96-7247-5931-ba34-e8323decf1a9', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'aa8e2103-5171-536c-8e60-276955af7a4d', 'Nesting & Combining Context Managers', 'notes', 0, $md$A single `with` statement can manage more than one resource at once — and when the *number* of resources isn't known until runtime, `contextlib.ExitStack` lets you manage a dynamic pile of them with the same guaranteed cleanup a plain `with` gives you.
+
+## Multiple context managers on one `with` line
 
 ```python
-class RateLimiter:
-    def __init__(self, max_calls):
-        self.max_calls = max_calls
-        self.calls_made = 0
+with open("file1.txt", "w") as file1, open("file2.txt", "w") as file2:
+    file1.write("first")
+    file2.write("second")
 
-    def __call__(self, *args, **kwargs):
-        if self.calls_made >= self.max_calls:
-            raise RuntimeError("rate limit exceeded")
-        self.calls_made += 1
-        return f"call #{self.calls_made} allowed"
-
-limiter = RateLimiter(max_calls=2)
-print(limiter())              # call #1 allowed
-print(limiter())              # call #2 allowed
-print(limiter.calls_made)     # 2 — state is directly inspectable
-try:
-    limiter()
-except RuntimeError as e:
-    print("blocked:", e)
+print("both files written and closed")
 ```
+
+`file1` and `file2` are entered left to right and exited right to left, and — critically — if `file2`'s `open()` fails, `file1` is still closed correctly. This is exactly equivalent to nesting two separate `with` blocks; the comma-separated form is just flatter to read.
+
+## `ExitStack`: when you don't know how many resources up front
+
+The two-file example above only works because you know at *write time* that there are exactly two files. If the list of files comes from a variable — a config file, a directory listing, an API response — you can't write a fixed number of `with` clauses. `ExitStack` solves this by letting you push an arbitrary number of context managers onto a stack programmatically, and unwinds all of them (in reverse order) when the `with` block exits, exception or not.
+
+```python
+from contextlib import ExitStack
+
+filenames = ["file1.txt", "file2.txt", "file3.txt"]
+
+with ExitStack() as stack:
+    files = [stack.enter_context(open(name, "w")) for name in filenames]
+    for file_obj in files:
+        file_obj.write("Hello, World!")
+
+print(f"wrote and closed {len(filenames)} files")
+```
+
+`stack.enter_context(cm)` calls `cm.__enter__()` immediately and registers `cm.__exit__()` to run when the `ExitStack` itself exits — so `files` ends up holding three already-open file objects, and all three get closed automatically no matter how many there turn out to be or whether an exception happens partway through the loop.
 
 ## Where this shows up in real code
 
-Strategy-pattern implementations (swap in different callable "strategy" objects that share an interface), scikit-learn-style transformers, and any decorator implemented as a class instead of a nested function all rely on `__call__`. A class-based decorator is a common real-world example:
-
-```python
-class CountCalls:
-    def __init__(self, func):
-        self.func = func
-        self.count = 0
-
-    def __call__(self, *args, **kwargs):
-        self.count += 1
-        return self.func(*args, **kwargs)
-
-@CountCalls
-def greet(name):
-    return f"Hello, {name}"
-
-print(greet("Ana"))   # Hello, Ana
-print(greet("Kim"))   # Hello, Kim
-print(greet.count)    # 2
-```
-
-`@CountCalls` here replaces `greet` with a `CountCalls` *instance* — `greet(...)` then works because that instance is callable.
+Database connection pools, batches of temp files, and groups of related locks are the classic uses: any time "how many resources" is a runtime value rather than something you can spell out as a fixed number of `with` clauses. `ExitStack` also has `callback()` for registering plain cleanup functions (not just context managers) onto the same unwind-on-exit stack, which is handy for mixing "close this file" with "delete this temp directory" in one guaranteed-to-run teardown sequence.
 
 ## Knowledge check
 
@@ -4879,109 +9045,96 @@ print(greet.count)    # 2
 {
   "questions": [
     {
-      "id": "async-typing-callable-objects-q1",
+      "id": "metaclasses-context-managers-nesting-context-managers-q1",
       "type": "mcq",
-      "prompt": "What does doubler(5) actually invoke when doubler is an instance of a class defining __call__?",
+      "prompt": "In `with open(a) as f1, open(b) as f2:`, in what order are the context managers exited?",
       "options": [
-        { "id": "a", "text": "doubler.__init__(5)" },
-        { "id": "b", "text": "doubler.__call__(5)" },
-        { "id": "c", "text": "A new instance is created and its constructor is called" },
-        { "id": "d", "text": "It raises a TypeError — instances aren't callable in Python" }
+        { "id": "a", "text": "Left to right, same as entry order" },
+        { "id": "b", "text": "Right to left — reverse of entry order" },
+        { "id": "c", "text": "Simultaneously, order is undefined" },
+        { "id": "d", "text": "Whichever finishes writing first" }
       ],
       "correct": "b",
-      "explanation": "Using () on an object calls its __call__ method — obj(5) is sugar for obj.__call__(5), the same relationship len(x) has to x.__len__()."
+      "explanation": "Context managers on one with-statement (or nested with-statements) are entered in order and exited in reverse order, like a stack."
     },
     {
-      "id": "async-typing-callable-objects-q2",
+      "id": "metaclasses-context-managers-nesting-context-managers-q2",
       "type": "mcq",
-      "prompt": "When does a callable class start to scale better than a closure for holding state?",
+      "prompt": "Why would you reach for contextlib.ExitStack instead of a fixed `with a, b, c:` line?",
       "options": [
-        { "id": "a", "text": "Never — closures are always the better choice" },
-        { "id": "b", "text": "Once you need multiple pieces of state, methods that operate on it, or the ability to inspect/mutate it from outside the callable" },
-        { "id": "c", "text": "Only when performance is critical, since closures are always slower" },
-        { "id": "d", "text": "Only in multithreaded code" }
+        { "id": "a", "text": "ExitStack is faster at opening files" },
+        { "id": "b", "text": "When the number of context managers to manage isn't known until runtime" },
+        { "id": "c", "text": "ExitStack is required for any context manager involving files" },
+        { "id": "d", "text": "It removes the need for try/finally entirely, even outside context managers" }
       ],
       "correct": "b",
-      "explanation": "A closure works fine for one hidden variable. Once state grows (multiple fields, methods, external inspection like limiter.calls_made), a class with __call__ organizes that far better than a growing set of captured closure variables."
-    },
-    {
-      "id": "async-typing-callable-objects-q3",
-      "type": "mcq",
-      "prompt": "In `@CountCalls` applied to greet, what does greet refer to after decoration?",
-      "options": [
-        { "id": "a", "text": "The original greet function, unchanged" },
-        { "id": "b", "text": "A CountCalls instance wrapping the original function — callable because CountCalls defines __call__" },
-        { "id": "c", "text": "The CountCalls class itself" },
-        { "id": "d", "text": "None — class-based decorators aren't valid syntax" }
-      ],
-      "correct": "b",
-      "explanation": "@CountCalls calls CountCalls(greet), producing an instance. greet is rebound to that instance; greet(\"Ana\") works because CountCalls.__call__ makes instances callable, forwarding to the wrapped function."
+      "explanation": "A `with a, b, c:` line requires a fixed, known-at-write-time number of context managers. ExitStack lets you push a runtime-determined number of them via enter_context() and still get guaranteed reverse-order cleanup."
     }
   ]
 }
 ```
-$md$, 10, $json$[{"id":"async-typing-callable-objects-q1","type":"mcq","correct":"b"},{"id":"async-typing-callable-objects-q2","type":"mcq","correct":"b"},{"id":"async-typing-callable-objects-q3","type":"mcq","correct":"b"}]$json$::jsonb)
+$md$, 15, $json$[{"id":"metaclasses-context-managers-nesting-context-managers-q1","type":"mcq","correct":"b"},{"id":"metaclasses-context-managers-nesting-context-managers-q2","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('343487da-2e28-5527-a8a6-4f53acaa0236', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'ebcdcec0-ab75-508e-ae00-d10a40e41ba9', 'Multiprocessing with `Queue`', 'notes', 2, $md$Each `multiprocessing.Process` has its own memory space — unlike threads, processes can't share plain Python objects directly. `multiprocessing.Queue` is the standard way to move data safely between them: it pickles objects on the sending side, ships them through an OS pipe, and unpickles them on the receiving side, so it works as inter-process communication without any manual locking on your part.
+VALUES ('0cf7e9b3-11c9-5dc2-8824-655a38ed5420', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'aa8e2103-5171-536c-8e60-276955af7a4d', 'Custom Context Managers', 'notes', 1, $md$`with` isn't magic reserved for `open()` — any object that implements `__enter__`/`__exit__` (or any generator function wrapped in `@contextmanager`) can be used after `with`. Writing your own is one of the highest-leverage patterns for guaranteed cleanup in senior-level Python code.
 
-## A multi-stage processing pipeline
-
-Chaining several processes through queues builds a pipeline: each stage reads from one queue and writes to the next.
+## The class-based form: `__enter__` and `__exit__`
 
 ```python
-from multiprocessing import Process, Queue
+class Timer:
+    def __enter__(self):
+        import time
+        self._start = time.perf_counter()
+        return self
 
-def producer(q1):
-    for x in [1, 2, 3]:
-        print("Producer:", x)
-        q1.put(x)
-    q1.put(None)  # sentinel: tells the next stage there's no more input
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        import time
+        elapsed = time.perf_counter() - self._start
+        print(f"elapsed: {elapsed:.4f}s")
+        return False  # False (or None) means: don't suppress exceptions
 
-def add_one(q1, q2):
-    while True:
-        x = q1.get()
-        if x is None:
-            q2.put(None)  # forward the sentinel downstream
-            break
-        y = x + 1
-        print("Add one:", y)
-        q2.put(y)
 
-def multiply(q2):
-    while True:
-        x = q2.get()
-        if x is None:
-            break
-        print("Multiply:", x * 5)
-
-if __name__ == "__main__":
-    q1 = Queue()
-    q2 = Queue()
-
-    p1 = Process(target=producer, args=(q1,))
-    p2 = Process(target=add_one, args=(q1, q2))
-    p3 = Process(target=multiply, args=(q2,))
-
-    p1.start()
-    p2.start()
-    p3.start()
-
-    p1.join()
-    p2.join()
-    p3.join()
+with Timer():
+    total = sum(i * i for i in range(1_000_000))
 ```
 
-Three independent processes, three separate memory spaces — `add_one` never touches `producer`'s local `x` directly, it only ever sees values that were `put()` on `q1` and `get()` off it. The exact print interleaving isn't guaranteed (these are genuinely parallel processes), but the *set* of nine lines printed and each value's transformation (1→2→10, 2→3→15, 3→4→20) always holds.
+`__enter__`'s return value becomes the `as` target. `__exit__` receives the exception type/value/traceback if the block raised (all `None` if it didn't) — returning a truthy value from `__exit__` swallows the exception, which is almost never what you want, so `return False`/`None` explicitly.
 
-## Why the sentinel matters here too
+## The generator form: `@contextmanager`
 
-Just like the `asyncio.Queue` producer/consumer pattern from the previous lesson, a worker looping on `while True: x = q.get()` has no way to know the stream has ended unless something tells it — `Queue.get()` blocks forever waiting for the next item otherwise. `None` (or any value that can't be a real data item) plays that role, and **each stage must forward it** to the next queue, or the downstream stage hangs waiting for its own sentinel that never arrives.
+Writing a class for every context manager is boilerplate for simple cases. `contextlib.contextmanager` turns a single generator function — one `yield` splitting "setup" from "teardown" — into the same protocol:
 
-## `Queue` vs. shared memory
+```python
+import sqlite3
+from contextlib import contextmanager
 
-`Queue` is the right tool when processes are exchanging discrete *messages* — this is the message-passing model, and it avoids the GIL by using real OS-level processes instead of threads. When processes instead need to operate on the *same* large block of memory (a big NumPy array, for instance) without copying it through pickle on every exchange, `multiprocessing.shared_memory` (covered in an earlier lesson) is the better fit — `Queue` copies data on every `put`/`get`, which is fine for small messages but wasteful for large buffers.
+
+@contextmanager
+def database_connection(db_name):
+    """Everything before yield is __enter__; everything after (in finally) is __exit__."""
+    conn = sqlite3.connect(db_name)
+    try:
+        print("connection opened")
+        yield conn
+    finally:
+        conn.close()
+        print("connection closed")
+
+
+with database_connection(":memory:") as conn:
+    cursor = conn.cursor()
+    cursor.execute("CREATE TABLE users (id INTEGER, name TEXT)")
+    cursor.execute("INSERT INTO users VALUES (?, ?)", (1, "Alice"))
+    conn.commit()
+    print("row inserted")
+```
+
+The code before `yield conn` runs on `__enter__`; whatever's passed to `yield` becomes the `as` target; the code after `yield` — wrapped in `try/finally` — runs on `__exit__`, whether the `with` block succeeded or raised. This is the far more common style in production code: it reads top-to-bottom like a script instead of splitting setup/teardown across two separate methods.
+
+## Class-based vs. generator-based: when to pick which
+
+Reach for `@contextmanager` by default — it's shorter and the setup/teardown logic stays visually adjacent. Drop to a full class when the context manager needs to hold reusable state across multiple `__enter__`/`__exit__` cycles (the same instance used in several separate `with` blocks), or needs to inspect the exception details in `__exit__` beyond "did one happen" (deciding whether to log, retry, or suppress based on `exc_type`).
 
 ## Knowledge check
 
@@ -4989,52 +9142,241 @@ Just like the `asyncio.Queue` producer/consumer pattern from the previous lesson
 {
   "questions": [
     {
-      "id": "async-typing-multiprocessing-queue-q1",
+      "id": "metaclasses-context-managers-custom-context-managers-q1",
       "type": "mcq",
-      "prompt": "Why can't add_one directly read producer's local variable x, the way a thread could read another thread's local variable?",
+      "prompt": "In the @contextmanager generator style, what does the code *after* `yield` correspond to?",
       "options": [
-        { "id": "a", "text": "It could — this is a limitation only of asyncio, not multiprocessing" },
-        { "id": "b", "text": "Each Process has its own separate memory space; the only way data crosses between them is by being explicitly sent through a mechanism like Queue" },
-        { "id": "c", "text": "Queue.put() automatically deletes the original variable from the sender" },
-        { "id": "d", "text": "Processes share memory but not variable names" }
+        { "id": "a", "text": "__enter__" },
+        { "id": "b", "text": "__exit__, running whether the with-block succeeded or raised (when wrapped in try/finally)" },
+        { "id": "c", "text": "It never runs unless an exception occurs" },
+        { "id": "d", "text": "The __init__ of the generator function" }
       ],
       "correct": "b",
-      "explanation": "Unlike threads (which share one process's memory), each multiprocessing.Process gets its own separate memory space. Queue bridges that gap by pickling values, sending them through an OS pipe, and unpickling them on the other side."
+      "explanation": "Everything before yield is entry logic; everything after yield (typically in a finally block) is exit/teardown logic, running regardless of whether the with-block raised."
     },
     {
-      "id": "async-typing-multiprocessing-queue-q2",
+      "id": "metaclasses-context-managers-custom-context-managers-q2",
       "type": "mcq",
-      "prompt": "What would happen if add_one received the None sentinel from q1 but did NOT forward it to q2 before breaking?",
+      "prompt": "What happens if a class-based context manager's __exit__ method returns True?",
       "options": [
-        { "id": "a", "text": "Nothing changes — multiply would still exit normally" },
-        { "id": "b", "text": "multiply's while True: x = q2.get() loop would block forever, since it never receives its own stop signal" },
-        { "id": "c", "text": "q2 would automatically close when add_one's process exits" },
-        { "id": "d", "text": "Python would raise a QueueClosedError" }
+        { "id": "a", "text": "Nothing different from returning False" },
+        { "id": "b", "text": "Any exception raised inside the with-block is suppressed instead of propagating" },
+        { "id": "c", "text": "The with-block is re-executed" },
+        { "id": "d", "text": "It raises a TypeError, since __exit__ must return None" }
       ],
       "correct": "b",
-      "explanation": "Each stage's sentinel only ends that stage's own loop. multiply is watching q2, not q1 — if add_one doesn't explicitly q2.put(None), multiply's q2.get() blocks forever waiting for a sentinel that will never arrive, and p3.join() hangs."
-    },
-    {
-      "id": "async-typing-multiprocessing-queue-q3",
-      "type": "mcq",
-      "prompt": "When is multiprocessing.shared_memory a better fit than Queue for inter-process data transfer?",
-      "options": [
-        { "id": "a", "text": "Never — Queue is always preferred regardless of data size" },
-        { "id": "b", "text": "When processes need to operate on the same large block of memory (e.g. a big array) without the overhead of pickling/copying it on every message" },
-        { "id": "c", "text": "Only when using threads instead of processes" },
-        { "id": "d", "text": "shared_memory and Queue solve unrelated problems and are never compared" }
-      ],
-      "correct": "b",
-      "explanation": "Queue copies data (via pickle) on every put/get, which is fine for small discrete messages but wasteful for large shared buffers. shared_memory avoids that copy by letting processes map the same underlying memory block directly."
+      "explanation": "A truthy return from __exit__ tells Python to swallow the exception rather than let it propagate — which is why __exit__ should return False/None unless you specifically intend to suppress errors."
     }
   ]
 }
 ```
-$md$, 15, $json$[{"id":"async-typing-multiprocessing-queue-q1","type":"mcq","correct":"b"},{"id":"async-typing-multiprocessing-queue-q2","type":"mcq","correct":"b"},{"id":"async-typing-multiprocessing-queue-q3","type":"mcq","correct":"b"}]$json$::jsonb)
+$md$, 15, $json$[{"id":"metaclasses-context-managers-custom-context-managers-q1","type":"mcq","correct":"b"},{"id":"metaclasses-context-managers-custom-context-managers-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+-- Section: Serialization & Typing
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('28d98742-f3ee-57d2-b776-3a92dbf0cd4c', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'Serialization & Typing', 12, 'Advanced')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('ce39a83b-ee0e-5789-b144-43eac9c9601b', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '28d98742-f3ee-57d2-b776-3a92dbf0cd4c', 'Serialization & Deserialization', 'notes', 0, $md$Serialization turns a live Python object into a stream of bytes you can write to disk, send over a socket, or stash in a cache. Deserialization reverses it, rebuilding the object from those bytes. Anywhere state needs to outlive the process that created it — saved ML models, cached query results, session data — serialization is the mechanism underneath.
+
+## `pickle`: Python-native, full object graphs
+
+`pickle` can serialize almost any Python object — including custom classes, nested structures, and cyclic references — without you writing any conversion code.
+
+```python
+import pickle
+
+class Person:
+    def __init__(self, name, age):
+        self.name = name
+        self.age = age
+
+    def greet(self):
+        return f"Hello, my name is {self.name} and I am {self.age} years old."
+
+person = Person("Alice", 30)
+
+# Serialize to bytes, then to disk
+serialized = pickle.dumps(person)
+with open("person.pkl", "wb") as f:
+    f.write(serialized)
+
+# Deserialize back into a live object
+with open("person.pkl", "rb") as f:
+    loaded_person = pickle.loads(f.read())
+
+print(loaded_person.greet())
+```
+
+`pickle.loads` doesn't just restore data — it reconstructs a real `Person` instance, methods and all, because pickle stores enough information to re-import the class and rebuild `__dict__`.
+
+## The security trap: never unpickle untrusted data
+
+That same power is pickle's biggest danger. Unpickling reconstructs objects by *executing* instructions embedded in the byte stream — a malicious pickle can call arbitrary code during `pickle.loads()`, not just build harmless data. Treat pickle as an internal, trusted-source format only (your own cache, your own job queue), never as a way to accept data from a client, a webhook, or any other outside system.
+
+## JSON: safe, interoperable, but limited
+
+When data needs to leave the Python world — an HTTP API, a config file another team's Go service reads — JSON is the right tool. `json.dumps`/`json.loads` only handle a fixed set of types (dicts, lists, strings, numbers, booleans, `None`), so arbitrary class instances need a manual `to_dict`/`from_dict` step, but in exchange you get a format that can't execute code on load and that every language can read.
+
+```python
+import json
+
+class Person:
+    def __init__(self, name, age):
+        self.name = name
+        self.age = age
+
+    def to_dict(self):
+        return {"name": self.name, "age": self.age}
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(data["name"], data["age"])
+
+person = Person("Alice", 30)
+payload = json.dumps(person.to_dict())
+print(payload)  # '{"name": "Alice", "age": 30}'
+
+restored = Person.from_dict(json.loads(payload))
+print(restored.name, restored.age)
+```
+
+Picking between them is a trust-and-interoperability question, not a performance one: pickle for objects that stay inside your own Python process boundary, JSON for anything crossing a language or trust boundary.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "serialization-data-serialization-q1",
+      "type": "mcq",
+      "prompt": "Why is unpickling data from an untrusted source dangerous?",
+      "options": [
+        { "id": "a", "text": "pickle.loads() can execute arbitrary code embedded in the byte stream" },
+        { "id": "b", "text": "Pickled files are always larger than JSON files" },
+        { "id": "c", "text": "pickle cannot represent nested objects" },
+        { "id": "d", "text": "Pickle only works with strings and numbers" }
+      ],
+      "correct": "a",
+      "explanation": "Deserializing a pickle stream reconstructs objects by executing instructions in the stream itself, so a crafted pickle can run arbitrary code — never unpickle data from outside your trust boundary."
+    },
+    {
+      "id": "serialization-data-serialization-q2",
+      "type": "mcq",
+      "prompt": "Why would a team choose JSON over pickle for an HTTP API response?",
+      "options": [
+        { "id": "a", "text": "JSON preserves Python class methods, pickle doesn't" },
+        { "id": "b", "text": "JSON is a language-neutral, safe-to-parse text format any client can read" },
+        { "id": "c", "text": "JSON can serialize any Python object automatically, exactly like pickle" },
+        { "id": "d", "text": "pickle cannot be written to a file" }
+      ],
+      "correct": "b",
+      "explanation": "JSON only encodes basic data types and can't execute code on load, making it safe to accept from and send to any client regardless of language — the tradeoff is manual to_dict/from_dict conversion for custom classes."
+    }
+  ]
+}
+```
+$md$, 15, $json$[{"id":"serialization-data-serialization-q1","type":"mcq","correct":"a"},{"id":"serialization-data-serialization-q2","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('a567104f-0265-54ed-a5a8-8d0a3fb41665', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'ebcdcec0-ab75-508e-ae00-d10a40e41ba9', 'Typing: Protocols & Generics', 'notes', 3, $md$Python's type hints don't just annotate — `typing.Protocol` and `typing.Generic` let you express duck typing and reusable containers in a way static checkers (mypy, pyright) can actually verify, without forcing every caller into an inheritance hierarchy.
+VALUES ('09f3cdff-5f4f-5301-abe9-8a106c73a4f0', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '28d98742-f3ee-57d2-b776-3a92dbf0cd4c', '`__getstate__` and `__setstate__`', 'notes', 1, $md$Not everything can be pickled. Open file handles, sockets, database connections, and thread locks all wrap operating-system resources that don't make sense as bytes — there is no way to serialize "an open file descriptor" and later reopen the exact same one. Pickling an object that holds one of these directly raises `TypeError: cannot pickle '_io.TextIOWrapper' object`.
+
+## The problem: unpicklable attributes
+
+```python
+class FileHandler:
+    def __init__(self, filename):
+        self.filename = filename
+        self.file = open(filename, "w")  # an open file object — not picklable
+
+    def write(self, data):
+        self.file.write(data)
+```
+
+`pickle.dumps(FileHandler("example.txt"))` fails outright, because `self.file` is a live OS resource, not data.
+
+## `__getstate__`: control what gets pickled
+
+Defining `__getstate__` lets an object hand pickle a *substitute* dict instead of its real `__dict__` — typically the real dict, minus the fields that can't survive serialization.
+
+```python
+import pickle
+
+class FileHandler:
+    def __init__(self, filename):
+        self.filename = filename
+        self.file = open(filename, "w")
+
+    def write(self, data):
+        self.file.write(data)
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state["file"]  # drop the unpicklable file object
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.file = open(self.filename, "w")  # reopen it fresh
+
+handler = FileHandler("example.txt")
+handler.write("Hello, World!")
+
+serialized = pickle.dumps(handler)
+restored = pickle.loads(serialized)
+restored.write("Restored and still writable")
+print(restored.filename)
+```
+
+## `__setstate__`: rebuild what was dropped
+
+`__setstate__` is the mirror image, called during `pickle.loads()` with whatever `__getstate__` returned. It restores `self.__dict__` from the plain data, then reconstructs anything that was deliberately excluded — here, reopening the file using the `filename` that *was* preserved.
+
+The pattern is always the same: **keep the data that describes the resource (a filename, a host/port pair, a connection string), drop the live handle, and recreate the handle on the other side.** This is the exact mechanism that lets frameworks pickle objects holding database connections or open sockets — strip the connection in `__getstate__`, reconnect in `__setstate__`.
+
+## Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "serialization-data-getstate-setstate-q1",
+      "type": "mcq",
+      "prompt": "Why can't an open file object be pickled directly?",
+      "options": [
+        { "id": "a", "text": "Python forbids pickling any object with more than one attribute" },
+        { "id": "b", "text": "An open file wraps a live OS resource that has no meaningful byte representation to restore later" },
+        { "id": "c", "text": "File objects are too large to serialize efficiently" },
+        { "id": "d", "text": "pickle only supports built-in types like int and str" }
+      ],
+      "correct": "b",
+      "explanation": "An open file descriptor is tied to the running OS process; there's no way to serialize 'this exact open handle' and reconstruct it byte-for-byte on load, so pickle raises TypeError instead."
+    },
+    {
+      "id": "serialization-data-getstate-setstate-q2",
+      "type": "mcq",
+      "prompt": "In the FileHandler example, what does __setstate__ do that __getstate__ doesn't?",
+      "options": [
+        { "id": "a", "text": "It deletes the filename attribute" },
+        { "id": "b", "text": "It re-opens the file handle using the filename that was preserved in the pickled state" },
+        { "id": "c", "text": "It converts the object to JSON instead of pickle format" },
+        { "id": "d", "text": "It runs before pickling instead of after" }
+      ],
+      "correct": "b",
+      "explanation": "__getstate__ strips the unpicklable file object but keeps filename; __setstate__ restores __dict__ from that data and then recreates the file handle by reopening filename."
+    }
+  ]
+}
+```
+$md$, 12, $json$[{"id":"serialization-data-getstate-setstate-q1","type":"mcq","correct":"b"},{"id":"serialization-data-getstate-setstate-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('a567104f-0265-54ed-a5a8-8d0a3fb41665', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '28d98742-f3ee-57d2-b776-3a92dbf0cd4c', 'Typing: Protocols & Generics', 'notes', 2, $md$Python's type hints don't just annotate — `typing.Protocol` and `typing.Generic` let you express duck typing and reusable containers in a way static checkers (mypy, pyright) can actually verify, without forcing every caller into an inheritance hierarchy.
 
 ## `Protocol`: structural typing
 
@@ -5166,145 +9508,10 @@ A type checker sees `greet` as still having the signature `(name: str, excited: 
 $md$, 15, $json$[{"id":"async-typing-typing-protocols-generics-q1","type":"mcq","correct":"b"},{"id":"async-typing-typing-protocols-generics-q2","type":"mcq","correct":"b"},{"id":"async-typing-typing-protocols-generics-q3","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('79723416-8c0d-54d9-ac46-a56ab7accfc4', 'a575d044-3374-561b-9cf6-d44aa7b0f855', 'ebcdcec0-ab75-508e-ae00-d10a40e41ba9', 'Descriptors (Typed + CachedProperty)', 'notes', 4, $md$`@property` is the descriptor you already know — descriptors are the general mechanism behind it. A descriptor is any object defining `__get__`/`__set__` (or just `__get__`) and assigned as a *class* attribute; Python routes attribute access on instances through those methods instead of a plain `__dict__` lookup. This is how validated attributes, cached properties, and ORM fields are all built under the hood.
-
-## Data descriptors: `__get__` and `__set__`
-
-A descriptor defining both `__get__` and `__set__` is a **data descriptor** — it takes priority over the instance's own `__dict__` for every access, which is what lets it enforce rules on every read and write:
-
-```python
-from typing import Any
-
-class Typed:
-    """Enforces a type on every assignment to the attribute it manages."""
-
-    def __init__(self, name: str, expected_type: type) -> None:
-        self.name = name
-        self.expected_type = expected_type
-
-    def __get__(self, instance: Any, owner: type = None) -> Any:
-        if instance is None:
-            return self  # accessed on the class itself, e.g. Point.x
-        return instance.__dict__.get(self.name)
-
-    def __set__(self, instance: Any, value: Any) -> None:
-        if not isinstance(value, self.expected_type):
-            raise TypeError(f"{self.name} must be {self.expected_type.__name__}")
-        instance.__dict__[self.name] = value
-
-class Point:
-    x = Typed("x", int)  # descriptors are declared at the CLASS level
-    y = Typed("y", int)
-
-    def __init__(self, x: int, y: int) -> None:
-        self.x = x  # routed through Typed.__set__
-        self.y = y
-
-p = Point(3, 4)
-print(p.x, p.y)  # 3 4 — routed through Typed.__get__
-
-try:
-    p.x = 2.5
-except TypeError as e:
-    print("blocked:", e)  # x must be int
-```
-
-`Point.x` and `Point.y` are the *same* `Typed` instance shared by every `Point` — the actual per-instance value lives in `instance.__dict__["x"]`, not on the descriptor itself. That's why `__set__` writes to `instance.__dict__[self.name]` rather than `self.value = value`: storing it on `self` would make every `Point` share one `x`.
-
-## Non-data descriptors: caching with just `__get__`
-
-A descriptor defining only `__get__` (no `__set__`) is a **non-data descriptor** — and the instance's own `__dict__` takes priority over it once something is stored there under the same name. That asymmetry is exactly what makes a cheap cached-property pattern possible: compute once, then let the plain instance attribute shadow the descriptor on every later access:
-
-```python
-class CachedProperty:
-    def __init__(self, func):
-        self.func = func
-        self.__doc__ = func.__doc__
-
-    def __get__(self, instance, owner=None):
-        if instance is None:
-            return self
-        value = self.func(instance)
-        instance.__dict__[self.func.__name__] = value  # shadows this descriptor from now on
-        return value
-
-class Point:
-    x = Typed("x", int)
-    y = Typed("y", int)
-
-    def __init__(self, x: int, y: int) -> None:
-        self.x = x
-        self.y = y
-
-    @CachedProperty
-    def hypot(self):
-        print("computing hypot")
-        from math import hypot
-        return hypot(self.x, self.y)
-
-p = Point(3, 4)
-print(p.hypot)  # "computing hypot" printed, then 5.0
-print(p.hypot)  # 5.0 — no "computing hypot" print; instance.__dict__["hypot"] now shadows the descriptor
-```
-
-The first `p.hypot` access finds nothing under `"hypot"` in `p.__dict__`, so Python falls back to the class-level `CachedProperty` descriptor's `__get__`, which computes the value *and* stores it directly on the instance. The second access finds `"hypot"` already in `p.__dict__` and returns that directly — the descriptor's `__get__` never even runs again, because a non-data descriptor loses to an instance attribute of the same name.
-
-## Why `Typed` doesn't have this problem
-
-`Typed` defines `__set__`, making it a *data* descriptor — data descriptors always win over `instance.__dict__`, even after a value has been assigned. That's the difference that matters: use a data descriptor when every access must be validated (there's no safe point to "stop checking"), and a non-data descriptor when the first computation should permanently short-circuit future lookups.
-
-## Knowledge check
-
-```knowledge-check
-{
-  "questions": [
-    {
-      "id": "async-typing-descriptors-q1",
-      "type": "mcq",
-      "prompt": "Why does Typed.__set__ store the value in instance.__dict__[self.name] instead of on self (the descriptor)?",
-      "options": [
-        { "id": "a", "text": "It's just a style preference with no functional effect" },
-        { "id": "b", "text": "The Typed instance (e.g. Point.x) is shared by every Point instance — storing the value on self would make all Points share one x" },
-        { "id": "c", "text": "instance.__dict__ is faster to write to than a plain attribute" },
-        { "id": "d", "text": "Python requires descriptors to never store any state" }
-      ],
-      "correct": "b",
-      "explanation": "Point.x is one Typed object shared across every Point instance. Storing per-instance data on that shared descriptor would leak state between unrelated instances — instance.__dict__ keeps each Point's x separate."
-    },
-    {
-      "id": "async-typing-descriptors-q2",
-      "type": "mcq",
-      "prompt": "Why does the second access to p.hypot NOT print \"computing hypot\" again?",
-      "options": [
-        { "id": "a", "text": "CachedProperty.__get__ has internal logic that skips computation on even-numbered calls" },
-        { "id": "b", "text": "The first access stored the result directly in instance.__dict__[\"hypot\"], which — since CachedProperty is a non-data descriptor (no __set__) — now takes priority over the descriptor on every later lookup" },
-        { "id": "c", "text": "Python automatically caches all @property-style decorators" },
-        { "id": "d", "text": "hypot becomes a class attribute after the first call" }
-      ],
-      "correct": "b",
-      "explanation": "A non-data descriptor (only __get__, no __set__) loses to an instance attribute of the same name. Once p.__dict__[\"hypot\"] exists, Python finds it before ever consulting the CachedProperty descriptor again."
-    },
-    {
-      "id": "async-typing-descriptors-q3",
-      "type": "mcq",
-      "prompt": "Why does Typed keep enforcing type checks on every write, while CachedProperty stops running after the first read?",
-      "options": [
-        { "id": "a", "text": "Typed defines __set__ (a data descriptor, which always overrides instance.__dict__); CachedProperty only defines __get__ (a non-data descriptor, which instance.__dict__ overrides once populated)" },
-        { "id": "b", "text": "Typed is simply written with a while loop and CachedProperty isn't" },
-        { "id": "c", "text": "There is no real difference — both behave identically" },
-        { "id": "d", "text": "CachedProperty is deprecated in favor of Typed" }
-      ],
-      "correct": "a",
-      "explanation": "Data descriptors (with __set__) always take priority over instance.__dict__, so every p.x = value keeps going through Typed.__set__. Non-data descriptors (only __get__) lose to instance.__dict__ once a same-named entry exists there, which is exactly the mechanism CachedProperty uses to short-circuit future computation."
-    }
-  ]
-}
-```
-$md$, 15, $json$[{"id":"async-typing-descriptors-q1","type":"mcq","correct":"b"},{"id":"async-typing-descriptors-q2","type":"mcq","correct":"b"},{"id":"async-typing-descriptors-q3","type":"mcq","correct":"a"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
 INSERT INTO enrollments (id, user_id, course_id, enrolled_by)
 VALUES ('cf30244b-cfe3-5e06-a244-290e1945e6e1', '00000000-0000-0000-0000-000000000014', 'a575d044-3374-561b-9cf6-d44aa7b0f855', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (user_id, course_id) DO NOTHING;
+
+DELETE FROM course_modules WHERE course_id = 'a575d044-3374-561b-9cf6-d44aa7b0f855' AND id NOT IN ('02cafbdd-120a-5fe5-8160-ade3ea6d4b0b', 'f1133c07-28d5-5d55-aebe-7d44d092a06f', 'f4aabe1c-871f-576a-b409-d2c19a36d868', 'cff72f5f-5902-55d4-9054-4837cf39da4c', 'a13be90d-a670-59f6-b4a4-2d81243c2b43', '2e2f5ef2-cd25-5b63-9cfa-48dd6df53cf7', '8cdceb2d-5918-54c9-999d-8bfd80dbaa6f', 'ba47e257-1a18-5b02-b22f-192526f144e0', '053dda60-8533-5328-894c-fe7282671bef', '32a73115-fde6-522e-9194-4cfad0123eea', 'de0f27d6-5b70-55f1-a0bf-9dbcd220b8a2', 'a274a895-f337-5b50-bebd-0bb6998b6922', 'f2bc1121-1b22-595f-abf2-528d7c2f2f59', '1643be0a-43e1-5005-85e6-02e8e24b5337', 'cc682f4a-b1cf-52b9-9e56-2ff6ff2d39a0', '625b6756-3411-5780-9654-3580edac40d1', '59de5905-92d5-5f7f-9371-28753755e3f0', 'e44ac907-4848-5002-abb5-e72fa4c9cb54', 'e09ee0d5-fed8-5122-bf21-a7e8dbe6dad3', '377cc8cf-f45e-505f-a13d-9e2ba01efcf3', '0f12c51a-0720-5715-b0aa-0222af498111', '3b4b225b-88a2-5fd7-9d54-ff6d8e9e7c79', '6bee287b-e3df-58d1-b78c-e20c80ccbc29', '027353fc-0de4-52c8-a442-b0fc1832463c', 'bc8e48a1-61ea-539f-9b40-c9f844ab6038', 'c7803662-3753-5c1c-80c3-f9d66f860c47', '5fa2cd55-15cf-592a-a300-aaa03758e4eb', 'a915b846-e56e-50e8-b9e9-11462996d503', 'b29dfba0-d998-5454-948f-cdfaa34cc93d', 'd1e7628a-a1a8-5795-90d4-c14ce1972a6b', '4967c051-0c4e-5e52-b3e3-7192d2a24a03', 'ed523ce6-bc16-5a2b-96c7-f9cb8690a0df', 'b56f5cd0-7e03-5c2b-b41f-83b550d4aeae', 'c32a7095-b38a-5f19-96fc-5fd87988b412', '87a4c4d0-9798-584d-a931-c0159146e404', '2c324319-4cc3-51b7-b0f6-7cf8dbcd914f', '5aa6fe70-68dc-5dd4-a70f-55268966ca22', 'cde878ce-2df0-5eae-9306-5373b1cf8837', '0c0d01bd-3bd0-522f-b7ed-1e9eacd28638', 'c328f3b4-b903-5d25-8220-ba18de4584a2', 'dfefbab7-94a2-5e64-baf4-fbcc1a57d5f4', '9bf76712-b21a-5949-8ea6-212611446507', '0938b850-0662-5f5c-8023-51295e46d69a', '6733d008-be77-5a1a-82a0-4637f0918fe9', 'b02cb7da-aa42-57a2-8f82-3374e8ddef6a', '8b7f105c-26f2-523b-86eb-084c333b1f76', '0d7b5537-0852-5349-9442-c4bc4acf79c8', '31ac7149-66ed-5b58-96ab-d0e37c4874cb', '00cb0ae3-f022-5533-932f-79f6ff7b7837', '343487da-2e28-5527-a8a6-4f53acaa0236', 'bf8f5167-65ca-5076-b0a1-cbfce57e5f08', '9ca8601e-3dd5-5468-a643-88bdc1e7a3af', '6a496224-0762-5fc9-9479-7ba522e96442', '0518f441-7052-525d-b58a-33edabd41fbf', 'af5ce63e-3c3a-5f41-af28-d8d5952d9c0f', 'f75685cf-ea22-5da3-96ea-78efee05b98e', '79723416-8c0d-54d9-ac46-a56ab7accfc4', '21acad42-005b-5552-8ffa-110ec776bdf7', '1488a14d-359f-5da5-acd9-e3f9dc41e0e4', '9d1d56cf-d50f-553e-b700-ba9df3bb2658', 'e19573e1-5baf-5b54-b4dd-1b4dbc6c72b6', '68278478-0018-59f8-85bc-d81d5d7478a1', '6547f577-6c46-5742-b348-dd1219b831fd', '057c09cb-7260-58b9-802e-4ea6c35c72cd', '6f261671-9a69-540a-a3dc-2cb5c6bd1edb', '19fcbb96-7247-5931-ba34-e8323decf1a9', '0cf7e9b3-11c9-5dc2-8824-655a38ed5420', 'ce39a83b-ee0e-5789-b144-43eac9c9601b', '09f3cdff-5f4f-5301-abe9-8a106c73a4f0', 'a567104f-0265-54ed-a5a8-8d0a3fb41665');
+DELETE FROM course_sections WHERE course_id = 'a575d044-3374-561b-9cf6-d44aa7b0f855' AND id NOT IN ('ddde0231-8e2c-52dd-a516-cb2c457edee3', '6e2b8cd1-14ce-5765-bcfb-849fc644bafa', 'd5c56687-63d6-5979-9b71-094dbc193781', '7250ad7d-5dbf-51ef-a021-a3bc1a7a977d', 'b37c1248-560c-58a0-9553-a6f97e67bdc1', '012c80ac-4e8f-5205-8f62-ce79738eaa79', '9611f948-d8bd-544b-ac64-8494c8344d6b', 'b27ee0eb-7aa7-5cd9-bb97-93c1544a7ef4', '98b68cee-490d-5b44-a0f5-50f1333a1d8f', 'a1f87708-c87d-52ce-97b0-2349db4da084', '6ff93f4a-2837-5cbd-9213-c1c70cc0ba4d', 'aa8e2103-5171-536c-8e60-276955af7a4d', '28d98742-f3ee-57d2-b776-3a92dbf0cd4c');
 

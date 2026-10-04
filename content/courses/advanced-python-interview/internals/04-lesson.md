@@ -1,67 +1,46 @@
 ---
 kind: lesson
-id_key: advanced-python-interview/internals/mro
+id_key: advanced-python-interview/internals/arrays
 course: advanced-python-interview
 section: internals
 section_title: "Memory & the Interpreter"
-section_position: 0
-title: "Method Resolution Order (MRO)"
+section_position: 5
+section_group: Advanced
+title: "Arrays (the `array` Module)"
 position: 3
-estimated_minutes: 15
-source: ["fifty-advanced-python-concepts/4.method_resolution_order.py", "fifty-advanced-python-concepts/handbook/50_main_concepts_1_10.md"]
+estimated_minutes: 12
+source: ["fifty-advanced-python-concepts/1.arrays.py", "fifty-advanced-python-concepts/handbook/50_main_concepts_1_10.md"]
 ---
-When a class inherits from multiple parents, and more than one of those parents defines the same method, which one wins? Python answers this with the **Method Resolution Order (MRO)** — a single, deterministic list of classes, computed once per class, that attribute and method lookup walks in order, stopping at the first match.
+A Python `list` can hold anything — an int, a string, another list — in the same container. That flexibility costs memory: each element is a separate Python object, and the list itself stores an array of *pointers* to those objects, not the raw values. When you need a large, homogeneous run of numbers, the standard library's `array` module stores the raw values directly, packed the way a C array would be.
 
-## The simple case: left-to-right
+## Type-specific arrays
 
-```python
-class A:
-    def greet(self):
-        print("Hello from A")
-
-class B:
-    def greet(self):
-        print("Hello from B")
-
-class C(A, B):
-    pass
-
-c = C()
-c.greet()          # Hello from A — A is listed first in C(A, B)
-print(C.__mro__)   # (C, A, B, object)
-```
-
-With no shared ancestor between `A` and `B`, the MRO is exactly the declaration order: `C`, then `A`, then `B`, then `object`. `c.greet()` finds `A.greet` first and stops.
-
-## The diamond problem
-
-The MRO gets interesting when the parents share a common ancestor — the classic **diamond**: `B` and `C` both inherit from `A`, and `D` inherits from both `B` and `C`.
+`array.array` takes a **type code** as its first argument — a single character that fixes what every element must be — and refuses anything that doesn't fit.
 
 ```python
-class A:
-    def greet(self):
-        print("Hello from A")
+from array import array
 
-class B(A):
-    pass
+numbers = array('i', [1, 2, 3, 4, 5])  # 'i' = signed int
+numbers.append(6)
+numbers.extend([7, 8])
+numbers.insert(0, 0)
 
-class C(A):
-    def greet(self):
-        print("Hello from C")
+print(numbers)          # array('i', [0, 1, 2, 3, 4, 5, 6, 7, 8])
+print(numbers.itemsize)  # 4 — bytes per element on this platform
 
-class D(B, C):
-    pass
-
-d = D()
-d.greet()          # Hello from C
-print(D.__mro__)   # (D, B, C, A, object)
+try:
+    numbers.append("nine")
+except TypeError as e:
+    print(f"rejected: {e}")  # array only holds ints once created with 'i'
 ```
 
-Naive left-to-right depth-first search would check `D` → `B` → `A` (finds `greet` here) and stop, silently ignoring `C`'s more specific override. CPython instead uses **C3 linearization**, an algorithm that guarantees two properties: a class always appears before its parents, and the declared order of a class's own bases is preserved. Under C3, `A` is pushed all the way to the end — past both `B` and `C` — because `A` is an ancestor of both and must be resolved *after* anything more specific. That's why `D.__mro__` puts `C` before `A`: `B` has no `greet` of its own, so the search falls through to `C`, which does — not to `A`, which would bypass `C`'s override entirely.
+`array` supports the same `.append`/`.extend`/`.insert` methods as `list`, so the API is familiar — the difference is entirely in storage. Common type codes: `'b'`/`'B'` (signed/unsigned byte), `'i'`/`'I'` (signed/unsigned int), `'f'`/`'d'` (float/double), `'u'` (unicode char, deprecated).
 
-## Why this matters
+## Why this matters at the memory level
 
-MRO is the mechanism `super()` actually uses — `super().__init__()` doesn't call "the parent class," it calls "the next class in the current instance's MRO," which is exactly why cooperative multiple inheritance (every class in a chain calling `super()`) works correctly even in diamond shapes. Getting a class hierarchy wrong here doesn't raise an error — it silently calls the wrong method, which is what makes MRO bugs painful to track down in large codebases with deep or wide inheritance.
+A `list` of a million ints stores a million separate `int` objects (each with its own refcount and type pointer) plus a million 8-byte pointers in the list's backing array. An `array('i', ...)` of a million ints stores exactly one contiguous block of 4-million bytes — no per-element object overhead at all. That's the trade you're making: `array` is dramatically more memory-efficient and cache-friendly for large runs of one numeric type, at the cost of losing per-element flexibility and Python-level dynamic typing.
+
+In practice, `array` shows up under the hood of other tools (it backs parts of `struct`, and libraries like NumPy generalize the same idea to N dimensions) more often than it's reached for directly — but recognizing when a list's flexibility is pure overhead is the actual interview signal.
 
 ## Knowledge check
 
@@ -69,30 +48,30 @@ MRO is the mechanism `super()` actually uses — `super().__init__()` doesn't ca
 {
   "questions": [
     {
-      "id": "internals-mro-q1",
+      "id": "internals-arrays-q1",
       "type": "mcq",
-      "prompt": "class C(A, B): pass, where both A and B define greet(). Which one does c.greet() call?",
+      "prompt": "What must you specify when creating a Python array.array that a list never requires?",
       "options": [
-        { "id": "a", "text": "B's, because it's evaluated last" },
-        { "id": "b", "text": "A's, because A is listed first in C(A, B) and the MRO checks bases left to right" },
-        { "id": "c", "text": "Both are called, in order" },
-        { "id": "d", "text": "It raises a TypeError for ambiguous inheritance" }
+        { "id": "a", "text": "A fixed maximum length" },
+        { "id": "b", "text": "A type code, fixing every element to the same type" },
+        { "id": "c", "text": "A custom hash function" },
+        { "id": "d", "text": "A thread-safety mode" }
       ],
       "correct": "b",
-      "explanation": "With no shared ancestor, the MRO is simply the declaration order: C, A, B, object. Lookup stops at the first match, which is A."
+      "explanation": "array.array('i', ...) fixes the element type via a one-character type code; mixing types raises TypeError, unlike a list."
     },
     {
-      "id": "internals-mro-q2",
+      "id": "internals-arrays-q2",
       "type": "mcq",
-      "prompt": "In the diamond D(B, C) where B(A) and C(A) both descend from A, and only C overrides greet(), why does d.greet() call C's version and not A's?",
+      "prompt": "Why is array more memory-efficient than list for a million integers?",
       "options": [
-        { "id": "a", "text": "C3 linearization places shared ancestor A after all of its more specific descendants (B and C), so the search reaches C's override before falling back to A" },
-        { "id": "b", "text": "Python always prefers the second base class in a diamond" },
-        { "id": "c", "text": "A's method is deleted automatically once subclassed twice" },
-        { "id": "d", "text": "It's undefined behavior and differs by Python version" }
+        { "id": "a", "text": "It stores raw values in one contiguous block instead of a million separate int objects plus pointers" },
+        { "id": "b", "text": "It compresses the data automatically" },
+        { "id": "c", "text": "It uses a different garbage collector" },
+        { "id": "d", "text": "It stores values on disk instead of in RAM" }
       ],
       "correct": "a",
-      "explanation": "C3 linearization guarantees a class appears before its ancestors in the MRO. D's MRO is (D, B, C, A, object) — B has no greet of its own, so lookup falls through to C's override before ever reaching A."
+      "explanation": "A list holds pointers to individually-allocated int objects; array packs raw values contiguously like a C array, eliminating per-element object overhead."
     }
   ]
 }

@@ -1,58 +1,47 @@
 ---
 kind: lesson
-id_key: advanced-python-interview/internals/garbage-collection
+id_key: advanced-python-interview/serialization-data/bytecode-dis
 course: advanced-python-interview
 section: internals
 section_title: "Memory & the Interpreter"
-section_position: 0
-title: "Garbage Collection & Circular References"
+section_position: 5
+section_group: Advanced
+title: "Bytecode & the `dis` Module"
 position: 1
 estimated_minutes: 15
-source: ["fifty-advanced-python-concepts/2.garbage_collection.py", "fifty-advanced-python-concepts/handbook/50_main_concepts_1_10.md"]
+source: ["fifty-advanced-python-concepts/34.python_bytecode.py", "fifty-advanced-python-concepts/handbook/50_main_concepts_26_40.md"]
 ---
-CPython's primary memory-management strategy is **reference counting**: every object carries a count of how many things point to it, and the moment that count hits zero, the object is freed immediately — no separate "GC pause" required. `sys.getrefcount` lets you see this counter directly (it always reports one more than you'd expect, because passing the object into `getrefcount` itself creates a temporary reference).
+Python source code isn't executed directly — it's first compiled into **bytecode**, a low-level instruction set for the CPython virtual machine, then that bytecode is what actually runs. You don't need to read bytecode day to day, but knowing it exists (and how to look at it) explains a surprising amount of Python's runtime behavior, and it's a question that separates "knows Python syntax" from "understands how Python actually executes."
+
+## Disassembling a function
+
+The `dis` module turns a function's compiled bytecode into human-readable instructions:
 
 ```python
-import sys
+import dis
 
-class Node:
-    def __init__(self, name):
-        self.name = name
-        self.next = None
+def count_to_ten():
+    total = 0
+    for i in range(10):
+        total += i
+    return total
 
-a = Node("A")
-print(sys.getrefcount(a))  # 2: the 'a' variable + getrefcount's own argument
+dis.dis(count_to_ten)
 ```
 
-## Where reference counting breaks: cycles
+Running this prints a table of opcodes — things like `LOAD_FAST`, `LOAD_GLOBAL`, `CALL`, `STORE_FAST`, `POP_JUMP_IF_FALSE` — each corresponding to one step the interpreter takes: loading a local variable onto the stack, calling a function, jumping to loop back, and so on. `range(10)` compiles to a `LOAD_GLOBAL`+`CALL`, and the `for` loop compiles to a `GET_ITER`/`FOR_ITER` pair with a jump back to the top on each iteration.
 
-Reference counting has exactly one blind spot — a **cycle**, where a group of objects reference each other but nothing outside the group references any of them. Their counts never reach zero, so pure refcounting would leak them forever.
+## Why senior engineers care
 
-```python
-import gc
+A few places this pays off:
 
-a = Node("A")
-b = Node("B")
+- **Explaining "why is A faster than B"** — two pieces of code that look equally simple can compile to a different number of bytecode instructions. `dis.dis` is the tool that turns "I have a hunch" into "here's the extra `LOAD_ATTR` this version does that the other doesn't."
+- **Understanding CPython internals questions** — "what does the GIL actually protect?" and "why is `x += 1` not atomic?" both become concrete once you can see that even a simple augmented assignment is multiple separate bytecode instructions (`LOAD_FAST`, `BINARY_ADD`, `STORE_FAST`), any of which the interpreter can be preempted between.
+- **Spotting accidental global lookups** — a variable dis shows as `LOAD_GLOBAL` inside a hot loop (instead of `LOAD_FAST`) is a real, measurable slowdown, because global lookups go through a dict rather than a fixed local-variable slot.
 
-a.next = b   # a's refcount: 1 (from variable 'a')
-b.next = a   # a's refcount: 2 (from variable 'a' AND b.next)
-             # b's refcount: 2 (from variable 'b' AND a.next)
+## What it isn't
 
-del a
-del b
-# Neither object's refcount reached 0 — each is still held by the other.
-# Both are now unreachable from any variable, but reference counting alone
-# can never notice that and would leak them.
-
-collected = gc.collect()
-print(f"garbage collector collected {collected} objects")  # frees the cycle
-```
-
-## The cyclic garbage collector
-
-This is what `gc` (Python's *second*, supplementary collector) exists for: it periodically walks objects capable of participating in cycles — container types like your own classes, lists, dicts — looking for groups that are unreachable from any root (a global, a local variable, a stack frame) even though their internal refcounts are nonzero. It runs automatically, triggered by allocation thresholds, and you can also force a sweep with `gc.collect()`.
-
-This matters most in long-running services: a web server that builds cyclic structures (parent objects holding children that hold a back-reference to the parent is the classic shape) and never restarts will accumulate garbage between GC passes. `weakref` (a later lesson) offers a way to break cycles deliberately, by holding a reference that doesn't count toward the refcount at all.
+`dis` is a diagnostic tool, not something used in day-to-day application code, and bytecode is a CPython implementation detail — it isn't part of the language specification, changes between Python versions, and other implementations (PyPy, for instance) don't use the same instruction set at all. Knowing it exists, and being able to reach for it when a performance question needs a concrete answer, is the actual skill being tested.
 
 ## Knowledge check
 
@@ -60,30 +49,30 @@ This matters most in long-running services: a web server that builds cyclic stru
 {
   "questions": [
     {
-      "id": "internals-garbage-collection-q1",
+      "id": "serialization-data-bytecode-dis-q1",
       "type": "mcq",
-      "prompt": "Why can't reference counting alone free two objects that only reference each other (a cycle)?",
+      "prompt": "What does dis.dis(some_function) show you?",
       "options": [
-        { "id": "a", "text": "Python disables refcounting for user-defined classes" },
-        { "id": "b", "text": "Each object's refcount never reaches zero, since the other object in the cycle still holds a reference to it" },
-        { "id": "c", "text": "Cycles are illegal in Python and raise an error" },
-        { "id": "d", "text": "Refcounting only works on built-in types" }
+        { "id": "a", "text": "The function's docstring and type hints" },
+        { "id": "b", "text": "The low-level bytecode instructions the CPython VM executes for that function" },
+        { "id": "c", "text": "A performance benchmark of the function" },
+        { "id": "d", "text": "The machine code generated for the CPU" }
       ],
       "correct": "b",
-      "explanation": "In a cycle, deleting the external variables removes the only references reachable from outside — but the objects still reference each other, so their refcounts stay above zero forever without a separate cycle-detecting collector."
+      "explanation": "dis.dis disassembles a function's compiled bytecode into readable opcodes (LOAD_FAST, CALL, etc.) — the actual instruction set the CPython interpreter executes, one level below Python source."
     },
     {
-      "id": "internals-garbage-collection-q2",
+      "id": "serialization-data-bytecode-dis-q2",
       "type": "mcq",
-      "prompt": "What does gc.collect() do that plain reference counting cannot?",
+      "prompt": "Why does seeing dis reveals that even x += 1 compiles to multiple separate bytecode instructions matter for understanding the GIL?",
       "options": [
-        { "id": "a", "text": "It increases the maximum recursion depth" },
-        { "id": "b", "text": "It finds and frees groups of objects that are unreachable from any root but still reference each other in a cycle" },
-        { "id": "c", "text": "It compacts the heap to defragment memory" },
-        { "id": "d", "text": "It converts objects to weak references automatically" }
+        { "id": "a", "text": "It doesn't relate to the GIL at all" },
+        { "id": "b", "text": "It shows the interpreter can be preempted between those instructions, which is why simple-looking operations like x += 1 aren't atomic across threads" },
+        { "id": "c", "text": "It proves the GIL makes all operations atomic automatically" },
+        { "id": "d", "text": "It means bytecode instructions always run in parallel" }
       ],
       "correct": "b",
-      "explanation": "gc is a supplementary collector specifically for cycles — it walks container objects looking for unreachable groups that refcounting's local, per-object bookkeeping can't detect on its own."
+      "explanation": "Since x += 1 is really LOAD_FAST, BINARY_ADD, STORE_FAST as separate steps, a thread switch can happen between any of them, which is exactly why augmented assignment isn't thread-safe without a lock."
     }
   ]
 }

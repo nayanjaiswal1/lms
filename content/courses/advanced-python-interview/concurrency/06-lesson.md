@@ -4,7 +4,8 @@ id_key: advanced-python-interview/concurrency/shared-memory
 course: advanced-python-interview
 section: concurrency
 section_title: "Concurrency & Parallelism"
-section_position: 1
+section_position: 7
+section_group: Advanced
 title: "Shared Memory in Multiprocessing"
 position: 5
 estimated_minutes: 18

@@ -4,7 +4,8 @@ id_key: advanced-python-interview/concurrency/race-conditions
 course: advanced-python-interview
 section: concurrency
 section_title: "Concurrency & Parallelism"
-section_position: 1
+section_position: 7
+section_group: Advanced
 title: "Race Conditions (Multiprocessing & Multithreading)"
 position: 4
 estimated_minutes: 18

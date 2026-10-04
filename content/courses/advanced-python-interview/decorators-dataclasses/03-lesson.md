@@ -4,7 +4,8 @@ id_key: advanced-python-interview/decorators-dataclasses/metaprogramming
 course: advanced-python-interview
 section: decorators-dataclasses
 section_title: "Decorators, Dataclasses & Metaprogramming"
-section_position: 7
+section_position: 10
+section_group: Advanced
 title: "Metaprogramming"
 position: 2
 estimated_minutes: 15

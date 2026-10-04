@@ -4,7 +4,8 @@ id_key: advanced-python-interview/concurrency/concurrency-vs-parallelism
 course: advanced-python-interview
 section: concurrency
 section_title: "Concurrency & Parallelism"
-section_position: 1
+section_position: 7
+section_group: Advanced
 title: "Concurrency vs Parallelism"
 position: 1
 estimated_minutes: 12
