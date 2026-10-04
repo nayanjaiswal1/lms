@@ -1,0 +1,15 @@
+title: "The Engineering Playbook"
+description: >-
+  Software engineering concepts explained from first principles, one topic at a time, and
+  growing over time across backend and UI. Each lesson builds intuition first, then goes
+  deep: how it works, where it breaks, and how to explain it clearly. Starts with backend
+  API and auth (JSON Web Tokens end to end, with working FastAPI + PyJWT code and a Hinglish
+  version of the main lesson, switchable on the lesson page).
+difficulty: intermediate
+is_free: true
+is_public: true
+tags:
+  - backend
+  - frontend
+  - api
+  - security

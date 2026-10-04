@@ -357,3 +357,29 @@ An instructor authors a course as `draft`, builds out sections/modules, then `PO
 `module_progress` tracks per-user, per-module status (`not_started`/`in_progress`/`completed`). For `video`/`pdf`/`notes` modules the student (or the frontend, on scroll/watch-complete) calls `PATCH /api/modules/{moduleID}/progress` directly. For `assessment` and `lab` modules, completion is driven by the owning domain instead — an assessment attempt passing, or a lab session reaching `status='completed'` (see `docs/labs.md`'s "Task Verification" section, `finalizeTaskPass` → `coursesSvc.CompleteModule`) calls into the courses domain to mark the module complete, rather than the student calling the progress endpoint themselves.
 
 `CourseProgressSummary` (`GET /api/courses/{courseID}/progress/me`) aggregates `completed`/`total`/`pct` across every module in the course plus the raw per-module rows, so the frontend can render completion badges and resume-at-the-right-module navigation without a second query.
+
+---
+
+## Lesson translations (per-lesson language switcher)
+
+A notes lesson can carry extra language versions of its **body only** (`module_translations`, migration 049). Titles, quizzes and everything else stay in the original language; a lesson with no rows shows no switcher. The language lives in the URL (`?lang=hi-Latn`), so it survives refresh and works for anonymous visitors on `is_public` courses. Language names are rendered with `Intl.DisplayNames` — no list to maintain.
+
+Quiz gating always keys off the **original** body (the server's answer key belongs to it), so a translation should keep the same `knowledge-check` blocks.
+
+```sql
+module_translations (
+  module_id    UUID REFERENCES course_modules(id) ON DELETE CASCADE,
+  locale       TEXT,   -- BCP-47-ish: en, hi, pt-BR, hi-Latn (Hinglish)
+  content_body TEXT NOT NULL,
+  PRIMARY KEY (module_id, locale)
+)
+```
+
+| Method | Path | Auth |
+|---|---|---|
+| `GET` | `/api/public/courses/{slug}/modules/{moduleID}/translations` | none — public + published courses only |
+| `GET` | `/api/modules/{moduleID}/translations` | any signed-in user in the org |
+| `PUT` | `/api/modules/{moduleID}/translations/{locale}` | owner/admin/instructor — body `{content_body}` |
+| `DELETE` | `/api/modules/{moduleID}/translations/{locale}` | owner/admin/instructor |
+
+There is no authoring UI yet; seed via the PUT endpoint or SQL (see `backend/db/fixtures/engineering-playbook.post-seed.sql`).
