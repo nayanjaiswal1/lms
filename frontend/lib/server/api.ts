@@ -11,6 +11,15 @@ export interface ActionResult<T = undefined> {
   // Set on 409 when the backend returns the current row alongside the error
   // (optimistic-lock conflicts), so the UI can show "yours vs current".
   conflict?: T;
+  // HTTP status of a failed backend response, so callers can branch on
+  // 429/503 without parsing the message (absent on success/network errors).
+  status?: number;
+  // Machine-readable error code from the backend envelope ({"error","code"}),
+  // when the emitting handler set one.
+  code?: string;
+  // Seconds from a failed response's Retry-After header (429 windows), when
+  // the backend sent one — lets callers show an exact countdown.
+  retryAfter?: number;
 }
 
 /**
@@ -107,6 +116,16 @@ export async function apiPost<T>(path: string, payload?: unknown): Promise<T> {
 // reason lives in `fields`. Surfacing the placeholder verbatim as the action's
 // error message shows the user nothing actionable, so fall back to the first
 // field message whenever the top-level error is just that wrapper.
+// Shape of a backend response body: {data} on success, {error, code?, fields?}
+// on failure. `code` is the machine-readable error code (snake_case, owned by
+// the emitting domain package) — branch on it, never on `error` text.
+interface ErrorEnvelope<T> {
+  data?: T;
+  error?: string;
+  code?: string;
+  fields?: Record<string, string>;
+}
+
 export function actionErrorMessage(json: { error?: string; fields?: Record<string, string> }, fallback: string): string {
   if (json.error && json.error !== "validation failed") return json.error;
   const firstFieldMessage = json.fields ? Object.values(json.fields)[0] : undefined;
@@ -163,10 +182,11 @@ export async function apiUpload<T = undefined>(
       const wait = retryAfterSeconds(res);
       return { error: `Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} before trying again.` };
     }
-    const json = await res.json().catch(() => ({})) as { data?: T; error?: string; fields?: Record<string, string> };
+    const json = await res.json().catch(() => ({})) as ErrorEnvelope<T>;
     if (!res.ok) {
       return {
         error: actionErrorMessage(json, "Upload failed."),
+        code: json.code,
         fieldErrors: json.fields,
         conflict: res.status === 409 ? json.data : undefined,
       };
@@ -204,10 +224,11 @@ export async function apiActionPublic<T = undefined>(
       const wait = retryAfterSeconds(res);
       return { error: `Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} before trying again.` };
     }
-    const json = await res.json().catch(() => ({})) as { data?: T; error?: string; fields?: Record<string, string> };
+    const json = await res.json().catch(() => ({})) as ErrorEnvelope<T>;
     if (!res.ok) {
       return {
         error: actionErrorMessage(json, "Request failed."),
+        code: json.code,
         fieldErrors: json.fields,
         conflict: res.status === 409 ? json.data : undefined,
       };
@@ -237,16 +258,29 @@ export async function apiAction<T = undefined>(
       body: payload !== undefined ? JSON.stringify(payload) : undefined,
       cache: "no-store",
     });
+    const json = await res.json().catch(() => ({})) as ErrorEnvelope<T>;
     if (res.status === 429) {
+      // A plain rate limit gets the generic wait message; a 429 with its own
+      // code (max hints, review limit, ...) keeps the backend's explanation.
       const wait = retryAfterSeconds(res);
-      return { error: `Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} before trying again.` };
+      const generic = !json.code || json.code === "rate_limited";
+      return {
+        error: generic
+          ? `Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} before trying again.`
+          : actionErrorMessage(json, "Too many requests."),
+        code: json.code,
+        status: 429,
+        retryAfter: parseRetryAfter(res),
+      };
     }
-    const json = await res.json().catch(() => ({})) as { data?: T; error?: string; fields?: Record<string, string> };
     if (!res.ok) {
       return {
         error: actionErrorMessage(json, "Request failed."),
+        code: json.code,
         fieldErrors: json.fields,
         conflict: res.status === 409 ? json.data : undefined,
+        status: res.status,
+        retryAfter: parseRetryAfter(res),
       };
     }
     return { ok: true, data: json.data };
@@ -255,8 +289,12 @@ export async function apiAction<T = undefined>(
   }
 }
 
-function retryAfterSeconds(res: Response): number {
+function parseRetryAfter(res: Response): number | undefined {
   const raw = res.headers.get("Retry-After");
   const parsed = raw ? parseInt(raw, 10) : NaN;
-  return isNaN(parsed) ? 60 : parsed;
+  return isNaN(parsed) ? undefined : parsed;
+}
+
+function retryAfterSeconds(res: Response): number {
+  return parseRetryAfter(res) ?? 60;
 }

@@ -1,0 +1,81 @@
+kind: check
+id: check.http-behavior
+version: 1.0.0
+stack: any
+title: Requests behave correctly
+summary: 'HTTP behavior probe: one or more requests against the live app, as one or several users (cookie jars), asserting status and JSON.'
+category: check
+skills:
+- debugging
+- verification
+params:
+  type: object
+  properties:
+    steps:
+      type: array
+      description: 'Ordered requests. Each: {method, path, headers, body, session, timeout, expect_status (int or list), expect_json [{path, equals|min|max|type|contains|regex|exists|length}], save {var:
+        json.path}}. Strings may use {{int:a:b}}, {{rand_str:n}}, {{rand_hex:n}}, {{choice:a|b}}, {{seed}} and saved variables.'
+      items:
+        type: object
+        required:
+        - path
+        properties:
+          method:
+            type: string
+          path:
+            type: string
+          headers:
+            type: object
+          session:
+            type: string
+          timeout:
+            type: number
+          expect_status:
+            oneOf:
+            - type: integer
+            - type: array
+              items:
+                type: integer
+          expect_json:
+            type: array
+            items:
+              type: object
+              required:
+              - path
+          save:
+            type: object
+    method:
+      type: string
+      maxLength: 10
+      x-mf-use: text
+      description: 'Single-step form: HTTP method (default GET).'
+    path:
+      type: string
+      maxLength: 200
+      x-mf-use: text
+      description: 'Single-step form: request path.'
+    headers:
+      type: object
+      description: 'Single-step form: request headers, e.g. Authorization: Token mf_tok_alice.'
+    body:
+      type: object
+      description: 'Single-step form: JSON body.'
+    session:
+      type: string
+      maxLength: 40
+      x-mf-use: text
+      description: 'Single-step form: cookie-jar name (use different names to act as different users).'
+    expect_status:
+      type: integer
+      description: 'Single-step form: required status (default any 2xx).'
+    expect_json:
+      type: array
+      description: 'Single-step form: JSON expectations, see steps.'
+    timeout:
+      type: number
+      description: Per-request timeout seconds (default 10).
+      minimum: 0.1
+      maximum: 60
+check:
+  probe: P
+  failure_message: The application did not respond as expected for this request. Reproduce it yourself and compare the actual behavior with what the ticket describes.

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { apiGet, apiGetPublic, apiPost } from "@/lib/server/api";
+import type { BundleRef } from "@/lib/server/bundles";
 
 export interface Course {
   id: string;
@@ -40,6 +41,10 @@ export interface CourseModule {
   content_body: string | null;
   assessment_id: string | null;
   estimated_minutes: number | null;
+  // Course library (migration 044) — see docs/courses.md "Course library".
+  lab_id?: string | null;
+  lab_is_required?: boolean;
+  copied_from_module_id?: string | null;
 }
 
 export interface CourseSection {
@@ -47,6 +52,7 @@ export interface CourseSection {
   course_id: string;
   title: string;
   position: number;
+  group_title: string | null;
   modules: CourseModule[];
 }
 
@@ -163,6 +169,7 @@ export interface CourseDetailForViewer extends CourseTree {
   is_enrolled: boolean;
   progress: CourseProgressSummary | null;
   my_rating: number | null;
+  bundles: BundleRef[]; // published bundles this course is part of
 }
 
 // Resolves a course by its URL slug for the current viewer in a single call

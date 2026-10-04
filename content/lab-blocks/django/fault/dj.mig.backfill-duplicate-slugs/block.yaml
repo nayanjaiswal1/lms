@@ -1,0 +1,118 @@
+kind: fault
+id: dj.mig.backfill-duplicate-slugs
+version: 1.0.0
+stack: django
+title: 'Deploy crashes only on production: migration cannot create the unique slug index'
+summary: A migration adds a unique slug to reviews and backfills it from the title, which is optional and not unique, so it works on an empty
+  database and fails on real data.
+category: migrations
+difficulty: intermediate
+skills:
+- django-migrations
+- data-migrations
+- expand-backfill-constrain
+requires:
+- cap:postgres
+fault:
+  inject:
+    files:
+    - path: reviews/models.py
+      from: inject/models.py
+    - path: reviews/migrations/0002_review_slug.py
+      from: inject/0002_review_slug.py
+  fix:
+    files:
+    - path: reviews/migrations/0002_review_slug.py
+      from: fix/0002_review_slug.py
+    - path: tests/test_review_slug_backfill.py
+      from: fix/tests/test_review_slug_backfill.py
+  cheats:
+  - name: swallow-backfill-errors
+    files:
+    - path: reviews/migrations/0002_review_slug.py
+      from: cheats/0002_swallow_errors.py
+  - name: drop-the-uniqueness-in-the-migration
+    files:
+    - path: reviews/migrations/0002_review_slug.py
+      from: cheats/0002_nullable_not_unique.py
+  - name: revert-the-commit
+    files:
+    - path: reviews/migrations/0002_review_slug.py
+      from: fix/0002_review_slug.py
+    - path: ext/account_overview/urls.py
+      from: cheats/empty_urls.py
+  carrier:
+    feature: account-overview
+    files:
+    - path: ext/account_overview/__init__.py
+      from: carrier/ext/account_overview/__init__.py
+    - path: ext/account_overview/apps.py
+      from: carrier/ext/account_overview/apps.py
+    - path: ext/account_overview/urls.py
+      from: carrier/ext/account_overview/urls.py
+    - path: ext/account_overview/views.py
+      from: carrier/ext/account_overview/views.py
+  commit:
+    message: 'reviews: give every review a permalink slug and add the account overview endpoint'
+    persona: Elena Petrov <elena@shop.example.com>
+  checks:
+  - ref: check.migrate-from-snapshot
+    role: symptom
+    params:
+      steps:
+      - db: clean
+        timeout: 90
+        cmd: . scripts/dev-env.sh && python3 manage.py migrate reviews 0001 --noinput && psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -c "INSERT
+          INTO customers_customer (password, is_superuser, email, full_name, is_active, is_staff, date_joined) SELECT '!', false, 'dirty' || g
+          || '@shop.test', '', true, false, now() FROM generate_series(1, 2) g; INSERT INTO catalog_category (name, slug) VALUES ('Dirty', 'dirty');
+          INSERT INTO catalog_product (sku, name, slug, description, category_id, price, is_deleted, review_count, rating_total, created_at) SELECT
+          'DIRTY-' || g, 'Dirty ' || g, 'dirty-' || g, '', 1, 5, false, 0, 0, now() FROM generate_series(1, 3) g; INSERT INTO reviews_review (product_id,
+          customer_id, rating, title, body, is_approved, created_at) SELECT 1 + (g - 1) % 3, 1 + (g - 1) / 3, 5, CASE WHEN g <= 3 THEN NULL ELSE
+          'Great' END, '', true, now() FROM generate_series(1, 6) g" && python3 manage.py migrate --noinput
+        expect_rc: 0
+      - db: clean
+        cmd: . scripts/dev-env.sh && python3 manage.py migrate --noinput && python3 manage.py makemigrations --check --dry-run
+        expect_rc: 0
+  symptom:
+    vars:
+      title: 'Release failed on production but worked in staging: migration error on reviews'
+      report: Last night's release rolled back. The migration that gives reviews a permalink slug ran fine on every developer machine and in staging,
+        but on production it aborted with a unique-index error and left the deployment half-finished. Production has years of reviews, many without
+        a title.
+      output: |-
+        django.db.utils.IntegrityError: could not create unique index "reviews_review_slug_..."
+        DETAIL:  Key (slug)=(none) is duplicated.
+      impact: The release is blocked and production is on the previous version. The permalink feature that the marketing campaign needs cannot
+        ship.
+      support_tried: 'Re-ran the migration against a fresh copy of production: same error. Manually set a few slugs in the copy and it got further
+        and failed on another duplicate.'
+      observations: |-
+        ### Other observations from the reporter
+
+        - Staging and development databases only contain a few reviews with titles.
+        - Production has reviews without a title and many with the same title.
+        - The account overview endpoint shipped in the same release; it does not touch slugs.
+    signature: 'could not create unique index on reviews_review.slug: Key (slug)=(none) is duplicated'
+  hints:
+  - 'Compare the data the migration ran on in staging with the data on production. The error mentions a duplicated slug: which value, and how
+    could many different reviews end up with it? Reproduce it yourself: bring a scratch database to the state before this migration (migrate reviews
+    0001), insert reviews with missing and with repeated titles, then migrate forward.'
+  - The migration adds a nullable column, fills it from the title, then makes it unique and required. Titles are optional and not unique, so the
+    backfill can produce empty, repeated or literally the string none for many rows, and the final step cannot build a unique index over them.
+    A backfill for a unique column must generate values that are unique by construction.
+  - Fix build_slug in reviews/migrations/0002_review_slug.py so every review gets a distinct, non-empty slug (for example the slugified title,
+    or review, plus the primary key). Test the function with missing and duplicated titles, and keep the expand, backfill, constrain order.
+  rubric:
+    key_points:
+    - Explains why the migration passes on clean and small databases and fails on production data (NULL and duplicate titles).
+    - Identifies the backfill as the culprit and fixes it so the generated slugs are unique by construction.
+    - Keeps the expand, backfill, constrain order and does not weaken the model constraint to make the migration pass.
+    - Adds a test (or a migration check against dirty data) that fails on the original code.
+    misconceptions:
+    - Wrapping the backfill in try/except or making the column non-unique lets the deploy pass (it hides the problem or breaks the model).
+    - Testing migrations on an empty database is enough.
+    - The database is at fault and the duplicate reviews should be deleted.
+  root_cause: |
+    Migration `0002_review_slug` added a nullable `slug`, backfilled it with `slugify(review.title)` and then made the column unique and required. `title` is optional and not unique, so on production data the backfill produced empty, repeated or literally `none` slugs (`slugify(None)` returns `none`) and the final `AlterField` could not create the unique index. Small development databases have unique, non-empty titles, so it never showed up before.
+
+    The backfill must generate slugs that are unique by construction: the slugified title (or `review` when missing) plus the primary key.

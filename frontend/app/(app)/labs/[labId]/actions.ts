@@ -8,16 +8,19 @@ import type {
   LabPortsData,
   LabRunResult,
   LabSubmitResult,
+  HintResult,
 } from "@/lib/labs"
+import type { WriteupReviewResult } from "@/lib/labs/kinds/debug"
 
 export async function startLabSessionAction(
   labId: string,
   idempotencyKey: string,
+  moduleId?: string,
 ): Promise<ActionResult<LabSession>> {
   return apiAction<LabSession>(
     "POST",
     `/api/labs/${labId}/sessions`,
-    undefined,
+    moduleId ? { module_id: moduleId } : undefined,
     { "Idempotency-Key": idempotencyKey },
   )
 }
@@ -55,6 +58,21 @@ export async function verifyLabTaskAction(
   )
 }
 
+// idempotencyKey is derived per (session, task, next level) by the caller so a
+// double-click / retry replays the same result instead of burning two levels.
+export async function requestLabHintAction(
+  sessionId: string,
+  taskId: string,
+  idempotencyKey?: string,
+): Promise<ActionResult<HintResult>> {
+  return apiAction<HintResult>(
+    "POST",
+    `/api/labs/sessions/${sessionId}/tasks/${taskId}/hint`,
+    undefined,
+    idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
+  )
+}
+
 export async function listLabPortsAction(
   sessionId: string,
 ): Promise<ActionResult<LabPortsData>> {
@@ -71,4 +89,15 @@ export async function submitLabAction(
   sessionId: string,
 ): Promise<ActionResult<LabSubmitResult>> {
   return apiAction<LabSubmitResult>("POST", `/api/labs/sessions/${sessionId}/submit`)
+}
+
+// Reads INCIDENT.md from the student's workspace server-side and scores it
+// against the lab's rubric (429 after 3 reviews, 503 when the AI is down).
+export async function reviewLabWriteupAction(
+  sessionId: string,
+): Promise<ActionResult<WriteupReviewResult>> {
+  return apiAction<WriteupReviewResult>(
+    "POST",
+    `/api/labs/sessions/${sessionId}/writeup-review`,
+  )
 }

@@ -91,8 +91,7 @@ func (h *Handler) HandleSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req saveRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 

@@ -1,7 +1,6 @@
 package habit
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -51,8 +50,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CreateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	habit, err := h.service.Create(r.Context(), claims.UserID, req)
@@ -86,8 +84,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	habitID := chi.URLParam(r, "habitID")
 	var req UpdateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if err := h.service.Update(r.Context(), claims.UserID, habitID, req); err != nil {
@@ -155,8 +152,7 @@ func (h *Handler) SetCompletionMetadata(w http.ResponseWriter, r *http.Request) 
 	habitID := chi.URLParam(r, "habitID")
 	period := chi.URLParam(r, "period")
 	var req SetMetadataRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if err := h.service.SetCompletionMetadata(r.Context(), claims.UserID, habitID, period, req.Metadata); err != nil {

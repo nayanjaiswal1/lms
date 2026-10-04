@@ -19,6 +19,7 @@ import ROUTES from "@/lib/routes";
 interface ModuleLabClientProps {
   lab: Lab;
   title: string;
+  moduleId: string;
   initialSession: GetSessionResponse | null;
 }
 
@@ -27,7 +28,7 @@ interface ModuleLabClientProps {
 // /labs/sessions/[sessionId]. router.refresh() re-runs the server-side
 // ModuleLab fetch (lab + active session), so provisioning->running and
 // end->overview transitions just fall out of a fresh server render.
-export function ModuleLabClient({ lab, title, initialSession }: ModuleLabClientProps) {
+export function ModuleLabClient({ lab, title, moduleId, initialSession }: ModuleLabClientProps) {
   const router = useRouter();
   const { session: activeSession, track, clear } = useLabProvisioning();
   const [isStarting, startStarting] = useTransition();
@@ -44,7 +45,7 @@ export function ModuleLabClient({ lab, title, initialSession }: ModuleLabClientP
     }
 
     startStarting(async () => {
-      const result = await startLabSessionAction(lab.id, crypto.randomUUID());
+      const result = await startLabSessionAction(lab.id, crypto.randomUUID(), moduleId);
       if (result.error || !result.data) {
         toast.error(result.error ?? "Failed to start lab session.");
         return;
@@ -70,7 +71,7 @@ export function ModuleLabClient({ lab, title, initialSession }: ModuleLabClientP
     const sessionId = initialSession.session.id;
     startEnding(async () => {
       const res = await endLabSessionAction(sessionId);
-      if (!res.ok && !isLabSessionAlreadyEnded(res.error ?? "")) {
+      if (!res.ok && !isLabSessionAlreadyEnded(res.code)) {
         const msg = res.error ?? "Failed to end lab. Please try again.";
         if (isLabAuthError(msg)) {
           router.push(ROUTES.LOGIN);

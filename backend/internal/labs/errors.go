@@ -1,6 +1,9 @@
 package labs
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 var (
 	// ErrNotFound is returned when a lab, session, or task does not exist or is
@@ -112,10 +115,63 @@ var (
 	// refuses new sessions for the lab until the window rolls off.
 	ErrLabProvisioningUnstable = errors.New("labs: lab has failed to provision repeatedly and is temporarily unavailable")
 
+	// ErrAICircuitOpen is returned by any AI endpoint (currently: hints)
+	// while the shared Redis-backed circuit breaker is open — see
+	// AICircuitFailureThreshold's doc comment and docs/labs.md "Runaway AI
+	// retry storms".
+	ErrAICircuitOpen = errors.New("labs: AI circuit breaker is open")
+
+	// ErrAIUnavailable is returned when the configured ai.LLMProvider is not
+	// available (LLM_PROVIDER=disabled or missing API key) or a single
+	// completion call failed. Hints degrade to a clear error rather than a
+	// silently empty response.
+	ErrAIUnavailable = errors.New("labs: AI hint generation is unavailable")
+
 	// ErrPlanQuotaExceeded is returned when an individual account (see
 	// entitlements.Service.ResolveAccount) is at its pricing tier's
 	// lab_sessions_concurrent or lab_hours limit. Org accounts are unaffected
 	// — see docs/entitlements.md §1.1, lab quotas are an individual-plan
 	// concept only, orgs keep their existing org_lab_config caps.
 	ErrPlanQuotaExceeded = errors.New("labs: individual plan lab quota exceeded")
+
+	// ErrBundleStoreUnavailable is returned when a lab-kind session needs a
+	// bundle but no private object store is configured (MinIO unset).
+	ErrBundleStoreUnavailable = errors.New("labs: bundle store is not configured")
+
+	// ErrBundleCorrupt is returned when a downloaded bundle's sha256 does not
+	// match the value recorded in lab_build_variants.
+	ErrBundleCorrupt = errors.New("labs: bundle failed sha256 verification")
+
+	// ErrKindLabNotBuilt is returned when a lab whose lab_type has a
+	// registered kind has no build/variants to run.
+	ErrKindLabNotBuilt = errors.New("labs: lab has no verified build variants")
+
+	// ErrGradeBusy is returned when the clean-room grader is at capacity.
+	ErrGradeBusy = errors.New("labs: grader is busy, try again shortly")
+
+	// ErrMaxWriteupReviewsReached is returned past MaxWriteupReviewsPerSession.
+	ErrMaxWriteupReviewsReached = errors.New("labs: maximum write-up reviews for this session reached")
+
+	// ErrNoDebrief is returned when a debrief is requested before completion.
+	ErrNoDebrief = errors.New("labs: debrief is only available once the session is completed")
 )
+
+// RateLimitedError is ErrRateLimited plus how long until the caller may
+// retry, read from the limiter key's remaining TTL. writeDomainError turns it
+// into a Retry-After header. errors.Is(err, ErrRateLimited) still holds.
+type RateLimitedError struct {
+	RetryAfter time.Duration
+}
+
+func (e *RateLimitedError) Error() string { return ErrRateLimited.Error() }
+func (e *RateLimitedError) Unwrap() error { return ErrRateLimited }
+
+// ErrHintNotSupported is returned when a hint is requested for a task graded
+// by a written review (grader=writeup_review): there is nothing to hint at.
+var ErrHintNotSupported = errors.New("labs: hints are not available for this task")
+
+// ErrSessionCompletedAtDeadline is returned instead of ErrSessionExpired when a
+// request notices the hard deadline and the session closed as 'completed'
+// (its required tasks had passed under CompleteOnFinish). The lab succeeded;
+// only the time is up, so clients route to the result/debrief page.
+var ErrSessionCompletedAtDeadline = errors.New("labs: session completed at its deadline")

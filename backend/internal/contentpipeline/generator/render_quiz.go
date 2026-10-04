@@ -51,7 +51,7 @@ func renderQuiz(out *strings.Builder, courseID, sectionID string, quiz *canonica
 		aqID := canonical.ID(quiz.IDKey, "aq:"+q.IDKey)
 
 		fmt.Fprintf(out,
-			"INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)\nVALUES (%s, %s, %s, %s, %s, %s, %s, 1, %s)\nON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();\n\n",
+			"INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)\nVALUES (%s, %s, %s, %s, %s, %s, %s, 1, %s)\nON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();\n\n",
 			sqlString(questionID), sqlString(seededOrgID), sqlString(q.Type),
 			sqlString(questionTitle(quiz, q)), sqlString(nonEmpty(q.Difficulty, "intermediate")),
 			sqlInt(q.Points), sqlStringArray(courseTags), sqlString(seededInstructorID),
@@ -82,7 +82,15 @@ func renderQuiz(out *strings.Builder, courseID, sectionID string, quiz *canonica
 		sqlString(seededInstructorID),
 	)
 
-	// 3. assessment_questions links.
+	// 3. assessment_questions links. Prune links to questions the document no
+	//    longer declares first — upserts never delete, so a removed question
+	//    would otherwise stay in the live quiz.
+	questionIDs := make([]string, 0, len(quiz.Questions))
+	for _, q := range quiz.Questions {
+		questionIDs = append(questionIDs, sqlString(canonical.ID(quiz.IDKey, "question:"+q.IDKey)))
+	}
+	fmt.Fprintf(out, "DELETE FROM assessment_questions WHERE assessment_id = %s%s;\n\n",
+		sqlString(assessmentID), notInClause("question_id", questionIDs))
 	if len(assessmentQuestionRows) > 0 {
 		out.WriteString("INSERT INTO assessment_questions (id, assessment_id, question_id, version_id, position, points)\nVALUES\n")
 		out.WriteString(strings.Join(assessmentQuestionRows, ",\n"))

@@ -1,0 +1,35 @@
+kind: check
+id: check.latency-while
+version: 1.0.0
+stack: any
+title: Responsiveness while other work runs
+summary: 'Latency probe: runs slow work (requests or a SQL lock) in the background and samples a health path for its p95.'
+category: check
+skills:
+- debugging
+- verification
+params:
+  type: object
+  properties:
+    background:
+      type: object
+      description: '{method, path, body, headers, count} or {sql, count}: the slow work fired concurrently.'
+      properties:
+        count:
+          type: integer
+    probe:
+      type: object
+      description: '{method, path, samples, p95_ms_max, timeout}: what is sampled while the background work runs.'
+      properties:
+        path:
+          type: string
+        p95_ms_max:
+          type: number
+    start_delay_ms:
+      type: integer
+      description: Wait before sampling (default 200).
+      minimum: 0
+      maximum: 5000
+check:
+  probe: L
+  failure_message: The application became slow or unresponsive while another operation was running.

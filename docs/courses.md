@@ -12,9 +12,34 @@ Course structure, lifecycle, and student progress tracking. A course is a tree: 
 | `pdf` | `storage_key` (MinIO object) | Rendered client-side |
 | `notes` | `content_body` (markdown, inline in the row) | Rendered via `frontend/lib/courses/markdown.ts` (`marked`, GFM, heading-derived TOC) |
 | `assessment` | `assessment_id` → `assessments` table | Quiz/test content lives in the assessment domain, not on the module row |
-| `lab` | none of the above — no `content_body`, no `storage_key` | Content comes from the linked `lab_definitions` row, fetched separately via `GET /api/modules/{moduleID}/lab` (see `docs/labs.md`) |
+| `lab` | none of the above — no `content_body`, no `storage_key` | Content comes from the linked `lab_definitions` row via `course_modules.lab_id`, fetched separately via `GET /api/modules/{moduleID}/lab` (see `docs/labs.md`) |
 
-A `lab` module is **never created through `POST /api/sections/{sectionID}/modules`** — `CreateModule` only accepts `video`/`pdf`/`notes`/`assessment`. Lab modules are inserted directly (by the labs domain's fixture generator or, in the live product, its own instructor-authoring flow) with `type='lab'` and no `content_body`/`storage_key`; `UpdateModule` still recognizes `lab` so an existing lab module's title/position stays editable through the generic course editor. See `backend/internal/courses/models.go`'s `ModuleTypeLab` constant for the exact wiring note.
+A `lab` module is **never created through `POST /api/sections/{sectionID}/modules`** — `CreateModule` only accepts `video`/`pdf`/`notes`/`assessment`. The only two ways a `lab` module is ever inserted are `library.Service.Attach` ("Add from library" — see below) and the coursegen fixture generator, both of which set `lab_id` in the same insert; `UpdateModule` still recognizes `lab` so an existing lab module's title/position stays editable through the generic course editor, and a dedicated `PATCH /api/modules/{moduleID}/lab-required` toggles its per-placement `lab_is_required`. See `backend/internal/courses/models.go`'s `ModuleTypeLab` constant for the exact wiring note.
+
+---
+
+## Course library ("Add from library")
+
+An instructor places an existing lab, quiz, or notes lesson into a course section instead of authoring one from scratch — `backend/internal/library` (a separate package, since `labs` already imports `courses` and a shared module-insert helper can't live in either without a cycle). One shared insert path, `library.Service.Attach`, is used both by the picker UI and (from Phase 1 on) the debug-lab builder's publish step:
+
+1. Lock the target section (`courses.Repo.LockSectionForOrg`, org-scoped — the same "actor can edit this course" boundary `CreateModule` already applies).
+2. Check the item is eligible for its kind: a **lab** must be published and visible to the org (own org, or `lab_definitions.library_visibility = 'platform'`); a **quiz** must be `published` and owned by the org; **notes** just needs its source module to be a `notes` module the org can read.
+3. Shift every module at/after the insert position down by one (`course_modules_section_id_position_key` is `DEFERRABLE INITIALLY DEFERRED`, so a bulk shift + insert in the same transaction never collides).
+4. Insert through `courses.Repo.InsertModuleTx`, reusing `CreateModule`'s column list plus `lab_id`/`lab_is_required`/`copied_from_module_id`.
+5. Write an `audit_logs` row and commit.
+
+**Reference vs. copy** (`library.ModeReference` / `library.ModeCopy`): a lab or quiz placement is a **reference** — `course_modules.lab_id`/`assessment_id` point at the same source row, so republishing the source (a lab) reaches every placement, and a quiz's attempts are shared across every course it's placed in. A notes placement is a **copy** — `content_body` is duplicated into the new row with `copied_from_module_id` set, and never re-syncs from the source afterward.
+
+Endpoints (`RequireOrgRole(owner, admin, instructor)`, same guard as the module routes):
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/library?type=lab,quiz,notes&q=&cursor=&limit=` | Cursor-paginated search over the org's (+ platform-shared) labs, quizzes, and notes lessons — no new table, a `UNION ALL` over `lab_definitions`/`assessments`/`course_modules` |
+| `GET` | `/api/library/{kind}/{id}/preview` | Student-safe projection: lab task list, quiz questions, or rendered notes body |
+| `POST` | `/api/library/{kind}/{id}/try` | Try a lab as a student (`is_test` session — the same path an instructor's own "test my lab" button uses) |
+| `POST` | `/api/sections/{sectionID}/library-items` | `Attach` — body `{kind, item_id, position?, title?, is_required?}`; `position` omitted appends at the end of the section |
+
+`library_visibility` (`lab_definitions`, default `'org'`) is `'private'` (reserved), `'org'` (default — placeable within the owning org only), or `'platform'` (placeable by any org; sessions started from that placement count against the *placing* org's caps/usage, not the lab's owner). Cross-org quiz/notes visibility isn't implemented in Phase A — both stay strictly own-org.
 
 ---
 
@@ -49,6 +74,7 @@ CREATE TABLE course_sections (
   course_id  UUID        NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
   title      TEXT        NOT NULL CHECK (length(title) BETWEEN 1 AND 200),
   position   INT         NOT NULL DEFAULT 0,
+  group_title TEXT       CHECK (group_title IS NULL OR length(group_title) BETWEEN 1 AND 200), -- 042: optional; consecutive sections sharing a group_title render nested under one heading
   created_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE (course_id, position) DEFERRABLE INITIALLY DEFERRED -- lets a full reorder batch-insert without a temporary collision
 );
@@ -67,10 +93,15 @@ CREATE TABLE course_modules (
   content_body      TEXT,
   assessment_id     UUID        REFERENCES assessments(id) ON DELETE SET NULL,
   estimated_minutes INT         CHECK (estimated_minutes > 0),
+  lab_id                UUID    REFERENCES lab_definitions(id) ON DELETE RESTRICT
+                                 DEFERRABLE INITIALLY DEFERRED, -- 044: the module<->lab link; resolution goes through THIS, never lab_definitions.module_id
+  lab_is_required       BOOLEAN NOT NULL DEFAULT false, -- 044: per-placement — same lab can be required in one course, optional in another
+  copied_from_module_id UUID    REFERENCES course_modules(id) ON DELETE SET NULL, -- 044: set on a notes module inserted as a library copy
   created_at        TIMESTAMPTZ DEFAULT now(),
   updated_at        TIMESTAMPTZ DEFAULT now(),
   deleted_at        TIMESTAMPTZ, -- soft delete
-  UNIQUE (section_id, position) DEFERRABLE INITIALLY DEFERRED
+  UNIQUE (section_id, position) DEFERRABLE INITIALLY DEFERRED,
+  CONSTRAINT lab_module_has_lab CHECK ((type = 'lab') = (lab_id IS NOT NULL)) -- 044
 );
 
 CREATE TABLE enrollments (
@@ -203,6 +234,45 @@ Coupon management (`POST/GET/PATCH/DELETE /api/coupons`) is gated by the `paymen
 
 ---
 
+## Bundles
+
+A **bundle** clubs several existing courses together in an order (e.g. "Backend Engineer Path" = Python → Django → FastAPI). It only *references* courses — nothing is copied — so editing a course shows up in every bundle it belongs to. Enrollment, progress and certificates all stay per course; a bundle adds a curated path, an aggregate progress ring, and one **Enroll in all** action. Added in `043_course_bundles.sql`.
+
+```sql
+CREATE TABLE course_bundles (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id      UUID        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  creator_id  UUID        NOT NULL REFERENCES users(id)         ON DELETE RESTRICT,
+  title       TEXT        NOT NULL CHECK (char_length(title) BETWEEN 3 AND 200),
+  slug        TEXT        NOT NULL,
+  description TEXT        CHECK (description IS NULL OR char_length(description) <= 2000),
+  cover_url   TEXT,
+  status      TEXT        NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (org_id, slug)
+);
+
+CREATE TABLE course_bundle_items (
+  bundle_id UUID NOT NULL REFERENCES course_bundles(id) ON DELETE CASCADE,
+  course_id UUID NOT NULL REFERENCES courses(id)        ON DELETE CASCADE,
+  position  INT  NOT NULL CHECK (position >= 0),
+  PRIMARY KEY (bundle_id, course_id),
+  UNIQUE (bundle_id, position) DEFERRABLE INITIALLY DEFERRED
+);
+```
+
+Rules:
+- **Visibility** — students only see `published` bundles, and only the `published` courses inside them. Instructors see drafts through the `/manage` endpoints.
+- **Enroll in all** (`POST /api/bundles/{bundleID}/enroll`) enrolls the student in every published **free** course in one statement (`ON CONFLICT DO NOTHING`, so existing enrollments are untouched). Paid courses are never granted here — they come back in `requires_purchase_course_ids` and the student buys each through its own checkout. There is no bundle price yet; a single bundle checkout would need its own purchase/coupon/refund path.
+- **Course list** is replaced wholesale by `PUT /api/bundles/{bundleID}/courses` (`{course_ids: [...]}`, max 50, distinct, all in the caller's org) — one call covers add, remove and reorder.
+- **Deleting** a bundle removes only the grouping; courses and student data are unaffected. Deleting a course drops it from every bundle (FK cascade).
+- The course detail response (`GET /api/courses/by-slug/{slug}`) includes `bundles` — the published bundles the course is part of — for the "Part of" chip.
+
+Frontend: bundles strip + "New bundle" button on `/courses`, student page `/bundles/[slug]`, editor `/bundles/new` and `/bundles/[slug]/edit` (`components/bundles/`, `lib/server/bundles.ts`, `lib/bundles/actions.ts`).
+
+---
+
 ## Lifecycle
 
 ```
@@ -215,7 +285,7 @@ An instructor authors a course as `draft`, builds out sections/modules, then `PO
 
 ## Fork
 
-`POST /api/courses/{courseID}/fork` deep-copies a course's sections and modules into a new course owned by the caller, with `forked_from_id` set to the source course's id. Lab modules fork as references to the same `lab_definitions` row (labs are not deep-copied) — forking a course with labs does not duplicate lab content.
+`POST /api/courses/{courseID}/fork` deep-copies a course's sections and modules into a new course owned by the caller, with `forked_from_id` set to the source course's id. Lab modules fork as references to the same `lab_definitions` row (labs are not deep-copied) — forking a course with labs does not duplicate lab content, and (since migration 044) `lab_id`/`lab_is_required` are copied onto the new module row so the forked lab module actually resolves. Before 044, `copySectionsAndModules` copied every `course_modules` column except the lab link, so a forked lab module pointed at nothing (`lab_definitions` was keyed by `module_id`, which forking always changes) — 044's backfill relinks courses forked before the fix, matching each still-unlinked lab module back to its source by `(section position, module position)` and reporting any it can't match.
 
 ---
 
@@ -237,10 +307,21 @@ An instructor authors a course as `draft`, builds out sections/modules, then `PO
 | `POST` | `/api/sections/{sectionID}/modules` | Add a module — `video`/`pdf`/`notes`/`assessment` only, never `lab` |
 | `PUT` | `/api/sections/{sectionID}/modules/order` | Reorder modules within a section |
 | `PATCH` | `/api/modules/{moduleID}` | Update a module (works for `lab` modules too — title/position only, not content) |
+| `PATCH` | `/api/modules/{moduleID}/lab-required` | Toggle a lab module's per-placement `lab_is_required` |
 | `DELETE` | `/api/modules/{moduleID}` | Delete a module |
+| `GET` | `/api/library?...` | Search the course library (labs/quizzes/notes) — see "Course library" above |
+| `GET` | `/api/library/{kind}/{id}/preview` | Preview a library item |
+| `POST` | `/api/library/{kind}/{id}/try` | Try a library lab as a student |
+| `POST` | `/api/sections/{sectionID}/library-items` | Attach a library item into a section |
 | `POST` | `/api/upload` | Upload a course asset (video/PDF) |
 | `POST` | `/api/upload/course-asset` | Get a signed upload URL |
 | `POST` | `/api/courses/generate-outline` | AI-generated course outline draft |
+| `POST` | `/api/bundles` | Create a bundle (`draft` by default) |
+| `GET` | `/api/bundles/manage` | Every bundle in the org, drafts included |
+| `GET` | `/api/bundles/{bundleID}/manage` | Bundle detail for the editor (drafts + unpublished courses included) |
+| `PATCH` | `/api/bundles/{bundleID}` | Update title/description/cover/status |
+| `DELETE` | `/api/bundles/{bundleID}` | Delete a bundle (courses untouched) |
+| `PUT` | `/api/bundles/{bundleID}/courses` | Replace the ordered course list |
 
 ### Staff + Mentor
 
@@ -265,6 +346,9 @@ An instructor authors a course as `draft`, builds out sections/modules, then `PO
 | `GET` | `/api/modules/{moduleID}` | Module content (for `lab` modules, use `GET /api/modules/{moduleID}/lab` instead — see `docs/labs.md`) |
 | `PATCH` | `/api/modules/{moduleID}/progress` | Update my progress on a module (video position, mark complete) |
 | `GET` | `/api/courses/{courseID}/progress/me` | My aggregate + per-module progress |
+| `GET` | `/api/bundles` | Published bundles |
+| `GET` | `/api/bundles/by-slug/{slug}` | Published bundle with its courses + my enrollment/progress in each |
+| `POST` | `/api/bundles/{bundleID}/enroll` | Enroll in all free courses; lists paid ones still to buy |
 
 ---
 

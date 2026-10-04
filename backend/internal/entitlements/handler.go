@@ -1,7 +1,6 @@
 package entitlements
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -94,8 +93,7 @@ func (h *Handler) AdminSetPlanLimit(w http.ResponseWriter, r *http.Request) {
 	key := chi.URLParam(r, "key")
 
 	var req upsertPlanLimitRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -131,8 +129,7 @@ func (h *Handler) adminSetTier(w http.ResponseWriter, r *http.Request, kind stri
 	id := chi.URLParam(r, "id")
 
 	var req setTierRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 

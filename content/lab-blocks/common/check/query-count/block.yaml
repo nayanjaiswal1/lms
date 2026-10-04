@@ -1,0 +1,55 @@
+kind: check
+id: check.query-count
+version: 1.0.0
+stack: any
+title: Query count and query plans
+summary: 'Query-count probe: measures pg_stat_statements calls for one request at several data scales and optionally forbids plan nodes such as Seq Scan.'
+category: check
+skills:
+- debugging
+- verification
+params:
+  type: object
+  properties:
+    endpoint:
+      type: string
+      maxLength: 200
+      x-mf-use: text
+      description: GET path exercised (or use request).
+    request:
+      type: object
+      description: '{method, path, body, headers} exercised instead of endpoint.'
+    scales:
+      type: array
+      description: Row counts; for each, pre_sql runs then the request is measured.
+      items:
+        type: integer
+        minimum: 1
+    pre_sql:
+      type: array
+      description: SQL statements run before each measurement; {{scale}}, {{seed}} and random tokens are available.
+      items:
+        type: string
+    max_queries:
+      type: integer
+      description: Absolute ceiling of queries per request.
+      minimum: 1
+    max_growth:
+      type: integer
+      description: Allowed growth between the smallest and largest scale (default 0).
+      minimum: 0
+    explain:
+      type: array
+      description: 'Plans that must not contain a node: [{sql, forbid (default Seq Scan), relation}].'
+      items:
+        type: object
+        required:
+        - sql
+    timeout:
+      type: number
+      description: Request timeout seconds (default 30).
+      minimum: 1
+      maximum: 120
+check:
+  probe: Q
+  failure_message: The endpoint runs more database queries than it should, or its queries do not use an index. Check how the number of queries changes as the data grows.

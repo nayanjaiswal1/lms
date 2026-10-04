@@ -1,7 +1,6 @@
 package jobs
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -237,8 +236,7 @@ func (h *HTTPHandler) handleOrgPatchJob(w http.ResponseWriter, r *http.Request) 
 	var req struct {
 		Paused bool `json:"paused"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -376,8 +374,7 @@ func (h *HTTPHandler) handleAdminUpdateQuota(w http.ResponseWriter, r *http.Requ
 		MaxQueued     int `json:"max_queued"`
 		PriorityFloor int `json:"priority_floor"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 

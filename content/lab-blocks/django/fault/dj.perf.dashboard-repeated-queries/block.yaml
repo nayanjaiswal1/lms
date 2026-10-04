@@ -1,0 +1,125 @@
+kind: fault
+id: dj.perf.dashboard-repeated-queries
+version: 1.0.0
+stack: django
+title: The staff dashboard hits the database far more often than it should
+summary: The dashboard asks the same recent-orders queryset for its count, whether it is empty and its rows, so one page load runs the same query three times.
+category: performance
+difficulty: intermediate
+skills:
+  - django-orm
+  - queryset-evaluation
+  - debugging
+requires:
+  - slot:reports.dashboard.recent
+  - cap:postgres
+fault:
+  inject:
+    slots:
+      - slot: reports.dashboard.recent
+        value: |
+          recent = recent_qs[:20]
+          recent_count = recent.count()
+          has_recent = recent.exists()
+  fix:
+    slots:
+      - slot: reports.dashboard.recent
+        value: |
+          recent = list(recent_qs[:20])
+          recent_count = len(recent)
+          has_recent = bool(recent)
+    files:
+      - path: tests/test_dashboard_queries.py
+        from: fix/tests/test_dashboard_queries.py
+  cheats:
+    - name: count-with-a-second-query
+      slots:
+        - slot: reports.dashboard.recent
+          value: |
+            recent = list(recent_qs[:20])
+            recent_count = recent_qs.count()
+            has_recent = bool(recent)
+    - name: hide-the-recent-orders
+      slots:
+        - slot: reports.dashboard.recent
+          value: |
+            recent = []
+            recent_count = 0
+            has_recent = False
+    - name: revert-the-commit
+      slots:
+        - slot: reports.dashboard.recent
+          value: |
+            recent = list(recent_qs[:20])
+            recent_count = len(recent)
+            has_recent = bool(recent)
+      files:
+        - path: ext/stock_alerts/urls.py
+          from: cheats/empty_urls.py
+  carrier:
+    feature: stock-alerts
+    files:
+      - path: ext/stock_alerts/__init__.py
+        from: carrier/ext/stock_alerts/__init__.py
+      - path: ext/stock_alerts/apps.py
+        from: carrier/ext/stock_alerts/apps.py
+      - path: ext/stock_alerts/urls.py
+        from: carrier/ext/stock_alerts/urls.py
+      - path: ext/stock_alerts/views.py
+        from: carrier/ext/stock_alerts/views.py
+  commit:
+    message: "inventory: add a staff endpoint listing products under the low-stock threshold"
+    persona: Marcus Webb <marcus@shop.example.com>
+  checks:
+    - ref: check.query-count
+      role: symptom
+      params:
+        request:
+          method: GET
+          path: /staff/dashboard/
+          headers:
+            Cookie: sessionid=mf_sess_staff
+        scales: [1]
+        max_queries: 6
+  symptom:
+    vars:
+      title: The store dashboard is hammering the database
+      report: |-
+        The operations team noticed the store dashboard (`/staff/dashboard/`) showing up at the top of the slow-query and
+        query-volume graphs. One page view now issues several more statements than it did a couple of weeks ago, and the
+        dashboard is opened all day on a wall screen that refreshes every 30 seconds.
+      where: |-
+        The staff dashboard page. The numbers on it are correct; it is only heavier than it should be.
+      expected: |-
+        One page load should evaluate each piece of data once: a query for the recent orders, one for the status counts and one
+        for the revenue totals, plus the session and user lookups.
+      support_tried: |-
+        The DBA looked for missing indexes on the orders table and found nothing to add; the queries themselves are fast, there
+        are just too many identical ones.
+      observations: |-
+        ### Other observations from the reporter
+
+        - Query volume rose after the low-stock endpoint shipped.
+        - The recent-orders section always shows at most 20 rows, so the table is not growing with the data.
+        - The wall screen refreshes every 30 seconds, so a small per-page cost adds up.
+    signature: the same recent-orders SELECT is executed more than once per request
+  hints:
+    - Open the dashboard and look at the SQL it runs for one page view (the debug toolbar, the query log or connection.queries all work). Some statements appear more than once with slightly different shapes - work out which lines of code produce each of them.
+    - A queryset is lazy and caches its rows only after it has been evaluated. Calling count() or exists() on an unevaluated queryset sends a new query every time, and iterating it afterwards sends yet another. Decide once what you need from it.
+    - In dashboard_context (reports/services.py) evaluate the recent-orders queryset a single time - for example turn the sliced queryset into a list - and derive the count and the emptiness flag from that list. Then add a test asserting the number of queries for dashboard_context.
+  rubric:
+    key_points:
+      - Explains lazy queryset evaluation and result caching - count(), exists() and iteration are separate queries on an unevaluated queryset.
+      - Fixes it by evaluating the queryset once and deriving count and emptiness from the evaluated rows.
+      - Verifies with a query count rather than by eyeballing timings.
+      - Adds a regression test asserting the number of queries of the dashboard context.
+    misconceptions:
+      - Adding an index or a cache in front of the page removes the repeated queries.
+      - Removing the select_related or the slice makes the page lighter (it only changes the shape of one query).
+      - The extra queries are harmless because each one is fast.
+  root_cause: |-
+    `dashboard_context` built the recent-orders queryset and then called `.count()` and `.exists()` on it before the template
+    iterated it. Each of those is its own SQL statement on an unevaluated queryset, so one page view ran the recent-orders
+    query three times.
+
+    The fix evaluates the sliced queryset once (`list(...)`) and derives the count and the emptiness flag from the list.

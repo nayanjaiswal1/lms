@@ -1,0 +1,14 @@
+kind: ticket
+id: ticket.deploy-failure
+version: 1.0.0
+stack: any
+title: Failed deployment
+summary: A release engineer's report of a failed deploy with the command output.
+category: ticket
+skills:
+  - debugging
+  - deployment
+ticket:
+  template_file: template.md
+  severity: High
+  persona: Release engineer

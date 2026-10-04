@@ -3,432 +3,424 @@ kind: lesson
 id_key: k8s/networking/lesson
 course: fast-kubernetes
 section: networking
-section_title: Networking
-section_position: 3
-title: Networking
+section_title: Services & Networking
+section_position: 4
+title: Services, DNS and Ingress
 position: 0
-estimated_minutes: 30
+estimated_minutes: 55
 source:
-    - K8s-Service-App.md
-    - K8s-Ingress.md
+  - K8s-Service-App.md
+  - K8s-Ingress.md
 ---
 
-## K8s Service App
+Pods get a new IP address every time they are recreated, and a Deployment may have many of them. So how does a frontend find its backend, and how do users on the internet reach your app? This lesson answers both: **Services** inside the cluster and **Ingress** (or Gateway API) at the edge.
 
-## LAB: K8s Service Implementations (ClusterIp, NodePort and LoadBalancer)
+## The Kubernetes network model
 
-This scenario shows how to create Services (ClusterIp, NodePort and LoadBalancer). It goes following:
-- Create Deployments for frontend and backend.
-- Create ClusterIP Service to reach backend pods.
-- Create NodePort Service to reach frontend pods from Internet.
-- Create Loadbalancer Service on the cloud K8s cluster to reach frontend pods from Internet.
+A few rules hold in every Kubernetes cluster:
 
+- **Every pod gets its own IP address.**
+- **Every pod can reach every other pod** by that IP, on any node, without NAT. (A network plugin, called a CNI plugin, such as Calico, Cilium or Flannel, makes this work.)
+- Containers inside one pod share that IP and talk over `localhost`.
 
-![image](https://user-images.githubusercontent.com/10358317/149774101-d4cfa70a-f461-4d9d-b2c4-f29de65e0e8b.png) (Ref: Udemy Course: Kubernetes-Temelleri)
+The problem is that pod IPs are **not stable**. Scale, update, or crash, and pods come back with new IPs. You need a fixed address in front of a changing group of pods. That fixed address is a **Service**.
 
-### Steps
-
-- Create 3 x front-end and 3 x back-end Pods with following YAML file run ("kubectl apply -f deploy.yaml").
-- File: https://github.com/omerbsezer/Fast-Kubernetes/blob/main/labs/service/deploy.yaml
-
-```
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: frontend
-  labels:
-    team: development
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: frontend
-  template:
-    metadata:
-      labels:
-        app: frontend
-    spec:
-      containers:
-      - name: frontend
-        image: nginx:latest
-        ports:
-        - containerPort: 80
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: backend
-  labels:
-    team: development
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: backend
-  template:
-    metadata:
-      labels:
-        app: backend
-    spec:
-      containers:
-      - name: backend
-        image: ozgurozturknet/k8s:backend
-        ports:
-        - containerPort: 5000
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-net-model-q1", "type": "mcq",
+    "prompt": "Why shouldn't a frontend call a backend pod by its IP address?",
+    "options": [
+      {"id": "a", "text": "Pod IPs are not reachable from other pods"},
+      {"id": "b", "text": "Pod IPs change whenever pods are recreated, so the address would break"},
+      {"id": "c", "text": "Pods do not have IP addresses"},
+      {"id": "d", "text": "Only nodes have IPs in Kubernetes"}
+    ],
+    "correct": "b",
+    "explanation": "Pods can reach each other by IP, but those IPs change. A Service gives a stable name and IP in front of them." }
+] }
 ```
 
-![image](https://user-images.githubusercontent.com/10358317/154670356-f3bcda44-60d3-4d85-a620-920345c5e026.png)
+## What a Service is
 
-- Run on the terminal: "kubectl get pods -w" (on Linux/WSL2: "watch kubectl get pods")
+Think of a company's single reception phone number. Callers always dial the same number, but the receptionist forwards each call to whichever employee is free right now. Employees can change desks or go on leave; the number in front of them never changes. A Service is that number for a group of pods.
 
+A **Service** gives a group of pods one stable virtual IP (the **ClusterIP**) and one stable DNS name. It picks its pods with a **label selector** and spreads traffic across the ones that are ready.
 
-![image](https://user-images.githubusercontent.com/10358317/149765878-94ec4173-a6ab-4953-9fb2-c1ffff61e4b2.png)
-
-- Create ClusterIP service that connects to backend (selector: app: backend) (run: "kubectl apply -f backend_clusterip.yaml"). 
-- File: https://github.com/omerbsezer/Fast-Kubernetes/blob/main/labs/service/backend_clusterip.yaml
-
-``` 
+```yaml
 apiVersion: v1
 kind: Service
 metadata:
   name: backend
 spec:
-  type: ClusterIP
+  type: ClusterIP          # the default
   selector:
-    app: backend
+    app: backend           # send traffic to pods labeled app=backend
   ports:
-    - protocol: TCP
-      port: 5000
-      targetPort: 5000
-``` 
+  - protocol: TCP
+    port: 5000             # the port clients connect to on the Service
+    targetPort: 5000       # the port the container listens on
+```
 
-![image](https://user-images.githubusercontent.com/10358317/154670246-fe3466b9-e0d2-42f2-a6e2-37be9e0410bb.png)
+Three port names you must not mix up:
 
+| Field | Meaning |
+|---|---|
+| `port` | The port of the Service itself. Clients use `backend:5000`. |
+| `targetPort` | The port on the pod where traffic is sent. It can differ from `port`, or be a named container port. |
+| `nodePort` | Only for NodePort/LoadBalancer: the port opened on every node (range 30000–32767). |
 
-- ClusterIP Service created. If any resource in the cluster sends a request to the ClusterIP and Port 5000, this request will reach to one of the pod behind the ClusterIP Service.
-- We can show it from frontend pods. 
-- Connect one of the front-end pods (list: "kubectl get pods",  connect: "kubectl exec -it frontend-5966c698b4-b664t -- bash")
-- In the K8s, there is DNS server (core dns based) that provide us to query ip/name of service.
-- When running nslookup (backend), we can reach the complete name and IP of this service (serviceName.namespace.svc.cluster_domain, e.g. backend.default.svc.cluster.local).
-- When running curl to the one of the backend pods with port 5000, service provides us to make connection with one of the backend pods.
-    
-![image](https://user-images.githubusercontent.com/10358317/149767889-29c64bd6-54bf-42bf-b12b-ed83ffedb0a8.png)
+Behind the scenes Kubernetes keeps an **EndpointSlice** (older name: Endpoints) listing the IPs of the matching, *ready* pods. `kube-proxy` on every node turns the Service IP into those pod IPs.
 
-- Create NodePort Service to reach frontend pods from the outside of the cluster (run: "kubectl apply -f backend_nodeport.yaml").
-- File: https://github.com/omerbsezer/Fast-Kubernetes/blob/main/labs/service/backend_nodeport.yaml
+```bash
+kubectl get svc backend
+kubectl get endpoints backend          # the pod IPs behind the Service
+kubectl describe svc backend
+```
+
+**If the endpoint list is empty, the Service matches no ready pods.** The cause is almost always a selector that does not match the pod labels, a wrong `targetPort`, or pods that are not ready. This is the first thing to check when "the Service doesn't work".
+
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-net-svc-q1", "type": "mcq",
+    "prompt": "A Service has port: 80 and targetPort: 8080. A client calls the Service on port 80. Which port receives the traffic in the container?",
+    "options": [
+      {"id": "a", "text": "80"},
+      {"id": "b", "text": "8080"},
+      {"id": "c", "text": "A random NodePort"},
+      {"id": "d", "text": "Both 80 and 8080"}
+    ],
+    "correct": "b",
+    "explanation": "port is what clients use on the Service; targetPort is where the Service sends traffic on the pod." },
+  { "id": "k8s-net-svc-q2", "type": "mcq",
+    "prompt": "`kubectl get endpoints api` shows `<none>`. What is the most likely problem?",
+    "options": [
+      {"id": "a", "text": "The cluster DNS is down"},
+      {"id": "b", "text": "The Service's selector matches no ready pods"},
+      {"id": "c", "text": "The Service type must be LoadBalancer"},
+      {"id": "d", "text": "The node has no public IP"}
+    ],
+    "correct": "b",
+    "explanation": "Endpoints list the ready pods that match the selector. Empty means a label mismatch or pods that are not ready." }
+] }
+```
+
+## Service DNS names
+
+Every cluster runs a DNS server (CoreDNS). Each Service gets a name:
 
 ```
-apiVersion: v1
-kind: Service
-metadata:
-  name: frontend
+<service>.<namespace>.svc.cluster.local
+```
+
+- From a pod **in the same namespace**, just use `backend`.
+- From **another namespace**, use `backend.prod` (or the full name).
+
+Try it from a throwaway pod:
+
+```bash
+kubectl run tmp --rm -it --image=busybox:1.36 -- sh
+/ # nslookup backend
+/ # wget -qO- http://backend:5000
+```
+
+This is why apps in Kubernetes use Service names in their config (`DB_HOST=postgres`) instead of IPs.
+
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-net-dns-q1", "type": "mcq",
+    "prompt": "A pod in namespace `web` needs to reach Service `db` in namespace `data`. Which name works?",
+    "options": [
+      {"id": "a", "text": "db"},
+      {"id": "b", "text": "db.data"},
+      {"id": "c", "text": "data.db"},
+      {"id": "d", "text": "web.db"}
+    ],
+    "correct": "b",
+    "explanation": "A short name only resolves inside the same namespace. Across namespaces use <service>.<namespace>, or the full db.data.svc.cluster.local." }
+] }
+```
+
+## Service types
+
+**ClusterIP** (default): reachable only from inside the cluster. Use it for internal parts: backends, databases, caches.
+
+**NodePort**: everything ClusterIP does, plus a port (30000–32767) opened on **every node**. Anyone who can reach a node's IP can use `<NodeIP>:<nodePort>`. Good for testing and on-prem setups, but you must handle node IPs and the odd port range yourself.
+
+```yaml
 spec:
   type: NodePort
   selector:
     app: frontend
   ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 80
+  - port: 80
+    targetPort: 80
+    nodePort: 30080        # optional; Kubernetes picks one if you leave it out
 ```
 
-![image](https://user-images.githubusercontent.com/10358317/154983087-ed031df1-ed5f-4910-b8bd-3bf7197954b2.png)
+On minikube, `minikube service frontend --url` gives you a reachable address.
 
-- With NodePort Service (you can see the image below), frontend pods can be reachable from the opening port (32098). In other words, someone can reach frontend pods via WorkerNodeIP:32098. NodePort service listens all of the worker nodes' port (in this example: port 32098).     
-- While working with minikube, it is only possible with minikube tunnelling. Minikube simulates the reaching of the NodeIP:Port with tunneling feature. 
+**LoadBalancer**: everything NodePort does, plus the **cloud provider** creates an external load balancer with a public IP. This is the usual way to expose one service on EKS/GKE/AKS. On a laptop cluster the `EXTERNAL-IP` stays `<pending>` because there is no cloud to create it (MetalLB or `minikube tunnel` can fill that gap).
 
-![image](https://user-images.githubusercontent.com/10358317/149769823-a9e00708-c614-41dc-bb73-321483ccf0f3.png)
+**ExternalName**: no pods at all. A DNS alias to an outside name, for example `externalName: db.example.com`.
 
-- On the other terminal, if we run the curl command, we can reach the frontend pods. 
+Each type builds on the previous one: LoadBalancer ⊃ NodePort ⊃ ClusterIP.
 
-![image](https://user-images.githubusercontent.com/10358317/149770958-87b0c840-92b3-4f9d-81cc-84e725381bf3.png)
+Creating a Service imperatively:
 
-- LoadBalancer Service is only available wih cloud services (because in the local cluster, it can not possible to get external-ip of the load-balancer service). So if you have connection to the one of the cloud service (Azure-AKS, AWS EKS, GCP GKE), please create loadbalance service on it (run: "kubectl apply -f backend_loadbalancer.yaml"). 
-- File: https://github.com/omerbsezer/Fast-Kubernetes/blob/main/labs/service/backend_loadbalancer.yaml
-
-```
-apiVersion: v1
-kind: Service
-metadata:
-  name: frontendlb
-spec:
-  type: LoadBalancer
-  selector:
-    app: frontend
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 80
+```bash
+kubectl expose deployment frontend --type=NodePort --port=80 --name=frontend
 ```
 
-![image](https://user-images.githubusercontent.com/10358317/154983532-a14b0046-e3a0-48a2-9784-965b80de4f72.png)
+`expose` copies the Deployment's selector for you, which avoids label typos.
 
-- If you run on the cloud, you'll see the external-ip of the loadbalancer service. 
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-net-types-q1", "type": "mcq",
+    "prompt": "An internal Redis cache must be reachable by your API pods but never from outside the cluster. Which Service type fits?",
+    "options": [
+      {"id": "a", "text": "ClusterIP"},
+      {"id": "b", "text": "NodePort"},
+      {"id": "c", "text": "LoadBalancer"},
+      {"id": "d", "text": "ExternalName"}
+    ],
+    "correct": "a",
+    "explanation": "ClusterIP is only reachable inside the cluster, which is exactly right for internal dependencies." },
+  { "id": "k8s-net-types-q2", "type": "mcq",
+    "prompt": "On a local minikube cluster, a LoadBalancer Service shows EXTERNAL-IP <pending> forever. Why?",
+    "options": [
+      {"id": "a", "text": "The YAML is invalid"},
+      {"id": "b", "text": "There is no cloud provider to create the external load balancer"},
+      {"id": "c", "text": "LoadBalancer only works with StatefulSets"},
+      {"id": "d", "text": "The selector is wrong"}
+    ],
+    "correct": "b",
+    "explanation": "A cloud controller creates the external load balancer. Locally, use minikube tunnel, MetalLB, or a NodePort instead." }
+] }
+```
 
-![image](https://user-images.githubusercontent.com/10358317/149772479-a6262368-ab70-4c79-9897-a8162d5dc767.png)
+## Ingress: many apps behind one entry point
 
-![image](https://user-images.githubusercontent.com/10358317/149772584-705ab659-4e5e-496e-999c-cabaf3c5a9d2.png)
+One LoadBalancer per service gets expensive and messy. Think of a large office building with one receptionist at the main entrance: every visitor walks in through the same door, and the receptionist looks at who they are asking for and sends them to the right floor. An **Ingress** does the same for HTTP(S) traffic, routing it from **one** entry point to many Services based on the **host name** and **URL path**:
 
-- In addition, it can be possible service with Imperative way (with command).
-- kubectl expose deployment <deploymentName> --type=<typeOfService> --name=<nameOfService>
-
-![image](https://user-images.githubusercontent.com/10358317/149773190-44d11369-ee98-400b-b84a-57527fc1fba7.png)
-  
-## References  <a name="references"></a>
-- [udemy-course:Kubernetes-Temelleri](https://www.udemy.com/course/kubernetes-temelleri/)  
-
-
-## K8s Ingress
-
-## LAB: K8s Ingress
-
-This scenario shows how K8s ingress works on minikube. When browsing urls, ingress controller (nginx) directs traffic to the related services. 
-
-![image](https://user-images.githubusercontent.com/10358317/152985194-76a3cb57-70c4-438a-a714-eae7ef287d83.png)  (ref: Kubernetes.io)
-
-
-### Steps
-
-- Run minikube on Windows Hyperv or Virtualbox. In this scenario:
-
-``` 
-minikube start --driver=hyperv 
-or
-minikube start --driver=hyperv --force-systemd
-```  
-
-- To install ingress controller on K8s cluster, please visit to learn: https://kubernetes.github.io/ingress-nginx/deploy/
-
-- On Minikube, it is only needed to enable ingress controller.
-
-``` 
-minikube addons enable ingress
-minikube addons list
-``` 
-
-![image](https://user-images.githubusercontent.com/10358317/152980050-9f59638e-22d2-4581-a045-0c4199cb0be1.png)
-
-- Copy and save (below) as file on your PC (appingress.yaml). 
-- File: https://github.com/omerbsezer/Fast-Kubernetes/blob/main/labs/ingress/appingress.yaml
-
-```     
+```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: appingress
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /$1
 spec:
+  ingressClassName: nginx          # which ingress controller should handle this
   rules:
-    - host: webapp.com
-      http:
-        paths:
-          - path: /blue
-            pathType: Prefix
-            backend:
-              service:
-                name: bluesvc
-                port:
-                  number: 80
-          - path: /green
-            pathType: Prefix
-            backend:
-              service:
-                name: greensvc
-                port:
-                  number: 80
+  - host: webapp.com
+    http:
+      paths:
+      - path: /blue
+        pathType: Prefix
+        backend:
+          service:
+            name: bluesvc
+            port:
+              number: 80
+      - path: /green
+        pathType: Prefix
+        backend:
+          service:
+            name: greensvc
+            port:
+              number: 80
+  - host: todoapp.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: todosvc
+            port:
+              number: 80
 ```
 
-![image](https://user-images.githubusercontent.com/10358317/154954648-e730fbcd-4eb0-4a4c-a189-f1e9e118cdd0.png)
+Requests to `webapp.com/blue` go to `bluesvc`, `webapp.com/green` to `greensvc`, and `todoapp.com` to `todosvc`.
 
-- Copy and save (below) as file on your PC (todoingress.yaml). 
-- File: https://github.com/omerbsezer/Fast-Kubernetes/blob/main/labs/ingress/todoingress.yaml
+Important points:
 
-```     
+- **An Ingress object does nothing on its own.** An **ingress controller** (a reverse proxy running in the cluster, for example Traefik, HAProxy, or a cloud load balancer controller) reads Ingress objects and does the actual routing. You install the controller once per cluster (`minikube addons enable ingress` on minikube). `ingressClassName` says which controller is responsible.
+- `pathType: Prefix` matches the path and everything under it; `Exact` matches only that exact path.
+- The backend Services are normally ClusterIP. Only the controller is exposed to the outside.
+- To test host names locally, point them to the cluster IP in your hosts file (`/etc/hosts`, or `C:\Windows\System32\drivers\etc\hosts` on Windows) or use `curl -H "Host: webapp.com" http://<ip>/blue`.
+
+**TLS (HTTPS)**: store the certificate in a Secret of type `kubernetes.io/tls` and reference it:
+
+```yaml
+spec:
+  tls:
+  - hosts: ["webapp.com"]
+    secretName: webapp-tls
+```
+
+In practice, **cert-manager** requests and renews free certificates (for example from Let's Encrypt) automatically.
+
+Controller-specific features are set with annotations, for example `nginx.ingress.kubernetes.io/rewrite-target`. These annotations only work with that controller.
+
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-net-ingress-q1", "type": "mcq",
+    "prompt": "You applied an Ingress, but no traffic is routed and its ADDRESS stays empty. What is most likely missing?",
+    "options": [
+      {"id": "a", "text": "A NodePort on every backend Service"},
+      {"id": "b", "text": "An ingress controller running in the cluster"},
+      {"id": "c", "text": "A StatefulSet"},
+      {"id": "d", "text": "A second Ingress with the same host"}
+    ],
+    "correct": "b",
+    "explanation": "Ingress objects are just routing rules. A controller must be installed to read them and do the routing." },
+  { "id": "k8s-net-ingress-q2", "type": "mcq",
+    "prompt": "What is the main advantage of one Ingress over one LoadBalancer Service per app?",
+    "options": [
+      {"id": "a", "text": "It gives each pod a public IP"},
+      {"id": "b", "text": "Many apps share one entry point and are routed by host name and path"},
+      {"id": "c", "text": "It removes the need for Services"},
+      {"id": "d", "text": "It works for UDP traffic only"}
+    ],
+    "correct": "b",
+    "explanation": "An Ingress routes HTTP(S) by host and path to many ClusterIP Services behind a single load balancer." }
+] }
+```
+
+## Gateway API: the successor to Ingress
+
+**Gateway API** is the newer, official Kubernetes API for traffic routing. It splits responsibilities into separate objects:
+
+- **GatewayClass**: which implementation (like `ingressClassName`).
+- **Gateway**: the entry point: listeners, ports, TLS. Usually owned by the platform team.
+- **HTTPRoute** (also GRPCRoute, TLSRoute...): routing rules, owned by app teams.
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: blue-route
+spec:
+  parentRefs:
+  - name: main-gateway           # attach to this Gateway
+  hostnames: ["webapp.com"]
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /blue
+    backendRefs:
+    - name: bluesvc
+      port: 80
+```
+
+It supports things Ingress needed vendor annotations for, such as header matching and weighted traffic splitting (useful for canary releases). The popular `ingress-nginx` controller project has been retired, so new clusters increasingly use Gateway API implementations (Envoy Gateway, Traefik, Cilium, Istio, or the cloud providers' own). The Ingress API itself still works and you will see it everywhere, so learn both.
+
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-net-gateway-q1", "type": "mcq",
+    "prompt": "In Gateway API, which object do application teams usually write to route /api to their Service?",
+    "options": [
+      {"id": "a", "text": "GatewayClass"},
+      {"id": "b", "text": "Gateway"},
+      {"id": "c", "text": "HTTPRoute"},
+      {"id": "d", "text": "EndpointSlice"}
+    ],
+    "correct": "c",
+    "explanation": "HTTPRoute holds the routing rules and attaches to a Gateway. The Gateway (entry point) and GatewayClass (implementation) are usually managed by the platform team." }
+] }
+```
+
+## NetworkPolicy: controlling who can talk to whom
+
+By default **every pod can reach every other pod** in the cluster, across namespaces. A **NetworkPolicy** restricts that. Once a policy selects a pod, only the traffic the policy allows can reach it:
+
+```yaml
 apiVersion: networking.k8s.io/v1
-kind: Ingress
+kind: NetworkPolicy
 metadata:
-  name: todoingress
+  name: backend-allow-frontend
 spec:
-  rules:
-    - host: todoapp.com
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: todosvc
-                port:
-                  number: 80
+  podSelector:
+    matchLabels:
+      app: backend            # this policy protects backend pods
+  policyTypes: ["Ingress"]
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: frontend       # only frontend pods may connect
+    ports:
+    - port: 5000
 ```
 
-![image](https://user-images.githubusercontent.com/10358317/154954757-4e873d67-855b-4123-85ce-48b6acfc839e.png)
+NetworkPolicies are enforced by the network plugin. Calico and Cilium support them; some simple plugins (like basic Flannel) silently ignore them.
 
-- Copy and save (below) as file on your PC (deploy.yaml). 
-- File: https://github.com/omerbsezer/Fast-Kubernetes/blob/main/labs/ingress/deploy.yaml
-
-```     
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: blueapp
-  labels:
-    app: blue
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: blue
-  template:
-    metadata:
-      labels:
-        app: blue
-    spec:
-      containers:
-      - name: blueapp
-        image: ozgurozturknet/k8s:blue
-        ports:
-        - containerPort: 80
-        livenessProbe:
-          httpGet:
-            path: /healthcheck
-            port: 80
-          initialDelaySeconds: 5
-          periodSeconds: 5
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 80
-          initialDelaySeconds: 5
-          periodSeconds: 3
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: bluesvc
-spec:
-  selector:
-    app: blue
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 80
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: greenapp
-  labels:
-    app: green
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: green
-  template:
-    metadata:
-      labels:
-        app: green
-    spec:
-      containers:
-      - name: greenapp
-        image: ozgurozturknet/k8s:green
-        ports:
-        - containerPort: 80
-        livenessProbe:
-          httpGet:
-            path: /healthcheck
-            port: 80
-          initialDelaySeconds: 5
-          periodSeconds: 5
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 80
-          initialDelaySeconds: 5
-          periodSeconds: 3
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: greensvc
-spec:
-  selector:
-    app: green
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 80
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: todoapp
-  labels:
-    app: todo
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: todo
-  template:
-    metadata:
-      labels:
-        app: todo
-    spec:
-      containers:
-      - name: todoapp
-        image: ozgurozturknet/samplewebapp:latest
-        ports:
-        - containerPort: 80
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: todosvc
-spec:
-  selector:
-    app: todo
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 80
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-net-netpol-q1", "type": "mcq",
+    "prompt": "With no NetworkPolicies in the cluster, which pods can reach a database pod?",
+    "options": [
+      {"id": "a", "text": "Only pods in the same namespace"},
+      {"id": "b", "text": "Only pods on the same node"},
+      {"id": "c", "text": "Every pod in the cluster"},
+      {"id": "d", "text": "No pods until a Service exists"}
+    ],
+    "correct": "c",
+    "explanation": "Kubernetes networking is open by default. NetworkPolicies are how you restrict it, and they need a network plugin that enforces them." }
+] }
 ```
 
-![image](https://user-images.githubusercontent.com/10358317/154954983-850acd87-b475-48d4-8d37-d1fa081b8159.png)
+## Interview questions and real-world scenarios
 
-![image](https://user-images.githubusercontent.com/10358317/154955115-0e23d6b7-4aa9-4409-8ec7-b658edfda34c.png)
+**Q: Explain how traffic reaches a pod through a Service.**
+The client resolves the Service name via CoreDNS to the ClusterIP. kube-proxy's iptables/IPVS rules (or eBPF with Cilium) on the node rewrite the destination to one of the ready pod IPs from the EndpointSlice. The CNI routes it to that pod.
 
-![image](https://user-images.githubusercontent.com/10358317/154955180-ec54ee41-6b40-4d5d-a4e1-3c6ce885a57b.png)
+**Q: ClusterIP vs NodePort vs LoadBalancer?**
+Internal only; port on every node; cloud load balancer in front of NodePorts. Each builds on the previous one.
 
-- Run "deploy.yaml" and "appingress.yaml" to create deployments and services
+**Q: Ingress vs Service of type LoadBalancer?**
+LoadBalancer: one external L4 entry per Service. Ingress: HTTP(S) routing by host/path to many Services through one controller, with TLS termination.
 
-![image](https://user-images.githubusercontent.com/10358317/152984112-aa3b03db-9e8f-4fb2-acf0-4b1150982f29.png)
+**Q: How would you restrict traffic between namespaces?**
+NetworkPolicies (default-deny, then allow specific pod/namespace selectors), enforced by a CNI that supports them (Calico, Cilium).
 
-- Add url-ip on Windows/System32/Drivers/etc/hosts file: 
+**Q: What is kube-proxy's role, and can a cluster work without it?**
+It implements Service virtual IPs on each node. Some CNIs (Cilium) replace it entirely with eBPF.
 
-![image](https://user-images.githubusercontent.com/10358317/152983054-66993f34-0d4b-4381-8ae6-ec8441cb6366.png)
+**Real-world scenario: "Service X can't reach the database."**
+Check: DNS name and namespace (`db.data`), endpoints of the DB Service, a NetworkPolicy blocking it, the DB listening on 0.0.0.0, the right port, and credentials. Test from a debug pod in the same namespace as the caller.
 
-- When running on browser the url "webapp.com/blue", one of the blue app containers return response.
+**Real-world scenario: the site works by IP but not by domain name over HTTPS.**
+DNS record, Ingress host rule and TLS Secret must all match the domain; with cert-manager, check the Certificate and Challenge objects for errors.
 
-![image](https://user-images.githubusercontent.com/10358317/152982739-c86fac86-c0d6-465b-bc4e-391d4e56eb9f.png)
-
-- When running on browser the url "webapp.com/green", one of the green app containers return response.
-
-![image](https://user-images.githubusercontent.com/10358317/152983147-057503d0-d2f1-45a2-bc35-0117676a2abb.png)
-
-- When running on browser, "todoapp.com":
-
-![image](https://user-images.githubusercontent.com/10358317/152983854-c35588c1-170a-4d02-9573-0e712876bad2.png)
-
-- Hence, we can open services running on the cluster with one IP to the out of the cluster. 
-
-- Delete all yaml file and minikube.
-
-![image](https://user-images.githubusercontent.com/10358317/152985795-d69c713e-b6ae-417e-bf88-0f397ebdaaee.png)
-
- 
-### References
-
-https://github.com/aytitech/k8sfundamentals/tree/main/ingress
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "k8s-net-int-q1",
+      "type": "mcq",
+      "prompt": "Pods in namespace web cannot reach Service db in namespace data, but pods inside data can. DNS resolves fine. What is the most likely cause?",
+      "options": [
+        {
+          "id": "a",
+          "text": "The Service type is ClusterIP"
+        },
+        {
+          "id": "b",
+          "text": "A NetworkPolicy in data only allows traffic from its own namespace"
+        },
+        {
+          "id": "c",
+          "text": "CoreDNS is down"
+        },
+        {
+          "id": "d",
+          "text": "The pods have no labels"
+        }
+      ],
+      "correct": "b",
+      "explanation": "Cross-namespace traffic is allowed by default, so a failure that only affects other namespaces points to a NetworkPolicy."
+    }
+  ]
+}
+```

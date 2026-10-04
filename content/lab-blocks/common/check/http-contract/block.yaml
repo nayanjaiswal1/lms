@@ -1,0 +1,47 @@
+kind: check
+id: check.http-contract
+version: 1.0.0
+stack: any
+title: Response headers and contract
+summary: 'Contract probe: status, response headers, Set-Cookie attributes and a minimal JSON schema for one request.'
+category: check
+skills:
+- debugging
+- verification
+params:
+  type: object
+  properties:
+    method:
+      type: string
+      maxLength: 10
+      x-mf-use: text
+      description: HTTP method (default GET).
+    path:
+      type: string
+      maxLength: 200
+      x-mf-use: text
+      description: Request path.
+    headers:
+      type: object
+      description: Request headers.
+    body:
+      type: object
+      description: JSON body.
+    expect_status:
+      type: integer
+      description: Required status (default any 2xx).
+    expect_headers:
+      type: object
+      description: '{Header-Name: regex} that must match.'
+    forbid_headers:
+      type: object
+      description: '{Header-Name: regex} that must not match.'
+    expect_cookies:
+      type: object
+      description: '{cookie: {httponly, secure, samesite, path}} attribute expectations.'
+    json_schema:
+      type: object
+      description: Minimal JSON schema {type, required, properties, items} for the body.
+check:
+  probe: H
+  failure_message: The response headers, cookies or body shape do not match the contract.

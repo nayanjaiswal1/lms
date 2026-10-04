@@ -17,6 +17,7 @@ type Common struct {
 	Section          string   `yaml:"section"` // section slug
 	SectionTitle     string   `yaml:"section_title"`
 	SectionPosition  int      `yaml:"section_position"`
+	SectionGroup     string   `yaml:"section_group"` // optional; nests this section under a group heading with siblings sharing the same value
 	Title            string   `yaml:"title"`
 	Position         int      `yaml:"position"` // position within the section
 	EstimatedMinutes int      `yaml:"estimated_minutes"`
@@ -135,6 +136,14 @@ type LabSpec struct {
 	SetupScript    string    `yaml:"setup_script"`
 	Files          []LabFile `yaml:"files"`
 	Tasks          []Task    `yaml:"tasks"`
+	// Recipe (optional) is a path, relative to the document, to a lab-block
+	// recipe file. A lab with a recipe is composed and built by the lab-authoring
+	// pipeline (docs/debug-labs.md Part 2): its lab type, environment, setup and
+	// tasks come from the lab kind, so lab_type/environment/tasks/files/setup_script
+	// must be omitted. The generator emits the lab unpublished plus a platform
+	// recipe row; lab.platform_recipes_sync builds and publishes it.
+	Recipe     string      `yaml:"recipe"`
+	RecipeSpec *RecipeSpec `yaml:"-"` // loaded by ParseFile
 }
 
 // Lab maps to lab_definitions + lab_tasks + lab_task_versions + publish +

@@ -13,6 +13,7 @@ FROM ubuntu:24.04
 ARG KUBE_VERSION=v1.31.14
 ARG ETCD_VERSION=v3.5.31
 ARG KWOK_VERSION=v0.8.0
+ARG HELM_VERSION=v3.17.3
 ARG TARGETARCH=amd64
 
 # The ~90MB control-plane binaries do not survive a single clean GET from
@@ -51,6 +52,10 @@ RUN curl -fsSL ${CURL_OPTS} -o /usr/local/bin/kubectl \
     && chmod +x /usr/local/bin/kubectl /usr/local/bin/kube-apiserver \
       /usr/local/bin/kube-controller-manager /usr/local/bin/kube-scheduler \
       /usr/local/bin/kwok /usr/local/bin/etcd /usr/local/bin/etcdctl
+
+# helm for the Helm section's labs — they install a chart from a local
+# directory (the lab network has no internet, so no `helm repo add`).
+RUN curl -fsSL ${CURL_OPTS} "https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" -o /tmp/helm.tar.gz     && tar xzf /tmp/helm.tar.gz -C /tmp     && mv "/tmp/linux-${TARGETARCH}/helm" /usr/local/bin/helm     && chmod +x /usr/local/bin/helm     && rm -rf /tmp/helm.tar.gz "/tmp/linux-${TARGETARCH}"
 
 # kwok has no built-in lifecycle logic: it needs explicit Stage definitions
 # describing how to move Nodes/Pods through their lifecycle, loaded from local

@@ -1,7 +1,6 @@
 package legal
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -65,8 +64,7 @@ func (h *Handler) HandleAccept(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		DocType string `json:"doc_type"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	ip := firstThreeOctets(r.RemoteAddr)

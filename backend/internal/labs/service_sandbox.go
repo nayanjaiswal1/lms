@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 )
 
@@ -61,11 +62,8 @@ func (s *Service) RunScript(ctx context.Context, sessionID, userID string) (*Run
 	// Rate limit before touching the container. Fail open on Redis errors
 	// (same policy as VerifyTask / RunSnippet).
 	rateLimitKey := fmt.Sprintf("lab:run:rate:%s", sessionID)
-	set, rErr := s.rdb.SetNX(ctx, rateLimitKey, 1, runRateLimitSeconds*time.Second).Result()
-	if rErr != nil {
-		slog.Error("labs.Service.RunScript: rate limit check", "error", rErr)
-	} else if !set {
-		return nil, ErrRateLimited
+	if err := s.acquireCooldown(ctx, rateLimitKey, runRateLimitSeconds*time.Second, "labs.Service.RunScript"); err != nil {
+		return nil, err
 	}
 
 	session, err := s.loadRunnableSession(ctx, sessionID, userID)
@@ -106,11 +104,8 @@ func (s *Service) RunScript(ctx context.Context, sessionID, userID string) (*Run
 // inside finalizeTaskPass exactly as it does for per-task Check.
 func (s *Service) SubmitAll(ctx context.Context, sessionID, userID string) (*SubmitResult, error) {
 	rateLimitKey := fmt.Sprintf("lab:submit:rate:%s", sessionID)
-	set, rErr := s.rdb.SetNX(ctx, rateLimitKey, 1, submitRateLimitSeconds*time.Second).Result()
-	if rErr != nil {
-		slog.Error("labs.Service.SubmitAll: rate limit check", "error", rErr)
-	} else if !set {
-		return nil, ErrRateLimited
+	if err := s.acquireCooldown(ctx, rateLimitKey, submitRateLimitSeconds*time.Second, "labs.Service.SubmitAll"); err != nil {
+		return nil, err
 	}
 
 	session, err := s.loadRunnableSession(ctx, sessionID, userID)
@@ -127,7 +122,8 @@ func (s *Service) SubmitAll(ctx context.Context, sessionID, userID string) (*Sub
 	// task's verification script through a single 10s rate limit, bypassing
 	// the per-task 3s VerifyRateLimitSeconds those lab types are meant to
 	// use.
-	if lab.LabType != LabTypeSandbox {
+	kind, isKind := kindFor(lab)
+	if lab.LabType != LabTypeSandbox && !isKind {
 		return nil, ErrLabTypeUnsupported
 	}
 
@@ -152,6 +148,36 @@ func (s *Service) SubmitAll(ctx context.Context, sessionID, userID string) (*Sub
 		}
 	}
 
+	// Lab kinds: one clean-room sandbox grades every pending script task in
+	// this Check (one start, one cooldown), instead of one sandbox per task.
+	var kindResults map[string]*GradeResult
+	if isKind {
+		var modes []string
+		for i := range tasks {
+			t := &tasks[i]
+			if alreadyPassed[t.ID] || t.Grader == GraderWriteupReview {
+				continue
+			}
+			mode, err := kindTaskMode(kind, t)
+			if err != nil {
+				return nil, fmt.Errorf("labs.Service.SubmitAll: %w", err)
+			}
+			if !slices.Contains(modes, mode) {
+				modes = append(modes, mode)
+			}
+		}
+		if len(modes) > 0 {
+			if err := s.acquireGradeCooldown(ctx, session.ID); err != nil {
+				return nil, err
+			}
+			var err error
+			if kindResults, err = s.gradeKindModes(ctx, session, lab, modes); err != nil {
+				s.releaseGradeCooldown(ctx, session.ID)
+				return nil, err
+			}
+		}
+	}
+
 	results := make([]SubmitTaskResult, 0, len(tasks))
 	completed := session.Status == SessionStatusCompleted
 	for i := range tasks {
@@ -160,12 +186,23 @@ func (s *Service) SubmitAll(ctx context.Context, sessionID, userID string) (*Sub
 			results = append(results, SubmitTaskResult{TaskID: task.ID, Passed: true})
 			continue
 		}
+		// writeup_review tasks are completed only via the writeup-review
+		// endpoint, never by a Check.
+		if isKind && task.Grader == GraderWriteupReview {
+			continue
+		}
 
 		attempts, err := s.bumpTaskAttempt(ctx, session.ID, task.ID)
 		if err != nil {
 			return nil, fmt.Errorf("labs.Service.SubmitAll: %w", err)
 		}
-		result, err := s.verifyContainerTask(ctx, session, lab, tasks, task, attempts)
+		var result *VerifyResult
+		if isKind {
+			mode, _ := kindTaskMode(kind, task)
+			result, err = s.applyKindResult(ctx, session, lab, tasks, task, attempts, kindResults[mode])
+		} else {
+			result, err = s.verifyContainerTask(ctx, session, lab, tasks, task, attempts)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("labs.Service.SubmitAll: task %s: %w", task.ID, err)
 		}

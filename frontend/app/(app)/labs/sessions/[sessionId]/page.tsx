@@ -7,7 +7,7 @@ import { LabEnvironment } from "@/components/labs/lab-environment"
 import { LabSessionRouter } from "@/app/(app)/labs/sessions/[sessionId]/lab-session-router"
 import { apiGet } from "@/lib/server/api"
 import ROUTES from "@/lib/routes"
-import type { Lab, GetSessionResponse } from "@/lib/labs"
+import type { Lab, GetSessionResponse, LabKindBlocks } from "@/lib/labs"
 
 export const metadata: Metadata = {
   title: "Lab Session",
@@ -20,7 +20,8 @@ interface PageProps {
 
 export default async function LabSessionPage({ params }: PageProps) {
   const { sessionId } = await params
-  const { session, task_completions } = await apiGet<GetSessionResponse>(`/api/labs/sessions/${sessionId}`)
+  const sessionResponse = await apiGet<GetSessionResponse>(`/api/labs/sessions/${sessionId}`)
+  const { session, task_completions } = sessionResponse
 
   if (
     session.status === "completed" ||
@@ -56,5 +57,15 @@ export default async function LabSessionPage({ params }: PageProps) {
     )
   }
 
-  return <LabEnvironment initialCompletions={task_completions} lab={lab} session={session} />
+  // The kind block is keyed by lab_type in the response (only kind labs have one).
+  const kindBlock = sessionResponse[lab.lab_type as keyof LabKindBlocks]
+
+  return (
+    <LabEnvironment
+      initialCompletions={task_completions}
+      kindBlock={kindBlock}
+      lab={lab}
+      session={session}
+    />
+  )
 }

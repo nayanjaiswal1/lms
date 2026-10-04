@@ -33,9 +33,12 @@ import (
 	"github.com/mindforge/backend/internal/interviewprep"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/journal"
+	"github.com/mindforge/backend/internal/labauthor"
+	"github.com/mindforge/backend/internal/labbuild"
 	"github.com/mindforge/backend/internal/labs"
 	"github.com/mindforge/backend/internal/learnhub"
 	"github.com/mindforge/backend/internal/legal"
+	"github.com/mindforge/backend/internal/library"
 	"github.com/mindforge/backend/internal/mcpconnect"
 	"github.com/mindforge/backend/internal/mentoring"
 	"github.com/mindforge/backend/internal/messaging"
@@ -74,7 +77,7 @@ import (
 )
 
 // NewRouter builds and returns the chi Router with all middleware and routes wired.
-func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb *redis.Client, store storage.StorageClient, aiProvider ai.LLMProvider, jobsRegistry *jobs.Registry, rewardsSvc *rewards.Service, labsRuntime labs.ContainerRuntime) http.Handler {
+func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb *redis.Client, store storage.StorageClient, aiProvider ai.LLMProvider, jobsRegistry *jobs.Registry, rewardsSvc *rewards.Service, labsRuntime labs.ContainerRuntime, labsPrivateStore storage.PrivateStore) http.Handler {
 	r := chi.NewRouter()
 
 	// ─── Global middleware ────────────────────────────────────────────────────
@@ -590,9 +593,30 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// never nil here since gitlab.Service always exists once an org has an
 		// installation; it's still a nil-safe optional dependency to labs
 		// itself (empty script -> skip) when no installation/connection exists.
-		labsHandler := labs.New(pool, rdb, cfg.JWTSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout, coursesSvc, labsRuntime, gitlabRouter.Service(), notificationsRouter.Service, entitlementsRouter.Service)
+		labsHandler := labs.New(pool, rdb, cfg.JWTSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout, coursesSvc, labsRuntime, gitlabRouter.Service(), notificationsRouter.Service, entitlementsRouter.Service, aiProvider, labsPrivateStore)
 		labsHandler.RegisterRoutes(r)
 		labsHandler.RegisterAdminRoutes(r, authzHandler.Service())
+
+		// Lab authoring — block library, recipe CRUD, composition validator and
+		// AI ticket drafts (kind-agnostic engine; docs/debug-labs.md Part 2).
+		labAuthorHandler := labauthor.New(pool, rdb, aiProvider, cfg)
+		labAuthorHandler.RegisterRoutes(r, authzHandler.Service(), pool)
+
+		// Library — "Add from library" course-builder search + one shared
+		// insert path over labs/quizzes/notes (docs/debug-labs.md Part 3).
+		// Reuses coursesRepo/labsHandler.Repo()/labsHandler.Service() rather
+		// than standing up second copies; assessmentRepo is a fresh stateless
+		// wrapper over the same pool (assessment.Repo carries no state of its
+		// own beyond the pool, same as coursesRepo/labsRepo).
+		libraryRouter := library.New(pool, coursesRepo, labsHandler.Repo(), labsHandler.Service(), assessment.NewRepo(pool))
+		libraryRouter.RegisterRoutes(r, pool)
+
+		// Build/verify/preview/publish endpoints of the same API; the render and
+		// verify jobs themselves run in the worker (cmd/server/main.go).
+		labBuildSvc := labbuild.New(pool, rdb, labsRuntime, labsPrivateStore, labsHandler.Service(), libraryRouter.Service(),
+			labAuthorHandler.Service(), jobsRegistry,
+			labbuild.Config{BuildsPerUserDay: cfg.LabBuildsPerUserDay, VerifyParallelPerOrg: cfg.LabVerifyParallelPerOrg})
+		labbuild.NewHandler(labBuildSvc).RegisterRoutes(r, authzHandler.Service())
 
 		// Calendar — events, RSVPs, recurring series, external invites, personal ICS feed.
 		calendarRouter.RegisterRoutes(r)

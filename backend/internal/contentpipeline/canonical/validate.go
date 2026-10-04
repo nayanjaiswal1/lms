@@ -178,6 +178,16 @@ func (q *Quiz) Validate() error {
 func (s *LabSpec) validate(ctx string) []error {
 	var errs []error
 
+	if s.Recipe != "" {
+		if s.RecipeSpec == nil {
+			errs = append(errs, fmt.Errorf("%s: recipe %q was not loaded", ctx, s.Recipe))
+			return errs
+		}
+		if s.LabType != "" || s.Environment != "" || len(s.Tasks) > 0 || len(s.Files) > 0 || strings.TrimSpace(s.SetupScript) != "" {
+			errs = append(errs, fmt.Errorf("%s: a recipe lab takes its lab type, environment, setup and tasks from the lab kind; omit lab_type, environment, tasks, files and setup_script", ctx))
+		}
+		return append(errs, s.RecipeSpec.validate(ctx)...)
+	}
 	if !validLabTypes[s.LabType] {
 		errs = append(errs, fmt.Errorf("%s: invalid lab_type %q", ctx, s.LabType))
 	}

@@ -1,0 +1,36 @@
+kind: check
+id: check.migrate-from-snapshot
+version: 1.0.0
+stack: any
+title: Migrations apply from every starting point
+summary: 'Migration probe: runs a command against a scratch database that is empty or loaded from a prod-like SQL snapshot in the grader bundle, then checks SQL.'
+category: check
+skills:
+- debugging
+- verification
+params:
+  type: object
+  properties:
+    steps:
+      type: array
+      description: 'Each step: {db: clean|snapshot, snapshot_sql (path inside the grader bundle), cmd, expect_rc (default 0), post_sql [{sql, equals|min|max}], timeout}. Use python3 manage.py makemigrations
+        --check --dry-run for state drift and migrate <app> <n> for reversibility.'
+      items:
+        type: object
+        required:
+        - db
+        - cmd
+        properties:
+          db:
+            enum:
+            - clean
+            - snapshot
+          cmd:
+            type: string
+          expect_rc:
+            type: integer
+          timeout:
+            type: integer
+check:
+  probe: M
+  failure_message: Migrations do not apply cleanly from every starting point (an empty database and an existing database), or the model state and the migrations disagree.

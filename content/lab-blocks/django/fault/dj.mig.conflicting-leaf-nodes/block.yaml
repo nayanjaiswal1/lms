@@ -1,0 +1,108 @@
+kind: fault
+id: dj.mig.conflicting-leaf-nodes
+version: 1.0.0
+stack: django
+title: 'Deploy fails: conflicting migrations detected'
+summary: Two branches each added an orders migration numbered 0004 on top of 0003, so the migration graph has two leaf nodes and migrate refuses
+  to run.
+category: migrations
+difficulty: beginner
+skills:
+- django-migrations
+- migration-graph
+- deployment
+requires:
+- slot:migrations.orders
+- cap:postgres
+fault:
+  inject:
+    files:
+    - path: orders/migrations/0004_backfill_shipping_names.py
+      from: inject/0004_backfill_shipping_names.py
+    - path: orders/migrations/0004_normalize_currency_codes.py
+      from: inject/0004_normalize_currency_codes.py
+  fix:
+    slots:
+    - slot: migrations.orders
+      file: fix/merge_order_branches.py
+    files:
+    - path: tests/test_migration_graph.py
+      from: fix/tests/test_migration_graph.py
+  cheats:
+  - name: merge-only-one-branch
+    slots:
+    - slot: migrations.orders
+      file: cheats/partial_merge.py
+  - name: revert-the-commit
+    slots:
+    - slot: migrations.orders
+      file: fix/merge_order_branches.py
+    files:
+    - path: orders/migrations/0004_normalize_currency_codes.py
+      from: cheats/linear_currency_codes.py
+    - path: ext/stock_alerts/urls.py
+      from: cheats/empty_urls.py
+  carrier:
+    feature: stock-alerts
+    files:
+    - path: ext/stock_alerts/__init__.py
+      from: carrier/ext/stock_alerts/__init__.py
+    - path: ext/stock_alerts/apps.py
+      from: carrier/ext/stock_alerts/apps.py
+    - path: ext/stock_alerts/urls.py
+      from: carrier/ext/stock_alerts/urls.py
+    - path: ext/stock_alerts/views.py
+      from: carrier/ext/stock_alerts/views.py
+  commit:
+    message: 'inventory: add a staff endpoint listing products under the low-stock threshold'
+    persona: Marcus Webb <marcus@shop.example.com>
+  checks:
+  - ref: check.migrate-from-snapshot
+    role: symptom
+    params:
+      steps:
+      - db: clean
+        cmd: . scripts/dev-env.sh && python3 manage.py migrate --noinput
+        expect_rc: 0
+      - db: clean
+        cmd: . scripts/dev-env.sh && python3 manage.py makemigrations --check --dry-run
+        expect_rc: 0
+  symptom:
+    vars:
+      title: 'Release blocked: migrate fails with conflicting migrations'
+      report: The release pipeline failed at the migration step. Two developers each merged a data migration for the orders app the same day.
+        Each of them ran the migrations locally and everything worked on their branch, but the merged main branch cannot be deployed.
+      output: |-
+        CommandError: Conflicting migrations detected; multiple leaf nodes in the migration graph: (0004_backfill_shipping_names, 0004_normalize_currency_codes in orders).
+        To fix them run 'python manage.py makemigrations --merge'
+      impact: 'Nothing can be deployed until this is fixed: the migration step runs before every release, and staging is already blocked.'
+      support_tried: Re-ran the pipeline twice (same failure). Considered deleting one of the two new migration files, but both have already been
+        applied on someone's local database and one of them is needed for the finance backfill.
+      observations: |-
+        ### Other observations from the reporter
+
+        - Both migrations are only data fixes; neither changes the schema.
+        - The stock alerts endpoint shipped in the same release, so it was suspected first.
+        - Running the tests still passes, because the test database is built without migrations.
+    signature: Conflicting migrations detected; multiple leaf nodes in the migration graph
+  hints:
+  - 'Read the error message literally and then look at the orders migrations directory: which migrations exist, and what does each one list in
+    its dependencies? Try python manage.py showmigrations orders and draw the graph.'
+  - Django expects the migrations of an app to form a single chain. Two migrations that depend on the same parent are two leaf nodes, and migrate
+    refuses to pick an order. You either make one depend on the other or add a merge migration that depends on both leaves.
+  - Add a merge migration for orders (python manage.py makemigrations --merge, or write it by hand) that depends on both 0004 migrations, commit
+    it, and add a test that asserts the migration graph has no conflicts. Do not delete migrations that may already have been applied somewhere.
+  rubric:
+    key_points:
+    - 'Explains the migration graph: nodes, dependencies and why two leaf nodes in one app are a conflict.'
+    - Fixes it with a merge migration (or by chaining one migration after the other) instead of deleting applied migrations.
+    - Notes that both migrations may already be applied elsewhere, so history must be preserved.
+    - Adds a check (migration graph test or makemigrations --check in CI) so the conflict is caught before deploy.
+    misconceptions:
+    - Deleting one of the migrations or editing the applied ones is the safe fix.
+    - Running the test suite would have caught it (the tests build the database without migrations).
+    - The number in the filename decides the order of migrations (only dependencies do).
+  root_cause: |
+    Both new orders migrations were numbered `0004` and both declared `0003_orderitem_line_total_required` as their only dependency. That gives the orders app two leaf nodes, and `migrate` (and `makemigrations --check`) stop with `Conflicting migrations detected`. The file numbers are only a naming convention: the dependencies define the graph.
+
+    The fix is a merge migration that depends on both leaves, so the history is preserved and the graph has a single head again; a graph test keeps it from regressing.

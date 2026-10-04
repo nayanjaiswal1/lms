@@ -15,10 +15,21 @@ package labs
 type ImageProfile struct {
 	// Name identifies the profile ("" = standard/zero-value default,
 	// otherwise a name from the in-code catalog built in main.go, e.g.
-	// "nested-docker"). A non-empty Name is what both runtimes treat as
-	// "this image is elevated" — see KubernetesContainerService.startPod's
-	// RuntimeClass requirement below.
+	// "nested-docker" or the future "debug-ide"). Purely a label now — see
+	// Elevated for what used to be inferred from a non-empty Name.
 	Name string
+
+	// Elevated marks a profile as requiring real container-escape-relevant
+	// privilege (extra Linux capabilities, a Kubernetes RuntimeClass, an
+	// org allowlist gate) — as opposed to a profile that only resizes
+	// CPU/MemoryMB/disk for a bigger-but-still-sandboxed container (e.g.
+	// the future "debug-ide" profile: 2 CPU / 2 GB / 5 GB, no elevation).
+	// Previously any non-empty Name was treated as elevated, which would
+	// have wrongly forced debug-ide through KubernetesContainerService.
+	// startPod's RuntimeClass requirement below for a profile that needs
+	// no such thing. Zero value (false) = not elevated, matching the
+	// standard profile.
+	Elevated bool
 
 	// CPU/MemoryMB size the container/Pod. Empty/zero falls back to
 	// ContainerCPU/ContainerMemoryMB (the standard profile's implicit
@@ -45,6 +56,14 @@ type ImageProfile struct {
 	// rules apply (empty list = unrestricted).
 	RequiresOrgAllowlist bool
 
+	// SetupAsImageUser, when true, makes the Docker runtime run the lab's
+	// setup_script as the image's unprivileged user instead of root, matching
+	// the Kubernetes runtime (which cannot override the Pod user). Required
+	// for images whose setup must not run privileged: a --cap-drop ALL root
+	// has no CAP_SETUID/SETGID, so it cannot drop privileges itself, and no
+	// CAP_DAC_OVERRIDE, so it cannot write the labuser-owned workspace either.
+	SetupAsImageUser bool
+
 	// DockerMechanism selects the Docker-specific elevation applied by
 	// DockerContainerService.buildRunArgs. Ignored by the Kubernetes
 	// runtime.
@@ -57,10 +76,11 @@ type ImageProfile struct {
 
 	// K8sRuntimeClass sets Pod.Spec.RuntimeClassName for images using this
 	// profile. Kubernetes has no equivalent of Docker's --cap-add flags, so
-	// any profile with a non-empty Name (i.e. anything but the standard
-	// profile) REQUIRES this to be set — KubernetesContainerService.startPod
-	// fails the session loudly rather than approximate elevated capabilities
-	// on a shared node pool with no RuntimeClass isolation.
+	// any Elevated profile REQUIRES this to be set —
+	// KubernetesContainerService.startPod fails the session loudly rather
+	// than approximate elevated capabilities on a shared node pool with no
+	// RuntimeClass isolation. A non-Elevated named profile (resource-only,
+	// e.g. debug-ide) needs no RuntimeClass.
 	K8sRuntimeClass string
 	// K8sExtraVolume, when true, mounts an emptyDir at /var/lib/docker —
 	// today's nested-Docker-only requirement (dockerd's own storage), kept
@@ -80,3 +100,18 @@ type ImageProfile struct {
 // the in-code catalog entry LABS_IMAGE_PROFILES entries resolve against is
 // built in main.go.
 const ImageProfileNestedDocker = "nested-docker"
+
+// ImageProfileDebugIDE names the resource-only (NOT elevated) profile for the
+// debug lab image (mindforge/lab-debug): 2 CPU / 2048 MB / 5 GB target.
+const ImageProfileDebugIDE = "debug-ide"
+
+// DebugIDEProfile is the catalog entry for ImageProfileDebugIDE, shared by the
+// server and `coursegen blocks verify` so both size and run the image alike.
+func DebugIDEProfile() ImageProfile {
+	return ImageProfile{
+		Name:             ImageProfileDebugIDE,
+		CPU:              DebugIDEContainerCPU,
+		MemoryMB:         DebugIDEContainerMemoryMB,
+		SetupAsImageUser: true,
+	}
+}

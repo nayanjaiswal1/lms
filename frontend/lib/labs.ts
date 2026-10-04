@@ -1,4 +1,4 @@
-export type LabType = 'terminal' | 'code' | 'playground' | 'guided' | 'sandbox'
+export type LabType = 'terminal' | 'code' | 'playground' | 'guided' | 'sandbox' | 'debug'
 
 export type LabWorkspaceLayout = 'split' | 'console'
 
@@ -29,6 +29,8 @@ export type TaskStatus = 'pending' | 'passed' | 'skipped'
 // (which leaves the session's end_reason null).
 export type SessionEndReason = 'time_limit' | 'idle_timeout'
 
+export type LabTaskGrader = 'script' | 'writeup_review'
+
 export interface LabTask {
   task_id: string
   position: number
@@ -36,6 +38,9 @@ export interface LabTask {
   description: string
   points: number
   is_optional: boolean
+  // 'script' tasks are graded by Check; 'writeup_review' tasks by submitting
+  // a write-up (no hints, no Check).
+  grader: LabTaskGrader
 }
 
 export interface Lab {
@@ -105,6 +110,20 @@ export interface TaskCompletion {
   hints_used: number
 }
 
+// Response of POST /sessions/:id/tasks/:taskId/hint. hint_penalty_pct
+// mirrors the lab's own (Lab.hint_penalty_pct) — included per-response so
+// the hint drawer's warning never needs a second prop plumbed down just for
+// this.
+export interface HintResult {
+  level: number
+  content: string
+  hints_used: number
+  hints_remaining: number
+  hint_penalty_pct: number
+}
+
+export const MAX_HINTS_PER_TASK = 3
+
 export interface LabSession {
   id: string
   lab_id: string
@@ -116,11 +135,47 @@ export interface LabSession {
   completed_at: string | null
   last_active_at: string
   end_reason: SessionEndReason | null
+  // Set only for composed lab kinds (e.g. debug) once a scenario variant is picked.
+  variant_key?: string | null
+  // Set once every required task passed but the session awaits Finish
+  // (kinds with the 'finish' completion policy).
+  required_passed_at?: string | null
 }
 
-export interface GetSessionResponse {
+// Student-safe workspace block of a "debug" lab (GET /sessions/:id) — never
+// the root cause, fix or rubric.
+export interface DebugSessionBlock {
+  brief: string
+  ide_port: number
+  app_ports: number[]
+}
+
+// Kind-specific blocks GET /sessions/:id returns, keyed by lab_type. A new
+// lab kind adds one optional entry here.
+export interface LabKindBlocks {
+  debug?: DebugSessionBlock
+}
+
+export type LabKindBlock = NonNullable<LabKindBlocks[keyof LabKindBlocks]>
+
+export type GetSessionResponse = {
   session: LabSession
   task_completions: TaskCompletion[]
+} & LabKindBlocks
+
+// One catalog row (GET /api/labs/catalog) — the caller's best status included.
+export type LabCatalogStatus = 'not_started' | 'in_progress' | 'completed'
+
+export interface LabCatalogEntry {
+  lab_id: string
+  title: string
+  lab_type: LabType
+  stack: string
+  category: string
+  difficulty: string
+  skills: string[]
+  max_duration: number
+  status: LabCatalogStatus
 }
 
 export interface ActiveLabSession {
@@ -134,12 +189,37 @@ export interface ActiveLabSession {
   last_active_at: string
 }
 
-// The backend returns this when a session already reached a terminal state
-// (e.g. an auto-expiry job won the race against the client's end request, or
-// the user ended it from a different surface). The session is already ended
-// either way, so callers should treat this as success, not an error.
-export function isLabSessionAlreadyEnded(message: string): boolean {
-  return message.toLowerCase().includes('already ended')
+// Machine-readable error codes from the API error envelope ({"error","code"}).
+// Mirrors the Go constants in backend/internal/labs/codes.go — keep in sync.
+export const LAB_ERROR_CODES = {
+  sessionExpired: 'lab_session_expired',
+  sessionCompletedAtDeadline: 'lab_session_completed_at_deadline',
+  sessionAlreadyEnded: 'lab_session_already_ended',
+  rateLimited: 'rate_limited',
+  graderBusy: 'grader_busy',
+  hintNotSupported: 'hint_not_supported',
+  maxHintsReached: 'max_hints_reached',
+  writeupReviewLimit: 'writeup_review_limit',
+  aiUnavailable: 'ai_unavailable',
+} as const
+
+// The session already reached a terminal state (e.g. an auto-expiry job won
+// the race against the client's end request, or the user ended it from a
+// different surface). It is ended either way, so callers treat this as
+// success, not an error.
+export function isLabSessionAlreadyEnded(code: string | undefined): boolean {
+  return code === LAB_ERROR_CODES.sessionAlreadyEnded
+}
+
+// A request noticed the hard deadline and the lab closed as completed
+// (required tasks had passed): the lab succeeded, time just ran out.
+export function isLabCompletedAtDeadline(code: string | undefined): boolean {
+  return code === LAB_ERROR_CODES.sessionCompletedAtDeadline
+}
+
+// The session hit its deadline and closed without completing.
+export function isLabSessionExpired(code: string | undefined): boolean {
+  return code === LAB_ERROR_CODES.sessionExpired
 }
 
 // A session is "live" (occupying a workspace) while running or paused —

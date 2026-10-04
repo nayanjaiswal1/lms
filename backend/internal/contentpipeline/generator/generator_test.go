@@ -239,3 +239,97 @@ func TestLoad_InvalidDocumentAggregatesErrors(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "course is required")
 }
+
+// Tasks/questions removed from a document must be pruned on reseed, and
+// surviving tasks parked off their positions before the upsert, or a new task
+// landing on an old task's position violates UNIQUE(lab_id, position).
+func TestRender_PrunesRemovedTasksAndQuestions(t *testing.T) {
+	out, err := Render(sampleDocs(), canonical.CourseMeta{})
+	require.NoError(t, err)
+
+	labID := canonical.ID("test/section/lab", "lab")
+	taskID := canonical.ID("test/section/lab", "task:t1")
+	require.Contains(t, out, fmt.Sprintf("DELETE FROM lab_tasks WHERE lab_id = '%s' AND id NOT IN ('%s');", labID, taskID))
+	park := strings.Index(out, fmt.Sprintf("UPDATE lab_tasks SET position = position + 100000 WHERE lab_id = '%s';", labID))
+	insert := strings.Index(out, "INSERT INTO lab_tasks")
+	require.True(t, park >= 0 && park < insert, "tasks must be parked before the lab_tasks upsert")
+	require.Contains(t, out, "ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title")
+
+	assessmentID := canonical.ID("test/section/quiz", "assessment")
+	require.Contains(t, out, fmt.Sprintf("DELETE FROM assessment_questions WHERE assessment_id = '%s' AND question_id NOT IN (", assessmentID))
+	require.Contains(t, out, "ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type")
+}
+
+// A section's group_title comes from the first document seen for that
+// section (same first-wins rule already used for section_title), and is
+// NULL when no document sets section_group.
+func TestRender_SectionGroupTitle(t *testing.T) {
+	docs := sampleDocs()
+	docs[0].Lesson.SectionGroup = "Backend"
+
+	out, err := Render(docs, canonical.CourseMeta{})
+	require.NoError(t, err)
+	require.Contains(t, out, "INSERT INTO course_sections (id, course_id, title, position, group_title)")
+	require.Contains(t, out, "ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;")
+	require.Contains(t, out, "'Backend'")
+}
+
+func TestRender_SectionGroupTitleNullWhenUnset(t *testing.T) {
+	out, err := Render(sampleDocs(), canonical.CourseMeta{})
+	require.NoError(t, err)
+	sectionID := canonical.ID("test-course/section", "section")
+	require.Contains(t, out, fmt.Sprintf("VALUES (%s, %s, 'Section', 1, NULL)", sqlString(sectionID), sqlString(canonical.ID("test-course", "course"))))
+}
+
+// A section/module removed from the canonical markdown (merged lesson,
+// deleted quiz, etc.) must actually disappear from course_sections/
+// course_modules on reseed instead of lingering forever, and existing rows
+// must be parked off their positions before the per-course upserts run so a
+// new row landing on a stale row's position doesn't violate
+// UNIQUE(course_id/section_id, position).
+func TestRender_PrunesRemovedSectionsAndModules(t *testing.T) {
+	out, err := Render(sampleDocs(), canonical.CourseMeta{})
+	require.NoError(t, err)
+
+	courseID := canonical.ID("test-course", "course")
+	sectionID := canonical.ID("test-course/section", "section")
+	lessonModuleID := canonical.ID("test/section/lesson", "module")
+	labModuleID := canonical.ID("test/section/lab", "module")
+	quizModuleID := canonical.ID("test/section/quiz", "module")
+
+	parkSections := fmt.Sprintf("UPDATE course_sections SET position = position + 100000 WHERE course_id = %s;", sqlString(courseID))
+	parkModules := fmt.Sprintf("UPDATE course_modules SET position = position + 100000 WHERE course_id = %s;", sqlString(courseID))
+	require.Contains(t, out, parkSections)
+	require.Contains(t, out, parkModules)
+
+	sectionInsert := strings.Index(out, "INSERT INTO course_sections (id, course_id, title, position, group_title)")
+	require.True(t, strings.Index(out, parkSections) < sectionInsert, "sections must be parked before the course_sections upsert")
+	require.True(t, strings.Index(out, parkModules) < sectionInsert, "modules must be parked before any module upsert")
+
+	pruneModules := fmt.Sprintf("DELETE FROM course_modules WHERE course_id = %s AND id NOT IN (%s, %s, %s);",
+		sqlString(courseID), sqlString(lessonModuleID), sqlString(labModuleID), sqlString(quizModuleID))
+	pruneSections := fmt.Sprintf("DELETE FROM course_sections WHERE course_id = %s AND id NOT IN (%s);", sqlString(courseID), sqlString(sectionID))
+	require.Contains(t, out, pruneModules)
+	require.Contains(t, out, pruneSections)
+	require.True(t, strings.Index(out, pruneModules) < strings.Index(out, pruneSections), "modules must be pruned before their sections, never via section-delete cascade")
+	require.True(t, strings.Index(out, pruneModules) > sectionInsert, "pruning must run after this course's sections/modules are emitted")
+}
+
+// section_group must agree across every document in the same (course,
+// section) — Render (like it already does for section_title) only takes the
+// first value it sees and silently ignores the rest, so a mismatch has to be
+// caught at Load time or an author's typo would silently detach a section
+// from its intended group.
+func TestLoad_SectionGroupMismatchErrors(t *testing.T) {
+	dir := t.TempDir()
+	docA := "---\nkind: lesson\nid_key: a\ncourse: c\nsection: s\nsection_title: S\nsection_position: 0\nsection_group: Backend\ntitle: A\nposition: 0\nestimated_minutes: 10\nsource: [x.md]\n---\nbody\n"
+	docB := "---\nkind: lesson\nid_key: b\ncourse: c\nsection: s\nsection_title: S\nsection_position: 0\nsection_group: Frontend\ntitle: B\nposition: 1\nestimated_minutes: 10\nsource: [x.md]\n---\nbody\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.md"), []byte(docA), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.md"), []byte(docB), 0o644))
+
+	_, err := Load(dir)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "section_group")
+	require.Contains(t, err.Error(), `"Frontend"`)
+	require.Contains(t, err.Error(), `"Backend"`)
+}

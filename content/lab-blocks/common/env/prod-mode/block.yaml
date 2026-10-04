@@ -1,0 +1,20 @@
+kind: env
+id: env.prod-mode
+version: 1.0.0
+stack: django
+title: Production mode
+summary: Runs the shop with production settings (DEBUG off, hashed static files served by whitenoise after collectstatic) under gunicorn, like the deployed service.
+category: env
+skills:
+  - deployment
+requires:
+  - cap:prod-mode
+provides:
+  - env:prod-mode
+budget:
+  setup_seconds: 2
+env:
+  supervisor:
+    - DJANGO_SETTINGS_MODULE=config.settings.prod
+    - MF_SERVER=gunicorn
+    - MF_COLLECTSTATIC=1

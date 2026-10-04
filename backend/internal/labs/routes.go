@@ -5,10 +5,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/courses"
 	ent "github.com/mindforge/backend/internal/entitlements"
 	"github.com/mindforge/backend/internal/notifications"
+	"github.com/mindforge/backend/internal/storage"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -23,11 +25,17 @@ import (
 // service.go); internal/api/router.go passes gitlabRouter.Service() here.
 // notifSvc backs notifyRepeatedProvisionFailures (see service.go).
 // entitlementsSvc backs the individual-tier lab quota checks (see
-// NewService's doc comment).
-func New(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, pistonURL string, pistonTimeout time.Duration, coursesSvc *courses.Service, container ContainerRuntime, repoPreparer RepoPreparer, notifSvc *notifications.Service, entitlementsSvc *ent.Service) *Handler {
+// NewService's doc comment). aiProvider backs RequestHint (see service.go);
+// the same "AI called once" cache/circuit-breaker rules as every other AI
+// feature apply — see docs/labs.md "AI Integration".
+// bundleStore is the private, never-public object store lab-kind workspace/
+// grader bundles live in (storage.PrivateStore) — nil is valid (a deploy
+// with no MinIO configured simply can't run lab-kind sessions; every other
+// lab type is unaffected).
+func New(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, pistonURL string, pistonTimeout time.Duration, coursesSvc *courses.Service, container ContainerRuntime, repoPreparer RepoPreparer, notifSvc *notifications.Service, entitlementsSvc *ent.Service, aiProvider ai.LLMProvider, bundleStore storage.PrivateStore) *Handler {
 	repo := NewRepo(pool)
 	piston := newLabPiston(pistonURL, pistonTimeout)
-	service := NewService(repo, container, rdb, pool, piston, coursesSvc, repoPreparer, notifSvc, entitlementsSvc)
+	service := NewService(repo, container, rdb, pool, piston, coursesSvc, repoPreparer, notifSvc, entitlementsSvc, jwtSecret, aiProvider, bundleStore)
 	return NewHandler(repo, service, pool, rdb, jwtSecret, jwtIssuer, piston)
 }
 
@@ -45,7 +53,13 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/api/labs/sessions/{sessionId}/reset", h.HandleResetSession)
 	r.Post("/api/labs/sessions/{sessionId}/end", h.HandleEndSession)
 	r.Post("/api/labs/sessions/{sessionId}/tasks/{taskId}/verify", h.HandleVerifyTask)
+	r.Post("/api/labs/sessions/{sessionId}/tasks/{taskId}/hint", h.HandleHint)
 	r.Post("/api/labs/run", h.HandleRunSnippet)
+
+	// Pluggable lab kinds (backend/internal/labkinds): generic across kinds.
+	r.Get("/api/labs/catalog", h.HandleCatalog)
+	r.Get("/api/labs/sessions/{sessionId}/debrief", h.HandleDebrief)
+	r.Post("/api/labs/sessions/{sessionId}/writeup-review", h.HandleWriteupReview)
 
 	r.Get("/api/labs/sessions/{sessionId}/files", h.HandleListFiles)
 	r.Get("/api/labs/sessions/{sessionId}/files/read", h.HandleReadFile)

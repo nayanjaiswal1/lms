@@ -1,0 +1,134 @@
+kind: fault
+id: dj.data.report-utc-days
+version: 1.0.0
+stack: django
+title: Evening orders show up on the next day's revenue report
+summary: The revenue report buckets orders with a database cast that uses the UTC session time zone, so orders placed late in the evening in New
+  York land on the next calendar day.
+category: data-model
+difficulty: intermediate
+skills:
+- timezones
+- django-orm
+- reporting
+requires:
+- slot:reports.daily.bucket
+- cap:tz-reports
+- data:rows>=1000
+fault:
+  inject:
+    slots:
+    - slot: reports.daily.bucket
+      value: |
+        from django.db.models import DateField
+        from django.db.models.functions import Cast
+
+        day = Cast("created_at", output_field=DateField())
+  fix:
+    slots:
+    - slot: reports.daily.bucket
+      value: |
+        day = TruncDate("created_at")
+    files:
+    - path: tests/test_report_local_days.py
+      from: fix/tests/test_report_local_days.py
+  cheats:
+  - name: hardcode-the-winter-offset
+    slots:
+    - slot: reports.daily.bucket
+      value: |
+        from datetime import timedelta
+
+        from django.db.models import DateField, F
+        from django.db.models.functions import Cast
+
+        day = Cast(F("created_at") - timedelta(hours=5), output_field=DateField())
+  - name: revert-the-commit
+    slots:
+    - slot: reports.daily.bucket
+      value: |
+        day = TruncDate("created_at")
+    files:
+    - path: ext/product_feed/urls.py
+      from: cheats/empty_urls.py
+  carrier:
+    feature: product-feed
+    files:
+    - path: ext/product_feed/__init__.py
+      from: carrier/ext/product_feed/__init__.py
+    - path: ext/product_feed/apps.py
+      from: carrier/ext/product_feed/apps.py
+    - path: ext/product_feed/urls.py
+      from: carrier/ext/product_feed/urls.py
+    - path: ext/product_feed/views.py
+      from: carrier/ext/product_feed/views.py
+  commit:
+    message: 'catalog: publish a partner product feed'
+    persona: Sam Okafor <sam@shop.example.com>
+  checks:
+  - ref: check.http-behavior
+    role: symptom
+    params:
+      steps:
+      - method: GET
+        path: /api/reports/revenue/?from=2025-03-03&to=2025-03-16
+        headers:
+          Authorization: Token mf_tok_staff
+        expect_status: 200
+        expect_json:
+        - path: daily[0].day
+          equals: '2025-03-03'
+        - path: daily[0].orders
+          equals: 12
+        - path: daily[1].day
+          equals: '2025-03-04'
+        - path: daily[1].orders
+          equals: 12
+        - path: daily[8].day
+          equals: '2025-03-11'
+        - path: daily[8].orders
+          equals: 12
+        - path: daily[13].day
+          equals: '2025-03-16'
+        - path: daily[13].orders
+          equals: 12
+  symptom:
+    vars:
+      title: Evening orders land on tomorrow's revenue report
+      report: 'Finance compares the daily revenue report with the payments provider''s daily settlement and the two never agree: orders placed
+        in the evening (roughly after 7 pm New York time) are counted on the next day''s row of our report, while the early hours of a day are
+        counted on the previous day. Over a month the totals match but no single day does.'
+      where: The staff revenue report (the daily table of the revenue API for a date range). The business runs on New York time.
+      expected: Every order should be counted on the calendar day it was placed in New York, whatever the time of day.
+      support_tried: Checked that the server clock is right and that the orders have the right timestamps in the admin. Timestamps look correct;
+        only the grouping by day is off.
+      observations: |-
+        ### Other observations from the reporter
+
+        - Daily order counts look shifted around midnight, and the shift changed by an hour after the clocks changed in March.
+        - The partner product feed shipped recently, though the report does not use it.
+        - The monthly total is right.
+    signature: orders counted on the wrong calendar day near midnight
+  hints:
+  - 'Take one order placed at 22:30 New York time and follow it: what does the database store, which day does the report show, and which time
+    zone is used to decide the day? Compare the order''s created_at in the admin with the report row it ends up in.'
+  - 'Django stores aware datetimes in UTC, and casting a timestamp to a date in the database uses the database session time zone (UTC), not the
+    business time zone. Django TruncDate uses the current time zone (settings.TIME_ZONE) when USE_TZ is on. Fixed offsets are not the answer either:
+    New York changes its UTC offset with daylight saving time.'
+  - In reports/services.py the day bucket is computed with a database Cast, so it buckets by the UTC date. Bucket with TruncDate on created_at,
+    which honors the configured time zone, and add a test with orders just before and just after local midnight.
+  rubric:
+    key_points:
+    - Explains that timestamps are stored in UTC and that the calendar day depends on the time zone used to bucket them.
+    - Identifies the database cast (UTC session time zone) as the cause and fixes it by bucketing in the business time zone (TruncDate with tzinfo
+      or the current time zone).
+    - Explains why a fixed offset is wrong (daylight saving time).
+    - Adds a test with orders around local midnight that fails on the original code.
+    misconceptions:
+    - Setting USE_TZ = False or shifting stored timestamps fixes reporting.
+    - Subtracting a constant number of hours is enough for a New York business day.
+    - The timestamps in the database are wrong and need to be migrated.
+  root_cause: |
+    The daily revenue query bucketed orders with `Cast(created_at, DateField())`. PostgreSQL performs that cast in the session time zone, which Django sets to UTC, so the day was the UTC date. An order placed at 22:30 in New York is 03:30 UTC on the next day and was counted there.
+
+    The fix buckets with `TruncDate(created_at)`, which converts to the current time zone (`America/New_York`) before truncating, and so also follows daylight saving time.

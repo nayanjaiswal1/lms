@@ -20,20 +20,24 @@ func NewRepo(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool} }
 
 // ─── Lab definitions ─────────────────────────────────────────────────────────
 
-// GetLab loads a lab definition visible to the given org.
+// GetLab loads a lab definition visible to the given org. Used for direct
+// by-id access (standalone labs, library preview/try) — IsRequired here is
+// lab_definitions.is_required, the legacy org-wide default; a lab reached
+// through a course placement instead gets its per-placement value from
+// GetLabByModuleID.
 func (r *Repo) GetLab(ctx context.Context, labID, orgID string) (*LabDefinition, error) {
 	var l LabDefinition
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port,
 		       language, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published,
-		       published_version_id, workspace_layout, created_by, created_at, updated_at
+		       published_version_id, workspace_layout, created_by, created_at, updated_at, library_visibility, build_id
 		FROM lab_definitions WHERE id=$1 AND org_id=$2`,
 		labID, orgID,
 	).Scan(
 		&l.ID, &l.OrgID, &l.CourseID, &l.ModuleID, &l.Scope, &l.Title, &l.Description,
 		&l.LabType, &l.Environment, &l.PreviewPort, &l.Language, &l.SetupScript, &l.RunScript, &l.MaxDuration, &l.MaxResets,
 		&l.HintPenaltyPct, &l.IsRequired, &l.IsPublished, &l.PublishedVersionID, &l.WorkspaceLayout,
-		&l.CreatedBy, &l.CreatedAt, &l.UpdatedAt,
+		&l.CreatedBy, &l.CreatedAt, &l.UpdatedAt, &l.LibraryVisibility, &l.BuildID,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -44,21 +48,75 @@ func (r *Repo) GetLab(ctx context.Context, labID, orgID string) (*LabDefinition,
 	return &l, nil
 }
 
-// GetLabByModuleID returns the published lab definition linked to a course module.
+// GetLabForPlacement loads a lab definition visible to orgID for placement
+// purposes: owned by orgID, OR shipped library_visibility='platform' (any
+// org may place a platform lab — see docs/debug-labs.md Library open
+// question 1). Used by library.Service for the Attach eligibility check and
+// the library preview/try endpoints, where the lab being looked at may not
+// belong to the caller's own org. GetLab (org_id=$2 only) stays as-is for
+// every path that must stay strictly own-org (instructor lab management,
+// admin usage reporting).
+func (r *Repo) GetLabForPlacement(ctx context.Context, labID, orgID string) (*LabDefinition, error) {
+	return r.getLabForPlacement(ctx, r.pool, labID, orgID)
+}
+
+// GetLabForPlacementTx is GetLabForPlacement inside a caller's transaction, so
+// a lab created or published earlier in that same transaction is visible
+// (build publish places the lab it just published, atomically).
+func (r *Repo) GetLabForPlacementTx(ctx context.Context, tx pgx.Tx, labID, orgID string) (*LabDefinition, error) {
+	return r.getLabForPlacement(ctx, tx, labID, orgID)
+}
+
+func (r *Repo) getLabForPlacement(ctx context.Context, q rowQuerier, labID, orgID string) (*LabDefinition, error) {
+	var l LabDefinition
+	err := q.QueryRow(ctx, `
+		SELECT id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port,
+		       language, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published,
+		       published_version_id, workspace_layout, created_by, created_at, updated_at, library_visibility, build_id
+		FROM lab_definitions WHERE id=$1 AND (org_id=$2 OR library_visibility='platform')`,
+		labID, orgID,
+	).Scan(
+		&l.ID, &l.OrgID, &l.CourseID, &l.ModuleID, &l.Scope, &l.Title, &l.Description,
+		&l.LabType, &l.Environment, &l.PreviewPort, &l.Language, &l.SetupScript, &l.RunScript, &l.MaxDuration, &l.MaxResets,
+		&l.HintPenaltyPct, &l.IsRequired, &l.IsPublished, &l.PublishedVersionID, &l.WorkspaceLayout,
+		&l.CreatedBy, &l.CreatedAt, &l.UpdatedAt, &l.LibraryVisibility, &l.BuildID,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("labs.Repo.GetLabForPlacement: %w", err)
+	}
+	return &l, nil
+}
+
+// GetLabByModuleID returns the published lab linked to a course module
+// through course_modules.lab_id (never lab_definitions.module_id — see
+// migration 044_course_library.sql and docs/debug-labs.md L2). Visible when
+// the module's course belongs to orgID AND the lab itself is either owned by
+// orgID or shipped library_visibility='platform'. IsRequired is overridden
+// with the PLACEMENT's course_modules.lab_is_required, not the lab's own
+// legacy default, so the same lab can be required in one course and optional
+// in another.
 func (r *Repo) GetLabByModuleID(ctx context.Context, moduleID, orgID string) (*LabDefinition, error) {
 	var l LabDefinition
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port,
-		       language, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published,
-		       published_version_id, workspace_layout, created_by, created_at, updated_at
-		FROM lab_definitions WHERE module_id=$1 AND org_id=$2 AND is_published=true
+		SELECT l.id, l.org_id, l.course_id, l.module_id, l.scope, l.title, l.description, l.lab_type, l.environment,
+		       l.preview_port, l.language, l.setup_script, l.run_script, l.max_duration, l.max_resets, l.hint_penalty_pct,
+		       cm.lab_is_required, l.is_published, l.published_version_id, l.workspace_layout, l.created_by,
+		       l.created_at, l.updated_at, l.library_visibility, l.build_id
+		FROM course_modules cm
+		JOIN courses c ON c.id = cm.course_id
+		JOIN lab_definitions l ON l.id = cm.lab_id
+		WHERE cm.id=$1 AND cm.deleted_at IS NULL AND c.org_id=$2
+		  AND (l.org_id=$2 OR l.library_visibility='platform') AND l.is_published=true
 		LIMIT 1`,
 		moduleID, orgID,
 	).Scan(
 		&l.ID, &l.OrgID, &l.CourseID, &l.ModuleID, &l.Scope, &l.Title, &l.Description,
 		&l.LabType, &l.Environment, &l.PreviewPort, &l.Language, &l.SetupScript, &l.RunScript, &l.MaxDuration, &l.MaxResets,
 		&l.HintPenaltyPct, &l.IsRequired, &l.IsPublished, &l.PublishedVersionID, &l.WorkspaceLayout,
-		&l.CreatedBy, &l.CreatedAt, &l.UpdatedAt,
+		&l.CreatedBy, &l.CreatedAt, &l.UpdatedAt, &l.LibraryVisibility, &l.BuildID,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -77,7 +135,7 @@ func (r *Repo) GetPublishedVersion(ctx context.Context, versionID string) ([]Tas
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, position, title, description, verification_script,
 		        COALESCE(hint_context, ''), COALESCE(explanation_context, ''),
-		        points, is_optional, is_stateful
+		        points, is_optional, is_stateful, grader
 		 FROM lab_task_version_items WHERE task_version_id=$1 ORDER BY position`,
 		versionID,
 	)
@@ -89,7 +147,7 @@ func (r *Repo) GetPublishedVersion(ctx context.Context, versionID string) ([]Tas
 	for rows.Next() {
 		var t TaskSnapshot
 		if err := rows.Scan(&t.ID, &t.Position, &t.Title, &t.Description, &t.VerificationScript,
-			&t.HintContext, &t.ExplanationContext, &t.Points, &t.IsOptional, &t.IsStateful); err != nil {
+			&t.HintContext, &t.ExplanationContext, &t.Points, &t.IsOptional, &t.IsStateful, &t.Grader); err != nil {
 			return nil, fmt.Errorf("labs.Repo.GetPublishedVersion: scan: %w", err)
 		}
 		tasks = append(tasks, t)
@@ -173,6 +231,12 @@ type CreateSessionParams struct {
 	OrgID         string
 	ExpiresAt     time.Time
 	IsTest        bool
+	// ModuleID is the course_modules placement that launched this session —
+	// nil for a standalone/library "try" start. See LabSession.ModuleID.
+	ModuleID *string
+	// VariantKey pins a debug lab's structural variant for the life of the
+	// session (docs/debug-labs.md Part 2 §B6) — nil for every other lab type.
+	VariantKey *string
 }
 
 // CreateSession inserts a new lab_sessions row inside the given transaction.
@@ -180,18 +244,18 @@ type CreateSessionParams struct {
 func (r *Repo) CreateSession(ctx context.Context, tx pgx.Tx, params CreateSessionParams) (*LabSession, error) {
 	var s LabSession
 	err := tx.QueryRow(ctx, `
-		INSERT INTO lab_sessions (lab_id, task_version_id, user_id, org_id, expires_at, is_test)
-		VALUES ($1,$2,$3,$4,$5,$6)
+		INSERT INTO lab_sessions (lab_id, task_version_id, user_id, org_id, expires_at, is_test, module_id, variant_key)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 		RETURNING id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
 		          status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
-		          completed_at, last_active_at, end_reason`,
+		          completed_at, last_active_at, end_reason, module_id, variant_key, required_passed_at`,
 		params.LabID, params.TaskVersionID, params.UserID, params.OrgID,
-		params.ExpiresAt, params.IsTest,
+		params.ExpiresAt, params.IsTest, params.ModuleID, params.VariantKey,
 	).Scan(
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
 		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
-		&s.CompletedAt, &s.LastActiveAt, &s.EndReason,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ModuleID, &s.VariantKey, &s.RequiredPassedAt,
 	)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -209,14 +273,14 @@ func (r *Repo) GetSession(ctx context.Context, sessionID, userID string) (*LabSe
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
 		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
-		       completed_at, last_active_at, end_reason, provision_error
+		       completed_at, last_active_at, end_reason, provision_error, module_id, variant_key, required_passed_at
 		FROM lab_sessions WHERE id=$1 AND user_id=$2`,
 		sessionID, userID,
 	).Scan(
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
 		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
-		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError, &s.ModuleID, &s.VariantKey, &s.RequiredPassedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -234,13 +298,13 @@ func (r *Repo) GetSessionByID(ctx context.Context, sessionID string) (*LabSessio
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
 		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
-		       completed_at, last_active_at, end_reason, provision_error
+		       completed_at, last_active_at, end_reason, provision_error, module_id, variant_key, required_passed_at
 		FROM lab_sessions WHERE id=$1`, sessionID,
 	).Scan(
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
 		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
-		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError, &s.ModuleID, &s.VariantKey, &s.RequiredPassedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -294,7 +358,7 @@ func (r *Repo) GetActiveSessionForLab(ctx context.Context, userID, labID string)
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
 		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
-		       completed_at, last_active_at, end_reason
+		       completed_at, last_active_at, end_reason, module_id, variant_key, required_passed_at
 		FROM lab_sessions
 		WHERE user_id=$1 AND lab_id=$2 AND status IN ('provisioning','running','paused')
 		LIMIT 1`,
@@ -303,7 +367,7 @@ func (r *Repo) GetActiveSessionForLab(ctx context.Context, userID, labID string)
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
 		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
-		&s.CompletedAt, &s.LastActiveAt, &s.EndReason,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ModuleID, &s.VariantKey, &s.RequiredPassedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -426,20 +490,79 @@ func (r *Repo) UpdateSessionCompleted(ctx context.Context, tx pgx.Tx, sessionID 
 	return score, nil
 }
 
-// UpdateSessionExpired marks a session as expired with the given end_reason
-// — used by requireSessionLive's request-time deadline check. Guarded by
-// "AND status <> 'expired'" purely to keep repeated calls (a session hit by
-// several requests after its deadline before the reaper's next tick) from
-// generating redundant writes; it is not a correctness requirement, since
-// the update is idempotent either way.
-func (r *Repo) UpdateSessionExpired(ctx context.Context, sessionID, endReason string) error {
-	if _, err := r.pool.Exec(ctx,
-		"UPDATE lab_sessions SET status='expired', end_reason=$2 WHERE id=$1 AND status <> 'expired'",
+// CloseSessionAtDeadline closes a session whose deadline passed (called by
+// requireSessionLive's request-time check). A session whose required tasks
+// already passed (required_passed_at set — completion policy
+// CompleteOnFinish, awaiting Finish) is closed as 'completed' with the score
+// it earned; every other session is 'expired'. Guarded to non-terminal
+// statuses so repeated calls after the deadline are no-ops. Returns the
+// status the session ended in ("" when it was already terminal).
+func (r *Repo) CloseSessionAtDeadline(ctx context.Context, sessionID, endReason string) (string, error) {
+	var status string
+	err := r.pool.QueryRow(ctx, `
+		UPDATE lab_sessions
+		SET status = CASE WHEN required_passed_at IS NOT NULL THEN 'completed' ELSE 'expired' END,
+		    completed_at = CASE WHEN required_passed_at IS NOT NULL THEN now() ELSE completed_at END,
+		    end_reason = $2,
+		    paused_at = NULL
+		WHERE id=$1 AND status IN ('provisioning','running','paused')
+		RETURNING status`,
 		sessionID, endReason,
-	); err != nil {
-		return fmt.Errorf("labs.Repo.UpdateSessionExpired: %w", err)
+	).Scan(&status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("labs.Repo.CloseSessionAtDeadline: %w", err)
+	}
+	return status, nil
+}
+
+// MarkRequiredPassed records, inside tx, that every required task passed
+// (CompleteOnFinish sessions). Returns true only the first time, so the
+// caller credits the course module exactly once.
+func (r *Repo) MarkRequiredPassed(ctx context.Context, tx pgx.Tx, sessionID string) (first bool, err error) {
+	tag, err := tx.Exec(ctx,
+		"UPDATE lab_sessions SET required_passed_at=now() WHERE id=$1 AND required_passed_at IS NULL", sessionID)
+	if err != nil {
+		return false, fmt.Errorf("labs.Repo.MarkRequiredPassed: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
+// SetWriteupReview persists the latest write-up review result for the debrief.
+func (r *Repo) SetWriteupReview(ctx context.Context, sessionID string, review any) error {
+	raw, err := json.Marshal(review)
+	if err != nil {
+		return fmt.Errorf("labs.Repo.SetWriteupReview: marshal: %w", err)
+	}
+	if _, err := r.pool.Exec(ctx, "UPDATE lab_sessions SET writeup_review=$2 WHERE id=$1", sessionID, raw); err != nil {
+		return fmt.Errorf("labs.Repo.SetWriteupReview: %w", err)
 	}
 	return nil
+}
+
+// SetStudentDiff stores the student's diff captured at Finish.
+func (r *Repo) SetStudentDiff(ctx context.Context, sessionID, diff string) error {
+	if _, err := r.pool.Exec(ctx, "UPDATE lab_sessions SET student_diff=$2 WHERE id=$1", sessionID, diff); err != nil {
+		return fmt.Errorf("labs.Repo.SetStudentDiff: %w", err)
+	}
+	return nil
+}
+
+// GetSessionDebriefExtras returns the persisted write-up review (nil when
+// none) and student diff ("" when none) for a session.
+func (r *Repo) GetSessionDebriefExtras(ctx context.Context, sessionID string) (review json.RawMessage, diff string, err error) {
+	var d *string
+	if err := r.pool.QueryRow(ctx,
+		"SELECT writeup_review, student_diff FROM lab_sessions WHERE id=$1", sessionID,
+	).Scan(&review, &d); err != nil {
+		return nil, "", fmt.Errorf("labs.Repo.GetSessionDebriefExtras: %w", err)
+	}
+	if d != nil {
+		diff = *d
+	}
+	return review, diff, nil
 }
 
 // UpdateSessionFailed marks a session 'failed' with the reason it ended and,
@@ -521,10 +644,11 @@ func (r *Repo) ResetTaskCompletions(ctx context.Context, tx pgx.Tx, sessionID st
 	return nil
 }
 
-// ZeroSessionScore resets score to 0 within a tx (used on lab reset).
+// ZeroSessionScore resets score to 0 within a tx (used on lab reset), along
+// with the state derived from the cleared completions.
 func (r *Repo) ZeroSessionScore(ctx context.Context, tx pgx.Tx, sessionID string) error {
 	if _, err := tx.Exec(ctx,
-		"UPDATE lab_sessions SET score=0 WHERE id=$1", sessionID,
+		"UPDATE lab_sessions SET score=0, required_passed_at=NULL, writeup_review=NULL WHERE id=$1", sessionID,
 	); err != nil {
 		return fmt.Errorf("labs.Repo.ZeroSessionScore: %w", err)
 	}
@@ -633,6 +757,46 @@ func (r *Repo) IncrementHintsUsed(ctx context.Context, sessionID, taskID string)
 	return hintsUsed, nil
 }
 
+// GetAIInteractionByCacheKey returns the cached AI interaction for cacheKey,
+// or (nil, nil) when none exists yet. The "AI called once" rule (docs/labs.md
+// "AI Integration") is enforced by this lookup plus InsertAIInteraction's
+// ON CONFLICT DO NOTHING — never by an app-level lock.
+func (r *Repo) GetAIInteractionByCacheKey(ctx context.Context, cacheKey string) (*LabAIInteraction, error) {
+	var ai LabAIInteraction
+	err := r.pool.QueryRow(ctx, `
+		SELECT id, session_id, task_id, interaction_type, hint_level, cache_key, prompt, response, tokens_used, created_at
+		FROM lab_ai_interactions WHERE cache_key=$1`,
+		cacheKey,
+	).Scan(&ai.ID, &ai.SessionID, &ai.TaskID, &ai.InteractionType, &ai.HintLevel, &ai.CacheKey, &ai.Prompt, &ai.Response, &ai.TokensUsed, &ai.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("labs.Repo.GetAIInteractionByCacheKey: %w", err)
+	}
+	return &ai, nil
+}
+
+// InsertAIInteraction records a generated AI response, keyed by cacheKey.
+// ON CONFLICT DO NOTHING targets lab_ai_interactions' partial unique index
+// on cache_key (migration baseline: `... WHERE cache_key IS NOT NULL`) — the
+// DB-enforced half of "AI called once": if a concurrent request already won
+// the insert for this exact (session, task, level), this one is silently
+// dropped and the caller re-reads the winning row via
+// GetAIInteractionByCacheKey, never generating (or storing) a second
+// response for the same cache key.
+func (r *Repo) InsertAIInteraction(ctx context.Context, in *LabAIInteraction) error {
+	if _, err := r.pool.Exec(ctx, `
+		INSERT INTO lab_ai_interactions (session_id, task_id, interaction_type, hint_level, cache_key, prompt, response, tokens_used)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+		ON CONFLICT (cache_key) WHERE cache_key IS NOT NULL DO NOTHING`,
+		in.SessionID, in.TaskID, in.InteractionType, in.HintLevel, in.CacheKey, in.Prompt, in.Response, in.TokensUsed,
+	); err != nil {
+		return fmt.Errorf("labs.Repo.InsertAIInteraction: %w", err)
+	}
+	return nil
+}
+
 // rowQuerier is satisfied by both *pgxpool.Pool and pgx.Tx, so
 // CountPassedNonOptionalTasks can run either as a standalone read (EndSession)
 // or against an in-flight transaction (finalizeTaskPass's completion check,
@@ -659,4 +823,151 @@ func (r *Repo) CountPassedNonOptionalTasks(ctx context.Context, q rowQuerier, se
 		return 0, fmt.Errorf("labs.Repo.CountPassedNonOptionalTasks: %w", err)
 	}
 	return count, nil
+}
+
+// ─── Lab-kind builds (docs/debug-labs.md; backend/internal/labkinds) ─────────
+
+// VariantRecord is one lab_build_variants row as stored: bundle KEYS + sha256
+// (never the bytes — bundles live in the private object store), plus the
+// generic student-safe/kind fields. Service.loadVariant downloads and
+// sha256-verifies the bundles into a labkinds.VariantView.
+type VariantRecord struct {
+	BuildID, VariantKey                              string
+	WorkspaceKey, WorkspaceSHA, GraderKey, GraderSHA string
+	BriefMD                                          string
+	ProtectedManifest                                json.RawMessage
+	AppPorts                                         []int
+	IDEPort                                          int
+	Payload                                          json.RawMessage
+}
+
+// ListVariantKeys returns every variant_key of buildID in a stable order, so
+// the hash(user_id, lab_id) % N pick in StartSession is deterministic.
+func (r *Repo) ListVariantKeys(ctx context.Context, buildID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT variant_key FROM lab_build_variants WHERE build_id=$1 ORDER BY variant_key`, buildID)
+	if err != nil {
+		return nil, fmt.Errorf("labs.Repo.ListVariantKeys: %w", err)
+	}
+	defer rows.Close()
+	var keys []string
+	for rows.Next() {
+		var k string
+		if err := rows.Scan(&k); err != nil {
+			return nil, fmt.Errorf("labs.Repo.ListVariantKeys: scan: %w", err)
+		}
+		keys = append(keys, k)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("labs.Repo.ListVariantKeys: rows: %w", err)
+	}
+	return keys, nil
+}
+
+// GetVariantRecord loads one lab_build_variants row (without bundle bytes).
+func (r *Repo) GetVariantRecord(ctx context.Context, buildID, variantKey string) (*VariantRecord, error) {
+	var v VariantRecord
+	err := r.pool.QueryRow(ctx, `
+		SELECT build_id, variant_key, workspace_bundle_key, workspace_bundle_sha256,
+		       grader_bundle_key, grader_bundle_sha256, brief_md, protected_manifest,
+		       app_ports, ide_port, payload
+		FROM lab_build_variants WHERE build_id=$1 AND variant_key=$2`, buildID, variantKey,
+	).Scan(&v.BuildID, &v.VariantKey, &v.WorkspaceKey, &v.WorkspaceSHA, &v.GraderKey, &v.GraderSHA,
+		&v.BriefMD, &v.ProtectedManifest, &v.AppPorts, &v.IDEPort, &v.Payload)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("labs.Repo.GetVariantRecord: %w", err)
+	}
+	return &v, nil
+}
+
+// TaskVersionBuildID returns the lab_builds row a task version was published
+// from (nil for every hand-authored lab's versions).
+func (r *Repo) TaskVersionBuildID(ctx context.Context, taskVersionID string) (*string, error) {
+	var id *string
+	err := r.pool.QueryRow(ctx, `SELECT build_id FROM lab_task_versions WHERE id=$1`, taskVersionID).Scan(&id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("labs.Repo.TaskVersionBuildID: %w", err)
+	}
+	return id, nil
+}
+
+// UpdateSessionVariantKey pins a session's variant inside the StartSession tx.
+func (r *Repo) UpdateSessionVariantKey(ctx context.Context, tx pgx.Tx, sessionID, variantKey string) error {
+	if _, err := tx.Exec(ctx, "UPDATE lab_sessions SET variant_key=$2 WHERE id=$1", sessionID, variantKey); err != nil {
+		return fmt.Errorf("labs.Repo.UpdateSessionVariantKey: %w", err)
+	}
+	return nil
+}
+
+// ListCatalog returns published, org-visible labs carrying lab_catalog_meta
+// matching the optional filters (any lab_type; kind filters lab_type), with
+// the caller's best session status per lab (completed > in_progress >
+// not_started).
+func (r *Repo) ListCatalog(ctx context.Context, orgID, userID, kind, stack, category, difficulty string) ([]LabCatalogEntry, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT l.id, l.title, l.lab_type, m.stack, m.category, m.difficulty, m.skills, l.max_duration,
+		       COALESCE((
+		         SELECT CASE
+		                  WHEN bool_or(s.status = 'completed') THEN 'completed'
+		                  WHEN bool_or(s.status IN ('provisioning','running','paused')) THEN 'in_progress'
+		                  ELSE 'not_started'
+		                END
+		         FROM lab_sessions s WHERE s.lab_id = l.id AND s.user_id = $2
+		       ), 'not_started')
+		FROM lab_definitions l
+		JOIN lab_catalog_meta m ON m.lab_id = l.id
+		WHERE l.is_published = true
+		  AND (l.org_id = $1 OR l.library_visibility = 'platform')
+		  AND ($3 = '' OR l.lab_type = $3)
+		  AND ($4 = '' OR m.stack = $4)
+		  AND ($5 = '' OR m.category = $5)
+		  AND ($6 = '' OR m.difficulty = $6)
+		ORDER BY l.title`,
+		orgID, userID, kind, stack, category, difficulty)
+	if err != nil {
+		return nil, fmt.Errorf("labs.Repo.ListCatalog: %w", err)
+	}
+	defer rows.Close()
+	out := []LabCatalogEntry{}
+	for rows.Next() {
+		var e LabCatalogEntry
+		if err := rows.Scan(&e.LabID, &e.Title, &e.LabType, &e.Stack, &e.Category, &e.Difficulty, &e.Skills, &e.MaxDuration, &e.Status); err != nil {
+			return nil, fmt.Errorf("labs.Repo.ListCatalog: scan: %w", err)
+		}
+		out = append(out, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("labs.Repo.ListCatalog: rows: %w", err)
+	}
+	return out, nil
+}
+
+// CountWriteupReviews counts a session's writeup_review AI interactions.
+func (r *Repo) CountWriteupReviews(ctx context.Context, sessionID string) (int, error) {
+	var n int
+	if err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM lab_ai_interactions WHERE session_id=$1 AND interaction_type='writeup_review'`,
+		sessionID).Scan(&n); err != nil {
+		return 0, fmt.Errorf("labs.Repo.CountWriteupReviews: %w", err)
+	}
+	return n, nil
+}
+
+// GetModuleCourseID returns the course a course_modules placement belongs to
+// — used to complete a library-placed lab against the placing course.
+func (r *Repo) GetModuleCourseID(ctx context.Context, moduleID string) (string, error) {
+	var courseID string
+	if err := r.pool.QueryRow(ctx, `SELECT course_id FROM course_modules WHERE id = $1`, moduleID).Scan(&courseID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrNotFound
+		}
+		return "", fmt.Errorf("labs.Repo.GetModuleCourseID: %w", err)
+	}
+	return courseID, nil
 }

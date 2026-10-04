@@ -1,0 +1,56 @@
+kind: check
+id: check.concurrent-invariant
+version: 1.0.0
+stack: any
+title: Behavior under concurrent requests
+summary: 'Concurrency probe: fires N identical requests at once, then checks status codes and a SQL invariant.'
+category: check
+skills:
+- debugging
+- verification
+params:
+  type: object
+  properties:
+    before_sql:
+      type: array
+      description: SQL run first to reset or seed state (templates allowed).
+      items:
+        type: string
+    request:
+      type: object
+      description: '{method, path, body, headers} sent by every worker.'
+      properties:
+        path:
+          type: string
+    count:
+      type: integer
+      description: Total requests (default 20).
+      minimum: 1
+      maximum: 200
+    workers:
+      type: integer
+      description: Concurrency (default count).
+      minimum: 1
+      maximum: 200
+    allowed_status:
+      type: array
+      description: Statuses that are not failures, e.g. [200, 201, 409].
+      items:
+        type: integer
+    expect_successes:
+      type: object
+      description: '{min, max}: how many requests must or may return 2xx.'
+    invariant:
+      type: object
+      description: '{sql, equals | min | max}: scalar SQL result checked afterwards.'
+      properties:
+        sql:
+          type: string
+    timeout:
+      type: number
+      description: Per-request timeout seconds (default 30).
+      minimum: 1
+      maximum: 120
+check:
+  probe: C
+  failure_message: Under concurrent requests the application returned errors or left the data in an inconsistent state.

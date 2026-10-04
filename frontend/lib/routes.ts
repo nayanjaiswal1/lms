@@ -25,6 +25,7 @@ const ROUTES = {
   DASHBOARD:           "/dashboard",
   LEARN:               "/learn",
   TEACH:               "/teach",
+  LIBRARY:             "/library",
   NOW:                 "/now",
   PLAN:                "/plan",
   BOARD:               "/board",
@@ -61,6 +62,7 @@ const ROUTES = {
   // Courses — "/courses" already serves both students and staff, branching
   // by permission (see app/(app)/courses/page.tsx)
   COURSE_NEW:              "/courses/new",
+  BUNDLE_NEW:              "/bundles/new",
 
   // Assessments — "/assessments" now serves both students and staff,
   // branching by permission (see app/(app)/assessments/page.tsx)
@@ -194,6 +196,8 @@ const ROUTES = {
   courseEdit:               (slug: string)                      => `/courses/${slug}/edit`,
   courseEditSettings:       (slug: string)                      => `/courses/${slug}/edit/settings`,
   courseEditAnalytics:      (slug: string)                      => `/courses/${slug}/edit/analytics`,
+  bundle:                   (slug: string)                      => `/bundles/${slug}`,
+  bundleEdit:               (slug: string)                      => `/bundles/${slug}/edit`,
   batch:                    (id: string)                        => `/batches/${id}`,
   batchImport:              (id: string)                        => `/batches/${id}/import`,
   batchTests:               (id: string)                        => `/batches/${id}/tests`,
@@ -236,9 +240,20 @@ const ROUTES = {
 
   // Labs
   LABS:                     "/labs",
+  LABS_CATALOG:             "/labs/catalog",
   lab:                      (labId: string)                     => `/labs/${labId}`,
   labSession:               (sessionId: string)                 => `/labs/sessions/${sessionId}`,
   labSessionResult:         (sessionId: string)                 => `/labs/sessions/${sessionId}/result`,
+
+  // Debug lab builder (instructor)
+  LAB_BUILDER:              "/teach/debug-labs",
+  LAB_BUILDER_BLOCKS:       "/teach/debug-labs/blocks",
+  labBuilderNew:            (courseId?: string, sectionId?: string) =>
+    courseId && sectionId ? `/teach/debug-labs/new?course=${courseId}&section=${sectionId}` : "/teach/debug-labs/new",
+  labBuilderRecipe:         (recipeId: string, step?: string)   => step ? `/teach/debug-labs/${recipeId}?step=${step}` : `/teach/debug-labs/${recipeId}`,
+  labBuilderBlock:          (blockId: string)                   => `/teach/debug-labs/blocks/${blockId}`,
+  labBuilderBlockNew:       (kind?: string)                     => kind ? `/teach/debug-labs/blocks/new?kind=${kind}` : "/teach/debug-labs/blocks/new",
+  labBuilderBlockEdit:      (blockId: string)                   => `/teach/debug-labs/blocks/${blockId}/edit`,
 
   // Hiring / public assessment (no login required)
   hireLanding:              (code: string)                      => `/hire/${code}`,

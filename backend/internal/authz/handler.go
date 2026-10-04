@@ -1,8 +1,6 @@
 package authz
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -50,13 +48,6 @@ func (h *Handler) Service() *Service {
 
 func (h *Handler) getClaims(r *http.Request) (*auth.Claims, bool) {
 	return auth.GetClaims(r.Context())
-}
-
-func (h *Handler) decodeJSON(r *http.Request, dst any) error {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		return fmt.Errorf("invalid request body: %w", err)
-	}
-	return nil
 }
 
 func (h *Handler) queryInt(r *http.Request, key string, defaultVal int) int {

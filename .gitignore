@@ -61,3 +61,7 @@ coverage/
 
 # Local docker-compose port overrides for native (non-docker) backend runs
 docker-compose.override.yml
+
+# Python bytecode
+__pycache__/
+*.pyc

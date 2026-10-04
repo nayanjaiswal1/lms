@@ -76,6 +76,12 @@ export const PERMISSIONS = {
   CALENDAR: {
     MANAGE_EVENTS: "calendar.events.manage",
   },
+  // Lab-authoring engine (composed labs: block library + recipes). Publishing a
+  // built lab reuses COURSES.PUBLISH.
+  LABAUTHOR: {
+    COMPOSE:       "labauthor.compose",
+    MANAGE_BLOCKS: "labauthor.manage_blocks",
+  },
 } as const
 
 export type PermissionCode = string

@@ -96,12 +96,13 @@ type CourseReview struct {
 }
 
 type CourseSection struct {
-	ID        string         `json:"id"`
-	CourseID  string         `json:"course_id"`
-	Title     string         `json:"title"`
-	Position  int            `json:"position"`
-	CreatedAt time.Time      `json:"created_at"`
-	Modules   []CourseModule `json:"modules,omitempty"`
+	ID         string         `json:"id"`
+	CourseID   string         `json:"course_id"`
+	Title      string         `json:"title"`
+	Position   int            `json:"position"`
+	GroupTitle *string        `json:"group_title"` // optional group heading (canonical section_group); nil = ungrouped
+	CreatedAt  time.Time      `json:"created_at"`
+	Modules    []CourseModule `json:"modules,omitempty"`
 }
 
 type CourseModule struct {
@@ -118,10 +119,24 @@ type CourseModule struct {
 	AssessmentID     *string                  `json:"assessment_id,omitempty"`
 	EstimatedMinutes *int                     `json:"estimated_minutes,omitempty"`
 	KnowledgeCheck   []KnowledgeCheckQuestion `json:"knowledge_check,omitempty"`
-	StartsAt         *time.Time               `json:"starts_at"`
-	EndsAt           *time.Time               `json:"ends_at"`
-	CreatedAt        time.Time                `json:"created_at"`
-	UpdatedAt        time.Time                `json:"updated_at"`
+	// LabID links a type='lab' module to its lab_definitions row (see
+	// migration 044_course_library.sql). Resolution/completion go through
+	// this, never lab_definitions.module_id, so one published lab can be
+	// placed (referenced) in more than one module/course — see
+	// labs.Repo.GetLabByModuleID.
+	LabID *string `json:"lab_id,omitempty"`
+	// LabIsRequired gates "required to complete this section" per placement
+	// — the same lab can be required in one course and optional in another.
+	LabIsRequired bool `json:"lab_is_required,omitempty"`
+	// CopiedFromModuleID is set on a notes module inserted by
+	// library.Service.Attach as a copy of another module's content_body
+	// (docs/debug-labs.md L1 "Notes lesson: Copy"). nil for every other kind
+	// of module, including referenced labs/quizzes.
+	CopiedFromModuleID *string    `json:"copied_from_module_id,omitempty"`
+	StartsAt           *time.Time `json:"starts_at"`
+	EndsAt             *time.Time `json:"ends_at"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
 // KnowledgeCheckQuestion is one entry of a notes module's knowledge_check
@@ -206,6 +221,7 @@ type CourseDetailForViewer struct {
 	IsEnrolled bool                   `json:"is_enrolled"`
 	Progress   *CourseProgressSummary `json:"progress"`
 	MyRating   *int                   `json:"my_rating"`
+	Bundles    []BundleRef            `json:"bundles"` // published bundles this course is part of
 }
 
 type SectionWithModules struct {
@@ -271,24 +287,6 @@ type ModuleContent struct {
 	ContentURL *string      `json:"content_url,omitempty"`
 }
 
-type CourseOutline struct {
-	Title       string           `json:"title"`
-	Description string           `json:"description"`
-	Sections    []OutlineSection `json:"sections"`
-}
-
-type OutlineSection struct {
-	Title   string          `json:"title"`
-	Modules []OutlineModule `json:"modules"`
-}
-
-type OutlineModule struct {
-	Title            string `json:"title"`
-	Type             string `json:"type"`
-	Description      string `json:"description"`
-	EstimatedMinutes int    `json:"estimated_minutes"`
-}
-
 // LearningContext is a single, pre-aggregated snapshot of where a student
 // currently stands — the answer to "what does my connected AI already know
 // without me re-explaining it." It exists because an MCP tool call only ever
@@ -345,4 +343,64 @@ type StudentProgress struct {
 	Completed int     `json:"completed"`
 	Total     int     `json:"total"`
 	Pct       float64 `json:"pct"`
+}
+
+// Bundle clubs several existing courses together in an order. It references
+// courses rather than copying them, so enrollment, progress and certificates
+// all stay per course — a bundle is a curated path plus one "enroll in all"
+// action (docs/courses.md "Bundles").
+type Bundle struct {
+	ID          string    `json:"id"`
+	OrgID       string    `json:"org_id"`
+	CreatorID   string    `json:"creator_id"`
+	Title       string    `json:"title"`
+	Slug        string    `json:"slug"`
+	Description *string   `json:"description"`
+	CoverURL    *string   `json:"cover_url"`
+	Status      string    `json:"status"` // draft | published
+	CourseCount int       `json:"course_count"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// BundleCourse is one course inside a bundle plus the viewer's relationship
+// to it — enough to render the bundle page without a per-course round trip.
+type BundleCourse struct {
+	ID             string         `json:"id"`
+	Slug           string         `json:"slug"`
+	Title          string         `json:"title"`
+	Description    *string        `json:"description"`
+	CoverURL       *string        `json:"cover_url"`
+	Difficulty     string         `json:"difficulty"`
+	Status         string         `json:"status"`
+	IsFree         bool           `json:"is_free"`
+	PriceCents     int            `json:"price_cents"`
+	EstimatedHours *float64       `json:"estimated_hours"`
+	Position       int            `json:"position"`
+	IsEnrolled     bool           `json:"is_enrolled"`
+	Progress       CourseProgress `json:"progress"`
+}
+
+// BundleDetail is a bundle with its ordered courses. Progress aggregates
+// completed/total modules across every course in the bundle.
+type BundleDetail struct {
+	Bundle
+	Courses  []BundleCourse `json:"courses"`
+	Progress CourseProgress `json:"progress"`
+}
+
+// BundleRef is the minimal bundle identity shown as a "Part of" chip on a
+// course page.
+type BundleRef struct {
+	ID    string `json:"id"`
+	Slug  string `json:"slug"`
+	Title string `json:"title"`
+}
+
+// BundleEnrollResult reports what "enroll in all" did: free courses are
+// enrolled in one transaction; paid ones are listed so the client can send
+// the student through each course's own checkout.
+type BundleEnrollResult struct {
+	EnrolledCourseIDs         []string `json:"enrolled_course_ids"`
+	RequiresPurchaseCourseIDs []string `json:"requires_purchase_course_ids"`
 }

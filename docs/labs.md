@@ -12,7 +12,9 @@ Labs slot after the module quiz and before the next section:
 Read lesson → Solve coding problem → Take quiz → Complete lab → Next section
 ```
 
-Labs are optional per module — instructor decides whether a module has one. When `is_required = true`, the next section unlocks only once the student has a **completed** session for the lab — meaning *every non-optional task passed*, not just one. Passing some-but-not-all tasks records partial score but does not unlock. (See Progress & Scoring for the exact rule.)
+Labs are optional per module — instructor decides whether a module has one. When required, the next section unlocks only once the student has a **completed** session for the lab — meaning *every non-optional task passed*, not just one. Passing some-but-not-all tasks records partial score but does not unlock. (See Progress & Scoring for the exact rule.)
+
+**Required is per placement, not per lab** (migration 044): "required" lives on `course_modules.lab_is_required`, not `lab_definitions.is_required` — the same published lab can be required in one course and optional in another once it's placed via the [course library](courses.md#course-library-add-from-library). `lab_definitions.is_required` still exists (the `required_lab_has_module` CHECK still applies to it) but is only the org-wide default a lab is created with; every resolution/completion/unlock path reads the placement's value instead. `PATCH /api/modules/{moduleID}/lab-required` toggles it per placement.
 
 ---
 
@@ -25,6 +27,7 @@ Labs are optional per module — instructor decides whether a module has one. Wh
 | `playground` | No tasks, free exploration, TTL only | Docker + ttyd |
 | `guided` | Step-by-step tasks with inline AI hints | Docker + ttyd |
 | `sandbox` | CodeSandbox-style IDE: multi-terminal, auto-detected ports, Run/Submit | Docker + ttyd |
+| `debug` | Real-debugging lab: broken Django/FastAPI/React app in a browser IDE, graded by a clean-room grader (see "Debug labs / pluggable lab kinds" below) | Docker/k8s, `mindforge/lab-debug:1`, `debug-ide` profile |
 
 `terminal` and `guided` use the same container infrastructure. `code` reuses the existing Piston executor. `playground` is a `terminal` with no `lab_tasks` rows.
 
@@ -87,6 +90,15 @@ Separate Go binary (`cmd/labproxy`). Responsibilities:
 - If the session is `paused`, calls the API to `docker unpause` and flip to `running` before upgrading
 - Proxies bytes between browser WS and the container's ttyd WS
 - Reports `last_active_at` heartbeat to DB on each WS message (debounced to ≤1 write/5s per session)
+- **Implemented (Phase 0, 2026-09-29):** preview traffic (HTTP passthrough and the WebSocket
+  upgrade alike — both resolve through `previewTarget` in `preview.go`) heartbeats the same way.
+  Previously only the terminal relay's own ticker wrote `last_active_at`, so a student working only
+  in the preview pane between WS-token mints (each token is a 5-minute JWT reused for many requests)
+  could read as idle and get paused mid-work. `ProxyHandler.heartbeatPreview` (`proxy.go`) debounces
+  via the same Redis `SetNX` pattern `VerifyTask`'s rate limit uses (`lab:preview-heartbeat:
+  <sessionID>`, `previewHeartbeatDebounce` = 5s, matching the terminal ticker's own cadence) before
+  calling the now-shared `writeHeartbeat` helper — at most one DB write per session per window no
+  matter how many preview requests land inside it.
 - Kills connection and marks session `expired` when TTL is hit
 
 The proxy never runs user code directly. It relays to the container only.
@@ -108,7 +120,7 @@ JWT — only the scoped `session_token`.
   `cleanup_dead_containers` sweep (`mindforge-lab-*`).
 - Base images pre-built per lab type (stored in private registry):
   - `mindforge/lab-linux:24.04` — Ubuntu, common CLI tools
-  - `mindforge/lab-k8s:1.31` — kubectl, minikube
+  - `mindforge/lab-k8s:1.31` — kubectl + helm against a real control plane (etcd, apiserver, controller-manager, scheduler) with kwok simulating the nodes; no real container processes, so no exec/logs. Enabled controllers and known gaps: `docs/content-pipeline.md` "Known Constraints When Authoring Lab Tasks"
   - `mindforge/lab-docker:27` — Docker-in-Docker, rootless (see "Nested Docker labs" below — NOT privileged; requires operator + org opt-in, off by default)
   - `mindforge/lab-terraform:1.9` — Terraform, cloud CLIs
   - `mindforge/lab-python:3.12` — Python with common packages
@@ -183,7 +195,7 @@ CREATE TABLE lab_definitions (
   id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id           UUID        NOT NULL REFERENCES orgs(id),
   course_id        UUID        REFERENCES courses(id),       -- NULL for standalone labs
-  module_id        UUID        REFERENCES course_modules(id),-- NULL for standalone / course-level labs
+  module_id        UUID        REFERENCES course_modules(id),-- legacy; a placement resolves through course_modules.lab_id instead (044), never this column — see the note after this block
   scope            TEXT        NOT NULL DEFAULT 'module'
                      CHECK (scope IN ('module','course','standalone')),  -- standalone = practice lab, not gated to progress
   title            TEXT        NOT NULL,
@@ -194,9 +206,11 @@ CREATE TABLE lab_definitions (
   max_duration     INT         NOT NULL DEFAULT 60,   -- minutes
   max_resets       INT         NOT NULL DEFAULT 3,
   hint_penalty_pct INT         NOT NULL DEFAULT 0 CHECK (hint_penalty_pct BETWEEN 0 AND 100), -- % of a task's points docked per hint used
-  is_required      BOOLEAN     NOT NULL DEFAULT false,
+  is_required      BOOLEAN     NOT NULL DEFAULT false, -- legacy org-wide default; a placement's course_modules.lab_is_required is authoritative (044)
   is_published     BOOLEAN     NOT NULL DEFAULT false,
   published_version_id UUID,   -- the version new sessions pin; NULL until first publish (FK added after lab_task_versions exists)
+  library_visibility TEXT      NOT NULL DEFAULT 'org'
+                     CHECK (library_visibility IN ('private','org','platform')), -- 044: placement eligibility for "Add from library" — see courses.md
   created_by       UUID        NOT NULL REFERENCES users(id),
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -208,7 +222,11 @@ CREATE TABLE lab_definitions (
     (scope = 'module'     AND module_id IS NOT NULL)
   )
 );
+```
 
+**Lab resolution goes through `course_modules.lab_id`, not `lab_definitions.module_id`** (migration 044 — see `courses.md#course-library-add-from-library`). `GetLabByModuleID` joins `course_modules → courses → lab_definitions` on `cm.lab_id`, scoped to `courses.org_id = caller's org` and `(lab_definitions.org_id = caller's org OR library_visibility = 'platform')`. This is what lets one published lab be placed (referenced, never copied) into more than one module/course — the old `module_id`-keyed lookup couldn't, and silently broke a forked course's lab modules entirely (`docs/debug-labs.md` L0). `lab_definitions.module_id`/`is_required` are kept for the CHECK constraints above and for standalone/course-scoped labs with no placement, but no student-facing read path uses them anymore.
+
+```sql
 -- Ordered tasks within a lab. These rows are the *live editable* copy used by
 -- the instructor builder. Running sessions never read this table directly — they
 -- read an immutable snapshot in lab_task_versions (see below).
@@ -264,7 +282,8 @@ CREATE TABLE lab_sessions (
   expires_at       TIMESTAMPTZ NOT NULL,          -- HARD wall-clock deadline: started_at + min(lab.max_duration, org.max_session_duration)
   paused_seconds   INT         NOT NULL DEFAULT 0,    -- cumulative idle-paused time (cost metric only; does NOT extend expires_at)
   completed_at     TIMESTAMPTZ,
-  last_active_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+  last_active_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  module_id        UUID        REFERENCES course_modules(id) -- 044: the placement this session was launched from; nil for a standalone/library "try" start. finalizeTaskPass completes THIS module, not lab_definitions.module_id, so one lab placed in two courses completes the right one in each
 );
 -- Status semantics: reset is an *action* (reset_count++, re-provision), not a status —
 -- a reset session stays 'running'. Terminal states: completed | expired | failed | terminated_abuse.
@@ -443,6 +462,10 @@ All AI responses are cached forever. First call stores in `lab_ai_interactions`.
 
 ### Hint System (3 levels)
 
+**Implemented (Phase 0, 2026-09-29).** `POST /api/labs/sessions/:sessionId/tasks/:taskId/hint`
+(`backend/internal/labs/hint.go`, `Service.RequestHint`) — the generic endpoint documented here
+since labs Phase 3 but never built until now.
+
 ```
 cache_key = sha256(session_id + task_id + hint_level)
 
@@ -450,27 +473,66 @@ Level 1 (first hint): Conceptual nudge — what approach to take
 Level 2 (second hint): More specific — what command category or file to look at
 Level 3 (third hint): Near-answer — the exact syntax with one gap for student to fill
 
-Max 3 hints per task per session. Level 4+ returns level 3 cached response.
+Max 3 hints per task per session. A 4th request returns ErrMaxHintsReached (429) — the level-3
+hint text was already delivered to the client on the 3rd call and stays visible in the drawer;
+this endpoint only refuses generating a nonexistent 4th level.
 ```
 
-The cache key is scoped to `session_id`, not `user_id`. Hints are generated from the session's
-live terminal history, so a hint produced in one attempt must not be replayed in a later attempt
-of the same lab (the container state is different). Caching is still "called once" — once per
-(session, task, level) — satisfying the AI-cached-forever rule without leaking stale context across
-attempts.
+Each call auto-advances the level: `level = hints_used + 1`, computed after the existing
+`IncrementHintsUsed` (already used by the pre-existing scoring path) atomically bumps the
+counter — so there is no client-supplied level and no way to skip ahead. The cache key is scoped
+to `session_id`, not `user_id`, per this section's original reasoning. A per-`(session, task)`
+Redis `SetNX` (`HintRateLimitSeconds`, same pattern as `VerifyTask`'s own rate limit) collapses an
+accidental double-click before either the level advances or any AI call happens.
 
-Prompt context includes:
-- Task title + description
-- Last 50 lines of terminal history (see **Terminal history source** below — NOT `docker logs`)
-- Current attempt count
+The shared Redis-backed circuit breaker described under **Runaway AI retry storms** below gates
+every hint generation: a request that would need a fresh AI call while the breaker is open, or
+that gets `ErrAICircuitOpen`/`ErrAIUnavailable` from a real provider failure, returns that error
+**without incrementing `hints_used`** — a flaky provider never burns a student's hint budget for
+nothing. `hints_used` only advances once real content exists (a cache hit, or a freshly generated
+and successfully stored response) — the same "count completed requests, not attempts" precedent
+`VerifyTask`'s `attempts` counter already sets.
+
+Prompt context actually includes (`backend/internal/labs/hint.go`'s `buildHintUserPrompt`):
+- Task title + description + the task's authored `hint_context` (if any)
+- Current attempt count (`lab_task_completions.attempts`)
 - Hint level
 
-> **Terminal history source.** ttyd serves an interactive **PTY**; its I/O does not appear in
-> `docker logs` (which only captures the container's PID-1 stdout/stderr). The lab proxy is the
-> only component that sees PTY traffic, so it maintains a bounded per-session **ring buffer**
-> (last ~200 lines, capped in bytes) of terminal output, kept in Redis keyed by `session_id`.
-> AI features read the buffer via an internal proxy/Redis call. For `code`-type labs (no PTY),
-> the "history" is instead the student's last submitted source + Piston run output.
+**Deviation from this section's original design:** terminal/grader output is NOT yet included.
+That requires the PTY ring buffer described below (**Terminal history source**), which does not
+exist yet — nothing in `cmd/labproxy` currently captures ttyd's PTY traffic anywhere. Wiring the
+hint prompt to real terminal history is follow-up work once that buffer is built; today's prompt
+uses only the task's own authored content plus the attempt count, which is honest but weaker than
+the original design. `lab_tasks` has no per-level authored-hint field (only the single
+`hint_context` extra-context column), so every level is AI-generated — there is no
+authored/static-hint branch to implement.
+
+> **Terminal history source (not yet implemented).** ttyd serves an interactive **PTY**; its I/O
+> does not appear in `docker logs` (which only captures the container's PID-1 stdout/stderr). The
+> lab proxy would need to be the component that captures PTY traffic — maintaining a bounded
+> per-session **ring buffer** (last ~200 lines, capped in bytes) in Redis keyed by `session_id` —
+> for AI features to read via an internal proxy/Redis call. For `code`-type labs (no PTY), the
+> "history" would instead be the student's last submitted source + Piston run output. None of this
+> exists yet; see the deviation note above.
+
+### Debug labs / pluggable lab kinds
+
+**Implemented (Phase 1a, 2026-09-30):** the runtime half. Design: `docs/debug-labs.md` ("Generic lab-kind architecture").
+
+- **`lab_type` vs `lab_kind`.** `lab_definitions.lab_type` (DB CHECK, now including `debug`) is the closed **runtime/workspace shape** (image/profile, which frontend workspace). `lab_recipes.lab_kind` is the open **authoring plugin** identity. They are 1:1 for `debug` today but independent by design.
+- **Plugin seam:** `backend/internal/labkinds` (`Kind` interface + registry, `debug.go` the only implementation, self-registering via `init()`). Core `labs` code only ever does `labkinds.Get(lab.LabType)`: variant pick and workspace seeding at session start, grading dispatch (`VerifyTask`/`SubmitAll`), the session's workspace block, debrief, write-up rubric, hint ground truth.
+- **Variants:** a lab with a `build_id` picks `variant_key = variants[sha256(user_id|lab_id) % N]` at `StartSession`, pinned on `lab_sessions.variant_key`.
+- **Bundles are private and content-addressed.** `lab_build_variants` stores `workspace_bundle_key/_sha256` and `grader_bundle_key/_sha256` (`lab-bundles/<sha256>.tar.gz`) in the **private** MinIO bucket (`MINIO_PRIVATE_BUCKET`, default `<MINIO_BUCKET>-private`; `storage.PrivateStore`, no public-read policy, no presigned URLs). Server-side `Download` only, sha256 re-verified on every download; `lab.bundle_gc` deletes unreferenced keys after 24 h. The public bucket policy (`MinioClient.EnsureBucket`) grants anonymous `s3:GetObject` for the whole bucket, which is why bundles must never use it.
+- **Seeding:** `prepareLabEnvironment` streams the pristine workspace bundle via `ExecStdin` (`tar -xzf - -C /home/labuser/work`, as labuser), then runs `setup_script`.
+- **Clean-room grading (`labs.GradeInCleanRoom`).** A Check starts a separate `mindforge-validate-grade-*` sandbox (`ContainerRuntime.StartValidation`, swept by `lab.cleanup_containers`), seeds it with the pristine workspace, overlays only the student's editable regular files (captured from their container with the trusted `ExecCapture`, 16 MB cap; `.git`, dependency dirs and `protected` manifest paths excluded, no symlinks), streams the grader bundle to `/opt/mindforge/grade.sh <mode> --seed <crypto-random>`, then kills the sandbox. Hidden tests never exist in the student's container. Bounded by `CleanRoomMaxConcurrent` (4/replica), `DebugGradeTimeoutSeconds` (90 per mode), a 30 s per-session Redis cooldown (`DebugGradeCooldownSeconds`, released on infrastructure errors), and metered as `validation_seconds`. `SubmitAll` (the Check button) grades all pending script tasks in ONE sandbox.
+- **`grade.sh` contract.** stdin = grader bundle (tar.gz, <=1 MB cap, path-safe, no symlinks). Modes are defined by the bundle's `grader.json` (engine: `/opt/mindforge/grader/run_grade.py`; probe kinds P/Q/C/M/L/H/T in `lib/probes/`, parameterised by JSON). stdout = one JSON object `{mode, passed, checks:[{name, passed, message?}], error?}` with author messages only. The debug kind's modes are `symptom`, `regression`, `student-test` (`labkinds.DebugKind.GradeModes`); a task's `verification_script` holds the mode, `grader='script'`. `grader='writeup_review'` tasks are never run by Check.
+- **IDE credential.** `labs.DeriveIDECredential` = HMAC-SHA256(secret, `"mindforge/container-credential/ide/v1:"+session_id)`, a different domain from ttyd's, written raw to `/home/labuser/.mf-ide-cred` by `writeContainerCredentials` at the same three points as the ttyd credential (warm claim, cold start, reset replacement). `services.d/ide.sh` waits for it and passes `--connection-token-file`. labproxy recomputes it and injects it (`tkn` query + `vscode-tkn` cookie) **only** on requests to the variant's `ide_port`, overwriting any client value, and scrubs `vscode-tkn` Set-Cookie / `tkn` in redirects from responses. Silent cookie refresh: `/__mf/preview-auth?t=<fresh>&next=/__mf/ok` (the `/__mf/ok` path answers 204 on the preview origin).
+- **Image** `lab-images/lab-debug/` (`mindforge/lab-debug:1`, profile `debug-ide`: 2 CPU / 2048 MB / 5 GB target, **not** elevated — map with `LABS_IMAGE_PROFILES=mindforge/lab-debug:1:debug-ide`). Postgres 16 (as labuser, `pg_stat_statements`), Redis, openvscode-server, ttyd, `/opt/wheels`, `/opt/scaffold`. Image-local supervisor `mf-supervisor`/`mf-svc` runs `/opt/mindforge/services.d/*.sh` and the workspace's `.lab/services/*.sh`, logging to `/var/log/mindforge-lab/<svc>.log`.
+- **Endpoints (student router):** `GET /api/labs/sessions/{id}` gains a block keyed by kind name (`debug`: `{brief, ide_port, app_ports}`); `GET /api/labs/sessions/{id}/debrief` (completed only); `POST /api/labs/sessions/{id}/writeup-review` (rubric scoring via the AI provider, cached `sha256(session+"writeup"+sha256(content))`, <=3 fresh reviews/session, student text delimited as untrusted); `GET /api/labs/catalog?kind=&stack=&category=&difficulty=` (any lab with a `lab_catalog_meta` row; `kind` filters `lab_type`).
+- **Completion policy (`labkinds.Kind.CompletionPolicy`).** `CompleteOnRequiredPass` (default; every hand-authored lab type) completes the session the instant the last required task passes. `CompleteOnFinish` (debug) only records `lab_sessions.required_passed_at` at that moment and credits the course module then (once), but keeps the session active so the optional write-up can still be submitted; the student's **Finish** (`POST /sessions/{id}/end`: completed when the required tasks passed, expired otherwise) or the deadline closes it. Expiry (`requireSessionLive`, the `lab.expire_sessions` reaper) closes a session with `required_passed_at` set as `completed`, everything else as `expired`; idle-pause and the hard deadline still apply. The debrief unlocks only at `completed`. Migration `046_lab_completion_policy.sql` adds `required_passed_at`, `writeup_review` (latest review JSON, shown in the debrief) and `student_diff` (captured by `SandboxCloser` before the sandbox is killed on EVERY close path: Finish, the request-time deadline check, the reaper incl. the idle-kill fallback; bounded 12 s, best-effort, 4 concurrent in the reaper). Reset clears `required_passed_at` and `writeup_review`. A request that notices the deadline gets 409 with code `lab_session_completed_at_deadline` ("Time's up — your lab was completed.") when the session closed as completed, vs 409 `lab_session_expired` when it truly expired (409, not 410: the session resource still exists; the code, not the status, carries the meaning). Check, write-up review and hints in the debug workspace toast and route to the result page for both. Error codes live in `internal/labs/codes.go` (`lab_session_already_ended`, `rate_limited`, `grader_busy`, `hint_not_supported`, `max_hints_reached`, `writeup_review_limit`, `ai_unavailable`) and are mirrored in `LAB_ERROR_CODES` (`frontend/lib/labs.ts`).
+- **Retry-After.** Every labs SetNX cooldown goes through `Service.acquireCooldown`, returning `*RateLimitedError` (still `errors.Is(ErrRateLimited)`) with the key's remaining TTL; `writeDomainError` sets `Retry-After`. The frontend `apiAction` exposes it as `ActionResult.retryAfter` for every failure.
+- **Task grader on the API.** Lab task views (`GET /api/labs/{id}`, library preview) carry `grader` (`script`/`writeup_review`); the hint endpoint answers 422 for a `writeup_review` task and the UI hides Hint for it.
+- **Hints (all labs):** `Idempotency-Key` header replays the original result for 10 min (a double-submit cannot burn two levels); the terminal history ring buffer (labproxy `termhistory.go` writes output frames to Redis list `lab:term:<session_id>`, newest first, <=100 chunks x 2 KB, 2 h TTL) feeds the last ~4 KB (ANSI-stripped, delimited as untrusted) into hint prompts. For lab kinds, level 1 is the authored ladder (no AI), levels 2-3 add ground truth, the ladder, the student's git diff vs baseline (<=8 KB), the last grader output, and a leak filter (regenerate once, then authored fallback) against lines the reference fix adds. There is still no failure-diagnosis path (`InteractionTypeDiagnose` is unused), so nothing feeds terminal history there yet.
 
 ### Post-Completion Explanation (auto-triggered on task pass)
 
@@ -607,7 +669,7 @@ Terminal uses `xterm.js` + `@xterm/addon-fit` + `@xterm/addon-web-links`. Loaded
 | Case | Handling |
 |---|---|
 | **Student ends session without completing all tasks** | Partial score (sum of passed tasks' points, after any hint penalty) is always recorded to progress. But a *required* lab only counts toward **section unlock** when the session is `completed` (all non-optional tasks passed) — partial passes never unlock. Optional labs never gate unlock regardless. |
-| **Required lab blocks section unlock** | "Required tasks" = tasks with `is_optional=false`. A session reaches `status='completed'` (set by the verify handler's completion check, not a job) when every non-optional task in its pinned version is passed. Section unlock requires: for **every** lab in the module with `is_required=true`, the user has at least one `completed` session. Multiple required labs in one module → all must be completed. |
+| **Required lab blocks section unlock** | "Required tasks" = tasks with `is_optional=false`. A session reaches `status='completed'` (set by the verify handler's completion check, not a job) when every non-optional task in its pinned version is passed. Section unlock requires: for **every** module with `course_modules.lab_is_required=true` (per placement — 044), the user has at least one `completed` session recorded against *that module* (`lab_sessions.module_id`, not just any session for the underlying lab). Multiple required lab placements in one module → all must be completed. |
 | **Who transitions a session to `completed`** | The verify handler. After marking a task passed, inside the same transaction it checks (under `SELECT ... FOR UPDATE`) whether all non-optional tasks in the pinned version are now passed; if so it sets `status='completed'`, `completed_at`, and writes course progress. `POST /sessions/:id/end` also lands a terminal status (`completed` if all non-optional passed, else `expired`) so no path leaves a session stuck in `running`. No background job ever sets `completed` — only verify and end do. |
 | **Session expired before all tasks done** | Expired sessions still count earned score. Course progress updated with partial score. Required lab remains unblocked (student must start new session and pass remaining required tasks). |
 | **Instructor test sessions** | `is_test=true` sessions never update course progress, never count toward analytics, container removed within 2 hours. |
@@ -659,7 +721,7 @@ Terminal uses `xterm.js` + `@xterm/addon-fit` + `@xterm/addon-web-links`. Loaded
 |---|---|
 | **Container farming** (spinning up containers without doing lab work) | Rate limit `POST /sessions`: max 5 session starts per user per hour. Max 2 concurrent active sessions per user across all labs. Org-level cap enforced separately via `lab_org_config.max_concurrent_sessions`. |
 | **Cryptocurrency mining inside containers** | CPU throttling enforced at Docker level (`--cpus 1.0`). Background job monitors per-container CPU usage every 60s via `docker stats`. Any container sustaining >90% CPU for >5 minutes without any WS activity is flagged and killed. Session marked `terminated_abuse`. |
-| **Runaway AI retry storms** (exponential backoff misimplemented) | All AI calls use a circuit breaker whose state lives in **Redis**, not process memory — at 2+ API replicas an in-process breaker would be inconsistent (one replica open, another still hammering Claude). After 3 consecutive Claude failures within 60s the shared circuit opens for 2 minutes; all AI endpoints across all replicas return 503 during the open state. Prevents cascading spend when the API is degraded. |
+| **Runaway AI retry storms** (exponential backoff misimplemented) | All AI calls use a circuit breaker whose state lives in **Redis**, not process memory — at 2+ API replicas an in-process breaker would be inconsistent (one replica open, another still hammering Claude). After 3 consecutive Claude failures within 60s the shared circuit opens for 2 minutes; all AI endpoints across all replicas return 503 during the open state. Prevents cascading spend when the API is degraded. **Implemented (Phase 0, 2026-09-29)** for the hint endpoint — `aiCircuitOpen`/`recordAIFailure`/`recordAISuccess` in `backend/internal/labs/hint.go`, `AICircuitFailureThreshold`/`Window`/`OpenDuration` constants in `models.go`; the next AI endpoint built reuses the same three functions. |
 | **Instructor runs validation in a loop** (repeated validate clicks) | Validate endpoint is idempotent per draft version: if `current_draft` hasn't changed since last validation, return cached `validation_results` immediately. No new containers spun up. |
 | **Student leaves container idle for entire TTL** | Idle detection: if `last_active_at < now() - 15min` and no open WS connection, `docker pause`. This stops CPU billing without destroying state. Container is unpaused on next WS connect. At `expires_at`, container is killed regardless. |
 | **Playground / no-task labs escape verify-triggered monitoring** | Disk and abuse checks are described as "triggered by verify calls," but `playground` labs have no tasks and never call verify. So those checks must not hang off the verify path alone. The `docker stats` CPU job (every 60s) and a dedicated `monitor_container_resources` job (disk via `docker exec df`, every 5 min, over ALL non-terminal sessions regardless of type) cover playgrounds. Verify-time checks are an optimization, not the only path. |
@@ -688,7 +750,7 @@ One lab image class needs to run a real `docker build`/`docker run` inside the s
 - `mindforge/lab-docker:27` (`lab-images/lab-docker/Dockerfile`, `docker:27-dind-rootless` base) — the default, for the scoped `--cap-add` mechanism (no `sysbox-runc` on the host).
 - `mindforge/lab-docker-sysbox:27` (`lab-images/lab-docker/Dockerfile.sysbox`, plain `docker:27-dind` base, root dockerd, `su-exec` drops to `labuser` only for ttyd) — for hosts with `LABS_NESTED_DOCKER_RUNTIME=sysbox-runc`. Sysbox already gives the container's root user a real (safely virtualized) root, so nesting the rootless image's rootlesskit on top of that fails at startup — confirmed interactively: `[rootlesskit:parent] error: failed to setup UID/GID map: newuidmap ... Operation not permitted`. Both variants share the same `preload/*.tar` directory and `labuser` (uid 1000) convention the backend's `docker exec --user labuser` depends on.
 
-- **Off by default, two independent switches must both be set.** Operator config: `LABS_IMAGE_PROFILES` — a comma-separated `image:profileName` list mapping lab environment images to a named `labs.ImageProfile` from the small in-code catalog built in `cmd/server/main.go` (today just `nested-docker`, `labs.ImageProfileNestedDocker`); empty = no image is classified, the feature does not exist on this deploy. Example: `LABS_IMAGE_PROFILES=mindforge/lab-docker:27:nested-docker,mindforge/lab-k8s:1.31:nested-docker` (the image itself may contain its own `:` tag — only the *last* colon in each entry separates the profile name). Optionally `LABS_NESTED_DOCKER_RUNTIME=sysbox-runc` / `LABS_NESTED_DOCKER_RUNTIME_CLASS` (Kubernetes) still control which elevation mechanism the `nested-docker` profile uses on this host — unchanged from before. Org config: the same image must also be in that org's `lab_org_config.allowed_images` — an operator enabling the image platform-wide does not itself grant any org access to it. See `internal/labs/profile.go` (`ImageProfile`) for the generic mechanism a second profile type would plug into — CPU/mem/network, pre-warm eligibility, org-allowlist requirement, and each runtime's elevation knobs are all per-profile fields, not a one-off boolean.
+- **Off by default, two independent switches must both be set.** Operator config: `LABS_IMAGE_PROFILES` — a comma-separated `image:profileName` list mapping lab environment images to a named `labs.ImageProfile` from the small in-code catalog built in `cmd/server/main.go` (today just `nested-docker`, `labs.ImageProfileNestedDocker`); empty = no image is classified, the feature does not exist on this deploy. Example: `LABS_IMAGE_PROFILES=mindforge/lab-docker:27:nested-docker,mindforge/lab-k8s:1.31:nested-docker` (the image itself may contain its own `:` tag — only the *last* colon in each entry separates the profile name). Optionally `LABS_NESTED_DOCKER_RUNTIME=sysbox-runc` / `LABS_NESTED_DOCKER_RUNTIME_CLASS` (Kubernetes) still control which elevation mechanism the `nested-docker` profile uses on this host — unchanged from before. Org config: the same image must also be in that org's `lab_org_config.allowed_images` — an operator enabling the image platform-wide does not itself grant any org access to it. See `internal/labs/profile.go` (`ImageProfile`) for the generic mechanism a second profile type would plug into — CPU/mem/network, pre-warm eligibility, org-allowlist requirement, and each runtime's elevation knobs are all per-profile fields, not a one-off boolean. **`Elevated bool` split from `Name` (Phase 0, 2026-09-29):** elevation (the Kubernetes `RuntimeClassName` requirement in `KubernetesContainerService.startPod`, via the pure `requiresRuntimeClass` helper) now keys off `ImageProfile.Elevated`, not "any non-empty `Name`" — a resource-only profile like the future `debug-ide` (2 CPU / 2 GB / 5 GB, `docs/debug-labs.md`) can have a `Name` without being forced through RuntimeClass provisioning it doesn't need. `nested-docker`'s catalog entry (`cmd/server/main.go`) sets `Elevated: true`; existing behavior for it is unchanged.
 - **What a nested-image container actually gets** (`internal/labs/container.go` `buildRunArgs`/`startNamed`, verified interactively against `mindforge/lab-docker` — `docker:27-dind-rootless`): on a host with `sysbox-runc` installed, `--cap-drop ALL --runtime sysbox-runc` with no added capabilities at all (strictly better; set `LABS_NESTED_DOCKER_RUNTIME=sysbox-runc` to use it). Otherwise, every attempt starts with the scoped grant: `--cap-drop ALL --cap-add SYS_ADMIN --cap-add SETUID --cap-add SETGID --cap-add NET_ADMIN --device /dev/fuse --device /dev/net/tun --security-opt seccomp=unconfined --security-opt apparmor=unconfined`. `SETUID`/`SETGID` are both required, not just `SYS_ADMIN` — rootless dockerd's startup calls the setuid-root `newuidmap`/`newgidmap` helpers to build its user-namespace UID/GID map, and those fail with "operation not permitted" without them; `/dev/net/tun` is needed because rootlesskit's default `vpnkit` network driver creates a tap interface at startup and dockerd never reaches a running state without it. `NET_ADMIN` is separate from all three — it's not needed to start the nested dockerd itself, only for the containers *that dockerd* then creates: libnetwork needs it to configure a new container's veth pair and interface sysctls (e.g. disabling IPv6 on `eth0`), and without it every `docker run` a student issues inside the lab fails at that step with `failed to configure ipv6: failed to disable IPv6 on container's interface eth0: unknown`, even though the nested dockerd itself started fine. Resource limits step up to 2 CPU / 1.5 GB (`NestedContainerCPU`/`NestedContainerMemoryMB`) — a nested dockerd plus a student `docker build` does not fit in the default 1 CPU / 512 MB.
 - **Rootless-dind's unresolved bridge-networking bug — this is why the sysbox image variant above exists**: on nested/virtualized Docker hosts (confirmed on Docker Desktop's WSL2 backend, kernel `*-microsoft-standard-WSL2`), every ordinary bridge-networked `docker run` a student issues inside the rootless-dind image fails with `failed to add interface veth... to sandbox: ... failed to disable IPv6 on container's interface eth0: unknown` — i.e. the exact thing the core Docker curriculum exercise does (`docker run -it alpine sh` with default networking). This is not a missing capability (`NET_ADMIN` above is required for other operations but does not fix this) and not fixable by any combination of `--sysctl` tried at the outer container, the nested dockerd's own netns, or a `--ipv6=false` user-defined network — all confirmed to fail identically. It's rootlesskit's own private netns (`--net=vpnkit`, created inside its own nested user namespace) that the sysctl-disable operation can't complete in; only `--network host` avoids hitting it at all (why the in-sandbox `registry:2` container uses `--network host` instead of a published port — see `entrypoint.sh`). That workaround isn't usable for arbitrary student commands, so on a host with this bug, the rootless-dind image's core exercise is broken; the `mindforge/lab-docker-sysbox:27` image does not hit it (confirmed interactively — plain bridge-networked `docker run` inside it gets a real `eth0` with no IPv6-disable error) because sysbox-runc's real (non-rootlesskit) networking is what fixes it, not just a nicer capability model.
 - **Docker Desktop cannot host `sysbox-runc` at all** — its embedded WSL2 VM is a minimal Alpine image with no `/etc/docker/daemon.json` and no supported way to register a custom OCI runtime; that's managed internally, not through a config file an operator can extend. Testing the `sysbox-runc` mechanism locally on Windows requires a real Docker Engine host instead of Docker Desktop — e.g. `docker-ce` installed directly (`apt`) inside a WSL2 distro you control (not the hidden `docker-desktop` one), with the `sysbox-ce` `.deb` from `github.com/nestybox/sysbox/releases` (auto-registers the runtime in `daemon.json` on install). Note WSL2 tears down a distro's VM (and everything running in it) when no `wsl.exe` process is attached to it — a throwaway verification session needs a long-lived background one (e.g. `wsl -d <distro> -- sleep <n>`) to keep dockerd up between separate commands.
@@ -1472,14 +1534,36 @@ This closes the data-exfiltration / SSRF path that "just give the container inte
 
 ### Proxy ↔ Container Channel Security
 
-The lab proxy connects to `ttyd` inside the container. ttyd must not be reachable by anything
-else on the host:
+**Implemented (Phase 0, 2026-09-29).** The lab proxy connects to `ttyd` inside the container.
+ttyd must not be reachable by anything else on the host — every lab container shares the
+`mindforge-labs` Docker bridge, so without a credential any other student's container could open
+a WebSocket straight to `:7681` and get a shell (the pre-existing hole this closes):
 
 - ttyd binds to the container's network namespace only; its port is published **only** to the
   proxy's internal network, never to `0.0.0.0` on the host.
-- The proxy presents a **per-session container token** (generated at provision, stored in
-  `lab_sessions`, injected into the container env) on the ttyd connection. A co-located process
-  that somehow reaches the port still can't attach without the token.
+- The credential is `HMAC-SHA256(LABPROXY_JWT_SECRET, session_id)` — `labs.DeriveContainerCredential`
+  (`backend/internal/labs/credential.go`). **Nothing new is stored in the database and the browser
+  never sees it**: both sides independently recompute it from the session ID and the secret they
+  already share (the same `LABPROXY_JWT_SECRET` = `JWT_SECRET` MintWSToken signs WS tokens with).
+- `labs.writeTTYDCredential` delivers `"mindforge:<hex>"` into the container via the runtime's
+  ordinary `ExecStdin` (piped over stdin, never embedded in a command string), writing
+  `/home/labuser/.mf-ttyd-cred`. Called from `Service.acquireSandbox` at the one point both
+  provisioning paths converge — a cold `Start()` and a warm-pool claim — so a warm container
+  (created long before any session/session_id exists) gets its credential the moment it is
+  actually claimed, before anything waits on its readiness probe.
+- Every lab image's entrypoint (`lab-images/shared/entrypoint.sh`, `lab-images/lab-docker/
+  entrypoint.sh`, `entrypoint-sysbox.sh`, `lab-images/lab-k8s/entrypoint.sh`) blocks on that file
+  appearing — polling, no timeout — before ever starting ttyd, and then starts it with
+  `ttyd -W -p 7681 -c "$cred" bash`. There is no window where ttyd is up without a credential; an
+  unclaimed warm container simply has no listener on the port yet.
+- `cmd/labproxy/proxy.go`'s `deriveContainerCredential` (a deliberate literal duplicate of the same
+  HMAC, kept separate because labproxy is a standalone deploy unit — see `wsTokenType`'s doc
+  comment for why) recomputes the credential from `session_id` on every upstream connect and
+  presents it as ttyd's HTTP Basic Auth (`Authorization: Basic base64(mindforge:<hex>)`) on the
+  WebSocket dial. A co-located container that somehow reaches the port still can't attach without
+  the session's own secret-derived credential.
+- The IDE port (debug labs) gets its own credential, `DeriveIDECredential`, with a distinct HMAC
+  domain so ttyd's and the IDE's never coincide — see "Debug labs / pluggable lab kinds".
 - Control frames between browser↔proxy↔ttyd are length-prefixed and validated; a malformed or
   oversized control frame closes the connection rather than being forwarded.
 

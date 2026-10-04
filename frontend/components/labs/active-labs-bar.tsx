@@ -49,7 +49,7 @@ export function ActiveLabsBar() {
   const handleEnd = async () => {
     setIsEnding(true)
     const result = await endLabSessionAction(session.session_id)
-    if (result.error && !isLabSessionAlreadyEnded(result.error)) {
+    if (result.error && !isLabSessionAlreadyEnded(result.code)) {
       toast.error(result.error)
       setIsEnding(false)
       return

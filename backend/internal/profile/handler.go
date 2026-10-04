@@ -1,7 +1,6 @@
 package profile
 
 import (
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -79,8 +78,7 @@ func (h *Handler) HandleUpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var input UpdateProfileInput
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &input) {
 		return
 	}
 
@@ -186,8 +184,7 @@ func (h *Handler) HandleAddSkill(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var input AddSkillInput
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &input) {
 		return
 	}
 

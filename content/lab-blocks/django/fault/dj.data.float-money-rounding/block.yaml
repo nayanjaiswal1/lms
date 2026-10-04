@@ -1,0 +1,198 @@
+kind: fault
+id: dj.data.float-money-rounding
+version: 1.0.0
+stack: django
+title: Order totals are off by one cent
+summary: Prices and tax are computed through binary floats and Python round(), so exact half-cent amounts round the wrong way on some orders.
+category: data-model
+difficulty: intermediate
+skills:
+- decimal-arithmetic
+- rounding
+- testing
+requires:
+- slot:core.money.quantize
+- slot:orders.pricing.line_total
+- slot:orders.pricing.tax
+fault:
+  inject:
+    slots:
+    - slot: core.money.quantize
+      value: |
+        return Decimal(str(round(float(value), 2))).quantize(CENT)
+    - slot: orders.pricing.line_total
+      value: |
+        return quantize(float(unit_price) * quantity)
+    - slot: orders.pricing.tax
+      value: |
+        return quantize(float(subtotal) * float(settings.SALES_TAX_RATE))
+  fix:
+    slots:
+    - slot: core.money.quantize
+      value: |
+        return Decimal(value).quantize(CENT, rounding=ROUND_HALF_UP)
+    - slot: orders.pricing.line_total
+      value: |
+        return quantize(Decimal(unit_price) * quantity)
+    - slot: orders.pricing.tax
+      value: |
+        return quantize(Decimal(subtotal) * Decimal(settings.SALES_TAX_RATE))
+    files:
+    - path: tests/test_money_rounding.py
+      from: fix/tests/test_money_rounding.py
+  cheats:
+  - name: special-case-the-reported-amounts
+    slots:
+    - slot: orders.pricing.tax
+      value: |
+        from decimal import ROUND_HALF_UP
+
+        from core.money import CENT
+
+        if Decimal(subtotal) in (Decimal("6.00"), Decimal("50.00")):
+            return (Decimal(subtotal) * Decimal(settings.SALES_TAX_RATE)).quantize(CENT, rounding=ROUND_HALF_UP)
+        return quantize(float(subtotal) * float(settings.SALES_TAX_RATE))
+  - name: decimal-but-default-rounding
+    slots:
+    - slot: core.money.quantize
+      value: |
+        return Decimal(value).quantize(CENT)
+    - slot: orders.pricing.line_total
+      value: |
+        return quantize(Decimal(unit_price) * quantity)
+    - slot: orders.pricing.tax
+      value: |
+        return quantize(Decimal(subtotal) * Decimal(settings.SALES_TAX_RATE))
+  - name: always-round-tax-up
+    slots:
+    - slot: core.money.quantize
+      value: |
+        return Decimal(value).quantize(CENT, rounding=ROUND_HALF_UP)
+    - slot: orders.pricing.line_total
+      value: |
+        return quantize(Decimal(unit_price) * quantity)
+    - slot: orders.pricing.tax
+      value: |
+        from decimal import ROUND_UP
+
+        return (Decimal(subtotal) * Decimal(settings.SALES_TAX_RATE)).quantize(CENT, rounding=ROUND_UP)
+  - name: revert-the-commit
+    slots:
+    - slot: core.money.quantize
+      value: |
+        return Decimal(value).quantize(CENT, rounding=ROUND_HALF_UP)
+    - slot: orders.pricing.line_total
+      value: |
+        return quantize(Decimal(unit_price) * quantity)
+    - slot: orders.pricing.tax
+      value: |
+        return quantize(Decimal(subtotal) * Decimal(settings.SALES_TAX_RATE))
+    files:
+    - path: ext/order_timeline/urls.py
+      from: cheats/empty_urls.py
+  carrier:
+    feature: order-timeline
+    files:
+    - path: ext/order_timeline/__init__.py
+      from: carrier/ext/order_timeline/__init__.py
+    - path: ext/order_timeline/apps.py
+      from: carrier/ext/order_timeline/apps.py
+    - path: ext/order_timeline/urls.py
+      from: carrier/ext/order_timeline/urls.py
+    - path: ext/order_timeline/views.py
+      from: carrier/ext/order_timeline/views.py
+  commit:
+    message: 'orders: add a timeline of payment and status events to each order'
+    persona: Priya Nair <priya@shop.example.com>
+  checks:
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/dj_data_4/test_money_rounding.py
+  - ref: check.concurrent-invariant
+    role: symptom
+    params:
+      before_sql:
+      - UPDATE catalog_product SET price = 6.00 WHERE id = 1
+      - UPDATE inventory_stocklevel SET on_hand = 100 WHERE product_id = 1
+      request:
+        method: POST
+        path: /api/orders/
+        headers:
+          Authorization: Token mf_tok_alice
+        body:
+          items:
+          - product: 1
+            quantity: 1
+          shipping_name: DATA4-six
+      count: 1
+      workers: 1
+      allowed_status:
+      - 201
+      invariant:
+        sql: SELECT total FROM orders_order WHERE shipping_name = 'DATA4-six' ORDER BY id DESC LIMIT 1
+        equals: 6.5
+  - ref: check.concurrent-invariant
+    role: symptom
+    params:
+      before_sql:
+      - UPDATE catalog_product SET price = 50.00 WHERE id = 1
+      - UPDATE inventory_stocklevel SET on_hand = 100 WHERE product_id = 1
+      request:
+        method: POST
+        path: /api/orders/
+        headers:
+          Authorization: Token mf_tok_alice
+        body:
+          items:
+          - product: 1
+            quantity: 1
+          shipping_name: DATA4-fifty
+      count: 1
+      workers: 1
+      allowed_status:
+      - 201
+      invariant:
+        sql: SELECT total FROM orders_order WHERE shipping_name = 'DATA4-fifty' ORDER BY id DESC LIMIT 1
+        equals: 54.13
+  symptom:
+    vars:
+      title: Some order totals are one cent lower than the tax rule says
+      report: Finance's month-end reconciliation shows a handful of orders whose stored tax is one cent lower than the tax rule says (8.25 percent,
+        rounded half up). Nobody noticed on the storefront because the customer is simply charged whatever total we compute.
+      where: Order totals and invoices; the mismatch is between our stored tax and a hand calculation (for example a 50.00 subtotal should carry
+        4.13 tax, not 4.12).
+      expected: Tax and totals should always equal exact decimal arithmetic rounded half up to the cent.
+      support_tried: 'Recomputed the affected orders in a spreadsheet: the spreadsheet agrees with the tax rule and disagrees with the database.
+        The payments provider charged exactly the amount we sent, so the difference is on our side.'
+      observations: |-
+        ### Other observations from the reporter
+
+        - It only happens on some orders, mostly ones with round-number subtotals.
+        - Nothing changed in the tax rate configuration.
+        - The order timeline feature shipped around the same time.
+    signature: tax differs by one cent from exact half-up decimal arithmetic
+  hints:
+  - Pick an order that is off by a cent and recompute its tax by hand with exact decimal arithmetic, then compute the same number in a Python
+    shell using ordinary floats (for example 50.0 * 0.0825 and then round). Find where the app converts money to a different number type.
+  - Binary floating point cannot represent most decimal fractions exactly, and Python round() on a float does not round halves up. 50.00 at 8.25
+    percent is exactly 4.125 and must become 4.13, but the float route lands on 4.12. Money must stay in Decimal from input to output and be rounded
+    explicitly with ROUND_HALF_UP.
+  - 'Check core/money.py (quantize) and orders/pricing.py (line_total, tax): they convert to float before rounding. Keep everything in Decimal,
+    quantize with ROUND_HALF_UP, and add tests for exact half-cent cases such as a 6.00 or 50.00 subtotal.'
+  rubric:
+    key_points:
+    - Identifies the float conversion in the pricing and rounding code as the cause and explains why binary floats cannot represent decimal cents
+      exactly.
+    - Explains that round() on floats and Decimal default rounding are not half-up, and picks ROUND_HALF_UP deliberately.
+    - Fixes it by keeping money in Decimal end to end.
+    - Adds tests with exact half-cent inputs (for example 6.00 and 50.00 subtotals) that fail on the original code.
+    misconceptions:
+    - Rounding the final total once (or adding a small epsilon) is enough.
+    - Using Decimal only for the final rounding step is fine even if the inputs are floats.
+    - The payments provider or the database is responsible for the difference.
+  root_cause: |
+    `quantize`, `line_total` and `tax` converted amounts to `float` and rounded with Python `round()`. Binary floats cannot represent most decimal fractions, so exact half-cent taxes such as 4.125 or 0.495 landed just below the half and rounded down, one cent off the half-up rule.
+
+    The fix keeps money in `Decimal` throughout and rounds explicitly with `ROUND_HALF_UP`.

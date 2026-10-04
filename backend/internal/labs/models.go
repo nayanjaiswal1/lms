@@ -12,6 +12,19 @@ const (
 	MaxSessionDurationDefault    = 120 // minutes
 	MaxHintsPerTask              = 3
 	VerifyRateLimitSeconds       = 3
+	// HintRateLimitSeconds bounds how often a single (session, task) can
+	// request a hint — same SetNX-based collapse VerifyRateLimitSeconds
+	// uses, so a double-click can't burn two hint levels (or two AI calls)
+	// for one intended request.
+	HintRateLimitSeconds = 3
+	// AICircuitFailureThreshold/Window/OpenDuration implement the shared
+	// Redis-backed AI circuit breaker (docs/labs.md "Runaway AI retry
+	// storms"): after this many consecutive AI failures within Window, the
+	// breaker opens for OpenDuration and every AI endpoint across every API
+	// replica returns ErrAICircuitOpen instead of calling the provider.
+	AICircuitFailureThreshold = 3
+	AICircuitFailureWindow    = 60 * time.Second
+	AICircuitOpenDuration     = 2 * time.Minute
 	// ProvisionTimeoutSeconds must cover docker run + the setup_script's
 	// readiness probe across DockerContainerService.Start's retry loop.
 	// Web-app lab images (lab-python-web, lab-node-web) boot a dev server
@@ -98,11 +111,39 @@ const (
 	// "mindforge-lab-" orphan scan — the warm-pool reconciler owns their
 	// lifecycle instead.
 	WarmContainerNamePrefix = "mindforge-warm-"
+	// ValidationContainerNamePrefix names clean-room grader / build-verify
+	// sandboxes; LabCleanupHandler already sweeps this prefix.
+	ValidationContainerNamePrefix = "mindforge-validate-"
 	// SetupScriptTimeoutSeconds bounds a lab's setup_script. It runs at CLAIM
 	// time now (Service.prepareLabEnvironment), so it is on the student's
 	// critical path — a lab whose setup genuinely needs minutes is a lab
 	// authoring problem, not something to widen this for.
 	SetupScriptTimeoutSeconds = 120
+	// DebugIDEContainerCPU/MemoryMB size the "debug-ide" ImageProfile
+	// (docs/debug-labs.md §2: 2 CPU / 2048 MB / 5 GB, not elevated).
+	DebugIDEContainerCPU      = "2.0"
+	DebugIDEContainerMemoryMB = 2048
+	// DebugIDEContainerDiskGB documents the profile's target disk allowance —
+	// not yet enforced by either runtime (Docker has no per-container disk
+	// quota wired up at all today; see NestedContainerDiskGB's doc comment
+	// for the same pre-existing gap on the Kubernetes side), kept here so
+	// this number lives in one place for whenever that lands.
+	DebugIDEContainerDiskGB = 5
+	// DebugGradeTimeoutSeconds bounds one grade.sh invocation
+	// (docs/debug-labs.md §4: symptom/regression/student-test restart the
+	// app, build a fresh grade_<seed> DB, and run the probe/test matrix —
+	// wider than VerifyTask's terminal/guided timeout for exactly that
+	// reason).
+	DebugGradeTimeoutSeconds = 90
+	// DebugGradeCooldownSeconds rate-limits grade.sh invocations per session
+	// (docs/debug-labs.md §4's abuse-defense table: "Spam Check" ->
+	// "Cooldown + existing attempts counter"). Wider than the generic
+	// VerifyRateLimitSeconds because a grade.sh run is far more expensive
+	// (fresh DB + full test/probe matrix vs. one exec).
+	DebugGradeCooldownSeconds = 30
+	// MaxWriteupReviewsPerSession caps AI-graded written-reflection
+	// submissions (docs/debug-labs.md §6: "≤ 3 per session").
+	MaxWriteupReviewsPerSession = 3
 )
 
 // ─── Warm pool sizing ────────────────────────────────────────────────────────
@@ -167,10 +208,64 @@ const (
 	LabTypePlayground = "playground"
 	LabTypeGuided     = "guided"
 	LabTypeSandbox    = "sandbox"
+	LabTypeDebug      = "debug"
+
+	// Task graders (mirrors lab_tasks_grader_check / lab_task_version_items_
+	// grader_check — migration 045). 'script' dispatches through the ordinary
+	// verification_script exec path; 'writeup_review' tasks are only ever
+	// completed via POST .../writeup-review, never VerifyTask/SubmitAll. See
+	// backend/internal/labkinds for which lab kinds use which grader.
+	GraderScript        = "script"
+	GraderWriteupReview = "writeup_review"
+
+	// Debug lab-kind stacks — Go-side convention only (not a DB CHECK; see
+	// migration 045's header comment), mirrored by labkinds.DebugKind.
+	DebugStackDjango    = "django"
+	DebugStackFastAPI   = "fastapi"
+	DebugStackReact     = "react"
+	DebugStackFullstack = "fullstack"
+
+	// Debug lab-kind categories — Go-side convention only (open-ended, not a
+	// DB CHECK).
+	DebugCategoryMigrations    = "migrations"
+	DebugCategoryDataModel     = "data-model"
+	DebugCategoryPerformance   = "performance"
+	DebugCategoryConcurrency   = "concurrency"
+	DebugCategoryServiceComm   = "service-comm"
+	DebugCategoryConfig        = "config"
+	DebugCategorySecurity      = "security"
+	DebugCategoryErrors        = "errors"
+	DebugCategoryReactHooks    = "react-hooks"
+	DebugCategoryReactRaces    = "react-races"
+	DebugCategoryReactState    = "react-state"
+	DebugCategoryReactPerf     = "react-perf"
+	DebugCategoryReactSSR      = "react-ssr"
+	DebugCategoryReactContract = "react-contract"
+	DebugCategoryCrossStack    = "cross-stack"
+
+	// Catalog difficulties (mirrors lab_catalog_meta_difficulty_check — a
+	// closed, platform-wide 4-level rubric shared by courses/sheets/labs).
+	DebugDifficultyBeginner     = "beginner"
+	DebugDifficultyIntermediate = "intermediate"
+	DebugDifficultyAdvanced     = "advanced"
+	DebugDifficultyExpert       = "expert"
+
+	// Scenario build statuses (mirrors lab_builds_status_check — generic
+	// build lifecycle, the same for every lab kind).
+	LabBuildStatusQueued    = "queued"
+	LabBuildStatusRendering = "rendering"
+	LabBuildStatusVerifying = "verifying"
+	LabBuildStatusVerified  = "verified"
+	LabBuildStatusFailed    = "failed"
 
 	// Workspace layouts
 	LabLayoutSplit   = "split"
 	LabLayoutConsole = "console"
+
+	// Library visibility (course_modules.lab_id placement eligibility)
+	LibraryVisibilityPrivate  = "private"
+	LibraryVisibilityOrg      = "org"
+	LibraryVisibilityPlatform = "platform"
 
 	// Session statuses
 	SessionStatusProvisioning    = "provisioning"
@@ -219,10 +314,11 @@ const (
 	TaskStatusSkipped = "skipped"
 
 	// AI interaction types
-	InteractionTypeHint     = "hint"
-	InteractionTypeExplain  = "explain"
-	InteractionTypeDiagnose = "diagnose"
-	InteractionTypeGenerate = "generate"
+	InteractionTypeHint          = "hint"
+	InteractionTypeExplain       = "explain"
+	InteractionTypeDiagnose      = "diagnose"
+	InteractionTypeGenerate      = "generate"
+	InteractionTypeWriteupReview = "writeup_review"
 
 	// Egress rule protocols
 	ProtocolHTTP  = "http"
@@ -261,6 +357,11 @@ type TaskSnapshot struct {
 	Points             int    `json:"points"`
 	IsOptional         bool   `json:"is_optional"`
 	IsStateful         bool   `json:"is_stateful"`
+	// Grader is GraderScript (default) or GraderWriteupReview — see those
+	// constants' doc comments. Only meaningful for a lab-kind-backed lab
+	// (docs/debug-labs.md); every hand-authored lab type's tasks are always
+	// 'script'.
+	Grader string `json:"grader"`
 }
 
 // ─── Domain rows ─────────────────────────────────────────────────────────────
@@ -312,6 +413,20 @@ type LabDefinition struct {
 	CreatedBy       string    `json:"created_by"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
+	// LibraryVisibility gates cross-org placement via "Add from library":
+	// "private" (this org's instructors only, not listed for placement even
+	// within the org — reserved for future use), "org" (default — any
+	// instructor in the owning org may place it), or "platform" (any org may
+	// place it; sessions count against the placing org's caps/usage — see
+	// docs/debug-labs.md Library open question 1). Never affects a session
+	// already running.
+	LibraryVisibility string `json:"library_visibility"`
+	// BuildID is the lab_builds row this lab's content was published from —
+	// nil for every hand-authored lab (the overwhelming majority today).
+	// Only set for a lab kind's build (see backend/internal/labkinds); when
+	// set, StartSession picks a variant from it and the labkinds registry
+	// (keyed by LabType) drives seeding/grading/session-payload/debrief.
+	BuildID *string `json:"build_id,omitempty"`
 }
 
 type LabTask struct {
@@ -366,6 +481,47 @@ type LabSession struct {
 	// ProvisionError holds the underlying failure detail when EndReason is
 	// provision_timeout/provision_failed — nil otherwise.
 	ProvisionError *string `json:"provision_error,omitempty"`
+	// ModuleID is the course_modules placement that launched this session,
+	// when started from a course (nil for a standalone/library "try"
+	// session). finalizeTaskPass completes THIS module on full completion —
+	// not lab_definitions.module_id — so a lab placed in two courses
+	// completes the right one in each. See migration 044_course_library.sql.
+	ModuleID *string `json:"module_id,omitempty"`
+	// VariantKey is the debug-lab structural variant this session was pinned
+	// to at StartSession (docs/debug-labs.md Part 2 §B6) — nil for every
+	// non-debug lab type. Chosen once, deterministically, from
+	// hash(user_id, lab_id) and never changed for the life of the session, so
+	// retries, hints, and the debrief all stay consistent with each other.
+	VariantKey *string `json:"variant_key,omitempty"`
+	// RequiredPassedAt is set once every required task passed under a
+	// CompleteOnFinish kind: the session stays active until Finish/deadline.
+	RequiredPassedAt *time.Time `json:"required_passed_at,omitempty"`
+}
+
+// ─── Pluggable lab kinds (docs/debug-labs.md; backend/internal/labkinds) ────
+//
+// See labkinds.VariantView for the generic per-variant shape used at
+// runtime (seeding, grading, session payload, debrief) — labs.Repo loads a
+// lab_build_variants row directly into that type so labs never needs its own
+// parallel copy. What's genuinely labs' own is the catalog/library-facing
+// summary below.
+
+// LabCatalogEntry is one row of GET /api/labs/catalog — student-safe fields
+// plus the caller's best-known status, for any lab that carries a
+// lab_catalog_meta row (any lab_type/lab_kind, not just debug — see
+// migration 045's header comment). Never root cause/fix/rubric/bundles.
+type LabCatalogEntry struct {
+	LabID       string   `json:"lab_id"`
+	Title       string   `json:"title"`
+	LabType     string   `json:"lab_type"`
+	Stack       string   `json:"stack"`
+	Category    string   `json:"category"`
+	Difficulty  string   `json:"difficulty"`
+	Skills      []string `json:"skills"`
+	MaxDuration int      `json:"max_duration"`
+	// Status is "not_started" | "in_progress" | "completed" — the caller's
+	// best (most advanced) session status across every attempt at this lab.
+	Status string `json:"status"`
 }
 
 // ActiveLabSession is a lab_sessions row enriched with the lab's title and

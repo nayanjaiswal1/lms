@@ -1,0 +1,148 @@
+kind: fault
+id: dj.conc.signup-race
+version: 1.0.0
+stack: django
+title: A burst of signups for one address crashes with IntegrityError
+summary: Signup checks whether the email exists and then inserts, so simultaneous signups for the same address both pass the check and one crashes
+  on the unique constraint.
+category: concurrency
+difficulty: intermediate
+skills:
+- race-conditions
+- unique-constraints
+- error-handling
+requires:
+- slot:customers.services.register
+- cap:postgres
+fault:
+  inject:
+    slots:
+    - slot: customers.services.register
+      value: |
+        if Customer.objects.filter(email__iexact=email).exists():
+            raise EmailTaken(email)
+        customer = Customer.objects.create_user(email, password, full_name=full_name)
+  fix:
+    slots:
+    - slot: customers.services.register
+      value: |
+        try:
+            with transaction.atomic():
+                customer = Customer.objects.create_user(email, password, full_name=full_name)
+        except IntegrityError as exc:
+            raise EmailTaken(email) from exc
+    files:
+    - path: tests/test_signup_race.py
+      from: fix/tests/test_signup_race.py
+  cheats:
+  - name: return-the-existing-account
+    slots:
+    - slot: customers.services.register
+      value: |
+        try:
+            with transaction.atomic():
+                customer = Customer.objects.create_user(email, password, full_name=full_name)
+        except IntegrityError:
+            customer = Customer.objects.get(email__iexact=email)
+  - name: python-lock-around-check-and-insert
+    slots:
+    - slot: customers.services.register
+      value: |
+        import threading
+
+        lock = register.__dict__.setdefault("_lock", threading.Lock())
+        with lock:
+            if Customer.objects.filter(email__iexact=email).exists():
+                raise EmailTaken(email)
+            customer = Customer.objects.create_user(email, password, full_name=full_name)
+  - name: revert-the-commit
+    slots:
+    - slot: customers.services.register
+      value: |
+        try:
+            with transaction.atomic():
+                customer = Customer.objects.create_user(email, password, full_name=full_name)
+        except IntegrityError as exc:
+            raise EmailTaken(email) from exc
+    files:
+    - path: ext/order_export/urls.py
+      from: cheats/empty_urls.py
+  carrier:
+    feature: order-export
+    files:
+    - path: ext/order_export/__init__.py
+      from: carrier/ext/order_export/__init__.py
+    - path: ext/order_export/apps.py
+      from: carrier/ext/order_export/apps.py
+    - path: ext/order_export/urls.py
+      from: carrier/ext/order_export/urls.py
+    - path: ext/order_export/views.py
+      from: carrier/ext/order_export/views.py
+  commit:
+    message: 'orders: let customers download their order history as CSV'
+    persona: Priya Nair <priya@shop.example.com>
+  checks:
+  - ref: check.concurrent-invariant
+    role: symptom
+    params:
+      request:
+        method: POST
+        path: /api/signup/
+        body:
+          email: burst-{{rand_hex:6}}@shop.test
+          password: pw-12345678
+      count: 20
+      workers: 20
+      allowed_status:
+      - 201
+      - 409
+      expect_successes:
+        min: 1
+        max: 1
+      invariant:
+        sql: SELECT count(*) FROM customers_customer WHERE email LIKE 'burst-%'
+        equals: 1
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/dj_conc_3/test_signup_race.py
+  symptom:
+    vars:
+      title: Sporadic 500 errors during a signup burst
+      report: After the newsletter went out we saw a wave of 500 errors on the signup endpoint. Most signups worked, but a few visitors got a
+        server error. Looking at the accounts afterwards there are no duplicates - it is as if the second of two identical signups just crashed.
+        It seems to happen when the same person double-clicks the button or their browser retries the request.
+      impact: A handful of visitors per burst see an error page instead of "that email is already registered", and some of them give up. Error
+        tracking shows the same crash each time.
+      support_tried: Asked affected users to try again (it then works, with a duplicate-email message). Increased the number of web workers, which
+        made the errors more frequent rather than less.
+      observations: |-
+        ### Other observations from the reporter
+
+        - The errors only appear in bursts and never when testing by hand.
+        - There is a unique constraint on the email, and the code already checks for an existing account.
+        - The order export feature shipped in the same release.
+    signature: IntegrityError duplicate key on customers_customer email under concurrent signups
+  hints:
+  - Reproduce it with a small script that sends the same signup request from many threads at once. Look at the exact exception in the log and
+    at which line raises it, then think about what can happen between the check and the insert when two requests interleave.
+  - 'Checking that a row does not exist and then inserting it is not atomic: two requests can both pass the check, and the loser hits the unique
+    constraint at insert time. The database constraint is the only reliable arbiter, so the code has to expect the insert to fail and turn that
+    failure into the normal duplicate-email answer.'
+  - 'In customers/services.py register(): drop the pre-check, insert inside transaction.atomic() and catch IntegrityError to raise EmailTaken
+    (the view then answers 409). Add a test that simulates the competing insert between the check and the insert.'
+  rubric:
+    key_points:
+    - Identifies the check-then-insert race and that the unique constraint fires for the losing request.
+    - 'Fixes it by relying on the constraint: insert in an atomic block and translate IntegrityError to the domain error (409), rather than pre-checking.'
+    - Explains why a process-local lock is not a fix when there are several workers.
+    - Adds a test that simulates the competing insert and fails on the original code.
+    misconceptions:
+    - A Python lock or a single worker fixes it (it only serialises one process).
+    - Returning the existing account when the insert fails is harmless (it lets the second visitor into someone else account).
+    - The unique constraint is the problem and should be removed.
+  root_cause: |
+    `register` first asked `Customer.objects.filter(email=...).exists()` and then inserted. Two simultaneous signups for the same address both saw no account, both tried to insert, and the second one hit the unique constraint on `email`. The raw `IntegrityError` escaped the view as a 500.
+
+    The unique constraint is the only reliable arbiter, so the fix inserts inside `transaction.atomic()` and converts `IntegrityError` into the domain error `EmailTaken` (HTTP 409).

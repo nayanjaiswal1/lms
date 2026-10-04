@@ -21,16 +21,22 @@ const (
 // UUIDs in place of the old ad-hoc hex ones.
 func renderLab(out *strings.Builder, courseID, sectionID string, lab *canonical.Lab) error {
 	moduleID := canonical.ID(lab.IDKey, "module")
+	labID := canonical.ID(lab.IDKey, "lab") // must match renderLabRows' own derivation below
 	estMinutes := lab.EstimatedMinutes
 	if estMinutes <= 0 {
 		estMinutes = 30
 	}
 
-	// 0. Linking course_modules row — must exist before lab_definitions
-	//    references it via module_id.
+	// 0. Linking course_modules row, already carrying lab_id/lab_is_required
+	//    so lab_module_has_lab (migration 044_course_library.sql) holds for
+	//    generated fixtures too. course_modules.lab_id is DEFERRABLE
+	//    INITIALLY DEFERRED specifically for this: the lab_definitions row it
+	//    points at doesn't exist until renderLabRows runs below, in the same
+	//    generated script/transaction (see that migration's header comment).
 	fmt.Fprintf(out,
-		"INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)\nVALUES (%s, %s, %s, %s, 'lab', %s, %s)\nON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();\n\n",
+		"INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)\nVALUES (%s, %s, %s, %s, 'lab', %s, %s, %s, %s)\nON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();\n\n",
 		sqlString(moduleID), sqlString(courseID), sqlString(sectionID), sqlString(lab.Title), sqlInt(lab.Position), sqlInt(estMinutes),
+		sqlString(labID), sqlBool(lab.IsRequired),
 	)
 
 	return renderLabRows(out, courseID, moduleID, lab.IDKey, lab.Title, &lab.LabSpec)
@@ -46,6 +52,9 @@ func renderLab(out *strings.Builder, courseID, sectionID string, lab *canonical.
 // doc attach a lab directly to its own notes module (see renderLesson) rather
 // than requiring a separate `kind: lab` module in the section.
 func renderLabRows(out *strings.Builder, courseID, moduleID, idKey, title string, spec *canonical.LabSpec) error {
+	if spec.Recipe != "" {
+		return renderRecipeLabRows(out, courseID, moduleID, idKey, title, spec)
+	}
 	labID := canonical.ID(idKey, "lab")
 	versionID := canonical.ID(idKey, "version")
 
@@ -76,6 +85,24 @@ func renderLabRows(out *strings.Builder, courseID, moduleID, idKey, title string
 		sqlString(spec.LabType), sqlString(spec.Environment), sqlInt(spec.PreviewPort), dollarQuote("script", setupScript), runScript,
 		sqlInt(maxDuration), sqlInt(maxResets), sqlInt(spec.HintPenaltyPct), sqlBool(spec.IsRequired),
 		sqlString(workspaceLayout), sqlString(seededInstructorID),
+	)
+
+	// 1b. Prune and park existing task rows before the upserts below. A task
+	//     removed from the markdown would otherwise stay in the lab forever
+	//     (upserts never delete), and because both tables are UNIQUE on
+	//     position, a new task id landing on an old task's position would
+	//     fail the whole script. Parking survivors at position+100000 lets
+	//     the upserts reorder freely without transient unique violations.
+	taskIDs := make([]string, 0, len(spec.Tasks))
+	itemIDs := make([]string, 0, len(spec.Tasks))
+	for _, task := range spec.Tasks {
+		taskIDs = append(taskIDs, sqlString(canonical.ID(idKey, "task:"+task.IDKey)))
+		itemIDs = append(itemIDs, sqlString(canonical.ID(idKey, "version-item:"+task.IDKey)))
+	}
+	fmt.Fprintf(out,
+		"DELETE FROM lab_task_version_items WHERE task_version_id = %s%s;\nUPDATE lab_task_version_items SET position = position + 100000 WHERE task_version_id = %s;\nDELETE FROM lab_tasks WHERE lab_id = %s%s;\nUPDATE lab_tasks SET position = position + 100000 WHERE lab_id = %s;\n\n",
+		sqlString(versionID), notInClause("id", itemIDs), sqlString(versionID),
+		sqlString(labID), notInClause("id", taskIDs), sqlString(labID),
 	)
 
 	// 2. lab_tasks (live editable copy).
@@ -109,7 +136,7 @@ func renderLabRows(out *strings.Builder, courseID, moduleID, idKey, title string
 			// any other emitted row.
 		}
 		out.WriteString(strings.Join(rows, ",\n"))
-		out.WriteString("\nON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;\n\n")
+		out.WriteString("\nON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;\n\n")
 	}
 
 	// 3. lab_task_versions — dev/seed-time convenience: this UPSERTs version 1
@@ -208,4 +235,14 @@ func parentDirs(filePath string) []string {
 		dirs = append(dirs, strings.Join(segments[:i], "/"))
 	}
 	return dirs
+}
+
+// notInClause renders " AND <col> NOT IN (...)" for a prune DELETE, or ""
+// when ids is empty (the DELETE then removes every row, which is correct:
+// the document now declares none).
+func notInClause(col string, ids []string) string {
+	if len(ids) == 0 {
+		return ""
+	}
+	return " AND " + col + " NOT IN (" + strings.Join(ids, ", ") + ")"
 }

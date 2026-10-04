@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}My orders{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/orders.css' %}">{% endblock %}
+{% block content %}
+<h1>My orders</h1>
+<table>
+  <thead><tr><th>#</th><th>Placed by</th><th>Items</th><th>Total</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for order in page %}
+    <tr>
+      <td><a href="/orders/{{ order.pk }}/">{{ order.pk }}</a></td>
+      <td>{{ order.customer.display_name }}</td>
+      <td>{% for item in order.items.all %}{{ item.quantity }} x {{ item.product.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+      <td>${{ order.total }}</td>
+      <td><span class="status status-{{ order.status }}">{{ order.status_label }}</span></td>
+    </tr>
+  {% empty %}<tr><td colspan="5">You have not placed any orders yet.</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% if page.has_other_pages %}
+<p class="pager">
+  {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Previous</a>{% endif %}
+  Page {{ page.number }} of {{ page.paginator.num_pages }}
+  {% if page.has_next %}<a href="?page={{ page.next_page_number }}">Next</a>{% endif %}
+</p>
+{% endif %}
+{% endblock %}

@@ -2,6 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -25,6 +29,46 @@ import (
 // the main backend's dependency graph (no Docker/K8s client, no business
 // logic) — see NewProxyHandler's doc comment.
 const wsTokenType = "lab_ws"
+
+// ttydCredentialUser must match labs.TTYDCredentialUser
+// (internal/labs/credential.go) — duplicated as a literal for the same
+// reason wsTokenType is (see its doc comment above): cmd/labproxy is a
+// separate deploy unit deliberately kept free of the main backend's
+// dependency graph.
+const ttydCredentialUser = "mindforge"
+
+// deriveContainerCredential must stay byte-for-byte identical to
+// labs.DeriveContainerCredential (internal/labs/credential.go): both
+// processes independently recompute the same per-session ttyd credential
+// from the session ID and the shared LABPROXY_JWT_SECRET (= JWT_SECRET),
+// never stored in the database or handed to the browser. See that
+// function's doc comment for the full rationale (docs/labs.md "Proxy ↔
+// Container Channel Security"; docs/debug-labs.md Phase 0).
+// containerCredentialDomain prefixes the HMAC input — must match the copy in
+// the other process (internal/labs/credential.go ↔ cmd/labproxy/proxy.go).
+const containerCredentialDomain = "mindforge/container-credential/v1:"
+
+// ideCredentialDomain must match labs.ideCredentialDomain
+// (internal/labs/credential.go) — a distinct domain from the ttyd one so the
+// two credentials never coincide.
+const ideCredentialDomain = "mindforge/container-credential/ide/v1:"
+
+// deriveIDECredential must stay byte-for-byte identical to
+// labs.DeriveIDECredential.
+func deriveIDECredential(secret, sessionID string) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(ideCredentialDomain + sessionID))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func deriveContainerCredential(secret, sessionID string) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	// Domain-separation prefix: the secret also signs auth JWTs and the
+	// student can read their own credential inside the container, so the
+	// HMAC input must never be able to coincide with a JWT signing input.
+	mac.Write([]byte(containerCredentialDomain + sessionID))
+	return hex.EncodeToString(mac.Sum(nil))
+}
 
 type wsClaims struct {
 	SessionID string `json:"session_id"`
@@ -146,10 +190,22 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// subprotocol; without it, it silently accepts the upgrade but never
 	// spawns the shell.
 	ttydDialer := &websocket.Dialer{Subprotocols: []string{"tty"}}
+	// Basic-auth credential (docs/labs.md "Proxy ↔ Container Channel
+	// Security"; docs/debug-labs.md Phase 0): recomputed here from the
+	// session ID rather than stored anywhere, and presented on every
+	// upstream connect. entrypoint.sh (lab-images/shared/entrypoint.sh)
+	// starts ttyd with the matching -c user:pass written into the container
+	// at claim/start time (labs.writeTTYDCredential) — a co-located
+	// container on the shared bridge that reaches this port directly still
+	// cannot attach without it.
+	cred := deriveContainerCredential(h.jwtSecret, sess.ID)
+	authHeader := http.Header{"Authorization": {
+		"Basic " + base64.StdEncoding.EncodeToString([]byte(ttydCredentialUser+":"+cred)),
+	}}
 	containerConn, _, dialErr := ttydDialer.DialContext(
 		r.Context(),
 		"ws://"+*sess.ContainerHost+"/ws",
-		nil,
+		authHeader,
 	)
 	if dialErr != nil {
 		slog.Error("labproxy: dial container",
@@ -169,12 +225,7 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		for {
 			select {
 			case <-ticker.C:
-				if _, hbErr := h.pool.Exec(context.Background(),
-					`UPDATE lab_sessions SET last_active_at=now() WHERE id=$1`,
-					sess.ID); hbErr != nil {
-					slog.Warn("labproxy: heartbeat update",
-						"session", sess.ID, "error", hbErr)
-				}
+				h.writeHeartbeat(context.Background(), sess.ID)
 			case <-stopHeartbeat:
 				return
 			}
@@ -186,10 +237,13 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		relay(browserConn, containerConn)
+		relay(browserConn, containerConn, nil)
 	}()
 	go func() {
-		relay(containerConn, browserConn)
+		// container -> browser: also feeds the terminal history ring buffer.
+		rec := newTermRecorder(h.rdb, sess.ID)
+		defer rec.flush()
+		relay(containerConn, browserConn, rec.record)
 	}()
 
 	<-done
@@ -201,7 +255,7 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // relay copies WebSocket messages from src to dst until either connection
 // closes or encounters an error. Control frames with a null byte prefix are
 // filtered to avoid confusing ttyd.
-func relay(src, dst *websocket.Conn) {
+func relay(src, dst *websocket.Conn, onMsg func([]byte)) {
 	for {
 		msgType, msg, err := src.ReadMessage()
 		if err != nil {
@@ -209,6 +263,9 @@ func relay(src, dst *websocket.Conn) {
 		}
 		if len(msg) > 0 && msg[0] == 0x00 {
 			continue
+		}
+		if onMsg != nil {
+			onMsg(msg)
 		}
 		if err := dst.WriteMessage(msgType, msg); err != nil {
 			return
@@ -255,6 +312,51 @@ func validateWSToken(tokenStr, secret, issuer string) (*wsClaims, error) {
 // JWT's own signature/expiry/issuer/type checks already ran before this is
 // reached — this registry is defense-in-depth on top of that, not the sole
 // gate.
+// previewHeartbeatDebounce bounds how often preview traffic (HTTP passthrough
+// and WebSocket upgrades — see previewTarget in preview.go, the single
+// choke point every preview request resolves through) is allowed to write
+// last_active_at. Matches the terminal relay's own 5s ticker interval
+// (ServeHTTP above) so both paths keep a session's idle clock alive at the
+// same granularity, without a DB write on literally every preview request —
+// a student's app can easily fire many requests per second.
+const previewHeartbeatDebounce = 5 * time.Second
+
+// writeHeartbeat unconditionally sets last_active_at=now() for sessionID.
+// Called on the terminal relay's own ticker (already interval-bound, so no
+// further debounce needed there) and, via heartbeatPreview below, once per
+// debounce window for preview traffic. A failed write is logged and
+// swallowed — a heartbeat miss costs nothing worse than a session idle-
+// pausing a little earlier than ideal, never a failed request.
+func (h *ProxyHandler) writeHeartbeat(ctx context.Context, sessionID string) {
+	if _, err := h.pool.Exec(ctx,
+		`UPDATE lab_sessions SET last_active_at=now() WHERE id=$1`, sessionID,
+	); err != nil {
+		slog.Warn("labproxy: heartbeat update", "session", sessionID, "error", err)
+	}
+}
+
+// heartbeatPreview is writeHeartbeat's debounced counterpart for preview
+// traffic (docs/debug-labs.md "Pre-existing problems": only the terminal
+// relay updated last_active_at, so a student working only in the preview
+// pane got idle-paused). Redis SetNX provides the debounce — the same
+// primitive VerifyTask's rate limit already uses (service.go) — so at most
+// one process across every replica writes the DB per session per window,
+// no matter how many preview requests land inside it. Best-effort: a Redis
+// error fails open (heartbeat skipped this round, not the request), since
+// this must never block or fail the preview response it rides along with.
+func (h *ProxyHandler) heartbeatPreview(ctx context.Context, sessionID string) {
+	key := "lab:preview-heartbeat:" + sessionID
+	set, err := h.rdb.SetNX(ctx, key, 1, previewHeartbeatDebounce).Result()
+	if err != nil {
+		slog.Warn("labproxy: preview heartbeat debounce check", "session", sessionID, "error", err)
+		return
+	}
+	if !set {
+		return
+	}
+	h.writeHeartbeat(ctx, sessionID)
+}
+
 func (h *ProxyHandler) tokenIsLive(ctx context.Context, tokenStr string) bool {
 	_, err := h.rdb.Get(ctx, "lab:wstoken:"+tokenStr).Result()
 	if err == redis.Nil {

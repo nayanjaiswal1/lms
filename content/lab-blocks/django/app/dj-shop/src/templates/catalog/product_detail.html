@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ product.name }}{% endblock %}
+{% block extra_head %}
+<!-- mf:slot templates.product.assets -->
+<link rel="stylesheet" href="{% static 'css/product.css' %}">
+<!-- mf:endslot -->
+{% endblock %}
+{% block content %}
+<article class="product">
+  <h1>{{ product.name }}</h1>
+  {% if product.subtitle %}<p class="subtitle">{{ product.subtitle }}</p>{% endif %}
+  <p class="price">${{ product.price }}</p>
+  <p>{{ product.description|linebreaksbr }}</p>
+  <p class="meta">Category: <a href="/categories/{{ product.category.slug }}/">{{ product.category.name }}</a>
+  {% if product.review_count %} - {{ product.average_rating }} / 5 from {{ product.review_count }} review{{ product.review_count|pluralize }}{% endif %}</p>
+</article>
+{% endblock %}

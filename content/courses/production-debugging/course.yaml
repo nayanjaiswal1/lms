@@ -1,0 +1,21 @@
+title: "Production Debugging: Fix Real Bugs in a Live-Looking App"
+description: >-
+  Learn to debug the way it is done at work. Every lab drops you into a small, realistic
+  e-commerce application (Django, PostgreSQL, Celery) inside a browser IDE with a real git
+  history, a ticket from support or the on-call channel, logs, a database and a debugger.
+  You reproduce the problem, follow the evidence to the root cause, fix it, prove the fix
+  with a test that fails on the broken code, and write a short incident note. The Django
+  track covers performance and query problems, data-model and money bugs, concurrency,
+  migrations, configuration and calls to other services. Each section starts with a short
+  lesson on the debugging skill, never on the answer.
+difficulty: intermediate
+tags:
+  - debugging
+  - django
+  - postgresql
+  - performance
+  - concurrency
+  - migrations
+  - incident-response
+is_free: true
+is_public: true

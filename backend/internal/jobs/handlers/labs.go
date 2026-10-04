@@ -24,6 +24,8 @@ const (
 type LabExpireHandler struct {
 	pool          *pgxpool.Pool
 	runtime       labs.ContainerRuntime
+	repo          *labs.Repo
+	closer        *labs.SandboxCloser
 	notifications *notifications.Service
 }
 
@@ -31,7 +33,8 @@ type LabExpireHandler struct {
 // repeated-provisioning-failure admin alert reapStuckProvisioning fires —
 // see that method's own doc comment.
 func NewLabExpireHandler(pool *pgxpool.Pool, runtime labs.ContainerRuntime, notifSvc *notifications.Service) *LabExpireHandler {
-	return &LabExpireHandler{pool: pool, runtime: runtime, notifications: notifSvc}
+	repo := labs.NewRepo(pool)
+	return &LabExpireHandler{pool: pool, runtime: runtime, repo: repo, closer: labs.NewSandboxCloser(repo, runtime), notifications: notifSvc}
 }
 
 // Handle runs three passes every tick, in order:
@@ -78,9 +81,11 @@ type sessionRow struct {
 	containerID *string
 }
 
+// A session whose required tasks already passed (labkinds.CompleteOnFinish,
+// awaiting Finish) closes as completed, everything else as expired.
 // closeSessions kills each session's container (best-effort, per-session —
 // Kill is a runtime call and can't be batched), then in one round trip marks
-// every row expired with endReason and records its billed container_seconds.
+// every row closed with endReason and records its billed container_seconds.
 // Shared by hardExpireOverdue and reapLongPaused, which differ only in which
 // rows they select and which end_reason applies.
 func (h *LabExpireHandler) closeSessions(ctx context.Context, sessions []sessionRow, endReason string) error {
@@ -88,18 +93,30 @@ func (h *LabExpireHandler) closeSessions(ctx context.Context, sessions []session
 		return nil
 	}
 	ids := make([]string, len(sessions))
+	toClose := make([]*labs.LabSession, 0, len(sessions))
 	for i, s := range sessions {
 		ids[i] = s.id
-		if s.containerID != nil && *s.containerID != "" {
-			if rmErr := h.runtime.Kill(ctx, *s.containerID); rmErr != nil {
-				slog.Error("lab.expire_sessions: kill sandbox failed",
-					"container", *s.containerID, "error", rmErr)
-			}
+		if s.containerID == nil || *s.containerID == "" {
+			continue
 		}
+		// Full row (variant, status) so the closer can snapshot the student's
+		// diff before the kill; a load failure still kills the sandbox.
+		full, err := h.repo.GetSessionByID(ctx, s.id)
+		if err != nil {
+			slog.Error("lab.expire_sessions: load session for close", "session_id", s.id, "error", err)
+			full = &labs.LabSession{ID: s.id, ContainerID: s.containerID}
+		}
+		toClose = append(toClose, full)
 	}
+	// Capture-then-kill with bounded concurrency; never blocks or fails the close.
+	h.closer.SnapshotAndKillAll(ctx, toClose)
 	if _, err := h.pool.Exec(ctx,
-		`UPDATE lab_sessions SET status=$2, end_reason=$3, paused_at=NULL WHERE id = ANY($1)`,
-		ids, labs.SessionStatusExpired, endReason,
+		`UPDATE lab_sessions
+		 SET status = CASE WHEN required_passed_at IS NOT NULL THEN $4 ELSE $2 END,
+		     completed_at = CASE WHEN required_passed_at IS NOT NULL THEN now() ELSE completed_at END,
+		     end_reason=$3, paused_at=NULL
+		 WHERE id = ANY($1)`,
+		ids, labs.SessionStatusExpired, endReason, labs.SessionStatusCompleted,
 	); err != nil {
 		// The job retries next tick — the same rows still match their
 		// originating SELECT (status hasn't changed), so this is not lost.

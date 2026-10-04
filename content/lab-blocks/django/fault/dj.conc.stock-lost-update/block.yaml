@@ -1,0 +1,155 @@
+kind: fault
+id: dj.conc.stock-lost-update
+version: 1.0.0
+stack: django
+title: Products are oversold under load
+summary: Stock is reserved with a read-modify-write, so concurrent checkouts both see the last unit and both sell it.
+category: concurrency
+difficulty: advanced
+skills:
+- race-conditions
+- transactions
+- select-for-update
+- F-expressions
+requires:
+- slot:inventory.services.reserve
+- svc:payments-stub
+- cap:postgres
+fault:
+  inject:
+    slots:
+    - slot: inventory.services.reserve
+      value: |
+        level = StockLevel.objects.get(product_id=product_id, warehouse=warehouse)
+        if level.on_hand < quantity:
+            raise OutOfStock(product_id)
+        level.on_hand -= quantity
+        level.save(update_fields=["on_hand"])
+  fix:
+    slots:
+    - slot: inventory.services.reserve
+      value: |
+        updated = StockLevel.objects.filter(
+            product_id=product_id, warehouse=warehouse, on_hand__gte=quantity
+        ).update(on_hand=F("on_hand") - quantity)
+        if not updated:
+            raise OutOfStock(product_id)
+    files:
+    - path: tests/test_reserve_race.py
+      from: fix/tests/test_reserve_race.py
+  cheats:
+  - name: clamp-stock-at-zero
+    slots:
+    - slot: inventory.services.reserve
+      value: |
+        level = StockLevel.objects.get(product_id=product_id, warehouse=warehouse)
+        if level.on_hand < quantity:
+            raise OutOfStock(product_id)
+        level.on_hand = max(level.on_hand - quantity, 0)
+        level.save(update_fields=["on_hand"])
+  - name: decrement-without-a-guard
+    slots:
+    - slot: inventory.services.reserve
+      value: |
+        StockLevel.objects.filter(product_id=product_id, warehouse=warehouse).update(on_hand=F("on_hand") - quantity)
+  - name: revert-the-commit
+    slots:
+    - slot: inventory.services.reserve
+      value: |
+        updated = StockLevel.objects.filter(
+            product_id=product_id, warehouse=warehouse, on_hand__gte=quantity
+        ).update(on_hand=F("on_hand") - quantity)
+        if not updated:
+            raise OutOfStock(product_id)
+    files:
+    - path: ext/stock_alerts/urls.py
+      from: cheats/empty_urls.py
+  carrier:
+    feature: stock-alerts
+    files:
+    - path: ext/stock_alerts/__init__.py
+      from: carrier/ext/stock_alerts/__init__.py
+    - path: ext/stock_alerts/apps.py
+      from: carrier/ext/stock_alerts/apps.py
+    - path: ext/stock_alerts/urls.py
+      from: carrier/ext/stock_alerts/urls.py
+    - path: ext/stock_alerts/views.py
+      from: carrier/ext/stock_alerts/views.py
+  commit:
+    message: 'inventory: add a staff endpoint listing products under the low-stock threshold'
+    persona: Marcus Webb <marcus@shop.example.com>
+  checks:
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/dj_conc_2/test_reserve_race.py
+  - ref: check.concurrent-invariant
+    role: symptom
+    params:
+      before_sql:
+      - UPDATE catalog_product SET price = 10.00 WHERE id = 1
+      - UPDATE inventory_stocklevel SET on_hand = 5 WHERE product_id = 1 AND warehouse_id = 1
+      request:
+        method: POST
+        path: /api/orders/
+        headers:
+          Authorization: Token mf_tok_alice
+        body:
+          items:
+          - product: 1
+            quantity: 1
+          shipping_name: CONC2-burst
+      count: 20
+      workers: 20
+      allowed_status:
+      - 201
+      - 409
+      expect_successes:
+        min: 5
+        max: 5
+      invariant:
+        sql: SELECT on_hand FROM inventory_stocklevel WHERE product_id = 1 AND warehouse_id = 1
+        equals: 0
+  symptom:
+    vars:
+      title: We sold more units than we had in stock
+      report: 'During yesterday''s flash sale one product had 5 units left in the warehouse and 9 orders went through for it. The last few orders
+        were confirmed and paid, and now the warehouse cannot ship them. Stock counts in the admin afterwards were off as well: more units had
+        been sold than the stock number went down by.'
+      where: Checkout (placing an order) under heavy traffic. The stock numbers look right when orders are placed one at a time.
+      expected: 'Never sell more than what is in stock: once the last unit is reserved the next order must be refused with an out-of-stock error,
+        and the stock count must equal what was stocked minus what was sold.'
+      support_tried: Asked the warehouse to recount (the count matches the database) and checked that the payment provider did not double-charge
+        anyone. Support cannot reproduce it by clicking through checkout.
+      observations: |-
+        ### Other observations from the reporter
+
+        - It only happened while the sale was busy; slow hours are fine.
+        - The low-stock alert endpoint shipped a few days earlier, and the reporter suspects it.
+        - Orders that were oversold all completed successfully (there was no error page).
+    signature: more orders succeed than there are units in stock
+  hints:
+  - 'Reproduce it with concurrent requests: put a small stock on a product and place many orders for it at the same time with a script or a thread
+    pool. Then compare the number of successful orders with the stock number in the database. It will not show up when you click through the site
+    one request at a time.'
+  - The reservation reads the stock row into Python, checks it, subtracts, and writes it back. Two requests can both read the same value before
+    either writes, so both pass the check and one write overwrites the other (a lost update). The check and the update must be one atomic step
+    in the database, or the row must be locked while you work on it.
+  - 'In inventory/services.py reserve(): replace the read-modify-write with a single conditional UPDATE (filter on on_hand >= quantity, update
+    with an F expression) and treat zero updated rows as out of stock. Then write a test that races two reservations for the last unit.'
+  rubric:
+    key_points:
+    - Identifies the read-modify-write on the stock row as a lost-update race between concurrent requests.
+    - 'Fixes it atomically in the database: a conditional UPDATE with an F expression (or select_for_update inside the transaction), not in application
+      code.'
+    - Explains why the check and the write must be one step and why a per-process lock is not enough with several workers.
+    - Adds a test that races two reservations for the last unit and fails on the original code.
+    misconceptions:
+    - Clamping stock at zero or re-checking after the write hides the oversell instead of preventing it.
+    - A Python threading lock fixes it (it only works inside one process, not across gunicorn workers or hosts).
+    - Running fewer workers or slowing checkout down solves the problem.
+  root_cause: |
+    `reserve` fetched the stock row, checked `on_hand` in Python and saved the decremented value back. Under concurrency several requests read the same `on_hand` before any of them committed, so all passed the check and their writes overwrote each other (a lost update): more units were sold than existed and the stock count no longer matched.
+
+    The fix makes the check and the decrement a single atomic statement: `UPDATE ... SET on_hand = on_hand - n WHERE on_hand >= n`, and zero updated rows means out of stock.

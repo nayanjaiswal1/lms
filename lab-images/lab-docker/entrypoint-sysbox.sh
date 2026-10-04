@@ -56,4 +56,13 @@ touch /tmp/lab-ready
 log "starting ttyd as labuser"
 # dockerd needs root; ttyd's shell must not (see docs/labs.md "Verification
 # runs as non-root" — the same rule applies to the interactive terminal).
-exec su-exec labuser sh -c 'cd /home/labuser/work && exec ttyd -W -p 7681 bash'
+# The credential wait (docs/labs.md "Proxy ↔ Container Channel Security";
+# docs/debug-labs.md Phase 0) runs inside the su-exec'd labuser shell, same
+# as every other lab image's entrypoint — see shared/entrypoint.sh's
+# identical block for the full rationale.
+exec su-exec labuser sh -c '
+  cred_file=/home/labuser/.mf-ttyd-cred
+  while [ ! -s "$cred_file" ]; do sleep 0.5; done
+  cred="$(cat "$cred_file")"
+  cd /home/labuser/work && exec ttyd -W -p 7681 -c "$cred" bash
+'

@@ -1,0 +1,110 @@
+kind: fault
+id: dj.data.customer-delete-cascades
+version: 1.0.0
+stack: django
+title: Invoices vanish when a customer is deleted
+summary: Order.customer cascades on delete, so removing a customer in the admin silently deletes their orders and invoices.
+category: data-model
+difficulty: beginner
+skills:
+- django-orm
+- on-delete
+- data-integrity
+requires:
+- slot:orders.model.customer_fk
+- slot:migrations.orders
+fault:
+  inject:
+    slots:
+    - slot: orders.model.customer_fk
+      value: |
+        customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="orders")
+    - slot: migrations.orders
+      file: inject/alter_order_customer_cascade.py
+  fix:
+    slots:
+    - slot: orders.model.customer_fk
+      value: |
+        customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="orders")
+    - slot: migrations.orders
+      file: fix/alter_order_customer_protect.py
+    files:
+    - path: tests/test_customer_delete.py
+      from: fix/tests/test_customer_delete.py
+  cheats:
+  - name: do-nothing-on-delete
+    slots:
+    - slot: orders.model.customer_fk
+      value: |
+        customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, related_name="orders")
+    - slot: migrations.orders
+      file: cheats/alter_order_customer_do_nothing.py
+  - name: revert-the-commit
+    slots:
+    - slot: orders.model.customer_fk
+      value: |
+        customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="orders")
+    - slot: migrations.orders
+      file: fix/alter_order_customer_protect.py
+    files:
+    - path: ext/account_overview/urls.py
+      from: cheats/empty_urls.py
+  carrier:
+    feature: account-overview
+    files:
+    - path: ext/account_overview/__init__.py
+      from: carrier/ext/account_overview/__init__.py
+    - path: ext/account_overview/apps.py
+      from: carrier/ext/account_overview/apps.py
+    - path: ext/account_overview/urls.py
+      from: carrier/ext/account_overview/urls.py
+    - path: ext/account_overview/views.py
+      from: carrier/ext/account_overview/views.py
+  commit:
+    message: 'customers: add an account overview endpoint'
+    persona: Marcus Webb <marcus@shop.example.com>
+  checks:
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/dj_data_1/test_customer_delete.py
+  symptom:
+    vars:
+      title: Invoices disappeared after we deleted a customer
+      report: Finance is missing invoices for last quarter. Support deleted a duplicate customer account in the admin at the customer's request,
+        and afterwards the customer's orders and their invoices were gone as well. We only meant to remove the account.
+      where: 'The Django admin: Customers, select the customer, Delete. The customer''s orders and invoices were listed on the confirmation page
+        but nobody read the long list.'
+      expected: Deleting a customer must never delete order history or invoices - we need them for tax records.
+      support_tried: Restored the orders and invoices from last night's backup (and had to re-create the customer row to do it). Nothing prevents
+        the same thing from happening again.
+      observations: |-
+        ### Other observations from the reporter
+
+        - The customer's product reviews vanished too, which the team considers fine.
+        - The admin confirmation page showed a long "the following related objects will be deleted" list.
+        - Deleting a customer with no orders behaves normally.
+    signature: deleting a customer deletes their orders and invoices
+  hints:
+  - 'Reproduce it in a Django shell: create a customer with an order and an invoice, delete the customer, and see what is left. Then read every
+    relationship that points at the customer and ask what each one should do when the referenced row disappears.'
+  - Each foreign key decides that with on_delete. CASCADE deletes the referencing rows (and whatever hangs off them, such as invoices), PROTECT
+    refuses the deletion, SET_NULL keeps the row and detaches it, DO_NOTHING leaves a dangling reference. Check the admin's related-objects list
+    - it is built from the same rules.
+  - 'Order.customer in orders/models.py cascades. Order history must survive the customer: use PROTECT (or an explicit anonymise flow), record
+    the change in a migration, and add a test asserting that deleting a customer with orders is refused and nothing is lost.'
+  rubric:
+    key_points:
+    - Explains the on_delete options and that CASCADE follows relations transitively (customer -> orders -> invoices).
+    - Chooses PROTECT (or an anonymise flow) for financial records and explains why CASCADE and SET_NULL are wrong here.
+    - Records the model change in a migration.
+    - 'Adds a test that fails on the original code: deleting a customer with orders must be refused and leave orders and invoices intact.'
+    misconceptions:
+    - Restoring backups or hiding the delete button in the admin fixes the cause.
+    - DO_NOTHING is a safe alternative (it leaves dangling references and relies on the database).
+    - Only the admin path needs protecting; every code path that deletes a customer is affected.
+  root_cause: |
+    `Order.customer` was changed to `on_delete=CASCADE`. Deleting a customer therefore deleted their orders, and because `Invoice.order` cascades too, their invoices with them. The admin's confirmation page even listed them, but the deletion was allowed.
+
+    Order history is a financial record: the relation must be `PROTECT` (deleting a customer with orders is refused; use the account-closure flow that anonymises instead), and the change needs a migration so the model state and the migrations agree.

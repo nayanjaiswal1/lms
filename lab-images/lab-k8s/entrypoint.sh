@@ -99,11 +99,14 @@ fi
 log "kube-apiserver ready"
 
 log "starting kube-controller-manager"
+# Every controller the fast-kubernetes labs teach must be listed here — a
+# workload kind whose controller is missing is accepted by the API server but
+# never produces Pods, so its lab can only check YAML, not behaviour.
 kube-controller-manager \
   --kubeconfig=/etc/kubernetes/admin.kubeconfig \
   --leader-elect=false \
   --use-service-account-credentials=false \
-  --controllers=deployment,replicaset,namespace,endpoint,endpointslice,endpointslicemirroring,resourcequota,garbagecollector \
+  --controllers=deployment,replicaset,daemonset,statefulset,job,cronjob,ttl-after-finished,persistentvolume-binder,pvc-protection,pv-protection,namespace,endpoint,endpointslice,endpointslicemirroring,resourcequota,garbagecollector,node-lifecycle-controller,taint-eviction-controller,podgc,disruption,horizontalpodautoscaling \
   >$LOG_DIR/kube-controller-manager.log 2>&1 &
 
 log "starting kube-scheduler"
@@ -138,9 +141,18 @@ kwok \
 # knows the whole control plane came up, rather than re-probed from outside.
 touch /tmp/lab-ready
 
+# ttyd credential (docs/labs.md "Proxy ↔ Container Channel Security";
+# docs/debug-labs.md Phase 0) — see lab-images/shared/entrypoint.sh's
+# identical block for the full rationale.
+cred_file=/home/labuser/.mf-ttyd-cred
+while [ ! -s "$cred_file" ]; do
+  sleep 0.5
+done
+cred="$(cat "$cred_file")"
+
 log "starting ttyd"
 # ttyd's shell inherits this cwd, and lessons refer to starter files as if the
 # student is already in the workdir ("apply pod1.yaml") — without this the
 # terminal opens at /.
 cd /home/labuser/work
-exec ttyd -W -p 7681 bash
+exec ttyd -W -p 7681 -c "$cred" bash

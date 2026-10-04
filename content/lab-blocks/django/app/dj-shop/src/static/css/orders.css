@@ -1,0 +1,3 @@
+.status { padding: 0.1rem 0.5rem; border-radius: 999px; background: #e4e7eb; font-size: 0.85rem; }
+.status-paid, .status-delivered { background: #c6f7e2; }
+.status-cancelled, .status-refunded { background: #ffe3e3; }

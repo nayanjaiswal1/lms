@@ -58,43 +58,46 @@ func validPreviewPort(port int) bool {
 //
 // Returns a non-nil *url.URL and the resolved port + session ID on success;
 // otherwise a zero URL, the HTTP status, and message the caller should write.
-func (h *ProxyHandler) previewTarget(r *http.Request, tokenStr string, reqPort int, wantSessionID string) (target *url.URL, resolvedPort int, sessionID string, status int, msg string) {
+func (h *ProxyHandler) previewTarget(r *http.Request, tokenStr string, reqPort int, wantSessionID string) (target *url.URL, resolvedPort int, sessionID string, ideToken string, status int, msg string) {
 	claims, err := validateWSToken(tokenStr, h.jwtSecret, h.jwtIssuer)
 	if err != nil {
-		return nil, 0, "", http.StatusUnauthorized, "unauthorized"
+		return nil, 0, "", "", http.StatusUnauthorized, "unauthorized"
 	}
 	if !h.tokenIsLive(r.Context(), tokenStr) {
-		return nil, 0, "", http.StatusUnauthorized, "token revoked or expired"
+		return nil, 0, "", "", http.StatusUnauthorized, "token revoked or expired"
 	}
 	if wantSessionID != "" && claims.SessionID != wantSessionID {
-		return nil, 0, "", http.StatusForbidden, "token session mismatch"
+		return nil, 0, "", "", http.StatusForbidden, "token session mismatch"
 	}
 
 	var sess labSession
-	var previewPort int
+	var previewPort, idePort int
+	// idePort is the pinned variant's IDE port (lab kinds only; 0 otherwise).
 	err = h.pool.QueryRow(r.Context(),
-		`SELECT s.id, s.user_id, s.status, s.container_id, s.container_host, l.preview_port
+		`SELECT s.id, s.user_id, s.status, s.container_id, s.container_host, l.preview_port,
+		        COALESCE(v.ide_port, 0)
 		 FROM lab_sessions s
 		 JOIN lab_definitions l ON l.id = s.lab_id
+		 LEFT JOIN lab_build_variants v ON v.build_id = l.build_id AND v.variant_key = s.variant_key
 		 WHERE s.id=$1`,
 		claims.SessionID,
-	).Scan(&sess.ID, &sess.UserID, &sess.Status, &sess.ContainerID, &sess.ContainerHost, &previewPort)
+	).Scan(&sess.ID, &sess.UserID, &sess.Status, &sess.ContainerID, &sess.ContainerHost, &previewPort, &idePort)
 	if err != nil {
-		return nil, 0, "", http.StatusNotFound, "session not found"
+		return nil, 0, "", "", http.StatusNotFound, "session not found"
 	}
 
 	// IDOR guard: token's user_id must match the session's owner.
 	if sess.UserID != claims.UserID {
-		return nil, 0, "", http.StatusForbidden, "forbidden"
+		return nil, 0, "", "", http.StatusForbidden, "forbidden"
 	}
 	port := previewPort
 	if reqPort > 0 {
 		if !validPreviewPort(reqPort) {
-			return nil, 0, "", http.StatusBadRequest, "invalid preview port"
+			return nil, 0, "", "", http.StatusBadRequest, "invalid preview port"
 		}
 		port = reqPort
 	} else if previewPort <= 0 {
-		return nil, 0, "", http.StatusNotFound, "lab has no app preview"
+		return nil, 0, "", "", http.StatusNotFound, "lab has no app preview"
 	}
 
 	// Resuming a paused container is the main API's job (labs.Service.
@@ -104,19 +107,33 @@ func (h *ProxyHandler) previewTarget(r *http.Request, tokenStr string, reqPort i
 	// always fetches a fresh token before setting the iframe src) rather than
 	// this process attempting a resume it has no credentials to perform.
 	if sess.Status != "running" {
-		return nil, 0, "", http.StatusConflict, "session not running — mint a fresh preview token"
+		return nil, 0, "", "", http.StatusConflict, "session not running — mint a fresh preview token"
 	}
 	if sess.ContainerHost == nil || *sess.ContainerHost == "" {
-		return nil, 0, "", http.StatusServiceUnavailable, "container not ready"
+		return nil, 0, "", "", http.StatusServiceUnavailable, "container not ready"
 	}
 
 	// container_host is "{containerID12}:7681" (the ttyd port) — same
 	// container, different port for the app.
 	host, _, found := strings.Cut(*sess.ContainerHost, ":")
 	if !found || host == "" {
-		return nil, 0, "", http.StatusServiceUnavailable, "container host malformed"
+		return nil, 0, "", "", http.StatusServiceUnavailable, "container host malformed"
 	}
-	return &url.URL{Scheme: "http", Host: fmt.Sprintf("%s:%d", host, port)}, port, claims.SessionID, 0, ""
+
+	// Every live, authenticated preview request — HTTP passthrough and the
+	// initial WebSocket upgrade alike, since both resolve through here
+	// (ServePreviewPassthrough / ServePreviewAuth in preview_host.go) —
+	// counts as activity, debounced the same as the terminal relay's own
+	// heartbeat. See heartbeatPreview's doc comment (proxy.go).
+	h.heartbeatPreview(r.Context(), sess.ID)
+
+	// The IDE connection token is injected server-side, on the session's own
+	// ide_port only — the browser never sees it (see proxyPreview).
+	if idePort > 0 && port == idePort {
+		ideToken = deriveIDECredential(h.jwtSecret, sess.ID)
+	}
+
+	return &url.URL{Scheme: "http", Host: fmt.Sprintf("%s:%d", host, port)}, port, claims.SessionID, ideToken, 0, ""
 }
 
 // maxWrappedJSONBytes caps how much of a JSON document response is inlined
@@ -150,15 +167,21 @@ func shouldWrapJSONDocument(isDocRoot bool, contentType string, status int) bool
 // wrapped in a minimal HTML page so API labs show their response in the
 // preview pane instead of Chrome's blocked-download message, and the
 // response is marked no-store so a pre-wrap cache entry can't stick.
-func (h *ProxyHandler) proxyPreview(w http.ResponseWriter, r *http.Request, target *url.URL, path string, isDocRoot bool) {
+func (h *ProxyHandler) proxyPreview(w http.ResponseWriter, r *http.Request, target *url.URL, path string, isDocRoot bool, ideToken string) {
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetURL(target)
 			pr.Out.URL.Path = path
 			pr.Out.Host = target.Host
+			if ideToken != "" {
+				injectIDEToken(pr.Out, ideToken)
+			}
 		},
 		ModifyResponse: func(resp *http.Response) error {
 			stripSetCookieDomain(resp)
+			if ideToken != "" {
+				scrubIDEToken(resp)
+			}
 			if isDocRoot {
 				resp.Header.Set("Cache-Control", "no-store")
 			}
@@ -248,7 +271,7 @@ func (h *ProxyHandler) ServePreview(w http.ResponseWriter, r *http.Request) {
 	// wantSessionID is "" here — there is no subdomain host yet to compare
 	// the token's session against; that check happens in ServePreviewAuth
 	// once the browser lands on the subdomain this redirect points to.
-	_, resolvedPort, sessionID, status, msg := h.previewTarget(r, token, reqPort, "")
+	_, resolvedPort, sessionID, _, status, msg := h.previewTarget(r, token, reqPort, "")
 	if status != 0 {
 		writeJSONError(w, status, msg)
 		return
@@ -275,4 +298,52 @@ func (h *ProxyHandler) ServePreview(w http.ResponseWriter, r *http.Request) {
 		}.Encode(),
 	}
 	http.Redirect(w, r, target.String(), http.StatusFound)
+}
+
+// vscodeTokenName is openvscode-server's connection-token cookie/query name.
+const (
+	vscodeTokenCookie = "vscode-tkn"
+	vscodeTokenQuery  = "tkn"
+)
+
+// injectIDEToken authenticates an outgoing request to the IDE port with the
+// derived connection token, as both the tkn query parameter and the
+// vscode-tkn cookie (HTTP and WebSocket upgrades alike). Any client-supplied
+// value is overwritten, so a student cannot pick their own token.
+func injectIDEToken(out *http.Request, token string) {
+	q := out.URL.Query()
+	q.Set(vscodeTokenQuery, token)
+	out.URL.RawQuery = q.Encode()
+
+	var kept []string
+	for _, c := range out.Cookies() {
+		if c.Name != vscodeTokenCookie {
+			kept = append(kept, c.Name+"="+c.Value)
+		}
+	}
+	kept = append(kept, vscodeTokenCookie+"="+token)
+	out.Header.Set("Cookie", strings.Join(kept, "; "))
+}
+
+// scrubIDEToken removes the connection token from an IDE response so it never
+// reaches the browser: the vscode-tkn Set-Cookie and any tkn= in a redirect.
+func scrubIDEToken(resp *http.Response) {
+	cookies := resp.Header.Values("Set-Cookie")
+	if len(cookies) > 0 {
+		resp.Header.Del("Set-Cookie")
+		for _, raw := range cookies {
+			if strings.HasPrefix(strings.TrimSpace(raw), vscodeTokenCookie+"=") {
+				continue
+			}
+			resp.Header.Add("Set-Cookie", raw)
+		}
+	}
+	if loc := resp.Header.Get("Location"); loc != "" {
+		if u, err := url.Parse(loc); err == nil && u.Query().Has(vscodeTokenQuery) {
+			q := u.Query()
+			q.Del(vscodeTokenQuery)
+			u.RawQuery = q.Encode()
+			resp.Header.Set("Location", u.String())
+		}
+	}
 }

@@ -58,7 +58,7 @@ export function IssueSteps({ steps }: IssueStepsProps) {
           );
         })}
       </div>
-      <Button className="m-label-sm h-auto self-start px-2 py-1" variant="link" type="button">
+      <Button className="m-label-sm h-auto self-start px-2 py-1" type="button" variant="link">
         <Plus aria-hidden className="size-3.5" />
         <span>Add new step item</span>
       </Button>

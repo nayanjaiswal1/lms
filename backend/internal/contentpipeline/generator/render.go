@@ -12,9 +12,10 @@ import (
 // sectionMeta accumulates a course section's identity the first time any
 // document in that section is seen, so it only needs to be inserted once.
 type sectionMeta struct {
-	slug     string
-	title    string
-	position int
+	slug       string
+	title      string
+	position   int
+	groupTitle string // optional; empty means ungrouped (course_sections.group_title NULL)
 }
 
 // Render renders every document (already loaded, validated, and sorted by
@@ -113,7 +114,7 @@ func renderCourse(out *strings.Builder, slug string, docs []*canonical.Document,
 	for _, doc := range docs {
 		c := commonOf(doc)
 		if _, ok := sectionsBySlug[c.Section]; !ok {
-			sectionsBySlug[c.Section] = sectionMeta{slug: c.Section, title: c.SectionTitle, position: c.SectionPosition}
+			sectionsBySlug[c.Section] = sectionMeta{slug: c.Section, title: c.SectionTitle, position: c.SectionPosition, groupTitle: c.SectionGroup}
 		}
 	}
 	sections := make([]sectionMeta, 0, len(sectionsBySlug))
@@ -121,6 +122,27 @@ func renderCourse(out *strings.Builder, slug string, docs []*canonical.Document,
 		sections = append(sections, sm)
 	}
 	sort.Slice(sections, func(i, j int) bool { return sections[i].position < sections[j].position })
+
+	// This run's full generated id set for the course — everything the
+	// pruning DELETEs at the end keep, and everything not in it gets removed.
+	sectionIDs := make([]string, 0, len(sections))
+	for _, sec := range sections {
+		sectionIDs = append(sectionIDs, sqlString(canonical.ID(slug+"/"+sec.slug, "section")))
+	}
+	moduleIDs := make([]string, 0, len(docs))
+	for _, doc := range docs {
+		moduleIDs = append(moduleIDs, sqlString(canonical.ID(commonOf(doc).IDKey, "module")))
+	}
+
+	// Park every existing row for this course above the low target positions
+	// this run is about to assign, so the upserts below never collide with a
+	// stale row that's still present (it's only deleted at the very end,
+	// after modules have been re-homed onto their live sections) — same fix
+	// as render_lab.go's lab_task position parking.
+	fmt.Fprintf(out,
+		"UPDATE course_sections SET position = position + 100000 WHERE course_id = %s;\nUPDATE course_modules SET position = position + 100000 WHERE course_id = %s;\n\n",
+		sqlString(courseID), sqlString(courseID),
+	)
 
 	docsBySection := map[string][]*canonical.Document{}
 	for _, doc := range docs {
@@ -132,8 +154,8 @@ func renderCourse(out *strings.Builder, slug string, docs []*canonical.Document,
 		sectionID := canonical.ID(slug+"/"+sec.slug, "section")
 		fmt.Fprintf(out, "-- Section: %s\n", sec.title)
 		fmt.Fprintf(out,
-			"INSERT INTO course_sections (id, course_id, title, position)\nVALUES (%s, %s, %s, %s)\nON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;\n\n",
-			sqlString(sectionID), sqlString(courseID), sqlString(sec.title), sqlInt(sec.position),
+			"INSERT INTO course_sections (id, course_id, title, position, group_title)\nVALUES (%s, %s, %s, %s, %s)\nON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;\n\n",
+			sqlString(sectionID), sqlString(courseID), sqlString(sec.title), sqlInt(sec.position), sqlNullableString(sec.groupTitle),
 		)
 
 		secDocs := docsBySection[sec.slug]
@@ -163,6 +185,17 @@ func renderCourse(out *strings.Builder, slug string, docs []*canonical.Document,
 		"INSERT INTO enrollments (id, user_id, course_id, enrolled_by)\nVALUES (%s, %s, %s, %s)\nON CONFLICT (user_id, course_id) DO NOTHING;\n\n",
 		sqlString(enrollmentID), sqlString(seededStudentID), sqlString(courseID), sqlString(seededInstructorID),
 	)
+
+	// Prune sections/modules this course no longer authors — a merged or
+	// removed lesson/lab/quiz must disappear on reseed, not linger forever
+	// (upserts above never delete). Modules first: every surviving module
+	// was just re-homed onto its live section by the upserts above, so by
+	// the time stale sections are deleted next, no live module can still be
+	// pointing at one.
+	fmt.Fprintf(out, "DELETE FROM course_modules WHERE course_id = %s AND id NOT IN (%s);\n",
+		sqlString(courseID), strings.Join(moduleIDs, ", "))
+	fmt.Fprintf(out, "DELETE FROM course_sections WHERE course_id = %s AND id NOT IN (%s);\n\n",
+		sqlString(courseID), strings.Join(sectionIDs, ", "))
 
 	return nil
 }

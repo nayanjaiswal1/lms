@@ -20,13 +20,13 @@ func NewService(repo *Repo) *Service {
 // Status reports which documents userID still needs to (re-)accept — any
 // doc_type where their latest accepted version doesn't match CurrentVersion.
 func (s *Service) Status(ctx context.Context, userID string) ([]string, error) {
+	latest, err := s.repo.LatestVersions(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
 	var needed []string
 	for _, docType := range AllDocTypes {
-		latest, err := s.repo.LatestVersion(ctx, userID, docType)
-		if err != nil {
-			return nil, err
-		}
-		if latest != CurrentVersion(docType) {
+		if latest[docType] != CurrentVersion(docType) {
 			needed = append(needed, docType)
 		}
 	}

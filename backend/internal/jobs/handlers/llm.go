@@ -40,6 +40,22 @@ func NewLLMHandler(pool *pgxpool.Pool, aiProvider ai.LLMProvider, cfg *config.Co
 	}
 }
 
+// requireOrgScope is the tenant-isolation guard every job in this file must run
+// against the row it just loaded. A job scoped to an org only ever processes
+// entities belonging to that org; nil/empty job.OrgID means the job is
+// platform-wide and is not scoped. A nil (or empty) entity org can never match
+// a scoped job, so a future handler that forgets its own nil-check still gets
+// the safe answer by calling this instead of hand-rolling the comparison.
+func requireOrgScope(job jobs.Job, entityOrgID *string, task, entity string) error {
+	if job.OrgID == nil || *job.OrgID == "" {
+		return nil
+	}
+	if entityOrgID == nil || *entityOrgID != *job.OrgID {
+		return fmt.Errorf("handlers.llm: %s: org_id mismatch, refusing to process (%s)", task, entity)
+	}
+	return nil
+}
+
 // Handle dispatches an LLM job to the appropriate task handler.
 func (h *LLMHandler) Handle(ctx context.Context, job jobs.Job) error {
 	var p LLMPayload
@@ -86,8 +102,8 @@ func (h *LLMHandler) handleCourseOutline(ctx context.Context, job jobs.Job, p LL
 	}
 
 	// Tenant isolation: if the job is scoped to an org, verify the course belongs to it.
-	if job.OrgID != nil && *job.OrgID != "" && courseOrgID != *job.OrgID {
-		return fmt.Errorf("handlers.llm: course_outline: org_id mismatch, refusing to process (course %s)", p.EntityID)
+	if err := requireOrgScope(job, &courseOrgID, "course_outline", fmt.Sprintf("course %s", p.EntityID)); err != nil {
+		return err
 	}
 
 	// Idempotency: skip if the course already has at least one module generated.
@@ -108,60 +124,44 @@ func (h *LLMHandler) handleCourseOutline(ctx context.Context, job jobs.Job, p LL
 		return fmt.Errorf("handlers.llm: course_outline: AI provider not available")
 	}
 
-	// Resolve generation parameters from job payload overrides or course defaults.
+	// Resolve generation parameters from job payload overrides or course
+	// defaults. The clamps and fallbacks live in ai.OutlineParams.Normalize so
+	// this job and the instructor's sync preview cannot disagree.
 	level := courseDifficulty
 	if v, ok := p.Params["level"].(string); ok && v != "" {
 		level = v
 	}
-	moduleCount = 8
+	var requestedCount int
 	if v, ok := p.Params["module_count"].(float64); ok && v > 0 {
-		moduleCount = int(v)
-		if moduleCount > 30 {
-			moduleCount = 30
-		}
+		requestedCount = int(v)
 	}
 
 	topic := courseTitle
 	if courseDescription != nil && *courseDescription != "" {
 		topic = courseTitle + ": " + *courseDescription
 	}
-	topic = ai.SanitizeTopic(topic, 200)
 
 	llmCtx, cancel := context.WithTimeout(ctx, h.cfg.LLMTimeout)
 	defer cancel()
 
-	userPrompt := fmt.Sprintf("Topic: %s\nDifficulty: %s\nNumber of modules: %d", topic, level, moduleCount)
-
-	resp, err := h.ai.Complete(llmCtx, ai.CompletionRequest{
-		SystemPrompt: ai.CourseOutlineSystemPrompt,
-		UserPrompt:   userPrompt,
-		MaxTokens:    2048,
-		JSONMode:     true,
+	outline, model, err := ai.GenerateOutline(llmCtx, h.ai, ai.OutlineParams{
+		Topic:       topic,
+		Level:       level,
+		ModuleCount: requestedCount,
 	})
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		switch {
+		case errors.Is(err, ai.ErrOutlineUnparsable):
+			return fmt.Errorf("handlers.llm: course_outline: parse AI response (course %s): %w", p.EntityID, err)
+		case errors.Is(err, ai.ErrOutlineTopicRequired):
+			return fmt.Errorf("handlers.llm: course_outline: empty topic (course %s)", p.EntityID)
+		case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
 			return fmt.Errorf("handlers.llm: course_outline: AI timed out (course %s): %w", p.EntityID, err)
+		default:
+			return fmt.Errorf("handlers.llm: course_outline: AI call (course %s): %w", p.EntityID, err)
 		}
-		return fmt.Errorf("handlers.llm: course_outline: AI call (course %s): %w", p.EntityID, err)
 	}
 
-	// Parse the outline.
-	var outline struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		Sections    []struct {
-			Title   string `json:"title"`
-			Modules []struct {
-				Title            string `json:"title"`
-				Type             string `json:"type"`
-				Description      string `json:"description"`
-				EstimatedMinutes int    `json:"estimated_minutes"`
-			} `json:"modules"`
-		} `json:"sections"`
-	}
-	if err := json.Unmarshal([]byte(resp.Content), &outline); err != nil {
-		return fmt.Errorf("handlers.llm: course_outline: parse AI response (course %s): %w", p.EntityID, err)
-	}
 	if len(outline.Sections) == 0 {
 		return fmt.Errorf("handlers.llm: course_outline: AI returned no sections (course %s)", p.EntityID)
 	}
@@ -230,7 +230,7 @@ func (h *LLMHandler) handleCourseOutline(ctx context.Context, job jobs.Job, p LL
 	slog.InfoContext(ctx, "handlers.llm: course outline generated and stored",
 		"course_id", p.EntityID,
 		"sections", len(outline.Sections),
-		"model", resp.Model)
+		"model", model)
 	return nil
 }
 
@@ -253,10 +253,8 @@ func (h *LLMHandler) handleInterviewReview(ctx context.Context, job jobs.Job, p 
 	}
 
 	// Tenant isolation.
-	if job.OrgID != nil && *job.OrgID != "" {
-		if sessionOrgID == nil || *sessionOrgID != *job.OrgID {
-			return fmt.Errorf("handlers.llm: interview_review: org_id mismatch, refusing to process (session %s)", p.EntityID)
-		}
+	if err := requireOrgScope(job, sessionOrgID, "interview_review", fmt.Sprintf("session %s", p.EntityID)); err != nil {
+		return err
 	}
 
 	// Determine which item to review.
@@ -374,10 +372,8 @@ func (h *LLMHandler) handleRoadmapGenerate(ctx context.Context, job jobs.Job, p 
 	}
 
 	// Tenant isolation: if the job is scoped to an org, verify the roadmap belongs to it.
-	if job.OrgID != nil && *job.OrgID != "" {
-		if rm.OrgID == nil || *rm.OrgID != *job.OrgID {
-			return fmt.Errorf("handlers.llm: roadmap_generate: org_id mismatch, refusing to process (roadmap %s)", p.EntityID)
-		}
+	if err := requireOrgScope(job, rm.OrgID, "roadmap_generate", fmt.Sprintf("roadmap %s", p.EntityID)); err != nil {
+		return err
 	}
 
 	if !h.ai.Available() {
@@ -448,8 +444,8 @@ func (h *LLMHandler) handleRevisionPlanGenerate(ctx context.Context, job jobs.Jo
 	}
 
 	// Tenant isolation: if the job is scoped to an org, verify the plan belongs to it.
-	if job.OrgID != nil && *job.OrgID != "" && plan.OrgID != *job.OrgID {
-		return fmt.Errorf("handlers.llm: revision_plan_generate: org_id mismatch, refusing to process (plan %s)", p.EntityID)
+	if err := requireOrgScope(job, &plan.OrgID, "revision_plan_generate", fmt.Sprintf("plan %s", p.EntityID)); err != nil {
+		return err
 	}
 
 	if !h.ai.Available() {

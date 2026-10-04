@@ -55,6 +55,11 @@ func (c *DockerContainerService) StartWarm(ctx context.Context, warmID string, i
 	return c.startNamed(ctx, WarmContainerNamePrefix+warmID, image)
 }
 
+// StartValidation provisions a validation/clean-room sandbox. See ContainerRuntime.
+func (c *DockerContainerService) StartValidation(ctx context.Context, id string, image string) (containerID, containerHost string, err error) {
+	return c.startNamed(ctx, ValidationContainerNamePrefix+id, image)
+}
+
 // buildRunArgs is the pure "what flags does this container get" decision,
 // pulled out of startNamed so the profile-driven branch is unit-testable
 // without shelling out to a real Docker daemon — this is the single place
@@ -245,6 +250,26 @@ func (c *DockerContainerService) ExecSetup(ctx context.Context, containerID, scr
 	return c.execAs(ctx, "root", containerID, script, nil, timeoutSec)
 }
 
+// ExecCapture runs script as labuser with a caller-chosen output cap (see
+// ContainerRuntime.ExecCapture). No `timeout` wrapper: the caller's ctx
+// bounds it. Trusted callers only.
+func (c *DockerContainerService) ExecCapture(ctx context.Context, containerID, script string, maxBytes int) (stdout, stderr string, exitCode int, err error) {
+	cmd := exec.CommandContext(ctx, "docker", "exec", "--user", "labuser", containerID, "bash", "-c", script)
+	outBuf, errBuf := newBoundedBufferN(maxBytes), newBoundedBufferN(MaxExecOutputBytes)
+	cmd.Stdout = outBuf
+	cmd.Stderr = errBuf
+	err = cmd.Run()
+	stdout, stderr = outBuf.String(), errBuf.String()
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return stdout, stderr, exitErr.ExitCode(), nil
+		}
+		return stdout, stderr, -1, fmt.Errorf("labs.DockerContainerService.ExecCapture: %w", err)
+	}
+	return stdout, stderr, 0, nil
+}
+
 func (c *DockerContainerService) execWithStdin(ctx context.Context, containerID, script string, stdin []byte, timeoutSec int) (stdout, stderr string, exitCode int, err error) {
 	return c.execAs(ctx, "labuser", containerID, script, stdin, timeoutSec)
 }
@@ -290,12 +315,15 @@ func (c *DockerContainerService) execAs(ctx context.Context, user, containerID, 
 type boundedBuffer struct {
 	buf       bytes.Buffer
 	truncated bool
+	limit     int
 }
 
-func newBoundedBuffer() *boundedBuffer { return &boundedBuffer{} }
+func newBoundedBuffer() *boundedBuffer { return newBoundedBufferN(MaxExecOutputBytes) }
+
+func newBoundedBufferN(limit int) *boundedBuffer { return &boundedBuffer{limit: limit} }
 
 func (b *boundedBuffer) Write(p []byte) (int, error) {
-	if room := MaxExecOutputBytes - b.buf.Len(); room > 0 {
+	if room := b.limit - b.buf.Len(); room > 0 {
 		if len(p) <= room {
 			return b.buf.Write(p)
 		}

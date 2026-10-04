@@ -1,0 +1,151 @@
+kind: fault
+id: dj.svc.payments-no-timeout
+version: 1.0.0
+stack: django
+title: Checkout hangs for half a minute when the payments provider is slow
+summary: The payments client calls the provider without a timeout, so a slow provider ties up checkout requests until the provider answers.
+category: service-comm
+difficulty: beginner
+skills:
+- timeouts
+- failure-modes
+- requests
+requires:
+- slot:payments.client.request
+- svc:payments-stub
+- env:payments-latency
+fault:
+  inject:
+    slots:
+    - slot: payments.client.request
+      value: |
+        response = self.session.post(
+            url,
+            json=payload,
+            headers={"Idempotency-Key": str(idempotency_key)},
+        )
+  fix:
+    slots:
+    - slot: payments.client.request
+      value: |
+        response = self.session.post(
+            url,
+            json=payload,
+            headers={"Idempotency-Key": str(idempotency_key)},
+            timeout=settings.PAYMENTS_TIMEOUT,
+        )
+    files:
+    - path: tests/test_payments_timeout.py
+      from: fix/tests/test_payments_timeout.py
+  cheats:
+  - name: timeout-none
+    slots:
+    - slot: payments.client.request
+      value: |
+        response = self.session.post(
+            url,
+            json=payload,
+            headers={"Idempotency-Key": str(idempotency_key)},
+            timeout=None,
+        )
+  - name: one-hour-timeout
+    slots:
+    - slot: payments.client.request
+      value: |
+        response = self.session.post(
+            url,
+            json=payload,
+            headers={"Idempotency-Key": str(idempotency_key)},
+            timeout=3600,
+        )
+  - name: revert-the-commit
+    slots:
+    - slot: payments.client.request
+      value: |
+        response = self.session.post(
+            url,
+            json=payload,
+            headers={"Idempotency-Key": str(idempotency_key)},
+            timeout=settings.PAYMENTS_TIMEOUT,
+        )
+    files:
+    - path: ext/product_feed/urls.py
+      from: cheats/empty_urls.py
+  carrier:
+    feature: product-feed
+    files:
+    - path: ext/product_feed/__init__.py
+      from: carrier/ext/product_feed/__init__.py
+    - path: ext/product_feed/apps.py
+      from: carrier/ext/product_feed/apps.py
+    - path: ext/product_feed/urls.py
+      from: carrier/ext/product_feed/urls.py
+    - path: ext/product_feed/views.py
+      from: carrier/ext/product_feed/views.py
+  commit:
+    message: 'catalog: publish a partner product feed'
+    persona: Sam Okafor <sam@shop.example.com>
+  checks:
+  - ref: check.http-behavior
+    role: symptom
+    params:
+      steps:
+      - method: POST
+        path: /api/orders/
+        timeout: 25
+        headers:
+          Authorization: Token mf_tok_alice
+        body:
+          items:
+          - product: 1
+            quantity: 1
+          shipping_name: SVC1-slow-provider
+        expect_status:
+        - 502
+        - 503
+        - 504
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/dj_svc_1/test_payments_timeout.py
+  symptom:
+    vars:
+      title: Checkout spins for 30 seconds and then fails during payment provider trouble
+      report: This afternoon the payments provider had a slow period. During it, customers who pressed Pay watched the button spin for half a
+        minute or more, many gave up and reloaded (creating more waiting requests), and after a while the whole site felt sluggish even for people
+        who were only browsing.
+      where: 'Checkout: the step that charges the customer''s card through the payments provider.'
+      expected: If the provider does not answer promptly, checkout should give up within a few seconds and tell the customer the payment is temporarily
+        unavailable, so requests never pile up.
+      support_tried: The provider status page showed slow responses for about 40 minutes. We restarted the web workers, which helped for a minute
+        and then the site slowed down again.
+      observations: |-
+        ### Other observations from the reporter
+
+        - Product pages were slow too, although they do not talk to the provider.
+        - The partner product feed shipped the same day.
+        - The provider was eventually fine again and nothing needed to be repaired afterwards.
+    signature: requests to the payments provider wait for the provider with no timeout
+  hints:
+  - 'Reproduce the provider being slow: the lab has a payments stub that can be made slow with its fault API or environment (see the stub service).
+    Place an order and watch how long the request runs and what the worker is doing while it waits.'
+  - 'A network call without a timeout waits as long as the other side takes: the requests library has no default timeout at all. While it waits,
+    the worker thread and its database transaction are held. Every outbound call needs a timeout (connect and read) and a clear failure mode when
+    it expires.'
+  - In payments/client.py the post call has no timeout argument, although the settings define PAYMENTS_TIMEOUT. Pass a sensible (connect, read)
+    timeout, make sure the expiry becomes the service-unavailable answer, and add a test asserting that every request carries a timeout.
+  rubric:
+    key_points:
+    - Identifies the missing timeout on the outbound HTTP call and explains that requests waits forever by default.
+    - 'Explains the knock-on effects: held worker threads and open transactions, request pile-up, and unrelated pages slowing down.'
+    - Fixes it with explicit connect and read timeouts and a graceful failure (retry policy and a service-unavailable response).
+    - Adds a test asserting that the call carries a finite timeout.
+    misconceptions:
+    - Adding more workers or bigger instances solves a slow dependency.
+    - A very large timeout (or timeout=None) is the same as having one.
+    - Retrying without a timeout makes the request more reliable.
+  root_cause: |
+    `PaymentsClient._post` called `session.post(...)` without a `timeout`. The `requests` library never times out by default, so when the provider was slow every checkout request waited for the provider while holding a web worker and an open database transaction. Waiting requests piled up and starved the rest of the site.
+
+    The fix passes the configured `(connect, read)` timeout so a slow provider turns into a fast, explicit `503`.

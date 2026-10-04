@@ -13,11 +13,14 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/courses"
 	ent "github.com/mindforge/backend/internal/entitlements"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/labkinds"
 	"github.com/mindforge/backend/internal/notifications"
 	"github.com/mindforge/backend/internal/pricing"
+	"github.com/mindforge/backend/internal/storage"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -49,6 +52,8 @@ type RepoPreparer interface {
 type Service struct {
 	repo          *Repo
 	container     ContainerRuntime
+	// closer snapshots (student diff) then kills a sandbox on every close path.
+	closer        *SandboxCloser
 	rdb           *redis.Client
 	pool          *pgxpool.Pool
 	piston        *labPiston
@@ -56,6 +61,22 @@ type Service struct {
 	repoPreparer  RepoPreparer
 	notifications *notifications.Service
 	entitlements  *ent.Service
+	// labJWTSecret is LABPROXY_JWT_SECRET (= JWT_SECRET, see WSTokenType's
+	// doc comment) — the same shared secret MintWSToken signs WS tokens
+	// with, reused as the HMAC key for DeriveContainerCredential so
+	// acquireSandbox can write each session's ttyd credential without a
+	// second secret to provision and rotate.
+	labJWTSecret string
+	// aiProvider backs RequestHint (hint.go) — the generic lab hint endpoint
+	// (docs/labs.md "AI Integration" § Hint System).
+	aiProvider ai.LLMProvider
+	// bundleStore is the private object store lab-kind (docs/debug-labs.md)
+	// workspace/grader bundles are uploaded to and downloaded from — never
+	// the public storageClient every other feature uses (see
+	// storage.PrivateStore's doc comment). nil when MinIO isn't configured;
+	// every lab-kind path checks for that and fails clearly rather than
+	// nil-panicking.
+	bundleStore storage.PrivateStore
 }
 
 // NewService wires up the labs service. coursesSvc completes the course module
@@ -66,8 +87,10 @@ type Service struct {
 // lab's provisioning circuit breaker tripping). entitlementsSvc backs the
 // individual-tier lab_sessions_concurrent/lab_hours quota checks in
 // StartSession and the usage accrual in RecordSessionContainerUsage(Batch).
-func NewService(repo *Repo, container ContainerRuntime, rdb *redis.Client, pool *pgxpool.Pool, piston *labPiston, coursesSvc *courses.Service, repoPreparer RepoPreparer, notifSvc *notifications.Service, entitlementsSvc *ent.Service) *Service {
-	return &Service{repo: repo, container: container, rdb: rdb, pool: pool, piston: piston, coursesSvc: coursesSvc, repoPreparer: repoPreparer, notifications: notifSvc, entitlements: entitlementsSvc}
+// jwtSecret is LABPROXY_JWT_SECRET — see Service.labJWTSecret's doc comment.
+// aiProvider backs RequestHint — see Service.aiProvider's doc comment.
+func NewService(repo *Repo, container ContainerRuntime, rdb *redis.Client, pool *pgxpool.Pool, piston *labPiston, coursesSvc *courses.Service, repoPreparer RepoPreparer, notifSvc *notifications.Service, entitlementsSvc *ent.Service, jwtSecret string, aiProvider ai.LLMProvider, bundleStore storage.PrivateStore) *Service {
+	return &Service{repo: repo, container: container, closer: NewSandboxCloser(repo, container), rdb: rdb, pool: pool, piston: piston, coursesSvc: coursesSvc, repoPreparer: repoPreparer, notifications: notifSvc, entitlements: entitlementsSvc, labJWTSecret: jwtSecret, aiProvider: aiProvider, bundleStore: bundleStore}
 }
 
 // WSTokenType is the wsTokenClaims.Type value labproxy requires. labproxy
@@ -97,9 +120,22 @@ type wsTokenClaims struct {
 // fresh start instead of being returned. When an active session already
 // exists for the same user+lab, the existing session is returned rather than
 // an error.
-func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string, isTest bool, idempotencyKey string) (*LabSession, error) {
-	// 1. Load lab and verify it exists in this org.
-	lab, err := s.repo.GetLab(ctx, labID, orgID)
+// moduleID, when non-nil, is the course_modules placement the student
+// launched this session from — recorded on the session so completion
+// resolves back to THIS placement (see finalizeTaskPass). Library "try"
+// starts and the standalone /api/labs/{labId}/sessions caller pass nil.
+func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string, isTest bool, idempotencyKey string, moduleID *string) (*LabSession, error) {
+	// 1. Load lab. A course placement (moduleID, already validated by the
+	// handler to link to this lab in the caller's org) or an instructor
+	// library "try" (isTest) may use a platform-visible lab owned by another
+	// org; the standalone path stays same-org only.
+	var lab *LabDefinition
+	var err error
+	if moduleID != nil || isTest {
+		lab, err = s.repo.GetLabForPlacement(ctx, labID, orgID)
+	} else {
+		lab, err = s.repo.GetLab(ctx, labID, orgID)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -171,6 +207,18 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 			s.notifyRepeatedProvisionFailures(context.Background(), labID, orgID)
 			return nil, ErrLabProvisioningUnstable
 		}
+	}
+
+	// 4d. Pluggable lab kinds (backend/internal/labkinds): pin one of the
+	// build's verified variants, deterministically per (user, lab), so the
+	// insert below records it atomically with the session row.
+	var variantKey *string
+	if _, isKind := kindFor(lab); isKind {
+		vk, err := s.choosePinnedVariant(ctx, lab, userID)
+		if err != nil {
+			return nil, err
+		}
+		variantKey = &vk
 	}
 
 	// 5. Advisory lock + concurrency checks + insert — all in one transaction.
@@ -282,6 +330,8 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 		OrgID:         orgID,
 		ExpiresAt:     expiresAt,
 		IsTest:        isTest,
+		ModuleID:      moduleID,
+		VariantKey:    variantKey,
 	})
 	if err != nil {
 		if errors.Is(err, ErrSessionActive) {
@@ -363,7 +413,7 @@ func (s *Service) provisionContainer(ctx context.Context, session *LabSession, l
 		return
 	}
 
-	if err := s.prepareLabEnvironment(provisionCtx, containerID, lab); err != nil {
+	if err := s.prepareLabEnvironment(provisionCtx, containerID, lab, session); err != nil {
 		// The sandbox is unusable and unclaimable by anyone else — it is
 		// already bound to this session's row — so remove it rather than leave
 		// it for the orphan sweep.
@@ -399,23 +449,50 @@ func (s *Service) acquireSandbox(ctx context.Context, session *LabSession, lab *
 			slog.Error("labs.Service.acquireSandbox: claim warm", "session_id", session.ID, "error", claimErr)
 		} else if warm != nil {
 			if s.container.IsRunning(ctx, warm.ContainerID) && ProbeContainerReady(ctx, s.container, warm.ContainerID) {
-				return warm.ContainerID, warm.ContainerHost, nil
+				// A warm container is created long before any session (and
+				// so any session_id to derive a credential from) exists —
+				// see writeTTYDCredential's doc comment — so this claim is
+				// the earliest point it can be set. Failing the credential
+				// write is treated the same as a spoiled container: a
+				// session must never run against a sandbox whose ttyd
+				// might still be reachable unauthenticated.
+				if credErr := writeContainerCredentials(ctx, s.container, warm.ContainerID, session.ID, s.labJWTSecret); credErr != nil {
+					slog.Error("labs.Service.acquireSandbox: write ttyd credential on claimed warm container, cold-starting",
+						"session_id", session.ID, "warm_id", warm.ID, "error", credErr)
+					if delErr := s.repo.DeleteWarmContainer(ctx, warm.ID); delErr != nil {
+						slog.Error("labs.Service.acquireSandbox: delete dead warm row", "warm_id", warm.ID, "error", delErr)
+					}
+					_ = s.container.Kill(ctx, warm.ContainerID)
+				} else {
+					return warm.ContainerID, warm.ContainerHost, nil
+				}
+			} else {
+				// Alive-but-not-ready counts as spoiled too: something inside
+				// died while the container idled in the pool, and waiting on
+				// it would cost the student more than the cold start they
+				// were spared.
+				slog.Warn("labs.Service.acquireSandbox: warm container unusable at claim, cold-starting",
+					"session_id", session.ID, "warm_id", warm.ID)
+				if delErr := s.repo.DeleteWarmContainer(ctx, warm.ID); delErr != nil {
+					slog.Error("labs.Service.acquireSandbox: delete dead warm row", "warm_id", warm.ID, "error", delErr)
+				}
+				_ = s.container.Kill(ctx, warm.ContainerID)
 			}
-			// Alive-but-not-ready counts as spoiled too: something inside died
-			// while the container idled in the pool, and waiting on it would
-			// cost the student more than the cold start they were spared.
-			slog.Warn("labs.Service.acquireSandbox: warm container unusable at claim, cold-starting",
-				"session_id", session.ID, "warm_id", warm.ID)
-			if delErr := s.repo.DeleteWarmContainer(ctx, warm.ID); delErr != nil {
-				slog.Error("labs.Service.acquireSandbox: delete dead warm row", "warm_id", warm.ID, "error", delErr)
-			}
-			_ = s.container.Kill(ctx, warm.ContainerID)
 		}
 	}
 
 	containerID, containerHost, err = s.container.Start(ctx, session.ID, session.ResetCount, lab.Environment)
 	if err != nil {
 		return "", "", fmt.Errorf("labs.Service.acquireSandbox: start container: %w", err)
+	}
+	// Written before WaitContainerReady: readiness (ReadinessProbePath) never
+	// depends on ttyd, but entrypoint.sh refuses to start ttyd at all until
+	// this file exists (see writeTTYDCredential), so setting it as early as
+	// possible minimizes how long the container sits with no terminal
+	// listener yet.
+	if credErr := writeContainerCredentials(ctx, s.container, containerID, session.ID, s.labJWTSecret); credErr != nil {
+		_ = s.container.Kill(context.Background(), containerID)
+		return "", "", fmt.Errorf("labs.Service.acquireSandbox: write ttyd credential: %w", credErr)
 	}
 	if _, err := WaitContainerReady(ctx, s.container, containerID); err != nil {
 		_ = s.container.Kill(context.Background(), containerID)
@@ -438,11 +515,24 @@ func (s *Service) acquireSandbox(ctx context.Context, session *LabSession, lab *
 // A setup failure is fatal to the session by design — a lab whose starter files
 // did not land is a broken lab, and handing the student a terminal into a
 // half-prepared sandbox wastes their attempt on a problem that is not theirs.
-func (s *Service) prepareLabEnvironment(ctx context.Context, containerID string, lab *LabDefinition) error {
+func (s *Service) prepareLabEnvironment(ctx context.Context, containerID string, lab *LabDefinition, session *LabSession) error {
+	// A lab kind's pristine workspace bundle lands first, so its setup_script
+	// (readiness probe etc.) runs against the seeded workspace.
+	if _, isKind := kindFor(lab); isKind {
+		if err := s.seedKindWorkspace(ctx, containerID, lab, session); err != nil {
+			return fmt.Errorf("labs.Service.prepareLabEnvironment: %w", err)
+		}
+	}
 	if lab.SetupScript == nil || strings.TrimSpace(*lab.SetupScript) == "" {
 		return nil
 	}
-	stdout, stderr, exitCode, err := s.container.ExecSetup(ctx, containerID, *lab.SetupScript, SetupScriptTimeoutSeconds)
+	exec := s.container.ExecSetup
+	if s.container.Classify(lab.Environment).SetupAsImageUser {
+		exec = func(ctx context.Context, id, script string, timeoutSec int) (string, string, int, error) {
+			return s.container.Exec(ctx, id, script, timeoutSec)
+		}
+	}
+	stdout, stderr, exitCode, err := exec(ctx, containerID, *lab.SetupScript, SetupScriptTimeoutSeconds)
 	if err != nil {
 		return fmt.Errorf("labs.Service.prepareLabEnvironment: exec setup_script: %w", err)
 	}
@@ -702,7 +792,8 @@ func (s *Service) MintWSToken(ctx context.Context, sessionID, userID, jwtSecret,
 
 // ─── EndSession ───────────────────────────────────────────────────────────────
 
-// EndSession terminates an active session. It computes whether all required
+// EndSession terminates an active session — the student's "Finish" (or an
+// abandon). It computes whether all required
 // (non-optional) tasks were passed and marks the session completed or expired
 // accordingly.
 func (s *Service) EndSession(ctx context.Context, sessionID, userID string) error {
@@ -737,6 +828,12 @@ func (s *Service) EndSession(ctx context.Context, sessionID, userID string) erro
 	terminalStatus := SessionStatusExpired
 	if len(nonOptionalIDs) == 0 || passedCount >= len(nonOptionalIDs) {
 		terminalStatus = SessionStatusCompleted
+	}
+
+	// Lab kinds capture the student's diff for the debrief while the sandbox
+	// is still alive — it is killed right after this.
+	if terminalStatus == SessionStatusCompleted {
+		s.closer.Snapshot(ctx, session)
 	}
 
 	tx, err := s.pool.Begin(ctx)
@@ -864,12 +961,20 @@ func (s *Service) resetContainerSession(ctx context.Context, session *LabSession
 	// Same two-step every other provisioning path uses: wait for the image,
 	// then apply the lab. A reset that skipped either would hand the student a
 	// sandbox subtly unlike the one they started with.
+	// Same credential-before-anything-waits ordering as acquireSandbox's
+	// cold-start path — a reset's replacement container is a cold start in
+	// every respect that matters here (see writeTTYDCredential).
+	if credErr := writeContainerCredentials(ctx, s.container, newContainerID, session.ID, s.labJWTSecret); credErr != nil {
+		slog.Error("labs.Service.resetContainerSession: write ttyd credential", "session_id", session.ID, "error", credErr)
+		_ = s.container.Kill(context.Background(), newContainerID)
+		return nil, nil, ErrResetFailed
+	}
 	if _, err := WaitContainerReady(ctx, s.container, newContainerID); err != nil {
 		slog.Error("labs.Service.resetContainerSession: replacement never became ready", "session_id", session.ID, "error", err)
 		_ = s.container.Kill(context.Background(), newContainerID)
 		return nil, nil, ErrResetFailed
 	}
-	if err := s.prepareLabEnvironment(ctx, newContainerID, lab); err != nil {
+	if err := s.prepareLabEnvironment(ctx, newContainerID, lab, session); err != nil {
 		slog.Error("labs.Service.resetContainerSession: prepare replacement", "session_id", session.ID, "error", err)
 		_ = s.container.Kill(context.Background(), newContainerID)
 		return nil, nil, ErrResetFailed
@@ -956,11 +1061,8 @@ func (s *Service) VerifyTask(ctx context.Context, sessionID, taskID, userID, cod
 
 	// 2. Rate-limit per (session, task): one attempt every VerifyRateLimitSeconds.
 	rateLimitKey := fmt.Sprintf("lab:verify:rate:%s:%s", sessionID, taskID)
-	set, rErr := s.rdb.SetNX(ctx, rateLimitKey, 1, time.Duration(VerifyRateLimitSeconds)*time.Second).Result()
-	if rErr != nil {
-		slog.Error("labs.Service.VerifyTask: rate limit check", "error", rErr)
-	} else if !set {
-		return nil, ErrRateLimited
+	if err := s.acquireCooldown(ctx, rateLimitKey, time.Duration(VerifyRateLimitSeconds)*time.Second, "labs.Service.VerifyTask"); err != nil {
+		return nil, err
 	}
 
 	// 3. Load the pinned task snapshot for this session.
@@ -994,6 +1096,9 @@ func (s *Service) VerifyTask(ctx context.Context, sessionID, taskID, userID, cod
 		return nil, fmt.Errorf("labs.Service.VerifyTask: get lab: %w", err)
 	}
 
+	if kind, isKind := kindFor(lab); isKind {
+		return s.verifyKindTask(ctx, session, lab, kind, tasks, task, attempts)
+	}
 	if lab.LabType == LabTypeCode {
 		if lab.Language == nil {
 			return nil, fmt.Errorf("labs.Service.VerifyTask: code lab %s has no language configured", lab.ID)
@@ -1064,6 +1169,25 @@ func (s *Service) verifyContainerTask(ctx context.Context, session *LabSession, 
 	return s.finalizeTaskPass(ctx, session, lab, tasks, task.ID, task.Points, attempts, stdout, stderr)
 }
 
+// acquireCooldown is the single SetNX rate limit every labs endpoint uses: it
+// claims key for window, or returns a *RateLimitedError carrying the key's
+// remaining TTL. Fails open on Redis errors (same policy everywhere).
+func (s *Service) acquireCooldown(ctx context.Context, key string, window time.Duration, op string) error {
+	set, err := s.rdb.SetNX(ctx, key, 1, window).Result()
+	if err != nil {
+		slog.Error(op+": rate limit check", "error", err)
+		return nil
+	}
+	if set {
+		return nil
+	}
+	ttl, err := s.rdb.PTTL(ctx, key).Result()
+	if err != nil || ttl <= 0 {
+		ttl = window
+	}
+	return &RateLimitedError{RetryAfter: ttl}
+}
+
 // requireSessionLive is the shared precondition for every session-touching
 // endpoint: the session must be non-terminal AND still within its hard
 // expires_at deadline. Checking status alone (the previous behavior) left a
@@ -1092,14 +1216,21 @@ func (s *Service) requireSessionLive(ctx context.Context, session *LabSession) e
 		}
 		return nil
 	}
-	if err := s.repo.UpdateSessionExpired(ctx, session.ID, EndReasonTimeLimit); err != nil {
-		slog.Error("labs.Service.requireSessionLive: mark expired", "session_id", session.ID, "error", err)
+	// Snapshot + kill first (bounded, never blocks the close), then close.
+	s.closer.SnapshotAndKill(ctx, session)
+	closedAs, err := s.repo.CloseSessionAtDeadline(ctx, session.ID, EndReasonTimeLimit)
+	if err != nil {
+		slog.Error("labs.Service.requireSessionLive: close at deadline", "session_id", session.ID, "error", err)
 	}
 	if err := s.repo.RecordSessionContainerUsage(ctx, session.ID); err != nil {
 		slog.Error("labs.Service.requireSessionLive: record usage", "session_id", session.ID, "error", err)
 	}
-	if session.ContainerID != nil {
-		go s.container.Kill(context.Background(), *session.ContainerID)
+	// A CompleteOnFinish session whose required tasks passed closes as
+	// 'completed' (repo decides); everything else is 'expired'. The caller
+	// gets a distinct error for each so the client can tell them apart.
+	if closedAs == SessionStatusCompleted {
+		session.Status = SessionStatusCompleted
+		return ErrSessionCompletedAtDeadline
 	}
 	session.Status = SessionStatusExpired
 	return ErrSessionExpired
@@ -1188,7 +1319,20 @@ func (s *Service) finalizeTaskPass(ctx context.Context, session *LabSession, lab
 		return nil, fmt.Errorf("labs.Service.finalizeTaskPass: count passed: %w", err)
 	}
 
-	sessionCompleted := len(nonOptionalIDs) > 0 && passedCount >= len(nonOptionalIDs)
+	requiredPassed := len(nonOptionalIDs) > 0 && passedCount >= len(nonOptionalIDs)
+	// Completion policy: most labs complete the instant the last required
+	// task passes; CompleteOnFinish kinds only record it (the session stays
+	// active for the optional write-up until Finish/deadline) but the course
+	// module is still credited now so progress and unlocks aren't delayed.
+	sessionCompleted := requiredPassed && s.completionPolicy(lab) == labkinds.CompleteOnRequiredPass
+	creditModule := sessionCompleted
+	if requiredPassed && !sessionCompleted {
+		first, err := s.repo.MarkRequiredPassed(ctx, tx, session.ID)
+		if err != nil {
+			return nil, fmt.Errorf("labs.Service.finalizeTaskPass: %w", err)
+		}
+		creditModule = first
+	}
 	if sessionCompleted {
 		// UpdateSessionCompleted no longer takes a score to write — it
 		// RETURNs the row's current value instead. MarkTaskPassed above
@@ -1213,12 +1357,33 @@ func (s *Service) finalizeTaskPass(ctx context.Context, session *LabSession, lab
 		}
 	}
 
-	// Complete the embedding course module (non-fatal: the lab session itself
-	// is already committed above). Standalone/course-scoped labs with no
-	// module_id are skipped — there is no module to mark complete.
-	if sessionCompleted && s.coursesSvc != nil && lab.ModuleID != nil && lab.CourseID != nil {
-		if _, _, err := s.coursesSvc.CompleteModule(ctx, session.UserID, session.OrgID, *lab.ModuleID, *lab.CourseID); err != nil {
-			slog.Error("labs.Service.finalizeTaskPass: complete embedding module", "session", session.ID, "module", *lab.ModuleID, "err", err)
+	// Complete the placement module this session was actually launched from
+	// (non-fatal: the lab session itself is already committed above).
+	// session.ModuleID — set at StartSession from the course_modules row the
+	// student clicked "Launch Lab" on — is authoritative: it's what makes one
+	// published lab placed in two different courses complete the right
+	// module in each, instead of always completing lab.ModuleID (the single
+	// legacy module_id column on lab_definitions itself). A session with no
+	// ModuleID (library "try", or a pre-migration session still in flight)
+	// falls back to the lab's own legacy module_id/course_id when present;
+	// standalone labs with neither are skipped — there is no module to
+	// complete.
+	if creditModule && s.coursesSvc != nil {
+		// A placement's course is the module's own course, not the lab's
+		// authoring course — a library-placed lab lives in a different one.
+		moduleID, courseID := session.ModuleID, lab.CourseID
+		if moduleID == nil {
+			moduleID = lab.ModuleID
+		} else if placedCourseID, err := s.repo.GetModuleCourseID(ctx, *moduleID); err != nil {
+			slog.Error("labs.Service.finalizeTaskPass: resolve placement course", "session", session.ID, "module", *moduleID, "err", err)
+			courseID = nil
+		} else {
+			courseID = &placedCourseID
+		}
+		if moduleID != nil && courseID != nil {
+			if _, _, err := s.coursesSvc.CompleteModule(ctx, session.UserID, session.OrgID, *moduleID, *courseID); err != nil {
+				slog.Error("labs.Service.finalizeTaskPass: complete embedding module", "session", session.ID, "module", *moduleID, "err", err)
+			}
 		}
 	}
 

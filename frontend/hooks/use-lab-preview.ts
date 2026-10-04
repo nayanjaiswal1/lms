@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { mintWSTokenAction } from "@/app/(app)/labs/[labId]/actions"
+import { buildLabPreviewUrl } from "@/lib/labs/preview-url"
 
 interface UseLabPreviewReturn {
   /** Full labproxy preview URL for the iframe, or null while minting. */
@@ -30,10 +31,7 @@ export function useLabPreview(sessionId: string, port?: number): UseLabPreviewRe
         setHasError(true)
         return
       }
-      const wsUrl = process.env.NEXT_PUBLIC_LAB_PROXY_URL ?? "ws://localhost:18081/ws"
-      const httpUrl = wsUrl.replace(/^ws/, "http")
-      const portSegment = port && port > 0 ? `${port}/` : ""
-      setPreviewUrl(`${httpUrl}/preview/${res.data.session_token}/${portSegment}`)
+      setPreviewUrl(buildLabPreviewUrl(res.data.session_token, port))
     })
   }, [sessionId, port])
 

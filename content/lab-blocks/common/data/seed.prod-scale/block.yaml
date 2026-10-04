@@ -1,0 +1,30 @@
+kind: data
+id: seed.prod-scale
+version: 1.0.0
+stack: django
+title: Production-scale shop dataset
+summary: Roughly half a million rows (orders, items, invoices, payments, reviews) so missing indexes, N+1 queries, unpaginated lists and locking migrations become visible.
+category: data
+skills:
+  - data
+  - performance
+params:
+  type: object
+  properties:
+    rows:
+      type: integer
+      minimum: 100000
+      maximum: 1000000
+      default: 500000
+      description: Approximate total rows to generate.
+    days:
+      type: integer
+      minimum: 30
+      maximum: 730
+      default: 365
+      description: Orders are spread over this many days.
+budget:
+  setup_seconds: 14
+data:
+  generator: generate.py
+  rows: 500000

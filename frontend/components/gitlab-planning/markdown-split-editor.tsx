@@ -142,7 +142,7 @@ export function MarkdownSplitEditor({ initialValue }: MarkdownSplitEditorProps) 
               <span>LIVE PREVIEW</span>
               <span className="text-(--m-outline)">GitLab Flavored</span>
             </div>
-            <div className="ae-md min-h-0 flex-1 overflow-y-auto p-3" ref={preview} onScroll={() => mirror(preview.current, source.current)}>
+            <div className="ae-md prose-content min-h-0 flex-1 overflow-y-auto p-3" ref={preview} onScroll={() => mirror(preview.current, source.current)}>
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{md}</ReactMarkdown>
             </div>
           </div>

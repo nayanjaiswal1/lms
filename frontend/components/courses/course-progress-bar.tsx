@@ -4,18 +4,19 @@ interface CourseProgressBarProps {
   completed: number;
   total: number;
   className?: string;
+  label?: string;
 }
 
 const RADIUS = 15;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-export function CourseProgressBar({ completed, total, className }: CourseProgressBarProps) {
+export function CourseProgressBar({ completed, total, className, label = "Course progress" }: CourseProgressBarProps) {
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
   const offset = CIRCUMFERENCE - (pct / 100) * CIRCUMFERENCE;
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <p className="section-label">Course progress</p>
+      <p className="section-label">{label}</p>
       <div className="flex items-center gap-3">
         <div className="relative flex h-14 w-14 shrink-0 items-center justify-center">
           {/* -rotate-90 only on the circles (no text inside) so the arc starts

@@ -3,266 +3,339 @@ kind: lesson
 id_key: k8s/config-secrets/lesson
 course: fast-kubernetes
 section: config-secrets
-section_title: Configuration & Secrets
-section_position: 4
-title: Configuration & Secrets
+section_title: ConfigMaps & Secrets
+section_position: 5
+title: ConfigMaps and Secrets
 position: 0
-estimated_minutes: 30
+estimated_minutes: 40
 source:
-    - K8s-Configmap.md
-    - K8s-Secret.md
+  - K8s-Configmap.md
+  - K8s-Secret.md
 ---
 
-## K8s Configmap
+The same image should run in development, staging and production. What changes between them is **configuration**: database hosts, feature settings, API keys, passwords. Kubernetes keeps these outside the image in two kinds of objects: **ConfigMaps** for normal settings and **Secrets** for sensitive values.
 
-## LAB: K8s Configmap
+## Why configuration lives outside the image
 
-This scenario shows:
-- how to create config map (declerative way),
-- how to use configmap: volume and environment variable,
-- how to create configmap with command (imperative way),
-- how to get/delete configmap
+If you bake a database host into the image, you need a new image for each environment, and a password inside an image can be read by anyone who can pull it. The rule (from the "twelve-factor app" guidelines) is: **build one image, inject config at runtime.**
 
+Kubernetes injects config into a pod in two ways:
 
-### Steps
+1. As **environment variables**.
+2. As **files** in a mounted volume.
 
-- Run minikube  (in this scenario, K8s runs on WSL2- Ubuntu 20.04) ("minikube start")
+Both ConfigMaps and Secrets support both ways.
 
-![image](https://user-images.githubusercontent.com/10358317/153183333-371fe598-d5a4-4b86-9b5d-9e33f35063cc.png)
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-cfg-why-q1", "type": "mcq",
+    "prompt": "Why keep the database hostname out of the container image?",
+    "options": [
+      {"id": "a", "text": "Images cannot contain text"},
+      {"id": "b", "text": "So the same image can run in every environment with different settings injected at runtime"},
+      {"id": "c", "text": "Kubernetes deletes environment variables from images"},
+      {"id": "d", "text": "It makes the image build faster"}
+    ],
+    "correct": "b",
+    "explanation": "One image, many environments. Config is supplied by ConfigMaps and Secrets when the pod starts." }
+] }
+```
 
-- Create Yaml file (config.yaml) in your directory and copy the below definition into the file.
-- File: https://github.com/omerbsezer/Fast-Kubernetes/blob/main/labs/configmap/configmap.yaml
+## Creating a ConfigMap
 
-``` 
+Think of a notice board in a society lobby versus a locked drawer in the watchman's cabin. Anyone walking past can read the notice board, that is a ConfigMap: plain settings nobody minds being seen. The locked drawer holds things you would rather only a few people saw, that is a Secret, though as you will see below, the lock is weaker than it sounds.
+
+A **ConfigMap** stores key-value pairs. A value can be a short string or the whole content of a file.
+
+From YAML:
+
+```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: myconfigmap               
+  name: myconfigmap
 data:
-  db_server: "db.example.com"        # configmap key-value parameters
+  db_server: "db.example.com"      # simple values
   database: "mydatabase"
-  site.settings: |
+  site.settings: |                 # a whole file as one value
     color=blue
     padding:25px
----
+```
+
+From the command line:
+
+```bash
+kubectl create configmap myconfigmap2 \
+  --from-literal=background=red \
+  --from-file=theme.txt              # key = file name, value = file content
+kubectl create configmap nginx-conf --from-file=nginx.conf --from-env-file=app.env
+
+kubectl get configmaps
+kubectl describe configmap myconfigmap
+kubectl get configmap myconfigmap -o yaml
+```
+
+`--from-file=theme.txt` creates the key `theme.txt`. Use `--from-file=mykey=theme.txt` to choose the key name. A ConfigMap can hold at most 1 MiB. It is for configuration, not data.
+
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-cfg-create-q1", "type": "mcq",
+    "prompt": "`kubectl create configmap app --from-file=settings.ini` creates which key?",
+    "options": [
+      {"id": "a", "text": "app"},
+      {"id": "b", "text": "settings.ini, with the file content as its value"},
+      {"id": "c", "text": "One key per line of the file"},
+      {"id": "d", "text": "data"}
+    ],
+    "correct": "b",
+    "explanation": "--from-file uses the file name as the key and the whole file as the value, unless you write --from-file=<key>=<file>." }
+] }
+```
+
+## Using a ConfigMap in a pod
+
+```yaml
 apiVersion: v1
 kind: Pod
 metadata:
   name: configmappod
 spec:
   containers:
-  - name: configmapcontainer
-    image: nginx
-    env:                             # configmap using environment variable
-      - name: DB_SERVER
-        valueFrom:
-          configMapKeyRef:           
-            name: myconfigmap        # configmap name, from "myconfigmap" 
-            key: db_server
-      - name: DATABASE
-        valueFrom:
-          configMapKeyRef:
-            name: myconfigmap
-            key: database
+  - name: app
+    image: nginx:1.27
+    env:
+    - name: DB_SERVER                # one variable from one key
+      valueFrom:
+        configMapKeyRef:
+          name: myconfigmap
+          key: db_server
+    envFrom:                         # every key becomes a variable
+    - configMapRef:
+        name: myconfigmap2
     volumeMounts:
-      - name: config-vol
-        mountPath: "/config"
-        readOnly: true
+    - name: config-vol
+      mountPath: /config             # each key becomes a file in /config
+      readOnly: true
   volumes:
-    - name: config-vol               # transfer configmap parameters using volume
-      configMap:
-        name: myconfigmap
+  - name: config-vol
+    configMap:
+      name: myconfigmap
 ```
 
-![image](https://user-images.githubusercontent.com/10358317/154719668-bcd3bdb2-c102-489e-8049-747fd97126f3.png)
+Inside the container, `echo $DB_SERVER` prints `db.example.com`, and `cat /config/site.settings` prints the settings file.
 
-- Create configmap and the pod:
+**What happens when the ConfigMap changes?**
 
-![image](https://user-images.githubusercontent.com/10358317/153645965-84f8fe93-e73e-4468-bce4-4d2c3f49546f.png)
+- **Environment variables do not change** in a running container. They are read once at start. Restart the pods (`kubectl rollout restart deployment/<name>`).
+- **Mounted files are updated** automatically after a short delay (up to about a minute). The app must re-read the file to notice.
+- Files mounted with `subPath` are **not** updated.
 
-- Run bash in the pod:
+If the ConfigMap (or a key) does not exist, the pod will not start (`CreateContainerConfigError`), unless you mark the reference `optional: true`.
 
-![image](https://user-images.githubusercontent.com/10358317/153647020-54a0cf44-582f-4aab-8375-18c9d82ca494.png)
-
-- Define configmap with imperative way (--from-file and --from-literal) (create a file and put into "theme=dark")
-- File: https://github.com/omerbsezer/Fast-Kubernetes/blob/main/labs/configmap/theme.txt
-
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-cfg-use-q1", "type": "mcq",
+    "prompt": "You update a ConfigMap that a running pod uses as environment variables. What does the app see?",
+    "options": [
+      {"id": "a", "text": "The new values immediately"},
+      {"id": "b", "text": "The old values, until the container is restarted"},
+      {"id": "c", "text": "Empty values"},
+      {"id": "d", "text": "The pod crashes"}
+    ],
+    "correct": "b",
+    "explanation": "Environment variables are fixed when the container starts. Mounted files update after a delay; env vars need a restart." },
+  { "id": "k8s-cfg-use-q2", "type": "mcq",
+    "prompt": "Which field loads every key of a ConfigMap as environment variables at once?",
+    "options": [
+      {"id": "a", "text": "env[].valueFrom.configMapKeyRef"},
+      {"id": "b", "text": "envFrom[].configMapRef"},
+      {"id": "c", "text": "volumes[].configMap"},
+      {"id": "d", "text": "spec.configMap"}
+    ],
+    "correct": "b",
+    "explanation": "envFrom imports all keys. valueFrom.configMapKeyRef picks one key for one variable." }
+] }
 ```
-kubectl create configmap myconfigmap2 --from-literal=background=red --from-file=theme.txt
-```
 
-![image](https://user-images.githubusercontent.com/10358317/153647730-cf7e1545-ffbf-4fe8-b87e-6f1b59ef71df.png)
+## Secrets
 
-- Delete configmap:
+A **Secret** works like a ConfigMap but is meant for sensitive values: passwords, tokens, keys, certificates.
 
-![image](https://user-images.githubusercontent.com/10358317/153647842-87c9b154-fb1e-40a4-893a-700a80c94161.png)
-
-
-## K8s Secret
-
-## LAB: K8s Secret
-
-This scenario shows:
-- how to create secrets with file,
-- how to use secrets: volume and environment variable,
-- how to create secrets with command,
-- how to get/delete secrets
-
-
-### Steps
-
-- Run minikube  (in this scenario, K8s runs on WSL2- Ubuntu 20.04) ("minikube start")
-
-![image](https://user-images.githubusercontent.com/10358317/153183333-371fe598-d5a4-4b86-9b5d-9e33f35063cc.png)
-
-- Create Yaml file (secret.yaml) in your directory and copy the below definition into the file.
-- File: https://github.com/omerbsezer/Fast-Kubernetes/blob/main/labs/secret/secret.yaml
-
-``` 
-# Secret Object Creation  
+```yaml
 apiVersion: v1
 kind: Secret
 metadata:
   name: mysecret
-type: Opaque
-stringData:
+type: Opaque                   # generic key-value secret
+stringData:                    # plain text here; Kubernetes stores it base64-encoded
   db_server: db.example.com
   db_username: admin
   db_password: P@ssw0rd!
 ```
 
-![image](https://user-images.githubusercontent.com/10358317/154717259-629e529e-4178-489e-8d20-bad22faeb782.png)
+- `stringData` accepts plain text (easier to write).
+- `data` requires **base64-encoded** values: `echo -n 'admin' | base64` → `YWRtaW4=`. The `-n` matters; without it you encode a newline too.
 
-- Create Yaml file (secret-pods.yaml) in your directory and copy the below definition into the file.
-- 3 Pods:
-  - secret binding using volume
-  - secret binding environment variable: 1. explicitly, 2. implicitly
-- File: https://github.com/omerbsezer/Fast-Kubernetes/blob/main/labs/secret/secret-pods.yaml
-  
+From the command line:
+
+```bash
+kubectl create secret generic mysecret2 \
+  --from-literal=db_username=admin \
+  --from-literal=db_password='P@ssw0rd!'
+
+# from files, so the password never appears in your shell history
+kubectl create secret generic mysecret3 \
+  --from-file=db_username=username.txt \
+  --from-file=db_password=password.txt
+
+kubectl get secrets
+kubectl describe secret mysecret        # shows keys and sizes, not the values
+kubectl get secret mysecret -o jsonpath='{.data.db_password}' | base64 -d
 ```
-apiVersion: v1
-kind: Pod
-metadata:
-  name: secretvolumepod
+
+Other Secret types you will meet:
+
+| Type | Used for |
+|---|---|
+| `Opaque` | Any key-value data (default) |
+| `kubernetes.io/tls` | A TLS certificate and key (`kubectl create secret tls`), used by Ingress |
+| `kubernetes.io/dockerconfigjson` | Registry login for pulling private images (`kubectl create secret docker-registry`), used via `imagePullSecrets` |
+
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-cfg-secret-q1", "type": "mcq",
+    "prompt": "What is the difference between `data` and `stringData` in a Secret manifest?",
+    "options": [
+      {"id": "a", "text": "data is encrypted; stringData is not"},
+      {"id": "b", "text": "data takes base64-encoded values; stringData takes plain text that Kubernetes encodes for you"},
+      {"id": "c", "text": "stringData is only for TLS secrets"},
+      {"id": "d", "text": "There is no difference"}
+    ],
+    "correct": "b",
+    "explanation": "Both end up stored as base64 in data. stringData is just a convenience for writing plain text." }
+] }
+```
+
+## Using Secrets in a pod
+
+Exactly like ConfigMaps, with `secretKeyRef`, `secretRef` and `secret` volumes:
+
+```yaml
 spec:
   containers:
-  - name: secretcontainer
-    image: nginx
+  - name: app
+    image: nginx:1.27
+    env:
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: mysecret
+          key: db_password
+    envFrom:
+    - secretRef:
+        name: mysecret             # every key as a variable
     volumeMounts:
     - name: secret-vol
-      mountPath: /secret
+      mountPath: /secret           # each key becomes a file, e.g. /secret/db_password
+      readOnly: true
   volumes:
   - name: secret-vol
     secret:
       secretName: mysecret
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: secretenvpod
-spec:
-  containers:
-  - name: secretcontainer
-    image: nginx
-    env:
-      - name: username
-        valueFrom:
-          secretKeyRef:
-            name: mysecret
-            key: db_username
-      - name: password
-        valueFrom:
-          secretKeyRef:
-            name: mysecret
-            key: db_password
-      - name: server
-        valueFrom:
-          secretKeyRef:
-            name: mysecret
-            key: db_server
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: secretenvallpod
-spec:
-  containers:
-  - name: secretcontainer
-    image: nginx
-    envFrom:
-    - secretRef:
-        name: mysecret
 ```
 
-![image](https://user-images.githubusercontent.com/10358317/154717520-554ae3b6-cb55-4ad6-a2f3-7669c0788f77.png)
+Mounting secrets as **files** is often safer than environment variables. Environment variables are easy to leak: they show up in crash dumps, debug pages, and child processes, and some logging tools print them.
 
-![image](https://user-images.githubusercontent.com/10358317/154717625-d688251f-8bb6-44b4-843e-eca7b6496b29.png)
-
-![image](https://user-images.githubusercontent.com/10358317/154717703-49d3e207-15c7-4f3e-afb6-ba712c4dea67.png)
-
-- Create secret object:
-
-![image](https://user-images.githubusercontent.com/10358317/153636591-40f14380-02f2-4bc4-98f9-5f9c6eb7b9a6.png)
-
-- Create pods:
-
-![image](https://user-images.githubusercontent.com/10358317/153636772-246179b9-01b9-4032-8b3c-bd16331f537f.png)
-
-- Describe secret to see details:
-
-![image](https://user-images.githubusercontent.com/10358317/153638070-edba4d19-8ece-4f93-9579-fa9546c4a15d.png)
-
-- Run bash in the secretvolumepod (1st pod):
-
-![image](https://user-images.githubusercontent.com/10358317/153637318-e42326e9-4dc3-490d-a787-b0f1251a1808.png)
-
-- Run "printenv" command in the secretenvpod (2nd pod):
-
-![image](https://user-images.githubusercontent.com/10358317/153637549-9a1ceb13-d2dd-49ce-931b-ccfefbb75595.png)
-
-- Run "printenv" command in the secretenvallpod (3rd pod):
-
-![image](https://user-images.githubusercontent.com/10358317/153637762-d6dff332-3d80-4558-80b5-2ae86f4d0c92.png)
-
-- Create new secret with imperative way:
-
-``` 
-kubectl create secret generic mysecret2 --from-literal=db_server=db.example.com --from-literal=db_username=admin --from-literal=db_password=P@ssw0rd!
-```   
-
-![image](https://user-images.githubusercontent.com/10358317/153638556-50874231-7be3-4801-90d0-ae84f66c28e9.png)
-
-- Create new secret using files (avoid to see in the history command list).
-- Create file on the same directory before to run command (e.g. "touch server.txt"): 
-  - server.txt    => put into "db.example.com" with "cat" command
-  - password.txt  => put into "password" with "cat" command
-  - username.txt  => put into "admin" with "cat" command
-- Files: 
-  - https://github.com/omerbsezer/Fast-Kubernetes/blob/main/labs/secret/server.txt
-  - https://github.com/omerbsezer/Fast-Kubernetes/blob/main/labs/secret/password.txt
-  - https://github.com/omerbsezer/Fast-Kubernetes/blob/main/labs/secret/username.txt
-
-```     
-kubectl create secret generic mysecret3 --from-file=db_server=server.txt --from-file=db_username=username.txt --from-file=db_password=password.txt
-``` 
-
-![image](https://user-images.githubusercontent.com/10358317/153639595-4f8e5c95-151c-4990-93ac-6e8b98776fbd.png)
-
-- Create json file (config.json) and put following content.
-- File: https://github.com/omerbsezer/Fast-Kubernetes/blob/main/labs/secret/config.json
-
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-cfg-usesecret-q1", "type": "mcq",
+    "prompt": "A Secret mysecret with key api_key is mounted as a volume at /etc/creds. Where does the app find the value?",
+    "options": [
+      {"id": "a", "text": "In the environment variable API_KEY"},
+      {"id": "b", "text": "In the file /etc/creds/api_key"},
+      {"id": "c", "text": "In /etc/creds/mysecret.json"},
+      {"id": "d", "text": "In /var/run/secrets/api_key"}
+    ],
+    "correct": "b",
+    "explanation": "Each key of a mounted Secret (or ConfigMap) becomes a file named after the key inside the mount path." }
+] }
 ```
+
+## Keeping Secrets actually secret
+
+**base64 is encoding, not encryption.** Anyone who can read the Secret object can decode it in one command. By default, Secrets are also stored unencrypted in etcd. Protect them properly:
+
+- **Limit access with RBAC.** Only the people and service accounts that need a Secret should be allowed to `get` or `list` Secrets in that namespace. (RBAC is covered in the cluster operations lesson.)
+- **Enable encryption at rest** for Secrets in etcd (managed clouds usually offer this, often with a cloud KMS key).
+- **Never commit Secret manifests with real values to Git.** Use **Sealed Secrets** (encrypted files that only the cluster can decrypt), **SOPS**, or the **External Secrets Operator**, which syncs values from a vault such as AWS Secrets Manager, Azure Key Vault or HashiCorp Vault.
+- Mark Secrets and ConfigMaps that should never change as `immutable: true`. That protects them from accidental edits and reduces load on the API server.
+
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-cfg-safe-q1", "type": "mcq",
+    "prompt": "A teammate says: 'Our passwords are safe in Git because the Secret YAML is base64-encoded.' What is wrong with that?",
+    "options": [
+      {"id": "a", "text": "Nothing; base64 is strong encryption"},
+      {"id": "b", "text": "base64 is only encoding; anyone can decode it, so real secrets must not be committed in plain Secret manifests"},
+      {"id": "c", "text": "Git cannot store base64 text"},
+      {"id": "d", "text": "Kubernetes rejects base64 values"}
+    ],
+    "correct": "b",
+    "explanation": "`base64 -d` reverses it instantly. Use Sealed Secrets, SOPS or an external secret manager, and restrict access with RBAC." }
+] }
+```
+
+## Interview questions and real-world scenarios
+
+**Q: How do you pass configuration to a pod?**
+ConfigMaps and Secrets, as env vars (`env`/`envFrom`) or as mounted files. Plus the Downward API for pod metadata (name, namespace, labels, resource limits).
+
+**Q: Are Kubernetes Secrets secure?**
+Not by default: base64 only, readable by anyone with `get secrets`, and unencrypted in etcd unless encryption at rest is enabled. Make them secure with RBAC, KMS encryption, external secret stores and file mounts.
+
+**Q: How do pods pick up a changed ConfigMap?**
+Mounted files update after a delay (not with subPath); env vars need a restart. A common pattern is to put a hash of the config in a pod-template annotation (Helm's `checksum/config`) so any config change triggers a rollout automatically.
+
+**Q: What is an immutable ConfigMap/Secret?**
+`immutable: true` prevents changes, protects against accidental edits, and reduces API server watch load. To change it, create a new one with a new name and point the Deployment at it.
+
+**Q: How do you pull images from a private registry?**
+A `kubernetes.io/dockerconfigjson` Secret referenced in `imagePullSecrets` (or attached to the ServiceAccount). On clouds, node IAM roles or workload identity often replace stored credentials.
+
+**Real-world scenario: after rotating a database password, half the pods fail to connect.**
+Pods read the password as an env var at startup. Some restarted and got the new one, others still use the old one, which the database no longer accepts. Rotate safely: let the DB accept both passwords briefly, roll out a restart, then remove the old one. Mounted files plus apps that re-read them avoid restarts.
+
+**Real-world scenario: a pod is stuck in CreateContainerConfigError after a deploy.**
+The new version references a ConfigMap key or Secret that was not created in that environment. Create it, or ship config and code together (Helm/Kustomize) so they cannot drift.
+
+```knowledge-check
 {
-    "apiKey": "7ac4108d4b2212f2c30c71dfa279e1f77dd12356",
+  "questions": [
+    {
+      "id": "k8s-cfg-int-q1",
+      "type": "mcq",
+      "prompt": "How can Helm make a Deployment roll out automatically whenever its ConfigMap changes?",
+      "options": [
+        {
+          "id": "a",
+          "text": "It cannot"
+        },
+        {
+          "id": "b",
+          "text": "Put a checksum of the rendered ConfigMap in a pod-template annotation, so a config change changes the template"
+        },
+        {
+          "id": "c",
+          "text": "Use envFrom instead of env"
+        },
+        {
+          "id": "d",
+          "text": "Mark the ConfigMap immutable"
+        }
+      ],
+      "correct": "b",
+      "explanation": "Any change to the pod template triggers a rolling update; the checksum annotation ties the template to the config content."
+    }
+  ]
 }
 ```
-
-``` 
-kubectl create secret generic mysecret4 --from-file=config.json
-``` 
-
-![image](https://user-images.githubusercontent.com/10358317/153640684-cb16dac0-cddd-40b0-a90f-9f42b28e3373.png)
-
-- Delete mysecret4:
-
-![image](https://user-images.githubusercontent.com/10358317/153640797-617ddd36-cbb6-4a73-8955-f4482e521dde.png)

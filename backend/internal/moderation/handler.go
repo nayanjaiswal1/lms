@@ -1,7 +1,6 @@
 package moderation
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -43,8 +42,7 @@ func (h *Handler) CreateReport(w http.ResponseWriter, r *http.Request) {
 		Reason      string `json:"reason"`
 		Description string `json:"description"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	report, err := h.service.CreateReport(r.Context(), claims.UserID, req.ContentType, req.ContentID, req.Reason, req.Description)
@@ -85,8 +83,7 @@ func (h *Handler) Resolve(w http.ResponseWriter, r *http.Request) {
 		Status         string `json:"status"`
 		ResolutionNote string `json:"resolution_note"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	report, err := h.service.Resolve(r.Context(), claims.OrgID, chi.URLParam(r, "reportID"), req.Status, claims.UserID, req.ResolutionNote)

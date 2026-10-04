@@ -1,10 +1,11 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { BookOpen, Plus } from "lucide-react";
+import { BookOpen, Library, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CourseCard } from "@/components/courses/course-card";
 import { RandomTopicCard } from "@/components/courses/random-topic-card";
+import { BundleGrid } from "@/components/bundles/bundle-grid";
 import { getCourses, getEnrollments, getRandomTopic } from "@/lib/server/courses";
 import { getMyPermissions } from "@/lib/server/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
@@ -91,12 +92,20 @@ export default async function CoursesPage() {
       <div className="page-header">
         <h1 className="page-title">Courses</h1>
         {canManage && (
-          <Button asChild>
-            <Link href={ROUTES.COURSE_NEW}>
-              <Plus aria-hidden className="mr-2 h-4 w-4" />
-              New course
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link href={ROUTES.BUNDLE_NEW}>
+                <Library aria-hidden className="mr-2 h-4 w-4" />
+                New bundle
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href={ROUTES.COURSE_NEW}>
+                <Plus aria-hidden className="mr-2 h-4 w-4" />
+                New course
+              </Link>
+            </Button>
+          </div>
         )}
       </div>
       <div className="mb-6">
@@ -104,6 +113,9 @@ export default async function CoursesPage() {
           <RandomTopic />
         </Suspense>
       </div>
+      <Suspense fallback={null}>
+        <BundleGrid canManage={canManage} />
+      </Suspense>
       <Suspense fallback={<CourseGridSkeleton />}>
         <CourseGrid canEdit={canEdit} canManage={canManage} canViewAnalytics={canViewAnalytics} />
       </Suspense>

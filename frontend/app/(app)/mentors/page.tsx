@@ -213,9 +213,10 @@ async function YourBatchMentorsSection() {
 }
 
 async function YourMentorsSection() {
-  const [tickets, enrollments] = await Promise.all([
+  const [tickets, enrollments, mentors] = await Promise.all([
     getMyTickets(TICKET_KIND.MENTORSHIP).catch(() => []),
     getEnrollments().catch(() => []),
+    getMentors().catch(() => []),
   ]);
   const active = tickets.filter((t) => t.status === "open" || t.status === "assigned");
   const courseTitle = (courseId: string | null) => enrollments.find((e) => e.course_id === courseId)?.course.title;
@@ -244,7 +245,6 @@ async function YourMentorsSection() {
     );
   }
 
-  const mentors = await getMentors().catch(() => []);
   const mentorFor = (mentorId: string | null) => mentors.find((m) => m.user_id === mentorId);
 
   return (

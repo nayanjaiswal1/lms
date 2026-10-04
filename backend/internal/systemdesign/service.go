@@ -102,9 +102,9 @@ func (s *Service) GenerateFeedback(ctx context.Context, orgID, userID, moduleID,
 	if err != nil {
 		return FeedbackResponse{}, err
 	}
-	if !s.ai.Available() {
-		return FeedbackResponse{}, ErrAIUnavailable
-	}
+	// Read the attempt (and reject an empty board) before deciding whether the
+	// model is even reachable, so a request that could never have succeeded is
+	// reported for what it actually is instead of as an AI outage.
 	attempt, err := s.repo.GetAttempt(ctx, moduleID, userID, attemptID)
 	if err != nil {
 		return FeedbackResponse{}, err
@@ -112,6 +112,9 @@ func (s *Service) GenerateFeedback(ctx context.Context, orgID, userID, moduleID,
 	sceneText := extractSceneText(attempt.Scene)
 	if strings.TrimSpace(sceneText) == "" {
 		return FeedbackResponse{}, ErrEmptyScene
+	}
+	if !s.ai.Available() {
+		return FeedbackResponse{}, ErrAIUnavailable
 	}
 
 	userPrompt := fmt.Sprintf(

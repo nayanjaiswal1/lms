@@ -294,6 +294,12 @@ func (f *fakeRuntime) Unpause(context.Context, string) error { return nil }
 func (f *fakeRuntime) ExecStdin(context.Context, string, string, []byte, int) (string, string, int, error) {
 	return "", "", 0, nil
 }
+func (f *fakeRuntime) StartValidation(context.Context, string, string) (string, string, error) {
+	return "", "", nil
+}
+func (f *fakeRuntime) ExecCapture(context.Context, string, string, int) (string, string, int, error) {
+	return "", "", 0, nil
+}
 func (f *fakeRuntime) ExecSetup(context.Context, string, string, int) (string, string, int, error) {
 	return "", "", 0, nil
 }

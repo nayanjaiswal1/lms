@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Invoice {{ invoice.number }}{% endblock %}
+{% block content %}
+<h1>Invoice {{ invoice.number }}</h1>
+<p>Issued {{ invoice.issued_at|date:"Y-m-d" }} for order #{{ invoice.order_id }}.</p>
+<p><strong>Total: ${{ invoice.total }}</strong></p>
+{% endblock %}

@@ -3,7 +3,6 @@ package labs
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"sort"
 	"strconv"
 	"strings"
@@ -111,11 +110,8 @@ func (s *Service) ListPorts(ctx context.Context, sessionID, userID string) (*Lab
 	// Rate limit before touching the container. Fail open on Redis errors
 	// (same policy as RunScript/SubmitAll/VerifyTask).
 	rateLimitKey := fmt.Sprintf("lab:ports:rate:%s", sessionID)
-	set, rErr := s.rdb.SetNX(ctx, rateLimitKey, 1, portsRateLimitSeconds*time.Second).Result()
-	if rErr != nil {
-		slog.Error("labs.Service.ListPorts: rate limit check", "error", rErr)
-	} else if !set {
-		return nil, ErrRateLimited
+	if err := s.acquireCooldown(ctx, rateLimitKey, portsRateLimitSeconds*time.Second, "labs.Service.ListPorts"); err != nil {
+		return nil, err
 	}
 
 	session, err := s.loadRunnableSession(ctx, sessionID, userID)

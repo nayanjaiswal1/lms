@@ -3,11 +3,13 @@ package labs
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/ratelimit"
 )
 
 // Handler exposes the labs domain over HTTP.
@@ -20,6 +22,17 @@ type Handler struct {
 	jwtIssuer string
 	piston    *labPiston
 }
+
+// Service exposes the wired *Service so other domains can reuse it instead
+// of building a second one — library.Service's "try" endpoint reuses this to
+// call StartSession with is_test=true, the same path an instructor's own
+// "test my lab" button already goes through.
+func (h *Handler) Service() *Service { return h.service }
+
+// Repo exposes the wired *Repo so other domains needing read access to labs
+// (library.Service's Attach eligibility check, list/preview) reuse the same
+// stateless query surface instead of duplicating SQL.
+func (h *Handler) Repo() *Repo { return h.repo }
 
 // NewHandler builds the labs HTTP handler from wired dependencies.
 func NewHandler(repo *Repo, service *Service, pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer string, piston *labPiston) *Handler {
@@ -59,7 +72,7 @@ func writeDomainError(w http.ResponseWriter, err error) {
 	case errors.Is(err, ErrNoRunScript):
 		httputil.WriteError(w, http.StatusBadRequest, "This lab has no run script.")
 	case errors.Is(err, ErrSessionTerminal):
-		httputil.WriteError(w, http.StatusConflict, "Session has already ended.")
+		httputil.WriteErrorCode(w, http.StatusConflict, CodeSessionAlreadyEnded, "Session has already ended.")
 	case errors.Is(err, ErrLabNotPublished):
 		httputil.WriteError(w, http.StatusConflict, "Lab is not published.")
 	case errors.Is(err, ErrMaxResetsReached):
@@ -72,11 +85,15 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		// an explicit shape rather than an empty object the client can't use.
 		httputil.WriteJSON(w, http.StatusOK, map[string]any{"passed": true})
 	case errors.Is(err, ErrMaxHintsReached):
-		httputil.WriteError(w, http.StatusTooManyRequests, "Maximum hints reached for this task.")
+		httputil.WriteErrorCode(w, http.StatusTooManyRequests, CodeMaxHintsReached, "Maximum hints reached for this task.")
 	case errors.Is(err, ErrTaskNotOptional):
 		httputil.WriteError(w, http.StatusConflict, "Task cannot be skipped.")
 	case errors.Is(err, ErrRateLimited):
-		httputil.WriteError(w, http.StatusTooManyRequests, "Verify too soon — wait a moment.")
+		var limited *RateLimitedError
+		if errors.As(err, &limited) {
+			w.Header().Set("Retry-After", strconv.Itoa(ratelimit.RetryAfterSeconds(limited.RetryAfter)))
+		}
+		httputil.WriteErrorCode(w, http.StatusTooManyRequests, CodeRateLimited, "Too many requests — wait a moment.")
 	case errors.Is(err, ErrExecutorUnavailable):
 		httputil.WriteError(w, http.StatusServiceUnavailable, "Code executor is not configured on this server.")
 	case errors.Is(err, ErrInvalidPath):
@@ -85,14 +102,34 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusForbidden, "This lab is not available for your organization.")
 	case errors.Is(err, ErrLabProvisioningUnstable):
 		httputil.WriteError(w, http.StatusServiceUnavailable, "This lab is temporarily unavailable — it has failed to start repeatedly. Our team has been notified.")
+	case errors.Is(err, ErrSessionCompletedAtDeadline):
+		// 409 like the expired case (the session resource still exists — 410 Gone
+		// would misstate that); the code is what tells the client the lab succeeded.
+		httputil.WriteErrorCode(w, http.StatusConflict, CodeSessionCompletedAtDeadline, "Time's up — your lab was completed.")
 	case errors.Is(err, ErrSessionExpired):
-		httputil.WriteError(w, http.StatusConflict, "This lab session has expired.")
+		httputil.WriteErrorCode(w, http.StatusConflict, CodeSessionExpired, "This lab session has expired.")
 	case errors.Is(err, ErrResetFailed):
 		httputil.WriteError(w, http.StatusInternalServerError, "Could not reset this lab — the session has been ended. Please start a new one.")
 	case errors.Is(err, ErrLabTypeUnsupported):
 		httputil.WriteError(w, http.StatusConflict, "This action is not available for this lab type.")
 	case errors.Is(err, ErrContentTooLarge):
 		httputil.WriteError(w, http.StatusRequestEntityTooLarge, "File is too large.")
+	case errors.Is(err, ErrAICircuitOpen):
+		httputil.WriteErrorCode(w, http.StatusServiceUnavailable, CodeAIUnavailable, "AI hints are temporarily unavailable — try again in a couple of minutes.")
+	case errors.Is(err, ErrAIUnavailable):
+		httputil.WriteErrorCode(w, http.StatusServiceUnavailable, CodeAIUnavailable, "AI hints are not available right now.")
+	case errors.Is(err, ErrKindLabNotBuilt):
+		httputil.WriteError(w, http.StatusConflict, "This lab has no runnable build yet.")
+	case errors.Is(err, ErrBundleStoreUnavailable):
+		httputil.WriteError(w, http.StatusServiceUnavailable, "Lab content storage is not available right now.")
+	case errors.Is(err, ErrGradeBusy):
+		httputil.WriteErrorCode(w, http.StatusServiceUnavailable, CodeGraderBusy, "The grader is busy — try again in a few seconds.")
+	case errors.Is(err, ErrMaxWriteupReviewsReached):
+		httputil.WriteErrorCode(w, http.StatusTooManyRequests, CodeWriteupReviewLimit, "Maximum write-up reviews reached for this session.")
+	case errors.Is(err, ErrHintNotSupported):
+		httputil.WriteErrorCode(w, http.StatusUnprocessableEntity, CodeHintNotSupported, "Hints are not available for this task.")
+	case errors.Is(err, ErrNoDebrief):
+		httputil.WriteError(w, http.StatusConflict, "The debrief is available once the lab is completed.")
 	default:
 		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong. Please try again.")
 	}

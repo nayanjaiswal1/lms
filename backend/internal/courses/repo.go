@@ -400,7 +400,7 @@ func (r *Repo) GetCourseTreeBySlug(ctx context.Context, orgID, userID, slug stri
 // was resolved (by id vs. by slug).
 func (r *Repo) buildCourseTree(ctx context.Context, c Course) (CourseTree, error) {
 	sectionRows, err := r.pool.Query(ctx,
-		`SELECT id, course_id, title, position, created_at FROM course_sections
+		`SELECT id, course_id, title, position, group_title, created_at FROM course_sections
 		 WHERE course_id = $1 ORDER BY position`, c.ID)
 	if err != nil {
 		return CourseTree{}, fmt.Errorf("courses: get sections: %w", err)
@@ -410,7 +410,7 @@ func (r *Repo) buildCourseTree(ctx context.Context, c Course) (CourseTree, error
 	var sections []CourseSection
 	for sectionRows.Next() {
 		var s CourseSection
-		if err := sectionRows.Scan(&s.ID, &s.CourseID, &s.Title, &s.Position, &s.CreatedAt); err != nil {
+		if err := sectionRows.Scan(&s.ID, &s.CourseID, &s.Title, &s.Position, &s.GroupTitle, &s.CreatedAt); err != nil {
 			return CourseTree{}, fmt.Errorf("courses: scan section: %w", err)
 		}
 		sections = append(sections, s)
@@ -422,6 +422,7 @@ func (r *Repo) buildCourseTree(ctx context.Context, c Course) (CourseTree, error
 	modRows, err := r.pool.Query(ctx,
 		`SELECT id, course_id, section_id, title, type, position, is_free_preview,
 		        storage_key, duration_seconds, content_body, assessment_id, estimated_minutes,
+		        lab_id, lab_is_required, copied_from_module_id,
 		        starts_at, ends_at, created_at, updated_at
 		 FROM course_modules WHERE course_id = $1 AND deleted_at IS NULL ORDER BY section_id, position`, c.ID)
 	if err != nil {
@@ -434,7 +435,8 @@ func (r *Repo) buildCourseTree(ctx context.Context, c Course) (CourseTree, error
 		var m CourseModule
 		if err := modRows.Scan(&m.ID, &m.CourseID, &m.SectionID, &m.Title, &m.Type, &m.Position,
 			&m.IsFreePreview, &m.StorageKey, &m.DurationSeconds, &m.ContentBody,
-			&m.AssessmentID, &m.EstimatedMinutes, &m.StartsAt, &m.EndsAt, &m.CreatedAt, &m.UpdatedAt); err != nil {
+			&m.AssessmentID, &m.EstimatedMinutes, &m.LabID, &m.LabIsRequired, &m.CopiedFromModuleID,
+			&m.StartsAt, &m.EndsAt, &m.CreatedAt, &m.UpdatedAt); err != nil {
 			return CourseTree{}, fmt.Errorf("courses: scan module: %w", err)
 		}
 		modsBySectionID[m.SectionID] = append(modsBySectionID[m.SectionID], m)
@@ -475,11 +477,11 @@ func (r *Repo) CreateSection(ctx context.Context, s CourseSection) (CourseSectio
 func (r *Repo) GetSectionForOrg(ctx context.Context, orgID, sectionID string) (CourseSection, error) {
 	var s CourseSection
 	err := r.pool.QueryRow(ctx,
-		`SELECT cs.id, cs.course_id, cs.title, cs.position, cs.created_at
+		`SELECT cs.id, cs.course_id, cs.title, cs.position, cs.group_title, cs.created_at
 		 FROM course_sections cs
 		 JOIN courses c ON c.id = cs.course_id
 		 WHERE cs.id = $1 AND c.org_id = $2`, sectionID, orgID,
-	).Scan(&s.ID, &s.CourseID, &s.Title, &s.Position, &s.CreatedAt)
+	).Scan(&s.ID, &s.CourseID, &s.Title, &s.Position, &s.GroupTitle, &s.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return CourseSection{}, ErrNotFound
@@ -494,9 +496,9 @@ func (r *Repo) UpdateSection(ctx context.Context, orgID string, s CourseSection)
 	err := r.pool.QueryRow(ctx,
 		`UPDATE course_sections cs SET title=$2
 		 FROM courses c WHERE cs.id=$1 AND cs.course_id=c.id AND c.org_id=$3
-		 RETURNING cs.id, cs.course_id, cs.title, cs.position, cs.created_at`,
+		 RETURNING cs.id, cs.course_id, cs.title, cs.position, cs.group_title, cs.created_at`,
 		s.ID, s.Title, orgID,
-	).Scan(&s.ID, &s.CourseID, &s.Title, &s.Position, &s.CreatedAt)
+	).Scan(&s.ID, &s.CourseID, &s.Title, &s.Position, &s.GroupTitle, &s.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return CourseSection{}, ErrNotFound
@@ -565,6 +567,71 @@ func (r *Repo) CreateModule(ctx context.Context, m CourseModule) (CourseModule, 
 	return m, nil
 }
 
+// InsertModuleTx inserts a module inside an existing transaction, reusing
+// CreateModule's column list plus lab_id/lab_is_required/copied_from_module_id
+// — the one shared insert path library.Service.Attach and the builder's
+// publish-then-attach step both funnel through (docs/debug-labs.md L3), so a
+// lab/quiz/notes placement and a plain video/pdf/notes module always land in
+// course_modules the same way. m.Position is required (not auto-assigned):
+// the caller has already locked the section and shifted any positions >= it.
+func (r *Repo) InsertModuleTx(ctx context.Context, tx pgx.Tx, m CourseModule) (CourseModule, error) {
+	err := tx.QueryRow(ctx,
+		`INSERT INTO course_modules (course_id, section_id, title, type, position, is_free_preview,
+		  storage_key, duration_seconds, content_body, assessment_id, estimated_minutes, starts_at, ends_at,
+		  lab_id, lab_is_required, copied_from_module_id)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+		 RETURNING id, position, created_at, updated_at`,
+		m.CourseID, m.SectionID, m.Title, m.Type, m.Position, m.IsFreePreview,
+		m.StorageKey, m.DurationSeconds, m.ContentBody, m.AssessmentID, m.EstimatedMinutes,
+		m.StartsAt, m.EndsAt, m.LabID, m.LabIsRequired, m.CopiedFromModuleID,
+	).Scan(&m.ID, &m.Position, &m.CreatedAt, &m.UpdatedAt)
+	if err != nil {
+		return CourseModule{}, fmt.Errorf("courses: insert module tx: %w", err)
+	}
+	return m, nil
+}
+
+// LockSectionForOrg row-locks a section (and its parent course) for the
+// duration of tx, scoped to orgID — the first step of library.Service.Attach
+// (docs/debug-labs.md L3 step 1), so two concurrent attaches into the same
+// section can't both read the same "current module count" and pick
+// colliding insert positions.
+func (r *Repo) LockSectionForOrg(ctx context.Context, tx pgx.Tx, orgID, sectionID string) (CourseSection, error) {
+	var s CourseSection
+	err := tx.QueryRow(ctx,
+		`SELECT cs.id, cs.course_id, cs.title, cs.position, cs.group_title, cs.created_at
+		 FROM course_sections cs
+		 JOIN courses c ON c.id = cs.course_id
+		 WHERE cs.id = $1 AND c.org_id = $2
+		 FOR UPDATE OF cs`, sectionID, orgID,
+	).Scan(&s.ID, &s.CourseID, &s.Title, &s.Position, &s.GroupTitle, &s.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return CourseSection{}, ErrNotFound
+		}
+		return CourseSection{}, fmt.Errorf("courses: lock section for org: %w", err)
+	}
+	return s, nil
+}
+
+// ShiftModulePositionsTx bumps every non-deleted module in sectionID whose
+// position is >= fromPosition up by one, opening a gap for an insert at
+// fromPosition. Safe as a single bulk UPDATE only because
+// course_modules_section_id_position_key is DEFERRABLE INITIALLY DEFERRED
+// (migration 013) — the transient duplicate positions this creates mid-batch
+// are only checked at COMMIT, by which time the caller's own insert (at the
+// now-vacated fromPosition) has made every position unique again.
+func (r *Repo) ShiftModulePositionsTx(ctx context.Context, tx pgx.Tx, sectionID string, fromPosition int) error {
+	if _, err := tx.Exec(ctx,
+		`UPDATE course_modules SET position = position + 1, updated_at = now()
+		 WHERE section_id = $1 AND position >= $2 AND deleted_at IS NULL`,
+		sectionID, fromPosition,
+	); err != nil {
+		return fmt.Errorf("courses: shift module positions: %w", err)
+	}
+	return nil
+}
+
 // GetModule returns a single module; respects org scope via course FK.
 func (r *Repo) GetModule(ctx context.Context, orgID, moduleID string) (CourseModule, error) {
 	var m CourseModule
@@ -572,13 +639,17 @@ func (r *Repo) GetModule(ctx context.Context, orgID, moduleID string) (CourseMod
 	err := r.pool.QueryRow(ctx,
 		`SELECT cm.id, cm.course_id, cm.section_id, cm.title, cm.type, cm.position,
 		        cm.is_free_preview, cm.storage_key, cm.duration_seconds, cm.content_body,
-		        cm.assessment_id, cm.estimated_minutes, cm.knowledge_check, cm.starts_at, cm.ends_at, cm.created_at, cm.updated_at
+		        cm.assessment_id, cm.estimated_minutes, cm.knowledge_check,
+		        cm.lab_id, cm.lab_is_required, cm.copied_from_module_id,
+		        cm.starts_at, cm.ends_at, cm.created_at, cm.updated_at
 		 FROM course_modules cm
 		 JOIN courses c ON c.id = cm.course_id
 		 WHERE cm.id=$1 AND c.org_id=$2 AND cm.deleted_at IS NULL`, moduleID, orgID,
 	).Scan(&m.ID, &m.CourseID, &m.SectionID, &m.Title, &m.Type, &m.Position,
 		&m.IsFreePreview, &m.StorageKey, &m.DurationSeconds, &m.ContentBody,
-		&m.AssessmentID, &m.EstimatedMinutes, &knowledgeCheckRaw, &m.StartsAt, &m.EndsAt, &m.CreatedAt, &m.UpdatedAt)
+		&m.AssessmentID, &m.EstimatedMinutes, &knowledgeCheckRaw,
+		&m.LabID, &m.LabIsRequired, &m.CopiedFromModuleID,
+		&m.StartsAt, &m.EndsAt, &m.CreatedAt, &m.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return CourseModule{}, ErrNotFound
@@ -631,6 +702,31 @@ func (r *Repo) UpdateModule(ctx context.Context, orgID string, m CourseModule) (
 			return CourseModule{}, ErrNotFound
 		}
 		return CourseModule{}, fmt.Errorf("courses: update module: %w", err)
+	}
+	return m, nil
+}
+
+// SetModuleLabRequired updates a lab module's per-placement Required flag
+// (course_modules.lab_is_required) — see module-editor.tsx's Required
+// toggle. Scoped to type='lab' modules only; the generic UpdateModule path
+// never touches lab_id/lab_is_required.
+func (r *Repo) SetModuleLabRequired(ctx context.Context, orgID, moduleID string, required bool) (CourseModule, error) {
+	var m CourseModule
+	err := r.pool.QueryRow(ctx,
+		`UPDATE course_modules cm SET lab_is_required=$3, updated_at=now()
+		 FROM courses c WHERE cm.id=$1 AND cm.course_id=c.id AND c.org_id=$2 AND cm.deleted_at IS NULL AND cm.type='lab'
+		 RETURNING cm.id, cm.course_id, cm.section_id, cm.title, cm.type, cm.position, cm.is_free_preview,
+		           cm.storage_key, cm.duration_seconds, cm.content_body, cm.assessment_id, cm.estimated_minutes,
+		           cm.lab_id, cm.lab_is_required, cm.copied_from_module_id, cm.starts_at, cm.ends_at, cm.created_at, cm.updated_at`,
+		moduleID, orgID, required,
+	).Scan(&m.ID, &m.CourseID, &m.SectionID, &m.Title, &m.Type, &m.Position, &m.IsFreePreview,
+		&m.StorageKey, &m.DurationSeconds, &m.ContentBody, &m.AssessmentID, &m.EstimatedMinutes,
+		&m.LabID, &m.LabIsRequired, &m.CopiedFromModuleID, &m.StartsAt, &m.EndsAt, &m.CreatedAt, &m.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return CourseModule{}, ErrNotFound
+		}
+		return CourseModule{}, fmt.Errorf("courses: set module lab required: %w", err)
 	}
 	return m, nil
 }
@@ -1206,9 +1302,10 @@ func copySectionsAndModules(ctx context.Context, tx pgx.Tx, fromCourseID, toCour
 		return fmt.Errorf("courses: copy sections: orig rows: %w", err)
 	}
 
+	// group_title is copied too so a fork keeps the source course's nested section headings.
 	secRows, err := tx.Query(ctx,
-		`INSERT INTO course_sections (course_id, title, position)
-		 SELECT $1, title, position FROM course_sections WHERE course_id=$2 ORDER BY position
+		`INSERT INTO course_sections (course_id, title, position, group_title)
+		 SELECT $1, title, position, group_title FROM course_sections WHERE course_id=$2 ORDER BY position
 		 RETURNING id`,
 		toCourseID, fromCourseID)
 	if err != nil {
@@ -1231,9 +1328,14 @@ func copySectionsAndModules(ctx context.Context, tx pgx.Tx, fromCourseID, toCour
 		if i >= len(newSecIDs) {
 			break
 		}
+		// lab_id/lab_is_required are copied too — a forked lab module used to
+		// reference nothing (lab_definitions was keyed by module_id, which a
+		// fork always changes), leaving every forked lab dead. See L0 in
+		// docs/debug-labs.md and 044_course_library.sql's relink backfill for
+		// courses forked before this fix shipped.
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO course_modules (course_id, section_id, title, type, position, is_free_preview, storage_key, duration_seconds, content_body, assessment_id, estimated_minutes)
-			 SELECT $1,$2,title,type,position,is_free_preview,storage_key,duration_seconds,content_body,assessment_id,estimated_minutes
+			`INSERT INTO course_modules (course_id, section_id, title, type, position, is_free_preview, storage_key, duration_seconds, content_body, assessment_id, estimated_minutes, lab_id, lab_is_required)
+			 SELECT $1,$2,title,type,position,is_free_preview,storage_key,duration_seconds,content_body,assessment_id,estimated_minutes,lab_id,lab_is_required
 			 FROM course_modules WHERE section_id=$3 AND deleted_at IS NULL ORDER BY position`,
 			toCourseID, newSecIDs[i], origSecID); err != nil {
 			return fmt.Errorf("courses: copy modules for section %s: %w", origSecID, err)

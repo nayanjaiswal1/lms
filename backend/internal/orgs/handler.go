@@ -1,7 +1,6 @@
 package orgs
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -113,8 +112,7 @@ func (h *Handler) handleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateOrgRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -186,8 +184,7 @@ func (h *Handler) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req UpdateOrgRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -234,7 +231,10 @@ func (h *Handler) handleSwitch(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		OrgID string `json:"org_id"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.OrgID == "" {
+	if !httputil.DecodeJSON(w, r, &req) {
+		return
+	}
+	if req.OrgID == "" {
 		httputil.WriteError(w, http.StatusBadRequest, "org_id is required.")
 		return
 	}
@@ -261,15 +261,7 @@ func (h *Handler) handleSwitch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "access_token",
-		Value:    newToken,
-		Path:     "/",
-		MaxAge:   15 * 60,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		Secure:   h.cfg.IsProd(),
-	})
+	auth.SetAccessCookie(w, h.cfg, newToken)
 	httputil.WriteJSON(w, http.StatusOK, map[string]string{
 		"org_id": summary.ID,
 		"role":   summary.Role,
@@ -284,7 +276,10 @@ func (h *Handler) handleJoin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req JoinOrgRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
+	if !httputil.DecodeJSON(w, r, &req) {
+		return
+	}
+	if req.Token == "" {
 		httputil.WriteError(w, http.StatusBadRequest, "token is required.")
 		return
 	}
@@ -352,8 +347,7 @@ func (h *Handler) handleSaveOnboarding(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req SaveOnboardingRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -417,8 +411,7 @@ func (h *Handler) handleUpdateAuthConfig(w http.ResponseWriter, r *http.Request)
 		SSOProvider    *string  `json:"sso_provider"`
 		AllowedDomains []string `json:"allowed_domains"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -505,8 +498,7 @@ func (h *Handler) handleUpdateAIConnectorConfig(w http.ResponseWriter, r *http.R
 	var req struct {
 		Enabled bool `json:"enabled"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -566,8 +558,7 @@ func (h *Handler) handleAddDomain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req AddDomainRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -596,8 +587,7 @@ func (h *Handler) handleVerifyDomain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req VerifyDomainRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.DomainID == "" || req.Token == "" {
@@ -633,8 +623,7 @@ func (h *Handler) handleSetAutoJoin(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Enabled bool `json:"enabled"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -689,8 +678,7 @@ func (h *Handler) handleCreateInvite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateInviteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -834,8 +822,7 @@ func (h *Handler) handleBatchCreateInvites(w http.ResponseWriter, r *http.Reques
 		Emails []string `json:"emails"`
 		Role   string   `json:"role"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Role == "" {
@@ -974,8 +961,7 @@ func (h *Handler) handleBatchRevokeInvites(w http.ResponseWriter, r *http.Reques
 	var req struct {
 		InviteIDs []string `json:"invite_ids"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if len(req.InviteIDs) == 0 {
@@ -1014,8 +1000,7 @@ func (h *Handler) handleBatchResendInvites(w http.ResponseWriter, r *http.Reques
 	var req struct {
 		InviteIDs []string `json:"invite_ids"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if len(req.InviteIDs) == 0 {
@@ -1092,8 +1077,7 @@ func (h *Handler) handleUpdateMember(w http.ResponseWriter, r *http.Request) {
 
 	memberID := chi.URLParam(r, "member_id")
 	var req UpdateMemberRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
