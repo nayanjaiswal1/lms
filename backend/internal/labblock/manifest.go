@@ -264,8 +264,9 @@ type EnvSection struct {
 	MissingVar string   `yaml:"missing_var" json:"missing_var,omitempty"`
 }
 
-// Probe kinds (docs/debug-labs.md §B1 check row): P/Q/C/M/L/H/T.
-var ProbeKinds = []string{"P", "Q", "C", "M", "L", "H", "T"}
+// Probe kinds (docs/debug-labs.md §B1 check row): P/Q/C/M/L/H/T, plus J (hidden
+// vitest tests for React labs).
+var ProbeKinds = []string{"P", "Q", "C", "M", "L", "H", "T", "J"}
 
 // CheckSection is the kind=check description: a root-owned grader probe.
 type CheckSection struct {

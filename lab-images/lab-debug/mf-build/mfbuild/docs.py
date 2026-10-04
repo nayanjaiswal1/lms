@@ -80,7 +80,30 @@ def _setup_sh(v: dict, cmds: list[str]) -> bytes:
     return ("\n".join(lines) + "\n").encode()
 
 
+def _vscode_js() -> Tree:
+    """Editor config for React/Node apps: vitest under the built-in JS debugger."""
+    launch = {"version": "0.2.0", "configurations": [
+        {"name": "Debug tests (vitest)", "type": "node", "request": "launch", "console": "integratedTerminal",
+         "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs", "args": ["run", "--no-file-parallelism"],
+         "autoAttachChildProcesses": True, "skipFiles": ["<node_internals>/**", "**/node_modules/**"]},
+    ]}
+    tasks = {"version": "2.0.0", "tasks": [
+        {"label": "Run tests", "type": "shell", "command": "npx vitest run", "problemMatcher": []},
+        {"label": "Restart app", "type": "shell", "command": "mf-svc restart-workspace", "problemMatcher": []},
+        {"label": "App log", "type": "shell", "command": "tail -n 200 -f /var/log/mindforge-lab/app.log", "problemMatcher": []},
+    ]}
+    settings = {"files.exclude": {".mf": True}, "search.exclude": {"node_modules": True}}
+    return _vscode_files(launch, tasks, settings)
+
+
+def _vscode_files(launch: dict, tasks: dict, settings: dict) -> Tree:
+    dump = lambda o: (json.dumps(o, indent=2) + "\n").encode()  # noqa: E731
+    return {".vscode/launch.json": dump(launch), ".vscode/tasks.json": dump(tasks), ".vscode/settings.json": dump(settings)}
+
+
 def _vscode(v: dict) -> Tree:
+    if v["app"]["language"] == "js":
+        return _vscode_js()
     launch = {"version": "0.2.0", "configurations": [
         {"name": f"Attach to app (debugpy :{DEBUGPY_PORT})", "type": "debugpy", "request": "attach",
          "connect": {"host": "127.0.0.1", "port": DEBUGPY_PORT}, "justMyCode": False},
@@ -94,8 +117,7 @@ def _vscode(v: dict) -> Tree:
     ]}
     settings = {"python.defaultInterpreterPath": "/usr/bin/python3", "files.exclude": {".mf": True},
                 "python.testing.pytestEnabled": True, "python.testing.unittestEnabled": False}
-    dump = lambda o: (json.dumps(o, indent=2) + "\n").encode()  # noqa: E731
-    return {".vscode/launch.json": dump(launch), ".vscode/tasks.json": dump(tasks), ".vscode/settings.json": dump(settings)}
+    return _vscode_files(launch, tasks, settings)
 
 
 def build_extras(v: dict, blocks: Blocks, cmds: list[str]) -> Tree:

@@ -1,0 +1,33 @@
+kind: data
+id: seed.fa-small
+version: 1.0.0
+stack: fastapi
+title: Small orders dataset
+summary: About 30 customers, 60 products, 150 orders with items and payments, a wallet balance and feature flags; named demo accounts and API tokens for probes.
+category: data
+skills:
+  - data
+params:
+  type: object
+  properties:
+    customers:
+      type: integer
+      minimum: 8
+      maximum: 500
+      default: 30
+      description: Total customers (the first 7 are the named demo accounts staff, alice, bob, carol, dan, erin, frank).
+    products:
+      type: integer
+      minimum: 10
+      maximum: 1000
+      default: 60
+    orders:
+      type: integer
+      minimum: 10
+      maximum: 5000
+      default: 150
+budget:
+  setup_seconds: 2
+data:
+  generator: generate.py
+  rows: 400

@@ -285,6 +285,9 @@ func (h *Handler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Status              string `json:"status"`
 		LastPositionSeconds int    `json:"last_position_seconds"`
+		// SkipChecks is the learner's own "hide knowledge checks" preference
+		// (client-side setting) — it only ever relaxes their own gate.
+		SkipChecks bool `json:"skip_checks"`
 	}
 	if !httputil.DecodeJSON(w, r, &req) {
 		return

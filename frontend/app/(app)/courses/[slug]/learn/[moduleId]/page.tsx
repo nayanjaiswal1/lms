@@ -115,7 +115,7 @@ export default async function ModuleLearnPage({ params, searchParams }: Props) {
 
   // Quiz gating always keys off the ORIGINAL body: the server's answer key
   // belongs to it, so a translation can't add or drop required checks.
-  const requiredCheckIds = originalNotes
+  const requiredCheckIds = originalNotes && !tree.disable_knowledge_check
     ? originalNotes.segments.flatMap((s) => (s.type === "knowledge-check" ? s.questions.map((q) => q.id) : []))
     : [];
   // First runnable-language snippet in the lesson, if any — surfaced as a
@@ -312,6 +312,7 @@ export default async function ModuleLearnPage({ params, searchParams }: Props) {
               >
                 <ModuleNotes
                   disableCodeRun={tree.disable_code_run}
+                  disableKnowledgeCheck={tree.disable_knowledge_check}
                   disableReflection={tree.disable_reflection}
                   highlights={initialHighlights}
                   initialReflection={initialReflection}

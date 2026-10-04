@@ -17,9 +17,9 @@ grader.json (version 1):
     "<mode>": {
       "fresh_db": true, "restart_app": true,
       "setup": ["shell command", ...],                      # run in the workspace
-      "tests": [{"name", "paths": [...], "args": [...], "message"}],
-      "probes": [{"kind": "P|Q|C|M|L|H|T", "name", "message", "params": {...}}],
-      "student_test": {"test_globs": [...], "setup": [...], "message_none", "message_on_base", "message_on_fix"}
+      "tests": [{"name", "paths": [...], "args": [...], "message", "runner": "pytest|vitest"}],
+      "probes": [{"kind": "P|Q|C|M|L|H|T|J", "name", "message", "params": {...}}],
+      "student_test": {"runner": "pytest|vitest", "test_globs": [...], "setup": [...], "message_none", "message_on_base", "message_on_fix"}
     }
   }
 }
@@ -44,6 +44,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from lib.probes import INFRA_MESSAGE, run_probe  # noqa: E402
 from lib.probes.common import Context  # noqa: E402
+from lib.probes.j_vitest import run_vitest  # noqa: E402
 from lib.probes.t_test import resolve_targets, run_pytest  # noqa: E402
 
 STARTUP_HOOK_NAMES = {"sitecustomize.py", "usercustomize.py"}
@@ -119,6 +120,15 @@ def restart_app(ctx: Context, app: dict, env_pairs: list[str]) -> bool:
                           check=False).returncode == 0
 
 
+def run_tests(ctx: Context, runner: str, targets: list[str], root: str, app_dir: str, extra: list[str] | None = None,
+              diagnose: bool = True) -> int:
+    """One test run in the configured runner. `root` holds the test files,
+    `app_dir` is the workspace tree the tests exercise."""
+    if runner == "vitest":
+        return run_vitest(ctx, targets, root, app_dir, extra, diagnose=diagnose)
+    return run_pytest(ctx, targets, extra, cwd=app_dir)
+
+
 def git(ctx: Context, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(["git", *args], cwd=ctx.workdir, capture_output=True, text=True, timeout=30, check=False)
 
@@ -127,6 +137,7 @@ def student_test_checks(ctx: Context, cfg: dict, conf: dict) -> list[dict]:
     """The student's added/changed tests must FAIL on the pristine baseline
     (a content-addressed git worktree) and PASS on their workspace."""
     st = conf["student_test"]
+    runner = st.get("runner", "pytest")
     baseline = cfg.get("baseline_commit") or conf.get("baseline_commit", "")
     name = st.get("name", "student regression test")
     if not baseline or git(ctx, "cat-file", "-e", baseline + "^{commit}").returncode != 0:
@@ -160,8 +171,8 @@ def student_test_checks(ctx: Context, cfg: dict, conf: dict) -> list[dict]:
         for cmd in st.get("setup", []):
             run_shell(ctx, cmd, cwd=base, extra_env=base_env)
         base_ctx = Context(**{**ctx.__dict__, "workdir": base, "env": {**ctx.env, **base_env}})
-        on_base = run_pytest(base_ctx, [os.path.join(base, t) for t in tests], cwd=base)
-        on_fix = run_pytest(ctx, [os.path.join(ctx.workdir, t) for t in tests])
+        on_base = run_tests(base_ctx, runner, [os.path.join(base, t) for t in tests], base, base, diagnose=False)
+        on_fix = run_tests(ctx, runner, [os.path.join(ctx.workdir, t) for t in tests], ctx.workdir, ctx.workdir)
     finally:
         git(ctx, "worktree", "remove", "--force", base)
         psql_admin(f'DROP DATABASE IF EXISTS "{base_db}" WITH (FORCE)')
@@ -229,7 +240,8 @@ def main() -> int:
             return 0
 
     for group in conf.get("tests", []):
-        rc = run_pytest(ctx, resolve_targets(ctx, group["paths"]), group.get("args"))
+        rc = run_tests(ctx, group.get("runner", "pytest"), resolve_targets(ctx, group["paths"]), ctx.grader_dir,
+                       ctx.workdir, group.get("args"))
         ok = rc == 0
         checks.append({"name": group.get("name", "tests"), "passed": ok,
                        **({} if ok else {"message": group.get("message", "")})})

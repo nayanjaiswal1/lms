@@ -74,8 +74,8 @@ func (r *Repo) tx(ctx context.Context, fn func(pgx.Tx) error) error {
 func (r *Repo) CreateCourse(ctx context.Context, c Course) (Course, error) {
 	err := r.tx(ctx, func(tx pgx.Tx) error {
 		err := tx.QueryRow(ctx,
-			`INSERT INTO courses (org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, price_cents, is_free, estimated_hours, starts_at, ends_at, disable_code_run, disable_reflection)
-			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+			`INSERT INTO courses (org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, price_cents, is_free, estimated_hours, starts_at, ends_at, disable_code_run, disable_reflection, disable_knowledge_check)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
 			 RETURNING id, created_at, updated_at`,
 			c.OrgID, c.CreatorID, c.Title, c.Slug, c.Description, c.CoverURL, c.Difficulty,
 			c.Tags, c.Status, c.PriceCents, c.IsFree, c.EstimatedHours, c.StartsAt, c.EndsAt,
@@ -105,14 +105,14 @@ func (r *Repo) GetCourse(ctx context.Context, orgID, id string) (Course, error) 
 		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url, c.difficulty, c.tags,
 		        c.status, c.forked_from_id, c.price_cents, c.is_free, c.is_public, c.estimated_hours,
 		        u.name, cr.avg_rating, COALESCE(cr.review_count, 0), c.starts_at, c.ends_at,
-		        c.certificate_threshold_percent, c.disable_code_run, c.disable_reflection, c.created_at, c.updated_at
+		        c.certificate_threshold_percent, c.disable_code_run, c.disable_reflection, c.disable_knowledge_check, c.created_at, c.updated_at
 		 FROM courses c
 		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
 		 WHERE c.id = $1 AND c.org_id = $2`, id, orgID,
 	).Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description, &c.CoverURL,
 		&c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents, &c.IsFree, &c.IsPublic,
 		&c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount, &c.StartsAt, &c.EndsAt,
-		&c.CertificateThresholdPercent, &c.DisableCodeRun, &c.DisableReflection, &c.CreatedAt, &c.UpdatedAt)
+		&c.CertificateThresholdPercent, &c.DisableCodeRun, &c.DisableReflection, &c.DisableKnowledgeCheck, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Course{}, ErrNotFound
@@ -267,11 +267,11 @@ func (r *Repo) UpdateCourse(ctx context.Context, orgID string, c Course) (Course
 	err := r.pool.QueryRow(ctx,
 		`UPDATE courses SET title=$3, description=$4, cover_url=$5, difficulty=$6, tags=$7,
 		        estimated_hours=$8, price_cents=$9, is_free=$10, is_public=$11, starts_at=$12, ends_at=$13,
-		        disable_code_run=$14, disable_reflection=$15, updated_at=now()
+		        disable_code_run=$14, disable_reflection=$15, disable_knowledge_check=$16, updated_at=now()
 		 WHERE id=$1 AND org_id=$2
 		 RETURNING updated_at`,
 		c.ID, orgID, c.Title, c.Description, c.CoverURL, c.Difficulty, c.Tags,
-		c.EstimatedHours, c.PriceCents, c.IsFree, c.IsPublic, c.StartsAt, c.EndsAt, c.DisableCodeRun, c.DisableReflection,
+		c.EstimatedHours, c.PriceCents, c.IsFree, c.IsPublic, c.StartsAt, c.EndsAt, c.DisableCodeRun, c.DisableReflection, c.DisableKnowledgeCheck,
 	).Scan(&c.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -319,14 +319,14 @@ func (r *Repo) GetCourseBySlug(ctx context.Context, orgID, slug string) (Course,
 		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url, c.difficulty, c.tags,
 		        c.status, c.forked_from_id, c.price_cents, c.is_free, c.is_public, c.estimated_hours,
 		        u.name, cr.avg_rating, COALESCE(cr.review_count, 0), c.starts_at, c.ends_at,
-		        c.certificate_threshold_percent, c.disable_code_run, c.disable_reflection, c.created_at, c.updated_at
+		        c.certificate_threshold_percent, c.disable_code_run, c.disable_reflection, c.disable_knowledge_check, c.created_at, c.updated_at
 		 FROM courses c
 		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
 		 WHERE c.slug = $1 AND c.org_id = $2`, slug, orgID,
 	).Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description, &c.CoverURL,
 		&c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents, &c.IsFree, &c.IsPublic,
 		&c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount, &c.StartsAt, &c.EndsAt,
-		&c.CertificateThresholdPercent, &c.DisableCodeRun, &c.DisableReflection, &c.CreatedAt, &c.UpdatedAt)
+		&c.CertificateThresholdPercent, &c.DisableCodeRun, &c.DisableReflection, &c.DisableKnowledgeCheck, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Course{}, ErrNotFound
@@ -348,7 +348,7 @@ func (r *Repo) GetPublicCourseBySlug(ctx context.Context, slug string) (Course, 
 		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url, c.difficulty, c.tags,
 		        c.status, c.forked_from_id, c.price_cents, c.is_free, c.is_public, c.estimated_hours,
 		        u.name, cr.avg_rating, COALESCE(cr.review_count, 0), c.starts_at, c.ends_at,
-		        c.certificate_threshold_percent, c.disable_code_run, c.disable_reflection, c.created_at, c.updated_at
+		        c.certificate_threshold_percent, c.disable_code_run, c.disable_reflection, c.disable_knowledge_check, c.created_at, c.updated_at
 		 FROM courses c
 		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
 		 WHERE c.slug = $1 AND c.status = 'published' AND c.is_public
@@ -356,7 +356,7 @@ func (r *Repo) GetPublicCourseBySlug(ctx context.Context, slug string) (Course, 
 	).Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description, &c.CoverURL,
 		&c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents, &c.IsFree, &c.IsPublic,
 		&c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount, &c.StartsAt, &c.EndsAt,
-		&c.CertificateThresholdPercent, &c.DisableCodeRun, &c.DisableReflection, &c.CreatedAt, &c.UpdatedAt)
+		&c.CertificateThresholdPercent, &c.DisableCodeRun, &c.DisableReflection, &c.DisableKnowledgeCheck, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Course{}, ErrNotFound

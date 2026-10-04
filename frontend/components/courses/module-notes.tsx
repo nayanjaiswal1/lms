@@ -25,6 +25,8 @@ interface ModuleNotesProps {
   disableCodeRun?: boolean;
   /** Course-level kill switch (courses.disable_reflection) — hides the Reflect box and lifts its ModuleCompleteButton gate. */
   disableReflection?: boolean;
+  /** Course-level kill switch (courses.disable_knowledge_check) — drops the embedded Knowledge Check. */
+  disableKnowledgeCheck?: boolean;
 }
 
 export function ModuleNotes({
@@ -36,6 +38,7 @@ export function ModuleNotes({
   highlights = [],
   disableCodeRun = false,
   disableReflection = false,
+  disableKnowledgeCheck = false,
 }: ModuleNotesProps) {
   const firstLabTaskIndex = segments.findIndex((s) => s.type === "lab-task");
   // True once the linked lab is actually running — ModuleNotes then puts the
@@ -85,6 +88,7 @@ export function ModuleNotes({
               />
             );
           case "knowledge-check":
+            if (disableKnowledgeCheck) return null;
             return <LessonKnowledgeCheck key={index} moduleId={moduleId} questions={segment.questions} />;
           case "image":
             return (

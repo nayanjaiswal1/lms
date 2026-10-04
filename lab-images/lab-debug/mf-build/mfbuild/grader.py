@@ -10,6 +10,8 @@ Modes:
                the history plus every fault carrier (and any regression probes)
   student-test fresh DB, setup, the student's changed tests must fail on the
                baseline commit and pass on their workspace
+
+JS apps (language "js") run the same modes through vitest (grader.json "runner").
 """
 from __future__ import annotations
 
@@ -69,15 +71,19 @@ def build_grader(v: dict, blocks: Blocks, setup: list[str], protected: dict[str,
 
     common = {"fresh_db": True, "setup": setup, "setup_message": SETUP_MESSAGE, "start_message": START_MESSAGE}
     reg_paths = regression_dirs(v, blocks)
+    # JS apps are graded by vitest (kind J probes, no live server needed); Python apps by pytest against the live app.
+    js = v["app"]["language"] == "js"
+    runner = {"runner": "vitest"} if js else {}
     modes = {
-        "symptom": {**common, "restart_app": True, "needs_app": True, "probes": [probe(c) for c in symptom]},
-        "regression": {**common, "restart_app": bool(regression_probes),
-                       "tests": [{"name": "Existing behavior still works", "paths": reg_paths, "message": REGRESSION_MESSAGE}],
+        "symptom": {**common, "restart_app": not js, "needs_app": not js, "probes": [probe(c) for c in symptom]},
+        "regression": {**common, "restart_app": bool(regression_probes) and not js,
+                       "tests": [{"name": "Existing behavior still works", "paths": reg_paths,
+                                  "message": REGRESSION_MESSAGE, **runner}],
                        "probes": [probe(c) for c in regression_probes]},
         "student-test": {**common, "restart_app": False,
                          "student_test": {"name": "Regression test for your fix", "test_globs": v["app"]["test_globs"],
                                           "setup": setup, "message_none": NO_TEST_MESSAGE,
-                                          "message_on_base": ON_BASE_MESSAGE, "message_on_fix": ON_FIX_MESSAGE}},
+                                          "message_on_base": ON_BASE_MESSAGE, "message_on_fix": ON_FIX_MESSAGE, **runner}},
     }
     conf = {
         "version": 1,
