@@ -5,8 +5,9 @@ import { notFound } from "next/navigation";
 import { Clock, CheckCircle2, Brain, Terminal } from "lucide-react";
 import { apiGet } from "@/lib/server/api";
 import { cn } from "@/lib/utils";
-import { findCourseBySlug, getCourses, getCourseTree, getCourseProgress, getEnrollments, getMyCheckProgress, getMyReflection, getMyLessonNote, getPublicCourseTree } from "@/lib/server/courses";
+import { findCourseBySlug, getCourses, getCourseTree, getCourseProgress, getEnrollments, getMyCheckProgress, getMyReflection, getMyLessonNote, getPublicCourseTree, getModuleTranslations, getPublicModuleTranslations } from "@/lib/server/courses";
 import { AnonLessonPage } from "@/components/courses/anon-lesson-page";
+import { LessonLanguageSwitcher, pickTranslation } from "@/components/courses/lesson-language-switcher";
 import { getMyFeedback } from "@/lib/server/feedback";
 import { getDueCards } from "@/lib/server/srs";
 import { getModuleLab } from "@/lib/server/labs";
@@ -43,6 +44,7 @@ import ROUTES from "@/lib/routes";
 
 interface Props {
   params: Promise<{ slug: string; moduleId: string }>;
+  searchParams: Promise<{ lang?: string }>;
 }
 
 interface ModuleContent {
@@ -63,8 +65,9 @@ export async function generateMetadata({ params }: Props) {
   return { title: `Learn ${slug}` };
 }
 
-export default async function ModuleLearnPage({ params }: Props) {
+export default async function ModuleLearnPage({ params, searchParams }: Props) {
   const { slug, moduleId } = await params;
+  const { lang } = await searchParams;
 
   const cookieStore = await cookies();
   if (!cookieStore.get("access_token")?.value) {
@@ -72,18 +75,20 @@ export default async function ModuleLearnPage({ params }: Props) {
     if (!tree) notFound();
     const moduleExists = tree.sections.some((s) => s.modules.some((m) => m.id === moduleId));
     if (!moduleExists) notFound();
-    return <AnonLessonPage course={tree} currentModuleId={moduleId} />;
+    const translations = await getPublicModuleTranslations(slug, moduleId);
+    return <AnonLessonPage activeLocale={pickTranslation(translations, lang)?.locale ?? null} course={tree} currentModuleId={moduleId} translations={translations} />;
   }
 
   const [courses, enrollments] = await Promise.all([getCourses(), getEnrollments().catch(() => [])]);
   const course = findCourseBySlug(courses, enrollments, slug);
   if (!course) notFound();
 
-  const [tree, progress, content, dueRevisions] = await Promise.all([
+  const [tree, progress, content, dueRevisions, translations] = await Promise.all([
     getCourseTree(course.id),
     getCourseProgress(course.id).catch(() => null),
     getModuleContent(moduleId),
     getDueCards().catch(() => ({ cards: [], total: 0 })),
+    getModuleTranslations(moduleId),
   ]);
 
   const allModules = tree.sections.flatMap((s) => s.modules);
@@ -104,12 +109,16 @@ export default async function ModuleLearnPage({ params }: Props) {
     ? await getMyFeedback("course", course.id).catch(() => null)
     : null;
 
-  const notes = currentModule.type === "notes" && currentModule.content_body
+  const translation = pickTranslation(translations, lang);
+  const originalNotes = currentModule.type === "notes" && currentModule.content_body
     ? renderModuleMarkdown(currentModule.content_body)
     : null;
+  const notes = translation && originalNotes ? renderModuleMarkdown(translation.content_body) : originalNotes;
 
-  const requiredCheckIds = notes
-    ? notes.segments.flatMap((s) => (s.type === "knowledge-check" ? s.questions.map((q) => q.id) : []))
+  // Quiz gating always keys off the ORIGINAL body: the server's answer key
+  // belongs to it, so a translation can't add or drop required checks.
+  const requiredCheckIds = originalNotes
+    ? originalNotes.segments.flatMap((s) => (s.type === "knowledge-check" ? s.questions.map((q) => q.id) : []))
     : [];
   // First runnable-language snippet in the lesson, if any — surfaced as a
   // standalone scratch compiler in the right rail (LessonCompilerToggle) so
@@ -269,6 +278,13 @@ export default async function ModuleLearnPage({ params }: Props) {
               </div>
             )}
             <div className="mb-6 flex flex-wrap items-center gap-2">{moduleMeta}</div>
+            {notes && (
+              <LessonLanguageSwitcher
+                activeLocale={translation?.locale ?? null}
+                basePath={ROUTES.courseLearnModule(slug, moduleId)}
+                translations={translations}
+              />
+            )}
 
             {currentModule.type === "video" && content?.presigned_url && (
               <ModuleVideo

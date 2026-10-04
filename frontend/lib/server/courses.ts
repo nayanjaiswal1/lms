@@ -119,6 +119,37 @@ export async function getPublicCourseTree(slug: string): Promise<CourseTree | nu
   }
 }
 
+// Language versions of one lesson's body (module_translations, migration 049).
+// Both readers swallow errors: a lesson with no translations and a backend
+// hiccup look the same to the page — no language switcher, original body.
+export interface ModuleTranslation {
+  module_id: string;
+  locale: string;
+  content_body: string;
+  updated_at: string;
+}
+
+export async function getModuleTranslations(moduleId: string): Promise<ModuleTranslation[]> {
+  try {
+    const data = await apiGet<{ translations: ModuleTranslation[] }>(`/api/modules/${moduleId}/translations`);
+    return data.translations ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getPublicModuleTranslations(slug: string, moduleId: string): Promise<ModuleTranslation[]> {
+  try {
+    const data = await apiGetPublic<{ translations: ModuleTranslation[] }>(
+      `/api/public/courses/${slug}/modules/${moduleId}/translations`,
+      { revalidate: 60 },
+    );
+    return data.translations ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export async function getCourses(query = ""): Promise<Course[]> {
   const data = await apiGet<{ courses: Course[] }>(`/api/courses${query}`);
   return data.courses ?? [];

@@ -31,6 +31,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Put("/api/sections/{sectionID}/modules/order", h.ReorderModules)
 		r.Patch("/api/modules/{moduleID}", h.UpdateModule)
 		r.Delete("/api/modules/{moduleID}", h.DeleteModule)
+		r.Put("/api/modules/{moduleID}/translations/{locale}", h.PutModuleTranslation)
+		r.Delete("/api/modules/{moduleID}/translations/{locale}", h.DeleteModuleTranslation)
 
 		r.Post("/api/upload", h.UploadAsset)
 		r.Post("/api/upload/course-asset", h.GetUploadURL)
@@ -65,6 +67,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/api/courses/{courseID}/reviews", h.SubmitReview)
 	r.Get("/api/courses/{courseID}/reviews/me", h.GetMyReview)
 	r.Get("/api/modules/{moduleID}", h.GetModuleContent)
+	r.Get("/api/modules/{moduleID}/translations", h.ListModuleTranslations)
 	r.Patch("/api/modules/{moduleID}/progress", h.UpdateProgress)
 	r.Post("/api/modules/{moduleID}/check-attempts", h.RecordCheckAttempt)
 	r.Get("/api/modules/{moduleID}/check-attempts/me", h.GetMyCheckProgress)
@@ -81,4 +84,5 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 func (h *Handler) RegisterPublicRoutes(r chi.Router) {
 	r.Get("/api/public/courses", h.ListPublicCourses)
 	r.Get("/api/public/courses/{slug}/tree", h.GetPublicCourseTree)
+	r.Get("/api/public/courses/{slug}/modules/{moduleID}/translations", h.ListPublicModuleTranslations)
 }
