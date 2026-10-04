@@ -49,6 +49,11 @@ WHERE fm.section_id = fs.id
   AND fm.lab_id IS NULL
   AND om.lab_id IS NOT NULL;
 
+-- The UPDATEs above queue deferred FK checks for lab_id (INITIALLY DEFERRED).
+-- Postgres refuses ALTER TABLE on a table with pending trigger events (55006),
+-- so run those checks now, before the ALTERs below.
+SET CONSTRAINTS ALL IMMEDIATE;
+
 -- Added NOT VALID (metadata-only, no table scan/lock) so this ships even if
 -- the relink above couldn't match every row; VALIDATE only runs — and only
 -- takes the cheap ShareUpdateExclusiveLock, not a rewrite — when the backfill
