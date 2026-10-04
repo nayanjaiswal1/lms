@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { installFetch } from '@mf/harness';
 import NotesPanel from '@/features/notes/NotesPanel.jsx';
 
@@ -44,9 +44,9 @@ test('an edited note is saved on request', async () => {
 
 
 test('a deleted note leaves the list', async () => {
-  setup();
+  const net = setup();
   const [first] = await screen.findAllByRole('button', { name: 'Delete note' });
   fireEvent.click(first);
-  await screen.findByDisplayValue('Refund approved');
-  expect(screen.queryByDisplayValue('Called the customer')).not.toBeInTheDocument();
+  await waitFor(() => expect(screen.getAllByLabelText('Note text')).toHaveLength(1));
+  expect(net.calls.some((call) => call.method === 'DELETE' && call.url === '/api/notes/1')).toBe(true);
 });

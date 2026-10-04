@@ -1,0 +1,95 @@
+kind: fault
+id: re.state.index-as-key
+version: 1.0.0
+stack: react
+title: Deleting a note makes the next note show the wrong text
+summary: The notes list keys its rows by array index, so after a delete React hands the row state (the text being edited) of the removed note to the note that moved into its place.
+category: state
+difficulty: beginner
+skills:
+- react-reconciliation
+- keys
+- debugging
+requires:
+- slot:notes.panel.rows
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: notes.panel.rows
+      value: |
+        const rows = notes.map((note, index) => <NoteRow key={index} note={note} onSave={save} onDelete={remove} />);
+  fix:
+    slots:
+    - slot: notes.panel.rows
+      value: |
+        const rows = notes.map((note) => <NoteRow key={note.id} note={note} onSave={save} onDelete={remove} />);
+    files:
+    - path: tests/notes-keys.test.jsx
+      from: fix/tests/notes-keys.test.jsx
+  cheats:
+  - name: key-by-text
+    slots:
+    - slot: notes.panel.rows
+      value: |
+        const rows = notes.map((note) => <NoteRow key={note.text} note={note} onSave={save} onDelete={remove} />);
+  - name: revert-the-commit
+    slots:
+    - slot: notes.panel.rows
+      value: |
+        const rows = notes.map((note) => <NoteRow key={note.id} note={note} onSave={save} onDelete={remove} />);
+    files:
+    - path: src/ext/order-csv/index.js
+      from: cheats/empty-extension.js
+  carrier:
+    feature: order-csv
+    files:
+    - path: src/ext/order-csv/index.js
+      from: carrier/src/ext/order-csv/index.js
+  commit:
+    message: 'orders: let the Tools menu copy the visible orders as CSV'
+    persona: Lena Fischer <lena@opsconsole.example.com>
+  checks:
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/re_state_index_key/notes.test.jsx
+  symptom:
+    vars:
+      title: Deleting a note leaves another note showing the deleted text
+      report: |-
+        On the order notes page I deleted the first note of an order and the note below it now shows the text of the note I just
+        deleted, with the second note's real text gone from the screen. Unsaved edits end up in the wrong row as well. After a
+        reload everything is correct again, but if I press Save on a row at that point the wrong text gets stored on the wrong
+        note. Our team lead lost a customer callback number this way.
+      where: Order notes page, the list of notes of an order (inline text fields with Save and Delete).
+      expected: 'Deleting a note removes only that note: every remaining row keeps showing its own note, including text that was edited but not saved yet.'
+      support_tried: Reloading the page always shows the saved data correctly, so the server data is fine. Only happens with unsaved edits and a delete.
+      observations: |-
+        ### Other observations from QA
+
+        - It does not happen when I delete the last note in the list.
+        - Two of the notes on my order have exactly the same text ("Follow up").
+        - The CSV action in the Orders tools came in the same release.
+    signature: row state follows the position, not the note
+  hints:
+  - 'Reproduce it in a test: three notes, type a draft into the second one without saving, delete the first one, and read the values of the text fields that remain.'
+  - Each row keeps its draft in its own state. React decides which old row a new row corresponds to by its key. What is used as the key in the notes list?
+  - Use a stable unique identity of the note (its id) as the key. A key derived from the text breaks as soon as two notes share the same text.
+  rubric:
+    key_points:
+    - 'Identifies array index used as the key: after a delete the rows shift positions, so React hands the old row''s state (the draft) to the wrong note.'
+    - Explains that keys define component identity across renders and must be stable and unique among siblings.
+    - Fixes it with the note id (not text or a generated value on every render).
+    - Tests with an unsaved draft and a delete of an earlier row, ideally with duplicate texts.
+    misconceptions:
+    - Using the note text as the key is fine (duplicates collide and edits change the text-based identity).
+    - Generating a random key per render fixes it (every render remounts every row and loses focus and state).
+    - Saving before deleting avoids the bug (it hides the symptom for one workflow).
+  root_cause: |-
+    `NotesPanel` rendered `<NoteRow key={index} />`. Each `NoteRow` keeps the user's unsaved text in local state and React ties
+    that state to the key. After deleting the first note the remaining notes move up one position, so the row with key `0` now
+    renders the second note but keeps the draft of the first, and so on down the list.
+
+    Keys must identify the item, not its position: `key={note.id}`.

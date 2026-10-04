@@ -1,0 +1,116 @@
+kind: fault
+id: re.api.calendar-day-off-by-one
+version: 1.0.0
+stack: react
+title: Revenue report shows the previous day for US users
+summary: Calendar days from the API ('2025-03-05') are parsed with new Date(string), which treats them as UTC midnight; in time zones west of UTC the formatted day is one day earlier.
+category: api
+difficulty: intermediate
+skills:
+- javascript-dates
+- time-zones
+- testing-with-env
+requires:
+- slot:format.date.parse
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: format.date.parse
+      value: |
+        export function parseDay(day) {
+          return new Date(day);
+        }
+  fix:
+    slots:
+    - slot: format.date.parse
+      value: |
+        export function parseDay(day) {
+          // A calendar day such as "2025-03-05" has no time zone, so build it in local time.
+          const [year, month, date] = day.split('-').map(Number);
+          return new Date(year, month - 1, date);
+        }
+    files:
+    - path: tests/format-day-timezone.test.js
+      from: fix/tests/format-day-timezone.test.js
+  cheats:
+  - name: hard-code-pacific-offset
+    slots:
+    - slot: format.date.parse
+      value: |
+        export function parseDay(day) {
+          // The support team is in Pacific time.
+          return new Date(new Date(day).getTime() + 8 * 60 * 60 * 1000);
+        }
+  - name: revert-the-commit
+    slots:
+    - slot: format.date.parse
+      value: |
+        export function parseDay(day) {
+          // A calendar day such as "2025-03-05" has no time zone, so build it in local time.
+          const [year, month, date] = day.split('-').map(Number);
+          return new Date(year, month - 1, date);
+        }
+    files:
+    - path: src/ext/order-csv/index.js
+      from: cheats/empty-extension.js
+  carrier:
+    feature: order-csv
+    files:
+    - path: src/ext/order-csv/index.js
+      from: carrier/src/ext/order-csv/index.js
+  commit:
+    message: 'orders: add a CSV copy action to the Tools menu'
+    persona: Tom Brennan <tom@opsconsole.example.com>
+  checks:
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/re_api_calendar_day/day.test.jsx
+      env:
+        TZ: America/Los_Angeles
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/re_api_calendar_day/day.test.jsx
+      env:
+        TZ: Pacific/Honolulu
+  symptom:
+    vars:
+      title: Reports list every day one day too early
+      report: |-
+        The finance team in San Francisco compared the Revenue report with the bank statement and every day is shifted by one: the row
+        labelled "Mar 4" has the numbers of March 5. The numbers and totals are right, only the day labels are wrong. Colleagues in London see
+        the correct dates, which made it hard to believe at first.
+      where: Reports page (Revenue by day), the Day column. The same helper formats the day labels elsewhere.
+      expected: A day returned by the API as 2025-03-05 is shown as Mar 5, 2025 wherever the viewer is.
+      support_tried: 'Switched the report range (same shift). Checked the API: it returns 2025-03-05 for that row. It only reproduces on machines set to a US time zone.'
+      observations: |-
+        ### Other observations from QA
+
+        - Timestamps with a time of day (such as the order's placed-at time) look right.
+        - It happens in every browser.
+        - The CSV action in the Orders tools was added in the same release.
+    signature: formatted day is one earlier in time zones west of UTC
+  hints:
+  - Run the date helper tests under another time zone, for example `TZ=America/Los_Angeles npx vitest run`. Compare the Date you get for '2025-03-05' with what you expect.
+  - A date-only ISO string is defined to be UTC midnight when passed to new Date(), but formatting prints it in local time. Which side of the date line does Los Angeles sit?
+  - Build the Date from numeric parts in local time (year, month, day) so the calendar day never crosses a day boundary. Pin the time zone in the test (process.env.TZ) so it fails outside UTC.
+  rubric:
+    key_points:
+    - Identifies the date-only string parsed as UTC midnight by new Date(string) and then formatted in local time, which moves it to the previous day west of UTC.
+    - Explains the difference between a calendar day (no time zone) and an instant (UTC timestamp).
+    - 'Fixes it by constructing a local date from the parts (or formatting with timeZone: ''UTC''), not by adding a fixed offset.'
+    - Tests with an explicit time zone so the bug cannot hide on a UTC machine.
+    misconceptions:
+    - Adding hours to the date fixes it (a fixed offset breaks other time zones and daylight saving).
+    - The API returns the wrong day (the API value is correct; the conversion is wrong).
+    - It only matters for users in the US (any zone west of UTC, and any zone with a day-boundary shift for other inputs).
+  root_cause: |-
+    `parseDay` called `new Date('2025-03-05')`. For a date-only ISO string the JavaScript spec parses the value as UTC midnight, but
+    `toLocaleDateString` formats it in the viewer's local time zone. For a viewer in Los Angeles, midnight UTC is still the
+    evening of the previous day, so the label was one day early. In UTC and zones east of it the bug is invisible.
+
+    A calendar day has no time zone: construct it in local time from its parts, `new Date(year, month - 1, date)`.

@@ -1,0 +1,94 @@
+kind: fault
+id: re.cfg.env-var-not-exposed
+version: 1.0.0
+stack: react
+title: The staging build still calls its own host instead of the staging API
+summary: The API base URL is read from an environment variable without the VITE_ prefix, which Vite never exposes to client code, so every build silently falls back to relative URLs.
+category: config
+difficulty: beginner
+skills:
+- vite
+- build-time-config
+- environment-variables
+requires:
+- slot:lib.api.base-url
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: lib.api.base-url
+      value: |
+        const BASE_URL = import.meta.env.API_URL ?? '';
+  fix:
+    slots:
+    - slot: lib.api.base-url
+      value: |
+        const BASE_URL = import.meta.env.VITE_API_URL ?? '';
+    files:
+    - path: tests/api-base-url.test.js
+      from: fix/tests/api-base-url.test.js
+  cheats:
+  - name: hard-code-the-staging-url
+    slots:
+    - slot: lib.api.base-url
+      value: |
+        const BASE_URL = 'https://staging-api.example.test';
+  - name: revert-the-commit
+    slots:
+    - slot: lib.api.base-url
+      value: |
+        const BASE_URL = import.meta.env.VITE_API_URL ?? '';
+    files:
+    - path: src/ext/top-customer/index.js
+      from: cheats/empty-extension.js
+  carrier:
+    feature: top-customer
+    files:
+    - path: src/ext/top-customer/index.js
+      from: carrier/src/ext/top-customer/index.js
+  commit:
+    message: 'orders: add the top customer to the Tools menu'
+    persona: Lena Fischer <lena@opsconsole.example.com>
+  checks:
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/re_cfg_api_url/base-url.test.js
+  symptom:
+    vars:
+      title: Staging console talks to the wrong server
+      report: |-
+        The staging deployment of the console is configured with its own API (`VITE_API_URL=https://staging-api.example.test`) but
+        all of its requests go to the static host it is served from and come back as 404 HTML pages. The devs say it works on their
+        machines because the local dev proxy forwards `/api`. The environment variable is definitely set in the pipeline.
+      where: Every API call of a production-mode or staging build (`vite build`); the local dev server hides it behind the proxy.
+      expected: Requests go to the URL configured in `VITE_API_URL` when it is set, and to relative `/api` paths when it is not.
+      support_tried: Re-ran the pipeline with the variable printed in the log (it is set), purged the CDN, rebuilt from scratch.
+      observations: |-
+        ### Other observations from QA
+
+        - The failing requests are relative (`/api/orders`) in the Network tab of the staging site.
+        - Nothing about the missing URL is logged anywhere.
+        - The top-customer action in the Orders tools went out in the same release.
+    signature: the configured API URL never reaches the client
+  hints:
+  - Write a test that sets the variable (vi.stubEnv) before importing the API client and checks the URL passed to fetch. What URL do you get?
+  - Vite replaces import.meta.env.<NAME> at build time and only exposes variables whose names start with a prefix (VITE_ by default). Compare the name in the client with the name in the ticket.
+  - Read the variable by its exposed name, keep the empty-string default for the dev proxy, and cover both cases (set and unset) in tests. Remember the module reads it once, at import time.
+  rubric:
+    key_points:
+    - Identifies that the client reads a variable name that Vite does not expose (no VITE_ prefix), so the value is always undefined and the fallback is used.
+    - 'Explains build-time versus runtime configuration: the value is inlined during the build and not read from the environment at runtime.'
+    - Fixes the variable name, keeping the relative fallback for the dev proxy, rather than hard-coding the staging URL.
+    - Tests both the configured and the default case, resetting modules because the value is read at import time.
+    misconceptions:
+    - process.env works in browser code (it does not exist in the browser build).
+    - Hard-coding the staging URL fixes it (the production build then calls staging).
+    - The pipeline is not passing the variable (it is set; the code reads a different name).
+  root_cause: |-
+    `lib/api.js` read `import.meta.env.API_URL`. Vite only exposes environment variables prefixed with `VITE_` to client code;
+    everything else is dropped at build time, so `API_URL` was always `undefined` and the `?? ''` fallback produced relative
+    `/api/...` URLs. The local dev server hides the problem because it proxies `/api` to the mock API.
+
+    The client must read the exposed name, `import.meta.env.VITE_API_URL`, which Vite inlines when the bundle is built.

@@ -1,0 +1,94 @@
+kind: fault
+id: re.hooks.stale-interval-closure
+version: 1.0.0
+stack: react
+title: The 'updated N seconds ago' badge never gets past 1
+summary: The refresh badge on the orders page counts seconds with a timer, but the counter freezes after the first tick because the interval callback keeps reading the value from the render that created it.
+category: hooks
+difficulty: beginner
+skills:
+- react-hooks
+- closures
+- debugging
+requires:
+- slot:hooks.elapsed.tick
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: hooks.elapsed.tick
+      value: |
+        setSeconds(seconds + 1);
+  fix:
+    slots:
+    - slot: hooks.elapsed.tick
+      value: |
+        setSeconds((current) => current + 1);
+    files:
+    - path: tests/elapsed-seconds.test.jsx
+      from: fix/tests/elapsed-seconds.test.jsx
+  cheats:
+  - name: cap-the-counter
+    slots:
+    - slot: hooks.elapsed.tick
+      value: |
+        setSeconds((current) => Math.min(current + 1, 30));
+  - name: revert-the-commit
+    slots:
+    - slot: hooks.elapsed.tick
+      value: |
+        setSeconds((current) => current + 1);
+    files:
+    - path: src/ext/order-total/index.js
+      from: cheats/empty-extension.js
+  carrier:
+    feature: order-total
+    files:
+    - path: src/ext/order-total/index.js
+      from: carrier/src/ext/order-total/index.js
+  commit:
+    message: 'orders: show the page total in the Tools menu'
+    persona: Dana Whitfield <dana@opsconsole.example.com>
+  checks:
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/re_hooks_stale_timer/elapsed.test.jsx
+  symptom:
+    vars:
+      title: Orders page says "Updated 1s ago" forever
+      report: |-
+        The small badge next to the status filter on the Orders page is supposed to tell us how fresh the list is ("Updated 12s ago").
+        Since last week it shows "Updated 1s ago" and then never changes, however long the page stays open. Two people on the floor
+        refreshed the browser thinking the data was stuck, and one of them double-processed an order because the list looked stale.
+      where: The Orders page, the badge right of the status filter. It restarts at 0 whenever new orders load.
+      expected: The badge counts up every second (2s, 3s, ...) until the list is loaded again.
+      support_tried: 'Hard-reloaded the page and tried another browser: same result. The orders themselves load fine.'
+      observations: |-
+        ### Other observations from QA
+
+        - The first second looks right, then it sticks.
+        - It happens in the dev build as well, so it is not a production build problem.
+        - The Tools menu on the same page got a new action around the same time.
+    signature: the elapsed-seconds counter stops at 1
+  hints:
+  - Write a small test that renders the hook with fake timers, advances the clock by several seconds and reads the value. Does the number follow the clock, and where does it stop?
+  - The interval is created once per effect run, so its callback only ever sees the values from the render in which the effect ran. Look at which variable the callback reads when it computes the next number.
+  - Update the state from its previous value (a functional update) so the callback no longer depends on a captured render value, then keep a test with fake timers that advances well past one second.
+  rubric:
+    key_points:
+    - 'Identifies a stale closure: the interval callback reads the counter from the render that created the interval, so every tick computes the same next value.'
+    - Explains why the effect does not re-run (its dependency array only holds the reset key) and that the interval is meant to live across renders.
+    - Fixes it with a functional state update (or a ref) instead of widening the dependency array and restarting the timer on every tick.
+    - Proves the fix with a fake-timer test that advances beyond one second and asserts the counter value.
+    misconceptions:
+    - Adding the counter to the effect dependency array is a good fix (it tears down and recreates the interval on every tick, so the timer drifts and tests that count timers fail).
+    - The state update is asynchronous and 'does not apply in time' (the update does apply; the value computed from it is stale).
+  root_cause: |-
+    `useElapsedSeconds` creates one interval per effect run and the interval callback computed the next value as `seconds + 1`.
+    The callback closes over the `seconds` of the render in which the effect ran, which is always `0` (the effect only re-runs
+    when the reset key changes). Every tick therefore sets the state to `1`.
+
+    The fix is a functional update, `setSeconds((current) => current + 1)`, which reads the latest state at the time the update is
+    applied and keeps the interval alive across renders.

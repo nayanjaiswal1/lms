@@ -46,7 +46,7 @@ test('the quick filter narrows the visible orders', async () => {
 
 test('a failed load shows an alert', async () => {
   const net = installFetch();
-  net.on('GET', '/api/orders', () => json(500, { error: 'boom' }));
+  net.on('GET', '/api/orders', () => json(404, { error: 'missing' }));
   renderPage();
   expect(await screen.findByRole('alert')).toHaveTextContent('Could not load orders.');
 });

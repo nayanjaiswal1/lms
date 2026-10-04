@@ -23,6 +23,25 @@ Design: [debug-labs.md](debug-labs.md)
 | 1d-ii | 11 Django fault blocks, ticket blocks, production-debugging course; `coursegen blocks verify`; probe stderr diagnostics. All 11 recipes verified in Docker | `069e1bb` |
 | 1e | Builder wizard UI, block library, candidates endpoint, "Create debug lab here" | `160a13c` |
 
+## Phase 3 — FastAPI (content written, uncommitted, Docker verification pending)
+
+`fa.orders` app block (11 slots, 9 history features, 6 carriers, 47 regression tests), `seed.fa-small`, 10 fault blocks
+(`fa.mig.divergent-heads`, `fa.mig.not-null-without-default`, `fa.perf.order-list-n-plus-one`, `fa.async.bcrypt-blocks-event-loop`,
+`fa.async.wallet-lost-update`, `fa.svc.payments-no-timeout`, `fa.err.payment-failure-returns-200`, `fa.data.patch-wipes-fields`,
+`fa.cfg.docs-ignore-root-path`, `fa.sec.order-idor`), 10 recipes (`content/courses/production-debugging/recipes/fa-*.yaml`) and a
+"FastAPI" section group in the `production-debugging` course (6 lessons, 10 labs). Checked without Docker: manifests and recipes validate
+(`coursegen blocks sync --dry-run`), `mf-build` renders all 10 recipes, rendered code lints, and the regression, hidden and fix tests
+and the two migration probes were run against a real PostgreSQL for the broken, fixed and cheat states. Not yet run: the Q, L, C and P
+probes against the live app, and `coursegen blocks verify` (needs Docker). Regenerate `lab-blocks.generated.sql` and
+`production-debugging.generated.sql` when shipping.
+
+## Phase 4 � React (content written, uncommitted, Docker verification pending)
+
+`re.dashboard` app block (12 slots, 5 history features, 5 carriers), `check.vitest-node` (probe J), `ticket.ui-bug-report`, 12 fault blocks
+(hooks x3, races x2, state x2, perf x2, api x2, config x1) and 12 recipes (`recipes/re-*.yaml`). Checked locally with real vitest + jsdom:
+broken fails hidden tests, fix passes, every cheat fails. Fixed `trackListeners()` in `grader/js/harness.js`. React course content: a "React" section group (13-17: 5 lessons, 12 labs, one per recipe) in `production-debugging`; `coursegen generate` validates it.
+Not done: error-boundary / SSR / StrictMode faults, prettier + Go-builder render path, `coursegen blocks verify` (Docker).
+
 ## Where things stand
 
 Phase 1 (Django end to end: runtime, authoring engine, build/verify pipeline, 11 labs, builder UI) is done and committed. Nothing has run against a database yet: migrations 044–048 are unapplied, and the student flow and builder UI have never run in a browser.
@@ -36,8 +55,8 @@ Phase 1 (Django end to end: runtime, authoring engine, build/verify pipeline, 11
    - AI ticket drafting in the UI
    - org text blocks editor
    - update-available and yank flows
-2. **Phase 3 — FastAPI:** `fa-orders` app block, ~10 faults, Alembic migration slots, latency harness.
-3. **Phase 4 — React:** `re-dashboard` app block, JSX/TS slots, vitest/Profiler/listener harnesses, ~10 faults.
+2. ~~**Phase 3 — FastAPI**~~ content done (see above); only the Docker verification remains (item 5).
+3. ~~**Phase 4 — React**~~ content done (see above); only the Docker verification remains (item 5).
 4. **Phase 5 — Fullstack:** `fs-shop` + cross-stack (XS) faults; `custom` block support in the build.
 5. **Deferred verification.** Tests were deliberately not written until all phases are done:
    - Write the test suite: Go unit tests + DB tests for library, labs, labauthor, labbuild, credential, hints, semaphore.

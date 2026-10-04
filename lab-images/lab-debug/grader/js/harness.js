@@ -5,7 +5,7 @@
 //   installFetch()      scripted / held fetch with call counting and a runaway guard
 //   json()              a JSON Response
 //   deferred()          a promise with resolve / reject handles
-//   trackListeners()    counts live DOM event listeners (leak detection)
+//   trackListeners()    counts live DOM event listeners per type / target (leak detection)
 //   createRenderProbe() a component that counts its own renders
 //   renderProfiled()    render inside <Profiler> and collect commits
 //   flush()             let pending promises and effects settle inside act()
@@ -144,31 +144,48 @@ export function installFetch({ maxCalls = 100 } = {}) {
  * capture flag (an add of an identical triple is a no-op, as in browsers).
  */
 export function trackListeners() {
-  const proto = window.EventTarget.prototype;
-  const originalAdd = proto.addEventListener;
-  const originalRemove = proto.removeEventListener;
+  // Entry points user code can reach: the prototype (elements, document) and, because vitest's
+  // jsdom environment replaces them with own properties, window / globalThis themselves.
+  const entries = new Set([window.EventTarget.prototype, window, globalThis]);
+  const patched = [];
   const live = new Map();
+  // A patched entry point may call another one (window.addEventListener -> prototype); only the outermost call counts.
+  let inside = false;
 
   const key = (type, options) => `${type}|${typeof options === "boolean" ? options : Boolean(options?.capture)}`;
 
-  proto.addEventListener = function (type, callback, options) {
-    if (callback) {
-      let perTarget = live.get(this);
-      if (!perTarget) live.set(this, (perTarget = new Map()));
-      let callbacks = perTarget.get(key(type, options));
-      if (!callbacks) perTarget.set(key(type, options), (callbacks = new Set()));
-      callbacks.add(callback);
-    }
-    return originalAdd.call(this, type, callback, options);
+  const add = (self, type, callback, options) => {
+    if (!callback) return;
+    let perTarget = live.get(self);
+    if (!perTarget) live.set(self, (perTarget = new Map()));
+    let callbacks = perTarget.get(key(type, options));
+    if (!callbacks) perTarget.set(key(type, options), (callbacks = new Set()));
+    callbacks.add(callback);
   };
-  proto.removeEventListener = function (type, callback, options) {
-    live.get(this)?.get(key(type, options))?.delete(callback);
-    return originalRemove.call(this, type, callback, options);
-  };
+  const remove = (self, type, callback, options) => live.get(self)?.get(key(type, options))?.delete(callback);
 
-  const count = (type) => {
+  for (const target of entries) {
+    for (const [name, record] of [["addEventListener", add], ["removeEventListener", remove]]) {
+      const original = target[name];
+      if (typeof original !== "function") continue;
+      patched.push([target, name, original]);
+      target[name] = function (type, callback, options) {
+        if (inside) return original.call(this, type, callback, options);
+        inside = true;
+        try {
+          record(this ?? globalThis, type, callback, options);
+          return original.call(this, type, callback, options);
+        } finally {
+          inside = false;
+        }
+      };
+    }
+  }
+
+  const count = (type, target) => {
     let total = 0;
-    for (const perTarget of live.values()) {
+    for (const [owner, perTarget] of live) {
+      if (target !== undefined && owner !== target) continue;
       for (const [k, callbacks] of perTarget) {
         if (type === undefined || k.startsWith(`${type}|`)) total += callbacks.size;
       }
@@ -176,11 +193,11 @@ export function trackListeners() {
     return total;
   };
   return {
-    /** Live listeners, optionally only of one event type. */
+    /** Live listeners, optionally only of one event type and/or one target (e.g. window; React itself listens on its root). */
     count,
     restore() {
-      proto.addEventListener = originalAdd;
-      proto.removeEventListener = originalRemove;
+      for (const [target, name, original] of patched.reverse()) target[name] = original;
+      patched.length = 0;
     },
   };
 }

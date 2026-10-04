@@ -1,0 +1,149 @@
+kind: fault
+id: re.async.typeahead-out-of-order
+version: 1.0.0
+stack: react
+title: Customer search shows results for an older query
+summary: The customer typeahead sends a request per keystroke and applies every response when it arrives, so a slow answer for an earlier query overwrites the answer for the current one.
+category: races
+difficulty: intermediate
+skills:
+- react-hooks
+- async-races
+- abortcontroller
+requires:
+- slot:customers.search.effect
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: customers.search.effect
+      value: |
+        useEffect(() => {
+          const term = query.trim();
+          if (term === '') {
+            setState({ results: [], loading: false, error: null });
+            return undefined;
+          }
+          setState((current) => ({ ...current, loading: true, error: null }));
+          get(`/api/customers?q=${encodeURIComponent(term)}`).then(
+            (results) => setState({ results, loading: false, error: null }),
+            (error) => setState((current) => ({ ...current, loading: false, error })),
+          );
+          return undefined;
+        }, [query]);
+  fix:
+    slots:
+    - slot: customers.search.effect
+      value: |
+        useEffect(() => {
+          const term = query.trim();
+          if (term === '') {
+            setState({ results: [], loading: false, error: null });
+            return undefined;
+          }
+          const controller = new AbortController();
+          setState((current) => ({ ...current, loading: true, error: null }));
+          get(`/api/customers?q=${encodeURIComponent(term)}`, { signal: controller.signal }).then(
+            (results) => setState({ results, loading: false, error: null }),
+            (error) => {
+              if (error.name !== 'AbortError') setState((current) => ({ ...current, loading: false, error }));
+            },
+          );
+          return () => controller.abort();
+        }, [query]);
+    files:
+    - path: tests/customer-search-order.test.jsx
+      from: fix/tests/customer-search-order.test.jsx
+  cheats:
+  - name: wait-for-three-characters
+    slots:
+    - slot: customers.search.effect
+      value: |
+        useEffect(() => {
+          const term = query.trim();
+          if (term.length < 3) {
+            setState({ results: [], loading: false, error: null });
+            return undefined;
+          }
+          setState((current) => ({ ...current, loading: true, error: null }));
+          get(`/api/customers?q=${encodeURIComponent(term)}`).then(
+            (results) => setState({ results, loading: false, error: null }),
+            (error) => setState((current) => ({ ...current, loading: false, error })),
+          );
+          return undefined;
+        }, [query]);
+  - name: revert-the-commit
+    slots:
+    - slot: customers.search.effect
+      value: |
+        useEffect(() => {
+          const term = query.trim();
+          if (term === '') {
+            setState({ results: [], loading: false, error: null });
+            return undefined;
+          }
+          const controller = new AbortController();
+          setState((current) => ({ ...current, loading: true, error: null }));
+          get(`/api/customers?q=${encodeURIComponent(term)}`, { signal: controller.signal }).then(
+            (results) => setState({ results, loading: false, error: null }),
+            (error) => {
+              if (error.name !== 'AbortError') setState((current) => ({ ...current, loading: false, error }));
+            },
+          );
+          return () => controller.abort();
+        }, [query]);
+    files:
+    - path: src/ext/top-customer/index.js
+      from: cheats/empty-extension.js
+  carrier:
+    feature: top-customer
+    files:
+    - path: src/ext/top-customer/index.js
+      from: carrier/src/ext/top-customer/index.js
+  commit:
+    message: 'orders: name the top customer in the Tools menu'
+    persona: Lena Fischer <lena@opsconsole.example.com>
+  checks:
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/re_async_typeahead/search.test.jsx
+  symptom:
+    vars:
+      title: Customer search lists people who do not match what I typed
+      report: |-
+        When I type a customer name quickly the list sometimes ends up showing people for a shorter version of what is in the box.
+        I typed "ali" and the list showed everyone starting with "a" while the box still said "ali". Retyping a character fixes it.
+        It happens more often on the slow VPN. Twice I opened the wrong customer because of it.
+      where: Customers page, the search box above the results list.
+      expected: The list always matches the text currently in the box, however slowly the server answers.
+      support_tried: Slowed my typing down (works), cleared the cache (no change). The API returns correct results when called directly.
+      observations: |-
+        ### Other observations from QA
+
+        - It is never wrong on the office network, only when answers are slow.
+        - Looking at the Network tab, the responses sometimes arrive in a different order than the requests were sent.
+        - The top-customer action in the Orders tools was added recently.
+    signature: results of an older query replace the current ones
+  hints:
+  - Use the held requests of @mf/harness (installFetch().hold) to answer two searches in the opposite order from how they were sent. What does the list show at the end?
+  - 'Every response is applied, whenever it arrives. Something has to decide that an answer no longer belongs to the current query. The effect already returns a cleanup function: what could it do?'
+  - Cancel the previous request in the effect cleanup (AbortController) and ignore the abort rejection; keep a test that resolves the requests out of order and checks the visible list.
+  rubric:
+    key_points:
+    - 'Identifies the out-of-order response race: responses are applied in arrival order, not in request order.'
+    - Explains that the effect cleanup is the right place to cancel or invalidate the previous request.
+    - Fixes it with AbortController (and treats the AbortError as expected) or an equivalent request token, rather than a debounce alone.
+    - Tests it deterministically by controlling the order in which the fake requests resolve.
+    misconceptions:
+    - A debounce removes the race (it only makes it rarer; slow answers can still overtake).
+    - Adding a loading flag fixes it (the flag does not say which answer belongs to which query).
+    - Searching only from three characters hides the problem without fixing it.
+  root_cause: |-
+    `useCustomerSearch` started a new request on every query change but never invalidated the previous one. The network does
+    not guarantee that responses arrive in the order the requests were sent, so a slow answer for "a" could arrive after the
+    answer for "ali" and overwrite it with stale results.
+
+    The effect cleanup must cancel the request that belongs to the old query (`AbortController`), and the handler must ignore
+    the resulting `AbortError`, so only the response of the latest query can ever reach the state.
