@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/metrics"
 )
 
 // Connect creates and returns a validated pgxpool using the given databaseURL.
@@ -20,11 +21,13 @@ func Connect(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 	cfg.MinConns = 2
 	cfg.MaxConnLifetime = time.Hour
 	cfg.MaxConnIdleTime = 30 * time.Minute
+	cfg.ConnConfig.Tracer = metrics.DBTracer{}
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("db: create pool: %w", err)
 	}
+	metrics.RegisterPool(pool)
 
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()

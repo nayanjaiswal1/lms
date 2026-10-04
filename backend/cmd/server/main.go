@@ -25,6 +25,7 @@ import (
 	"github.com/mindforge/backend/internal/labbuild"
 	"github.com/mindforge/backend/internal/labs"
 	"github.com/mindforge/backend/internal/mailer"
+	"github.com/mindforge/backend/internal/metrics"
 	"github.com/mindforge/backend/internal/notifications"
 	"github.com/mindforge/backend/internal/profile"
 	"github.com/mindforge/backend/internal/projectmarket"
@@ -76,6 +77,7 @@ func main() {
 		os.Exit(1)
 	}
 	rdb := redis.NewClient(redisOpts)
+	rdb.AddHook(metrics.RedisHook{})
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		slog.Error("failed to connect to redis", "error", err)
 		os.Exit(1)
