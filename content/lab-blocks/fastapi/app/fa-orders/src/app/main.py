@@ -32,7 +32,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 await hook.shutdown(app)
             await app.state.engine.dispose()
 
+    # mf:slot main.app.factory
     app = FastAPI(title="Orders API", version="1.0.0", lifespan=lifespan)
+    # mf:endslot
     app.state.settings = settings
 
     @app.get("/healthz")

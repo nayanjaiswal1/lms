@@ -1,0 +1,113 @@
+kind: fault
+id: fa.async.bcrypt-blocks-event-loop
+version: 1.0.0
+stack: fastapi
+title: Every request stalls while customers log in
+summary: Password verification runs bcrypt directly inside an async handler, so each login freezes the event loop and every other request waits behind it.
+category: async
+difficulty: intermediate
+skills:
+- asyncio
+- event-loop
+- threadpool
+- profiling
+requires:
+- slot:customers.security.verify
+- cap:postgres
+fault:
+  inject:
+    slots:
+    - slot: customers.security.verify
+      value: |
+        return verify_password_sync(password, hashed)
+  fix:
+    slots:
+    - slot: customers.security.verify
+      value: |
+        return await run_in_threadpool(verify_password_sync, password, hashed)
+    files:
+    - path: tests/test_login_does_not_block.py
+      from: fix/tests/test_login_does_not_block.py
+  cheats:
+  - name: skip-password-verification
+    slots:
+    - slot: customers.security.verify
+      value: |
+        return True
+  - name: revert-the-commit
+    slots:
+    - slot: customers.security.verify
+      value: |
+        return await run_in_threadpool(verify_password_sync, password, hashed)
+    files:
+    - path: app/ext/product_feed.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: product-feed
+    files:
+    - path: app/ext/product_feed.py
+      from: carrier/app/ext/product_feed.py
+  commit:
+    message: 'feeds: public product feed for partner sites'
+    persona: Priya Nair <priya@shop.example.com>
+  checks:
+  - ref: check.latency-while
+    role: symptom
+    params:
+      background:
+        method: POST
+        path: /api/v1/auth/login
+        count: 6
+        timeout: 30
+        body:
+          email: alice@shop.test
+          password: shop-pass-1
+      probe:
+        method: GET
+        path: /healthz
+        samples: 30
+        p95_ms_max: 150
+      start_delay_ms: 100
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fa_async_2/test_login_does_not_block.py
+  symptom:
+    vars:
+      title: 'The whole API freezes for a moment whenever somebody logs in'
+      report: |-
+        On Monday mornings, when most people sign in, the whole API gets sluggish: product pages, order lookups and even the health check take
+        hundreds of milliseconds longer. The slowdown comes in waves that line up with login traffic and disappears at night. The load balancer
+        started marking instances unhealthy during the busiest minute.
+      where: |-
+        The whole service, not one endpoint. `POST /api/v1/auth/login` is what the slow periods have in common.
+      expected: |-
+        A login can take a quarter of a second (bcrypt is slow on purpose), but it must not make unrelated requests wait.
+      support_tried: |-
+        Scaled to two more instances (the waves just moved). Increased the database pool (no change). CPU of the API process is high, the database is idle.
+      observations: |-
+        ### Other observations from the reporter
+
+        - The health check (`/healthz`, no database) is slow too, so it is not a query problem.
+        - Latency of other endpoints correlates with the number of logins in the same second.
+        - Nothing changed in the login code recently, but the last release changed how often clients refresh their session.
+    signature: unrelated requests slow down while bcrypt hashing runs
+  hints:
+  - 'Measure instead of guessing: while logins are running, call `/healthz` in a loop and time it (a small script with httpx, or `curl -w "%{time_total}\n"`). Does the health check slow down only while a login is in flight?'
+  - FastAPI runs `async def` handlers on the event loop itself. A long synchronous call inside one (bcrypt takes about a quarter of a second at this cost) holds the loop, so nothing else can run until it returns. Ordinary `def` endpoints are run in a thread pool for exactly this reason.
+  - Look at `verify_password` in `app/customers/security.py`. The CPU-bound work must run off the loop, with `starlette.concurrency.run_in_threadpool` (bcrypt releases the GIL while it hashes). Add a test that keeps a second coroutine ticking while a password is verified.
+  rubric:
+    key_points:
+    - Explains that a blocking call inside async def stalls the single event loop and every request on it, not just the caller.
+    - Identifies bcrypt verification as CPU-bound work and moves it to a worker thread (run_in_threadpool or asyncio.to_thread).
+    - Keeps verification real (does not lower the cost factor or skip the comparison).
+    - Adds a test that detects a blocked loop, for example a concurrent ticker that must keep running.
+    misconceptions:
+    - Scaling out or adding workers fixes the cause (each worker still freezes during a login).
+    - Lowering the bcrypt cost factor is the fix (it weakens the password hashes).
+    - Making the endpoint a plain def or adding await in front of the call is enough (await does not make a synchronous call asynchronous).
+  root_cause: |-
+    `verify_password` called `bcrypt.checkpw` directly. bcrypt is deliberately slow CPU-bound work (about 250 ms at cost 12), and an `async def` endpoint runs on the event loop thread, so each login froze the loop: every other request in the process, including the health check, waited until the hash was computed.
+
+    The fix runs the CPU-bound call in the thread pool (`await run_in_threadpool(verify_password_sync, ...)`). The loop stays free to serve other requests while a worker thread computes the hash.

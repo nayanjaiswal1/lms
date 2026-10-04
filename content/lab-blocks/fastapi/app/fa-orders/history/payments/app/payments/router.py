@@ -29,6 +29,7 @@ async def pay(
     session: AsyncSession = Depends(get_session),
     client: PaymentsClient = Depends(payments_client),
 ) -> PaymentOut:
+    # mf:slot payments.router.errors
     try:
         payment = await service.pay_order(session, client, customer.id, order_id)
     except service.OrderNotFound:
@@ -41,6 +42,7 @@ async def pay(
         raise HTTPException(status_code=504, detail="payments provider timed out") from None
     except (PaymentUnavailable, PaymentError):
         raise HTTPException(status_code=502, detail="payments provider unavailable") from None
+    # mf:endslot
     return PaymentOut(
         order_id=payment.order_id,
         status=payment.status,

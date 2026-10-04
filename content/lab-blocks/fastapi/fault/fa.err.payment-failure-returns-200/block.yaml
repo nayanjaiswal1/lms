@@ -1,0 +1,163 @@
+kind: fault
+id: fa.err.payment-failure-returns-200
+version: 1.0.0
+stack: fastapi
+title: Monitoring shows no payment errors while customers cannot pay
+summary: The pay endpoint answers 200 with an error message in the body when the provider fails, so clients, dashboards and alerts all see success.
+category: errors
+difficulty: beginner
+skills:
+- http-status-codes
+- error-handling
+- observability
+requires:
+- slot:payments.router.errors
+- svc:payments-stub
+fault:
+  inject:
+    slots:
+    - slot: payments.router.errors
+      value: |
+        from fastapi.responses import JSONResponse
+
+        try:
+            payment = await service.pay_order(session, client, customer.id, order_id)
+        except service.OrderNotFound:
+            raise HTTPException(status_code=404, detail="order not found") from None
+        except service.OrderNotPayable:
+            raise HTTPException(status_code=409, detail="order cannot be paid") from None
+        except PaymentDeclined:
+            return JSONResponse(status_code=200, content={"status": "error", "detail": "card declined"})
+        except PaymentTimeout:
+            return JSONResponse(status_code=200, content={"status": "error", "detail": "payments provider timed out"})
+        except (PaymentUnavailable, PaymentError):
+            return JSONResponse(status_code=200, content={"status": "error", "detail": "payments provider unavailable"})
+  fix:
+    slots:
+    - slot: payments.router.errors
+      value: |
+        try:
+            payment = await service.pay_order(session, client, customer.id, order_id)
+        except service.OrderNotFound:
+            raise HTTPException(status_code=404, detail="order not found") from None
+        except service.OrderNotPayable:
+            raise HTTPException(status_code=409, detail="order cannot be paid") from None
+        except PaymentDeclined:
+            raise HTTPException(status_code=402, detail="card declined") from None
+        except PaymentTimeout:
+            raise HTTPException(status_code=504, detail="payments provider timed out") from None
+        except (PaymentUnavailable, PaymentError):
+            raise HTTPException(status_code=502, detail="payments provider unavailable") from None
+    files:
+    - path: tests/test_payment_errors.py
+      from: fix/tests/test_payment_errors.py
+  cheats:
+  - name: one-status-for-everything
+    slots:
+    - slot: payments.router.errors
+      value: |
+        try:
+            payment = await service.pay_order(session, client, customer.id, order_id)
+        except service.OrderNotFound:
+            raise HTTPException(status_code=404, detail="order not found") from None
+        except service.OrderNotPayable:
+            raise HTTPException(status_code=409, detail="order cannot be paid") from None
+        except (PaymentDeclined, PaymentTimeout, PaymentUnavailable, PaymentError):
+            raise HTTPException(status_code=502, detail="payment failed") from None
+  - name: revert-the-commit
+    slots:
+    - slot: payments.router.errors
+      value: |
+        try:
+            payment = await service.pay_order(session, client, customer.id, order_id)
+        except service.OrderNotFound:
+            raise HTTPException(status_code=404, detail="order not found") from None
+        except service.OrderNotPayable:
+            raise HTTPException(status_code=409, detail="order cannot be paid") from None
+        except PaymentDeclined:
+            raise HTTPException(status_code=402, detail="card declined") from None
+        except PaymentTimeout:
+            raise HTTPException(status_code=504, detail="payments provider timed out") from None
+        except (PaymentUnavailable, PaymentError):
+            raise HTTPException(status_code=502, detail="payments provider unavailable") from None
+    files:
+    - path: app/ext/stock_alerts.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: stock-alerts
+    files:
+    - path: app/ext/stock_alerts.py
+      from: carrier/app/ext/stock_alerts.py
+  commit:
+    message: 'payments: friendlier payment errors for the mobile app, plus the low-stock alerts endpoint'
+    persona: Sam Okafor <sam@shop.example.com>
+  checks:
+  - ref: check.http-behavior
+    role: symptom
+    params:
+      steps:
+      - method: POST
+        path: /api/v1/orders
+        headers:
+          Authorization: Bearer mf_tok_alice
+        body:
+          items:
+          - product_id: 3
+            quantity: 1
+          shipping_name: ERR1-provider-down
+        expect_status: 201
+        save:
+          order_id: id
+      - method: POST
+        path: '/api/v1/orders/{{order_id}}/pay'
+        timeout: 20
+        headers:
+          Authorization: Bearer mf_tok_alice
+        expect_status:
+        - 402
+        - 502
+        - 504
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fa_err_1/test_payment_errors.py
+  symptom:
+    vars:
+      title: 'Customers cannot pay, but the dashboards show zero payment errors'
+      report: |-
+        Support is flooded with customers saying that paying fails ("payment error, try again") and that they were not charged. The error-rate dashboard
+        and the on-call alerts for the pay endpoint show 0 percent errors for the same period, so nobody was paged.
+      where: |-
+        `POST /api/v1/orders/{id}/pay`. The provider had a bad hour; the endpoint itself looks healthy from the outside.
+      expected: |-
+        A failed payment must be visible as a failed request: a decline as 402, a provider timeout as 504 and an unreachable provider as 502, so that
+        clients, retries, dashboards and alerts all behave correctly.
+      support_tried: |-
+        Compared access logs with the dashboards: every pay request in the bad hour is logged with status 200. The response bodies of the failures contain an
+        error message.
+      observations: |-
+        ### Other observations from the reporter
+
+        - The mobile app shows the generic failure screen only when the HTTP status is an error, so some customers saw a success screen and no receipt.
+        - The change that made payment errors "friendlier" shipped together with the low-stock alerts endpoint.
+        - The orders themselves stayed `pending`, nothing was charged twice.
+    signature: 'pay endpoint answers 200 with a JSON body whose status is error'
+  hints:
+  - Reproduce a provider failure (the lab runs the payments stub slow, or use its fault API) and call the pay endpoint with `curl -i`. What status line comes back, and what is in the body?
+  - 'Status codes are part of the contract: load balancers, retries, SDKs and alerts key off them, not off the body. Look at how `pay` in `app/payments/router.py` handles `PaymentDeclined`, `PaymentTimeout` and `PaymentUnavailable`, and compare with how it handles `OrderNotFound`.'
+  - Raise `HTTPException` with the matching status (402, 504, 502) for each failure instead of returning a 200 JSON body, and add a test that fakes each provider failure and asserts the status code and that the order stays pending.
+  rubric:
+    key_points:
+    - Explains that clients and monitoring decide success from the status code, so errors returned with 200 are invisible.
+    - Maps each failure to its own meaningful status (402 decline, 504 provider timeout, 502 provider unavailable) rather than one for all.
+    - Keeps a helpful message in the body without changing the status.
+    - Adds tests that fake each provider failure and assert the status code.
+    misconceptions:
+    - A friendly 200 with an error flag is a harmless convention (it breaks retries, alerts and generic client handling).
+    - Returning a single 500 or 502 for everything is equivalent (a decline is not a server error).
+    - Fixing the dashboard query is the fix.
+  root_cause: |-
+    The `pay` handler caught the payment exceptions and returned `JSONResponse(status_code=200, content={"status": "error", ...})`. The failure was only visible in the body, so the access logs, the error-rate dashboard, the alert rules and the mobile app's status-based error handling all saw a successful request.
+
+    The fix raises `HTTPException` with the status that matches each failure: 402 for a decline, 504 when the provider times out and 502 when it cannot be reached. The detail message stays in the body for humans.

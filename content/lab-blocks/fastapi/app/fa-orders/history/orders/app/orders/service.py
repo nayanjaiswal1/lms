@@ -66,9 +66,11 @@ async def list_orders(session: AsyncSession, customer_id: int, limit: int) -> li
 
 
 async def get_order(session: AsyncSession, customer_id: int, order_id: int) -> Order | None:
+    # mf:slot orders.service.get_one
     query = (
         select(Order)
         .where(Order.id == order_id, Order.customer_id == customer_id)
         .options(selectinload(Order.items).joinedload(OrderItem.product))
     )
+    # mf:endslot
     return (await session.execute(query)).scalar_one_or_none()

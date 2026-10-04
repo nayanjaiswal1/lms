@@ -220,6 +220,9 @@ class FakePayments:
         self.charges = []
         self.error = None
 
+    async def aclose(self) -> None:
+        """The application's lifespan closes ``app.state.payments`` on shutdown."""
+
     async def charge(self, *, amount_cents, currency, reference, idempotency_key):
         from app.payments.client import Charge
 
