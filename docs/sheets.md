@@ -152,6 +152,10 @@ PATCH  /api/progress/:topic_tag/notes      body: {notes}  -- TipTap JSON
 
 The sheet page renders a split view (`SheetSplitView`): the existing checklist table on the left (sticky on desktop), and a scrollable feed of every item's rich-text note on the right (`SheetNotesPanel`), one TipTap editor per problem. Scrolling the notes feed highlights the matching row on the left (`IntersectionObserver`, same scroll-spy pattern as the course TOC); clicking a row scrolls the feed to that problem's note. Editors mount lazily as their block nears the viewport — large system sheets (Striver A2Z ships ~450 items) would otherwise instantiate hundreds of ProseMirror instances at once.
 
+### Table View
+
+`?view=table` swaps the split view for a read-only Notion-style grid (`SheetGridView`, the vendored `notion-table` web component in `frontend/vendor/notion-table/`, client-only via `next/dynamic`). Columns: Status, Day, Topic, Problem, Difficulty; clicking a row opens its `external_url`. Day comes from `sheet_items.metadata->>'day'` (migration 051, `GET /api/sheets/:slug/items` returns `metadata`). Grouping and the notes panel only apply to the list view.
+
 ### Combined View Response Shape
 
 ```json
@@ -201,6 +205,7 @@ sheet_items (
   difficulty   TEXT,
   external_url TEXT,
   order_index  INT NOT NULL DEFAULT 0,
+  metadata     JSONB NOT NULL DEFAULT '{}',   -- free-form per-item data, e.g. {"day": 3}
   created_at   TIMESTAMPTZ DEFAULT now()
 )
 

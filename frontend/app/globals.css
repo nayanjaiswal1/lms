@@ -435,6 +435,14 @@
    ───────────────────────────────────────────── */
 
 @layer components {
+  /* ── notion-table web component (sheet Table view) ────────────── */
+  notion-table {
+    --nt-line:    hsl(var(--border));
+    --nt-hover:   hsl(var(--muted));
+    --nt-focus:   hsl(var(--primary));
+    --nt-menu-bg: hsl(var(--popover));
+  }
+
   /* ── Page shells ──────────────────────────────────────────────── */
   .page-container    { @apply mx-auto w-full max-w-7xl px-6 sm:px-8 lg:px-12; }
   .page-container-sm { @apply mx-auto w-full max-w-3xl  px-6 sm:px-8; }

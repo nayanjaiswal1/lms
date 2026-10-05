@@ -25,7 +25,8 @@ function buildSecurityHeaders() {
       value: [
         "default-src 'self'",
         // unsafe-inline + unsafe-eval required by Next.js/Turbopack dev mode; eval stripped in production build
-        `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
+        // 'wasm-unsafe-eval' allows WebAssembly.instantiate only (in-browser runtimes), not JS eval
+        `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
         // unsafe-inline required by Tailwind CSS-in-JS + shadcn
         "style-src 'self' 'unsafe-inline'",
         // Allow avatars from OAuth providers + data URIs + blob URLs (canvas export) + user-uploaded media (MinIO/S3) + CNCF brand assets for seeded dev course covers + GitHub-hosted lesson screenshots (markdown-authored course content)

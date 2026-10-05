@@ -186,7 +186,7 @@ func (r *Repo) ListItemsWithProgress(ctx context.Context, sheetID, userID string
 		        si.external_url, si.order_index, si.created_at,
 		        COALESCE(upp.status, 'todo'), upp.solved_at, upp.revision_at,
 		        COALESCE(upp.review_count, 0), COALESCE(upp.notes, '{}'::jsonb),
-		        COALESCE(upp.is_starred, false)
+		        COALESCE(upp.is_starred, false), si.metadata
 		 FROM sheet_items si
 		 LEFT JOIN user_problem_progress upp
 		   ON upp.topic_tag = si.topic_tag AND upp.user_id = $2
@@ -204,6 +204,7 @@ func (r *Repo) ListItemsWithProgress(ctx context.Context, sheetID, userID string
 			&it.ID, &it.SheetID, &it.Title, &it.TopicTag, &it.Category, &it.Difficulty,
 			&it.ExternalURL, &it.OrderIndex, &it.CreatedAt,
 			&it.Status, &it.SolvedAt, &it.RevisionAt, &it.ReviewCount, &it.Notes, &it.IsStarred,
+			&it.Metadata,
 		); err != nil {
 			return nil, fmt.Errorf("sheets: scan item: %w", err)
 		}
