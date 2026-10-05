@@ -2,12 +2,12 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-10-05T12:20:40Z
+-- Generated at: 2026-10-05T12:25:45Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: Python: Fundamentals to Advanced ─────────────────────────────────────────────
 INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, is_free, is_public, estimated_hours)
-VALUES ('a575d044-3374-561b-9cf6-d44aa7b0f855', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'Python: Fundamentals to Advanced', 'advanced-python-interview', 'One Python course from core language to senior-interview depth. The Fundamentals block covers types and mutability, copy semantics, functions, scope and closures, exceptions, OOP essentials, complexity, optimization and testing. The Advanced block covers CPython internals and memory, the GIL, threading vs multiprocessing vs asyncio, the data model, iterators and generators, serialization, metaclasses, context managers, weak references, decorators, dataclasses, functools, descriptors, and advanced typing. Every lesson ships runnable "Try it Yourself" Python code boxes.', NULL, 'intermediate', ARRAY['python','interview-prep','concurrency','memory-management','fundamentals','advanced'], 'published', true, false, 15.2)
+VALUES ('a575d044-3374-561b-9cf6-d44aa7b0f855', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'Python: Fundamentals to Advanced', 'advanced-python-interview', 'One Python course from core language to senior-interview depth. The Fundamentals block covers types and mutability, copy semantics, functions, scope and closures, exceptions, OOP essentials, complexity, optimization and testing. The Advanced block covers CPython internals and memory, the GIL, threading vs multiprocessing vs asyncio, the data model, iterators and generators, serialization, metaclasses, context managers, weak references, decorators, dataclasses, functools, descriptors, and advanced typing. Every lesson ships runnable "Try it Yourself" Python code boxes.', '/course-covers/advanced-python-interview.svg', 'intermediate', ARRAY['python','interview-prep','concurrency','memory-management','fundamentals','advanced'], 'published', true, false, 15.2)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, is_public=EXCLUDED.is_public, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();
 
 UPDATE course_sections SET position = position + 100000 WHERE course_id = 'a575d044-3374-561b-9cf6-d44aa7b0f855';
