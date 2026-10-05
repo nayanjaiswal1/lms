@@ -46,6 +46,8 @@ export interface SheetItem {
   difficulty: Difficulty | null;
   external_url: string | null;
   order_index: number;
+  /** Free-form per-item data; `day` is the planned day in a roadmap-style sheet. */
+  metadata?: { day?: number } | null;
   status: ProgressStatus;
   solved_at: string | null;
   revision_at: string | null;

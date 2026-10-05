@@ -10,6 +10,8 @@ import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { SheetSplitView } from "@/components/sheets/sheet-split-view";
 import type { GroupBy } from "@/components/sheets/sheet-table";
 import { GroupToggle } from "@/components/sheets/group-toggle";
+import { SheetGridView } from "@/components/sheets/sheet-grid-view";
+import { ViewToggle, type SheetView } from "@/components/sheets/view-toggle";
 import { StatusFilterToggle, type StatusFilter } from "@/components/sheets/status-filter-toggle";
 import { GroupExpandProvider } from "@/components/sheets/group-expand-context";
 import { NotesPanelProvider } from "@/components/sheets/notes-panel-context";
@@ -22,7 +24,7 @@ const VALID_GROUP_BY: GroupBy[] = ["none", "topic", "difficulty"];
 
 interface SheetDetailPageProps {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ item?: string; group?: string; edit?: string; filter?: string }>;
+  searchParams: Promise<{ item?: string; group?: string; edit?: string; filter?: string; view?: string }>;
 }
 
 const VALID_STATUS_FILTERS: StatusFilter[] = ["done", "revisit", "starred"];
@@ -38,7 +40,9 @@ function sheetHref(slug: string, params: Record<string, string | undefined>): st
 
 export default async function SheetDetailPage({ params, searchParams }: SheetDetailPageProps) {
   const { slug } = await params;
-  const { item, group, edit, filter } = await searchParams;
+  const { item, group, edit, filter, view } = await searchParams;
+  const isTableView = view === "table";
+  const sheetView: SheetView = isTableView ? "table" : "list";
   const groupBy: GroupBy = VALID_GROUP_BY.includes(group as GroupBy) ? (group as GroupBy) : "none";
   const isAddingItem = item === "new";
   const isEditMode = edit === "1";
@@ -70,6 +74,7 @@ export default async function SheetDetailPage({ params, searchParams }: SheetDet
     group: groupBy !== "none" ? groupBy : undefined,
     edit: isEditMode ? "1" : undefined,
     filter: activeFilters.size > 0 ? [...activeFilters].join(",") : undefined,
+    view: isTableView ? "table" : undefined,
   };
   const baseSheetUrl = sheetHref(slug, carryParams);
   const toggleEditModeHref = sheetHref(slug, { ...carryParams, edit: isEditMode ? undefined : "1" });
@@ -106,7 +111,12 @@ export default async function SheetDetailPage({ params, searchParams }: SheetDet
               )}
             </div>
             <div className="flex items-center gap-4 pt-1">
-              {groupBy !== "none" && <GroupExpandToggle />}
+              {!isTableView && groupBy !== "none" && <GroupExpandToggle />}
+              <ViewToggle
+                activeSlug={slug}
+                extraParams={{ group: carryParams.group, filter: carryParams.filter, edit: carryParams.edit }}
+                view={sheetView}
+              />
               <RevisionSettings
                 baseRevisionDays={revisionSettings.base_revision_days}
                 growthScheme={revisionSettings.growth_scheme}
@@ -118,11 +128,11 @@ export default async function SheetDetailPage({ params, searchParams }: SheetDet
               <StatusFilterToggle
                 activeFilters={activeFilters}
                 activeSlug={slug}
-                extraParams={{ group: carryParams.group, edit: carryParams.edit }}
+                extraParams={{ group: carryParams.group, edit: carryParams.edit, view: carryParams.view }}
               />
               <GroupToggle
                 activeSlug={slug}
-                extraParams={{ filter: carryParams.filter, edit: carryParams.edit }}
+                extraParams={{ filter: carryParams.filter, edit: carryParams.edit, view: carryParams.view }}
                 groupBy={groupBy}
               />
               {activeSheet.role === "owner" && isEditMode && !isAddingItem && (
@@ -135,15 +145,19 @@ export default async function SheetDetailPage({ params, searchParams }: SheetDet
               )}
             </div>
           </div>
-          <SheetSplitView
-            cancelAddItemHref={baseSheetUrl}
-            groupBy={groupBy}
-            isAdding={isAddingItem}
-            isEditMode={isEditMode}
-            isOwner={activeSheet.role === "owner"}
-            items={visibleItems}
-            sheetId={itemsResponse.sheet.id}
-          />
+          {isTableView ? (
+            <SheetGridView items={visibleItems} />
+          ) : (
+            <SheetSplitView
+              cancelAddItemHref={baseSheetUrl}
+              groupBy={groupBy}
+              isAdding={isAddingItem}
+              isEditMode={isEditMode}
+              isOwner={activeSheet.role === "owner"}
+              items={visibleItems}
+              sheetId={itemsResponse.sheet.id}
+            />
+          )}
         </NotesPanelProvider>
       </GroupExpandProvider>
     </main>

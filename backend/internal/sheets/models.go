@@ -59,6 +59,7 @@ type SheetItem struct {
 	Difficulty  *string         `json:"difficulty,omitempty"`
 	ExternalURL *string         `json:"external_url,omitempty"`
 	OrderIndex  int             `json:"order_index"`
+	Metadata    json.RawMessage `json:"metadata,omitempty"` // free-form per-item JSON (e.g. {"day": 3}); only ListItemsWithProgress fills it
 	Status      string          `json:"status"` // "todo" | "done" | "revisit"
 	SolvedAt    *time.Time      `json:"solved_at,omitempty"`
 	RevisionAt  *time.Time      `json:"revision_at,omitempty"`

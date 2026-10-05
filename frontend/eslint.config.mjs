@@ -64,6 +64,7 @@ export default tseslint.config(
       'node_modules/**',
       'out/**',
       'public/**',
+      'vendor/**',
       '*.min.js',
       'eslint-rules/**',
       '**/*.css',
