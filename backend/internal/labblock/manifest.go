@@ -120,7 +120,7 @@ type HistoryCommit struct {
 
 // AppSection is the kind=app payload description.
 type AppSection struct {
-	Language  string          `yaml:"language" json:"language"` // python | js — picks the literal escaper family
+	Language  string          `yaml:"language" json:"language"` // python | js | fullstack (python backend + js frontend) — picks the literal escaper family
 	Slots     []SlotDecl      `yaml:"slots" json:"slots"`
 	History   []HistoryCommit `yaml:"history" json:"history"`
 	Noise     []HistoryCommit `yaml:"noise" json:"noise,omitempty"`

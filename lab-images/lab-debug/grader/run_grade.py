@@ -17,9 +17,9 @@ grader.json (version 1):
     "<mode>": {
       "fresh_db": true, "restart_app": true,
       "setup": ["shell command", ...],                      # run in the workspace
-      "tests": [{"name", "paths": [...], "args": [...], "message", "runner": "pytest|vitest"}],
+      "tests": [{"name", "paths": [...], "args": [...], "message", "runner": "pytest|vitest|mixed"}],
       "probes": [{"kind": "P|Q|C|M|L|H|T|J", "name", "message", "params": {...}}],
-      "student_test": {"runner": "pytest|vitest", "test_globs": [...], "setup": [...], "message_none", "message_on_base", "message_on_fix"}
+      "student_test": {"runner": "pytest|vitest|mixed (by file extension)", "test_globs": [...], "setup": [...], "message_none", "message_on_base", "message_on_fix"}
     }
   }
 }
@@ -124,9 +124,24 @@ def run_tests(ctx: Context, runner: str, targets: list[str], root: str, app_dir:
               diagnose: bool = True) -> int:
     """One test run in the configured runner. `root` holds the test files,
     `app_dir` is the workspace tree the tests exercise."""
+    if runner == "mixed":
+        return run_mixed(ctx, targets, root, app_dir, extra, diagnose)
     if runner == "vitest":
         return run_vitest(ctx, targets, root, app_dir, extra, diagnose=diagnose)
     return run_pytest(ctx, targets, extra, cwd=app_dir)
+
+
+def run_mixed(ctx: Context, targets: list[str], root: str, app_dir: str, extra: list[str] | None, diagnose: bool) -> int:
+    """Fullstack apps: Python files run in pytest, everything else in vitest. 1 (a test failed) wins over
+    other non-zero codes, so "fails on the baseline" holds when either side's test fails."""
+    py = [t for t in targets if t.split("::", 1)[0].endswith(".py")]
+    js = [t for t in targets if t not in py]
+    codes = []
+    if py:
+        codes.append(run_pytest(ctx, py, extra, cwd=app_dir))
+    if js:
+        codes.append(run_vitest(ctx, js, root, app_dir, extra, diagnose=diagnose))
+    return 1 if 1 in codes else next((c for c in codes if c), 0)
 
 
 def git(ctx: Context, *args: str) -> subprocess.CompletedProcess:

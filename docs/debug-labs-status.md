@@ -50,11 +50,7 @@ Phase 1 (Django end to end: runtime, authoring engine, build/verify pipeline, 11
 
 ## Remaining after Phase 1
 
-1. **Phase 2 — Builder depth.** The backend is mostly built; this is UI plus the remaining pieces:
-   - multi-fault chains and fault pools
-   - AI ticket drafting in the UI
-   - org text blocks editor
-   - update-available and yank flows
+1. ~~**Phase 2 � Builder depth**~~ done (landed in `e9b51b0`/`ddc36bf`; browser-untested): chains and fault pools in the block step (`fault-links.tsx`, `candidate-card.tsx`), AI ticket drafting (`ticket-draft-panel.tsx`, cached by recipe hash), org text-block editor (`teach/debug-labs/blocks/new|[id]/edit`), update-available list and yank flow with affected-labs preview.
 2. ~~**Phase 3 — FastAPI**~~ content done (see above); only the Docker verification remains (item 5).
 3. ~~**Phase 4 — React**~~ content done (see above); only the Docker verification remains (item 5).
 4. **Phase 5 — Fullstack:** `fs-shop` + cross-stack (XS) faults; `custom` block support in the build.
@@ -65,8 +61,8 @@ Phase 1 (Django end to end: runtime, authoring engine, build/verify pipeline, 11
    - Apply migrations 044–048 on a **throwaway** database. Never on the shared Neon DB first — dev and prod share it.
    - End-to-end: sync blocks → build a recipe → verify → publish → run as a student, and click through the builder UI (never run in a browser yet).
 6. **Small known gaps to clean up:**
-   - `isLabAuthError` still matches on message text.
-   - Some rarer labs errors have no `code`.
+   - ~~`isLabAuthError` matched on message text~~ now checks HTTP 401 (`res.status`).
+   - ~~Some rarer labs errors have no `code`~~ every `writeDomainError` branch now emits a code (`labs/codes.go`, mirrored in `lib/labs.ts`).
    - The `debug-ide` 5 GB disk limit isn't enforced by either runtime.
    - Chained faults don't get separate "1a/1b" tasks.
 7. **Ship:** review the whole branch, merge `debug-labs` → `master`, push, deploy image + migrations.

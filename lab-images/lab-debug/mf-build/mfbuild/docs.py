@@ -102,7 +102,8 @@ def _vscode_files(launch: dict, tasks: dict, settings: dict) -> Tree:
 
 
 def _vscode(v: dict) -> Tree:
-    if v["app"]["language"] == "js":
+    language = v["app"]["language"]
+    if language == "js":
         return _vscode_js()
     launch = {"version": "0.2.0", "configurations": [
         {"name": f"Attach to app (debugpy :{DEBUGPY_PORT})", "type": "debugpy", "request": "attach",
@@ -117,6 +118,11 @@ def _vscode(v: dict) -> Tree:
     ]}
     settings = {"python.defaultInterpreterPath": "/usr/bin/python3", "files.exclude": {".mf": True},
                 "python.testing.pytestEnabled": True, "python.testing.unittestEnabled": False}
+    if language == "fullstack":
+        # Backend tests (pytest) plus frontend tests (vitest), both runnable from the Tasks menu.
+        tasks["tasks"].insert(1, {"label": "Run frontend tests", "type": "shell", "command": "npx vitest run",
+                                  "problemMatcher": []})
+        settings["search.exclude"] = {"node_modules": True}
     return _vscode_files(launch, tasks, settings)
 
 

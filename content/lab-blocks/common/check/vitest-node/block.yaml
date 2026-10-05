@@ -1,7 +1,7 @@
 kind: check
 id: check.vitest-node
 version: 1.0.0
-stack: react
+stack: any
 title: Hidden component tests
 summary: 'Hidden-test probe for React labs: runs vitest files shipped in the grader bundle with a grader-owned config (jsdom, shared setup, @/ alias for the workspace src, @mf/harness).'
 category: check

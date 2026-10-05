@@ -49,6 +49,7 @@ def _config(ctx: Context, root: str, app_dir: str, includes: list[str], report: 
         "resolve": {
             "alias": [
                 {"find": "@mf/harness", "replacement": HARNESS_DIR + "/harness.js"},
+                {"find": "@mf/fullstack", "replacement": HARNESS_DIR + "/fullstack.js"},
                 {"find": APP_ALIAS_MARKER, "replacement": os.path.join(app_dir, "src") + "/"},
             ],
             "dedupe": ["react", "react-dom"],
