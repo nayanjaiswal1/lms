@@ -7,7 +7,7 @@ section_title: "Object-Oriented Python"
 section_position: 3
 section_group: Fundamentals
 title: "`@property`: Getters, Setters & Validation"
-position: 6
+position: 5
 estimated_minutes: 10
 source: ["knowledge/backend/python/python-oop-lld.md"]
 ---
@@ -125,27 +125,3 @@ You can start with a plain public attribute and later convert it into a property
   ]
 }
 ```
-
-## Original notes
-
-Your original wording from the Notes vault, kept verbatim for reference.
-
-##### `@property` — getter/setter with validation
-
-```text
-class Person:
-    def __init__(self, age):
-        self._age = age
-
-    @property
-    def age(self):             # getter — accessed like an attribute: person.age
-        return self._age
-
-    @age.setter
-    def age(self, val):        # setter — validated on assignment: person.age = val
-        if val < 0:
-            raise ValueError("Age must be >= 0")
-        self._age = val
-```
-
-`@property` turns a method into an attribute-like accessor, so callers write `person.age` instead of `person.get_age()`, while the setter still lets you validate or transform the value on assignment — the key mechanism for encapsulation in Python (see below), since there's no `private` keyword to enforce it otherwise.

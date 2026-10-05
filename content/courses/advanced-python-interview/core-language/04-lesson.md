@@ -110,36 +110,3 @@ The downsides are serious. The change is invisible to anyone reading the origina
   ]
 }
 ```
-
-## Original notes
-
-Your original wording from the Notes vault, kept verbatim for reference.
-
-#### What is monkey patching?
-
-Monkey patching is a technique where you modify or extend code at runtime by changing the behavior of classes, modules, or functions after they've been defined — without editing their source code.
-
-The term comes from "guerrilla patching" (making quick, unofficial fixes), which was misheard as "gorilla patching" and evolved into "monkey patching."
-
-**How it works** — in languages like Python, Ruby, or JavaScript, you can reassign methods or attributes of existing objects:
-
-```text
-# Original class
-class Calculator:
-    def add(self, a, b):
-        return a + b
-
-# Monkey patching - changing the method at runtime
-Calculator.add = lambda self, a, b: a + b + 10
-
-calc = Calculator()
-calc.add(2, 3)  # Returns 15 instead of 5
-```
-
-**Common uses:**
-- Fixing bugs in third-party libraries when you can't wait for an official patch
-- Adding functionality to libraries for testing purposes
-- Working around limitations in frameworks
-- Creating mock objects for unit tests
-
-**Downsides:** monkey patching is generally a code smell — it makes code harder to understand and maintain. Someone reading the original class definition won't see the changes, which leads to confusion and bugs. It's also fragile — if the library updates, patches can break or behave unexpectedly. Most developers treat it as a last resort, preferring subclassing, composition, or dependency injection when possible.

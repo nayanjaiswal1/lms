@@ -7,7 +7,7 @@ section_title: "Object-Oriented Python"
 section_position: 3
 section_group: Fundamentals
 title: "Mixins"
-position: 7
+position: 6
 estimated_minutes: 10
 source: ["knowledge/backend/python/python-oop-lld.md"]
 ---
@@ -140,57 +140,3 @@ Good fits: logging, caching, serialization, comparison helpers, behavior reused 
   ]
 }
 ```
-
-## Original notes
-
-Your original wording from the Notes vault, kept verbatim for reference.
-
-#### Mixins
-
-A class that adds methods to other classes via multiple inheritance. Not meant to be used alone.
-
-##### Basic syntax
-
-```text
-class LogMixin:
-    def log(self, msg):
-        print(f"[{self.__class__.__name__}] {msg}")
-
-class User(LogMixin):
-    pass
-
-User().log("hello")  # [User] hello
-```
-
-##### Rules
-
-- Named with `Mixin` suffix by convention.
-- Avoid `__init__` — don't manage state.
-- Place mixins before the main base class.
-- A class can use multiple mixins.
-
-##### Multiple mixins
-
-```text
-class User(LogMixin, SerializeMixin, Base):
-    pass
-```
-
-##### MRO — Method Resolution Order
-
-Python looks up methods left to right.
-
-```text
-class MyClass(MixinB, MixinA, Base):
-    pass
-
-print(MyClass.__mro__)  # MyClass -> MixinB -> MixinA -> Base -> object
-```
-
-##### When to use
-
-| Use | Avoid |
-|---|---|
-| Logging, caching, serialization | Sharing `__init__` logic |
-| Reusable behavior across classes | Managing shared state |
-| Keeping inheritance flat | Deep inheritance chains |
