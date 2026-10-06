@@ -4,6 +4,15 @@ import type { RemotePattern } from "next/dist/shared/lib/image-config";
 
 const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 
+// The lab IDE and app preview are iframes served by labproxy: its own origin plus the
+// per-session preview subdomains (p<port>-<session>.<preview domain>), hence the wildcard.
+function buildLabFrameSources(): string[] {
+  const proxyUrl = process.env.NEXT_PUBLIC_LAB_PROXY_URL;
+  if (!proxyUrl) return [];
+  const { protocol, host } = new URL(proxyUrl.replace(/^ws/, "http"));
+  return [`${protocol}//${host}`, `${protocol}//*.${host}`];
+}
+
 function buildSecurityHeaders() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL;
@@ -37,7 +46,7 @@ function buildSecurityHeaders() {
         // Worker required by Monaco Editor
         "worker-src 'self' blob:",
         // YouTube block embeds (course content + wizard preview) — youtube-nocookie only
-        "frame-src https://www.youtube-nocookie.com",
+        ["frame-src https://www.youtube-nocookie.com", ...buildLabFrameSources()].join(" "),
         "object-src 'none'",
         "base-uri 'self'",
       ].join("; "),

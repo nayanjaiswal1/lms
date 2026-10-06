@@ -180,7 +180,7 @@ func (h *ProxyHandler) proxyPreview(w http.ResponseWriter, r *http.Request, targ
 		ModifyResponse: func(resp *http.Response) error {
 			stripSetCookieDomain(resp)
 			if ideToken != "" {
-				scrubIDEToken(resp)
+				adaptIDEResponse(resp, previewCookieSameSite(h.previewDomain))
 			}
 			if isDocRoot {
 				resp.Header.Set("Cache-Control", "no-store")
@@ -307,12 +307,18 @@ const (
 )
 
 // injectIDEToken authenticates an outgoing request to the IDE port with the
-// derived connection token, as both the tkn query parameter and the
-// vscode-tkn cookie (HTTP and WebSocket upgrades alike). Any client-supplied
-// value is overwritten, so a student cannot pick their own token.
+// derived connection token as the vscode-tkn cookie, and as the tkn query
+// parameter on WebSocket upgrades. The query is never sent on plain HTTP:
+// openvscode answers any request carrying tkn with a 302 to the same path, so
+// injecting it everywhere makes the IDE document redirect to itself forever.
+// Any client-supplied value is overwritten, so a student cannot pick their own
+// token.
 func injectIDEToken(out *http.Request, token string) {
 	q := out.URL.Query()
-	q.Set(vscodeTokenQuery, token)
+	q.Del(vscodeTokenQuery)
+	if strings.EqualFold(out.Header.Get("Upgrade"), "websocket") {
+		q.Set(vscodeTokenQuery, token)
+	}
 	out.URL.RawQuery = q.Encode()
 
 	var kept []string
@@ -325,19 +331,15 @@ func injectIDEToken(out *http.Request, token string) {
 	out.Header.Set("Cookie", strings.Join(kept, "; "))
 }
 
-// scrubIDEToken removes the connection token from an IDE response so it never
-// reaches the browser: the vscode-tkn Set-Cookie and any tkn= in a redirect.
-func scrubIDEToken(resp *http.Response) {
-	cookies := resp.Header.Values("Set-Cookie")
-	if len(cookies) > 0 {
-		resp.Header.Del("Set-Cookie")
-		for _, raw := range cookies {
-			if strings.HasPrefix(strings.TrimSpace(raw), vscodeTokenCookie+"=") {
-				continue
-			}
-			resp.Header.Add("Set-Cookie", raw)
-		}
-	}
+// adaptIDEResponse prepares an IDE response for the browser. It removes the
+// connection token from a redirect Location so it never lands in the address
+// bar or history. The vscode-tkn Set-Cookie is kept on purpose: the VS Code web
+// client reads that cookie to authenticate its workbench WebSocket, and the
+// student can already read the same token in their own container; it is
+// host-only to this session's preview origin. When the preview origin is
+// cross-site to the app (local dev) the cookie is re-issued SameSite=None,
+// because browsers refuse to store a Lax cookie set from a cross-site iframe.
+func adaptIDEResponse(resp *http.Response, sameSite http.SameSite) {
 	if loc := resp.Header.Get("Location"); loc != "" {
 		if u, err := url.Parse(loc); err == nil && u.Query().Has(vscodeTokenQuery) {
 			q := u.Query()
@@ -346,4 +348,29 @@ func scrubIDEToken(resp *http.Response) {
 			resp.Header.Set("Location", u.String())
 		}
 	}
+	if sameSite != http.SameSiteNoneMode {
+		return
+	}
+	cookies := resp.Header.Values("Set-Cookie")
+	resp.Header.Del("Set-Cookie")
+	for _, raw := range cookies {
+		if strings.HasPrefix(strings.TrimSpace(raw), vscodeTokenCookie+"=") {
+			raw = noneSameSite(raw)
+		}
+		resp.Header.Add("Set-Cookie", raw)
+	}
+}
+
+// noneSameSite replaces any SameSite attribute of a Set-Cookie value with
+// SameSite=None; Secure.
+func noneSameSite(raw string) string {
+	var kept []string
+	for _, attr := range strings.Split(raw, ";") {
+		name := strings.ToLower(strings.TrimSpace(attr))
+		if strings.HasPrefix(name, "samesite") || name == "secure" {
+			continue
+		}
+		kept = append(kept, strings.TrimSpace(attr))
+	}
+	return strings.Join(append(kept, "SameSite=None", "Secure"), "; ")
 }

@@ -19,6 +19,20 @@ const previewRefreshOKPath = "/__mf/ok"
 
 const previewTokenCookieName = "__Host-mf_preview_token"
 
+// localPreviewDomain is the dev preview domain. "localhost" has no registrable
+// domain, so p<port>-<session>.localhost is always cross-site to the app origin
+// and the iframe would never receive a SameSite=Lax cookie.
+const localPreviewDomain = "localhost"
+
+// previewCookieSameSite is Lax everywhere a preview shares a registrable domain
+// with the app (production); only the local dev origin needs None.
+func previewCookieSameSite(previewDomain string) http.SameSite {
+	if previewDomain == localPreviewDomain {
+		return http.SameSiteNoneMode
+	}
+	return http.SameSiteLaxMode
+}
+
 // ServePreviewAuth is the preview subdomain's one-time handshake:
 // GET /__mf/preview-auth?t={token}&next={path}, reached only via ServePreview's
 // redirect. It re-validates the token and requires the token's own session
@@ -58,7 +72,7 @@ func (h *ProxyHandler) ServePreviewAuth(w http.ResponseWriter, r *http.Request, 
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: previewCookieSameSite(h.previewDomain),
 		// Session cookie on purpose: the token inside expires on its own
 		// (5-minute JWT); the frontend re-mints and reloads the iframe with
 		// a fresh token, which re-runs this whole handshake and re-sets this

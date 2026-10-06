@@ -122,7 +122,7 @@ export function useLabTerminal({
  }
 
         const proxyUrl =
-          process.env.NEXT_PUBLIC_LAB_PROXY_URL ?? "ws://localhost:18081/ws"
+          process.env.NEXT_PUBLIC_LAB_PROXY_URL ?? "ws://localhost:18081"
  const ws = new WebSocket(
  `${proxyUrl}/ws?session_token=${res.data.session_token}`,
  )

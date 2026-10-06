@@ -68,6 +68,17 @@ func (r *statusRecorder) WriteHeader(status int) {
 	r.ResponseWriter.WriteHeader(status)
 }
 
+// Flush keeps streaming responses (SSE) working: embedding the ResponseWriter
+// interface alone hides the underlying writer's http.Flusher.
+func (r *statusRecorder) Flush() {
+	if f, ok := r.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// Unwrap lets http.ResponseController reach the real writer (Hijack, deadlines).
+func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
+
 // Handler serves the Prometheus exposition format for scraping.
 func Handler() http.Handler {
 	return promhttp.Handler()
