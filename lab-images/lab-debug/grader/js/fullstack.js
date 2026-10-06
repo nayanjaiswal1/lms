@@ -27,6 +27,20 @@ const SIMPLE_METHODS = new Set(["GET", "HEAD", "POST"]);
 const SAFELISTED_HEADERS = new Set(["accept", "accept-language", "content-language", "content-type", "origin"]);
 const SIMPLE_CONTENT_TYPES = ["application/x-www-form-urlencoded", "multipart/form-data", "text/plain"];
 
+/**
+ * Node's fetch rejects the AbortSignal of the jsdom window (a different class), so the signal is not forwarded:
+ * the returned promise settles with the signal's own abort reason as soon as it fires, like a browser's fetch.
+ */
+function abortable(signal, promise) {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(signal.reason);
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+  });
+}
+
 function freePort() {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
@@ -242,7 +256,7 @@ export function createBrowser(backend, { install = true } = {}) {
       const cookie = cookieHeader(url);
       if (cookie) headers.set("Cookie", cookie);
     }
-    const response = await realFetch(actual, { method, headers, body: init.body, signal: init.signal, redirect: "manual" });
+    const response = await abortable(init.signal, realFetch(actual, { method, headers, body: init.body, redirect: "manual" }));
     if (!sameOrigin && !corsAllowed(response, credentials === "include")) throw refused();
     if (sendCookies) storeCookies(response, url);
     return response;

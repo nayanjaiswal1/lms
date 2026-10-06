@@ -2,7 +2,7 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-10-06T07:05:47Z
+-- Generated at: 2026-10-06T08:40:37Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: Production Debugging: Fix Real Bugs in a Live-Looking App ─────────────────────────────────────────────

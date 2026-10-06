@@ -1,14 +1,11 @@
-import { vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import { SEED_USER, createBrowser, useBackend } from '@mf/fullstack';
 import OrdersPage from '@/features/orders/OrdersPage.jsx';
 
 const backend = useBackend();
 
-// jsdom's AbortSignal is not accepted by Node's fetch, so the page's abort signal is dropped in front of the backend.
 beforeEach(() => {
-  const browser = createBrowser(backend);
-  vi.stubGlobal('fetch', (input, init = {}) => browser.fetch(input, { ...init, signal: undefined }));
+  createBrowser(backend);
 });
 
 test('the orders table shows each total in dollars and cents', async () => {

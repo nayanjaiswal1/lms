@@ -47,8 +47,7 @@ Not done: error-boundary / SSR / StrictMode faults, prettier + Go-builder render
 `fs.shop` app block (React storefront + FastAPI), 10 fault blocks in `content/lab-blocks/fullstack/fault/`, 10 recipes (`recipes/fs-*.yaml`) and a
 "Fullstack" section group (18-20: 3 lessons, 10 labs). `coursegen blocks verify` passes for every `fs-*` recipe in the real `lab-debug` image
 (broken fails symptom only, fix passes, every cheat fails). `fs.err.detail-shaped-errors` was redesigned after Docker verify showed its first
-design broke the regression suite: it now reshapes only 403/404 errors. Known gap: the `@mf/fullstack` harness `createBrowser` rejects jsdom's
-`AbortSignal` in Node fetch, so tests rendering `OrdersPage` against the real backend stub fetch.
+design broke the regression suite: it now reshapes only 403/404 errors. The `@mf/fullstack` harness now honors jsdom's `AbortSignal` itself (Node fetch rejects it), so tests render `OrdersPage` against the real backend without stubbing fetch.
 
 ## First browser E2E (2026-10-06, throwaway Postgres/Redis/MinIO + dev Caddy)
 
@@ -66,7 +65,7 @@ recipes pass on a quiet re-run, so delete failed `lab_builds` rows to retry.
 
 Phase 1 (Django end to end: runtime, authoring engine, build/verify pipeline, 11 labs, builder UI) is done and committed. Nothing has run against a database yet: migrations 044–048 are unapplied, and the student flow and builder UI have never run in a browser.
 
-**Next up:** the Go DB tests (testcontainers), the builder UI click-through, and the review/merge (items 5 and 7).
+**Next up:** the builder UI click-through and the review/merge (items 5 and 7). The existing Go DB tests (`library`, `labs`) pass in Docker.
 
 ## Remaining after Phase 1
 
