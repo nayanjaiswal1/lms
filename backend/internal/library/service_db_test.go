@@ -41,8 +41,8 @@ func seedLibraryFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool) l
 	).Scan(&f.sectionID))
 
 	require.NoError(t, pool.QueryRow(ctx,
-		`INSERT INTO lab_definitions (org_id, title, lab_type, environment, is_published, created_by, library_visibility)
-		 VALUES ($1,'Debug Django','terminal','mindforge/lab-terminal:1',true,$2,'org') RETURNING id`,
+		`INSERT INTO lab_definitions (org_id, title, lab_type, environment, is_published, created_by, library_visibility, scope)
+		 VALUES ($1,'Debug Django','terminal','mindforge/lab-terminal:1',true,$2,'org','standalone') RETURNING id`,
 		f.orgID, f.userID,
 	).Scan(&f.labID))
 	var versionID string
@@ -166,8 +166,8 @@ func TestAttach_CrossOrgLabRejected(t *testing.T) {
 		`INSERT INTO users (email, name) VALUES ('other@example.com', 'Other') RETURNING id`,
 	).Scan(&otherUserID))
 	require.NoError(t, pool.QueryRow(ctx,
-		`INSERT INTO lab_definitions (org_id, title, lab_type, environment, is_published, created_by, library_visibility)
-		 VALUES ($1,'Private Lab','terminal','mindforge/lab-terminal:1',true,$2,'org') RETURNING id`,
+		`INSERT INTO lab_definitions (org_id, title, lab_type, environment, is_published, created_by, library_visibility, scope)
+		 VALUES ($1,'Private Lab','terminal','mindforge/lab-terminal:1',true,$2,'org','standalone') RETURNING id`,
 		otherOrgID, otherUserID,
 	).Scan(&otherLabID))
 

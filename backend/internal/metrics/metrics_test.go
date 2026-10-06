@@ -16,3 +16,8 @@ func TestMiddlewarePreservesFlusher(t *testing.T) {
 		t.Fatal("metrics middleware hides http.Flusher from handlers (SSE endpoints return 500)")
 	}
 }
+
+func TestRegisterPoolTwiceDoesNotPanic(t *testing.T) {
+	RegisterPool(nil)
+	RegisterPool(nil)
+}
