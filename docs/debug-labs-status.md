@@ -42,24 +42,31 @@ probes against the live app, and `coursegen blocks verify` (needs Docker). Regen
 broken fails hidden tests, fix passes, every cheat fails. Fixed `trackListeners()` in `grader/js/harness.js`. React course content: a "React" section group (13-17: 5 lessons, 12 labs, one per recipe) in `production-debugging`; `coursegen generate` validates it.
 Not done: error-boundary / SSR / StrictMode faults, prettier + Go-builder render path, `coursegen blocks verify` (Docker).
 
-## Phase 5 — Fullstack (content written, uncommitted except the `fs.shop` block, Docker verification pending)
+## Phase 5 — Fullstack (committed, verified in Docker and in a browser)
 
-`fs.shop` app block (React storefront + FastAPI, committed in `07566e4`), 10 fault blocks in `content/lab-blocks/fullstack/fault/`
-(`fs.cors.credentials-disabled`, `fs.err.detail-shaped-errors`, `fs.auth.cookie-path-narrow`, `fs.auth.csrf-cookie-httponly`,
-`fs.api.search-query-not-encoded`, `fs.csrf.wrong-cookie-name`, `fs.page.offset-skips-first-page`, `fs.data.naive-placed-at`,
-`fs.data.total-in-dollars`, `fs.state.profile-version-ignored`), 10 recipes (`recipes/fs-*.yaml`) and a "Fullstack" section group
-(18-20: 3 lessons, 10 labs). Checked without Docker: `coursegen blocks sync --dry-run` and `coursegen generate` pass; per fault, hidden tests
-fail broken, pass fixed, every cheat fails (real pytest + vitest + uvicorn). Not done: `coursegen blocks verify` (Docker), the
-`revert-the-commit` cheat run for `fs.auth.cookie-path-narrow`, and a fix in the `@mf/fullstack` harness `createBrowser`
-(jsdom AbortSignal is rejected by Node fetch, so `OrdersPage` fails against a real backend; tests currently stub fetch).
-`fs.api.search-query-not-encoded` and `fs.csrf.wrong-cookie-name` are frontend-only, so only their vitest checks catch them.
-Regenerate `lab-blocks.generated.sql` and `production-debugging.generated.sql` when shipping.
+`fs.shop` app block (React storefront + FastAPI), 10 fault blocks in `content/lab-blocks/fullstack/fault/`, 10 recipes (`recipes/fs-*.yaml`) and a
+"Fullstack" section group (18-20: 3 lessons, 10 labs). `coursegen blocks verify` passes for every `fs-*` recipe in the real `lab-debug` image
+(broken fails symptom only, fix passes, every cheat fails). `fs.err.detail-shaped-errors` was redesigned after Docker verify showed its first
+design broke the regression suite: it now reshapes only 403/404 errors. Known gap: the `@mf/fullstack` harness `createBrowser` rejects jsdom's
+`AbortSignal` in Node fetch, so tests rendering `OrdersPage` against the real backend stub fetch.
+
+## First browser E2E (2026-10-06, throwaway Postgres/Redis/MinIO + dev Caddy)
+
+Student flow run in Chrome as the seeded `jaiswal2062@gmail.com`: catalog (all stacks, 9 django / 9 fastapi / 9 react / 3 fullstack published by the
+platform job at the time) -> start lab -> IDE + app preview -> fix -> Check (symptom + regression passed, 70/100). Bugs found and fixed:
+`metrics` middleware hid `http.Flusher` (SSE `/events` returned 500, provisioning never finished); frontend CSP `frame-src` blocked the lab proxy;
+`NEXT_PUBLIC_LAB_PROXY_URL` defaults included `/ws` (it is a base URL); labproxy injected `tkn` on every IDE request so openvscode redirected
+forever; the `vscode-tkn` cookie was scrubbed so the web client could not authenticate its WebSocket; dev preview cookies were `SameSite=Lax` on a
+cross-site `*.localhost` origin; the IDE did not open the workspace folder. The builder wizard UI and the remaining 40 labs were not clicked through.
+Local dev needs the Caddy front (`Caddyfile.dev`, port 80): labproxy redirects previews to `p<port>-<session>.localhost` and expects `X-Forwarded-Proto`.
+Caveat: under heavy parallel load the platform verify job produced false failures (builds failed while a local verify ran concurrently); the same
+recipes pass on a quiet re-run, so delete failed `lab_builds` rows to retry.
 
 ## Where things stand
 
 Phase 1 (Django end to end: runtime, authoring engine, build/verify pipeline, 11 labs, builder UI) is done and committed. Nothing has run against a database yet: migrations 044–048 are unapplied, and the student flow and builder UI have never run in a browser.
 
-**Next up:** the end-to-end check on a throwaway database (item 5 below) before starting Phase 2, so Phase 2 builds on a stack that has actually run.
+**Next up:** the Go DB tests (testcontainers), the builder UI click-through, and the review/merge (items 5 and 7).
 
 ## Remaining after Phase 1
 

@@ -7,30 +7,33 @@ from backend.app.main import create_app
 PASSWORD = "correct-horse-battery"
 
 
-def login(client, password=PASSWORD):
-    return client.post("/api/auth/login", json={"email": "alice@shop.test", "password": password})
+def signed_in():
+    client = TestClient(create_app())
+    login = client.post("/api/auth/login", json={"email": "alice@shop.test", "password": PASSWORD})
+    session, csrf = login.cookies.get("session"), login.cookies.get("csrf_token")
+    client.cookies.clear()
+    client.headers.update({"Cookie": f"session={session}; csrf_token={csrf}", "X-CSRF-Token": csrf})
+    return client
 
 
-def test_a_rejected_login_has_the_error_envelope():
-    response = login(TestClient(create_app()), password="nope")
-    assert response.status_code == 401
-    assert response.json() == {"error": {"code": "invalid_credentials", "message": "Wrong email or password."}}
-
-
-def test_an_unauthenticated_request_has_the_error_envelope():
-    response = TestClient(create_app()).get("/api/auth/me")
-    assert response.status_code == 401
+def test_a_missing_order_has_the_error_envelope():
+    response = signed_in().get("/api/orders/9999")
+    assert response.status_code == 404
     body = response.json()
     assert "detail" not in body
-    assert body["error"]["code"] == "not_authenticated"
-    assert body["error"]["message"] == "Sign in to continue."
+    assert body["error"]["code"] == "order_not_found"
+    assert body["error"]["message"] == "No such order."
 
 
-def test_a_version_conflict_has_the_error_envelope():
-    client = TestClient(create_app())
-    session = login(client).cookies
-    headers = {"Cookie": f"session={session['session']}; csrf_token={session['csrf_token']}", "X-CSRF-Token": session["csrf_token"]}
-    response = client.put("/api/profile", json={"name": "A", "phone": "1", "version": 99}, headers=headers)
-    assert response.status_code == 409
-    assert response.json()["error"]["code"] == "version_conflict"
-    assert response.json()["error"]["message"].startswith("The profile was changed elsewhere")
+def test_an_unknown_product_has_the_error_envelope():
+    response = signed_in().post("/api/orders", json={"items": [{"product_id": 999, "quantity": 1}]})
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "product_not_found"
+
+
+def test_a_rejected_csrf_check_has_the_error_envelope():
+    client = signed_in()
+    del client.headers["X-CSRF-Token"]
+    response = client.post("/api/auth/logout")
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "csrf_failed"

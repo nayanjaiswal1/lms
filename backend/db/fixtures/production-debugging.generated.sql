@@ -2,12 +2,12 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-10-02T02:11:43Z
+-- Generated at: 2026-10-06T07:05:47Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: Production Debugging: Fix Real Bugs in a Live-Looking App ─────────────────────────────────────────────
 INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, is_free, is_public, estimated_hours)
-VALUES ('8af0a927-61bf-5a04-a2e9-e74f552564bf', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'Production Debugging: Fix Real Bugs in a Live-Looking App', 'production-debugging', 'Learn to debug the way it is done at work. Every lab drops you into a small, realistic e-commerce application (Django, PostgreSQL, Celery) inside a browser IDE with a real git history, a ticket from support or the on-call channel, logs, a database and a debugger. You reproduce the problem, follow the evidence to the root cause, fix it, prove the fix with a test that fails on the broken code, and write a short incident note. The Django track covers performance and query problems, data-model and money bugs, concurrency, migrations, configuration and calls to other services. Each section starts with a short lesson on the debugging skill, never on the answer.', NULL, 'intermediate', ARRAY['debugging','django','postgresql','performance','concurrency','migrations','incident-response'], 'published', true, true, 9.8)
+VALUES ('8af0a927-61bf-5a04-a2e9-e74f552564bf', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'Production Debugging: Fix Real Bugs in a Live-Looking App', 'production-debugging', 'Learn to debug the way it is done at work. Every lab drops you into a small, realistic e-commerce application (Django or FastAPI with PostgreSQL, and a React dashboard) inside a browser IDE with a real git history, a ticket from support or the on-call channel, logs, a database and a debugger. You reproduce the problem, follow the evidence to the root cause, fix it, prove the fix with a test that fails on the broken code, and write a short incident note. The Django track covers performance and query problems, data-model and money bugs, concurrency, migrations, configuration and calls to other services. The FastAPI track covers Alembic migrations, async SQLAlchemy performance, event-loop and concurrency bugs, outbound calls and error contracts, validation models, proxy configuration and authorization. The React track covers hooks and closures, async races, state and keys, render performance and leaks, and API and build configuration. The Fullstack track covers sessions, cookies and CORS, API contracts, and values that change meaning between browser and API. Each section starts with a short lesson on the debugging skill, never on the answer.', NULL, 'intermediate', ARRAY['debugging','django','fastapi','react','postgresql','performance','concurrency','migrations','incident-response'], 'published', true, true, 31.0)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, is_public=EXCLUDED.is_public, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();
 
 UPDATE course_sections SET position = position + 100000 WHERE course_id = '8af0a927-61bf-5a04-a2e9-e74f552564bf';
@@ -611,10 +611,1347 @@ ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind,
   revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
   spec=EXCLUDED.spec, updated_at=now();
 
+-- Section: Migrations (Alembic)
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('2331f636-e8f9-5020-9bb0-4dc991097e89', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'Migrations (Alembic)', 7, 'FastAPI')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('6d493c90-6a47-579d-8ee4-041b20e04e87', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '2331f636-e8f9-5020-9bb0-4dc991097e89', 'Debugging Alembic: the revision graph and the data it meets', 'notes', 1, $md$A migration bug is a deployment bug: it shows up at the worst moment, on the machine you cannot experiment on. The skill this section trains is bringing the failure back to your own machine by reproducing the exact starting state the migration ran on.
+
+## Alembic revisions are a graph, not a list
+
+Each revision names its parent in `down_revision`. File names, dates and the order in which people merged branches mean nothing. Two revisions with the same parent are two heads, and `alembic upgrade head` refuses to choose. Learn to read the graph with `alembic heads` and `alembic history`, and to fix a fork with a merge revision (`down_revision` is a tuple of both heads) instead of deleting files that may already have been applied elsewhere.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-fa-alembic-graph-q1",
+      "type": "mcq",
+      "prompt": "Two Alembic revisions both list the same down_revision after a merge, and upgrade head fails with multiple heads. What is the safe fix?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Delete one of the revisions"
+        },
+        {
+          "id": "b",
+          "text": "Add a merge revision whose down_revision is the tuple of both heads"
+        },
+        {
+          "id": "c",
+          "text": "Rename one file so it sorts later"
+        },
+        {
+          "id": "d",
+          "text": "Run upgrade with the --sql flag"
+        }
+      ],
+      "correct": "b",
+      "explanation": "The graph is defined by down_revision. A merge revision depending on both heads restores a single head without discarding history that may already be applied elsewhere."
+    }
+  ]
+}
+```
+
+## A migration is a function of the schema and the data
+
+A migration can pass on an empty database and on a freshly built staging database, and still fail on production, because production has rows. Adding a NOT NULL column with no default, creating a unique index over duplicates, changing a type over legacy values: all of these only fail when there is data. To debug one, bring a scratch database to the revision before the failing one (`alembic upgrade <revision>`), insert rows shaped like production, then upgrade forward and read the real error.
+
+The usual fix is expand, backfill, constrain: add the column in a form existing rows can satisfy (nullable or with a server default), fill it, then tighten it.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-fa-alembic-notnull-q1",
+      "type": "mcq",
+      "prompt": "A revision adds a NOT NULL column without a server default. It passes in CI and fails in production. Why?",
+      "options": [
+        {
+          "id": "a",
+          "text": "CI uses a different Alembic version"
+        },
+        {
+          "id": "b",
+          "text": "CI starts from an empty table, production has rows that need a value for the new column"
+        },
+        {
+          "id": "c",
+          "text": "PostgreSQL ignores NOT NULL in CI"
+        },
+        {
+          "id": "d",
+          "text": "The model had a default, which Alembic applies automatically"
+        }
+      ],
+      "correct": "b",
+      "explanation": "The migration runs against existing rows. Without a default or a backfill there is no value for them, and PostgreSQL aborts the ALTER TABLE."
+    }
+  ]
+}
+```
+$md$, 20, $json$[{"id":"production-debugging-fa-alembic-graph-q1","type":"mcq","correct":"b"},{"id":"production-debugging-fa-alembic-notnull-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('ecfe452d-d7ac-5781-a44e-34fd8a62c665', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '2331f636-e8f9-5020-9bb0-4dc991097e89', 'Lab: The release is blocked by multiple Alembic heads', 'lab', 2, 30, '1b36fcfb-f6f6-5536-99bb-6444f985c8fa', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('1b36fcfb-f6f6-5536-99bb-6444f985c8fa', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'ecfe452d-d7ac-5781-a44e-34fd8a62c665', 'module', 'Lab: The release is blocked by multiple Alembic heads', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('30c15990-076d-54d7-b792-462de42471d7', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: The release is blocked by multiple Alembic heads', $json${"app_range":"^1","blocks":[{"block_version_id":"7f4707a2-1c83-5c77-9c17-3daf6d0ddf6e"},{"block_version_id":"8dbb8952-8962-5e1a-8ef8-b1866ff38aad"},{"block_version_id":"592cc315-ea72-5910-b845-b2bbe06c8ed1"},{"block_version_id":"1f38f850-53f5-54c5-b661-fcbb2f200510"},{"block_version_id":"288860c8-832f-5945-8535-317aecb45d12"},{"block_version_id":"71dbc11d-7b43-5659-8899-01143803cf74"}],"seed":3001}$json$::jsonb, '1b36fcfb-f6f6-5536-99bb-6444f985c8fa', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('23b9f1d1-15f2-53f7-9f8b-049ac030323c', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '2331f636-e8f9-5020-9bb0-4dc991097e89', 'Lab: A migration works in staging and crashes on production', 'lab', 3, 40, '2cd9777f-6b4c-5b82-a26b-216ccea83c55', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('2cd9777f-6b4c-5b82-a26b-216ccea83c55', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '23b9f1d1-15f2-53f7-9f8b-049ac030323c', 'module', 'Lab: A migration works in staging and crashes on production', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('375f68ea-d450-5702-bbc4-20ce3861780f', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: A migration works in staging and crashes on production', $json${"app_range":"^1","blocks":[{"block_version_id":"7f4707a2-1c83-5c77-9c17-3daf6d0ddf6e"},{"block_version_id":"2e42c65b-106b-5445-971d-ef43fd99f971"},{"block_version_id":"592cc315-ea72-5910-b845-b2bbe06c8ed1"},{"block_version_id":"1f38f850-53f5-54c5-b661-fcbb2f200510"},{"block_version_id":"288860c8-832f-5945-8535-317aecb45d12"},{"block_version_id":"71dbc11d-7b43-5659-8899-01143803cf74"}],"seed":3002}$json$::jsonb, '2cd9777f-6b4c-5b82-a26b-216ccea83c55', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+-- Section: Performance (SQLAlchemy)
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('f6ccdc79-34fc-5ec3-a606-ef0c4b200d90', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'Performance (SQLAlchemy)', 8, 'FastAPI')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('d46741c3-3276-5ccb-a9a4-ce47acc6ab1f', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'f6ccdc79-34fc-5ec3-a606-ef0c4b200d90', 'Measure first: counting statements in async SQLAlchemy', 'notes', 1, $md$A slow endpoint is a claim about time; a cause is a claim about work. The skill this section trains is turning "it is slow" into a number you can reproduce: how many SQL statements does one request run, and does that number grow with the data?
+
+## Count statements, not milliseconds
+
+Wall-clock time depends on the machine, the cache and the network. The number of statements a request runs does not. Turn on statement logging (`echo=True` on the engine or the `sqlalchemy.engine` logger at INFO), call the endpoint for a small and a large customer, and compare. A count that grows with the number of rows is an N+1: one query for the list and one more for every row.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-fa-sa-count-q1",
+      "type": "mcq",
+      "prompt": "An endpoint returns in 40 ms for a customer with 2 orders and 8 s for one with 400 orders. What do you measure first?",
+      "options": [
+        {
+          "id": "a",
+          "text": "CPU frequency of the server"
+        },
+        {
+          "id": "b",
+          "text": "How many SQL statements each request runs for the small and the large customer"
+        },
+        {
+          "id": "c",
+          "text": "The size of the JSON response in bytes"
+        },
+        {
+          "id": "d",
+          "text": "The Python version"
+        }
+      ],
+      "correct": "b",
+      "explanation": "A statement count that grows with the number of rows is the signature of an N+1 and is independent of machine speed."
+    }
+  ]
+}
+```
+
+## Relationships here never load implicitly
+
+In this service relationships are declared with `lazy="raise"`: touching an unloaded relationship raises instead of silently issuing SQL, because a lazy load inside async code cannot work. That protects you from hidden queries, but it also means the data is loaded wherever the query is written. Eager loading (`selectinload` for collections, `joinedload` for single parents) loads the related rows for all returned objects at once, in a constant number of statements.
+
+Fix the query, then prove it: a test that records the statements of one request for a small and a large dataset and asserts that the count is equal.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-fa-sa-eager-q1",
+      "type": "mcq",
+      "prompt": "What does selectinload(Order.items) do for a list of 50 orders?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Runs one extra statement per order"
+        },
+        {
+          "id": "b",
+          "text": "Loads the items of all 50 orders with one extra statement"
+        },
+        {
+          "id": "c",
+          "text": "Caches the items in the process"
+        },
+        {
+          "id": "d",
+          "text": "Defers loading until the attribute is accessed"
+        }
+      ],
+      "correct": "b",
+      "explanation": "selectinload issues one additional SELECT ... WHERE order_id IN (...) for all returned parents, so the number of statements does not grow with the rows."
+    }
+  ]
+}
+```
+$md$, 20, $json$[{"id":"production-debugging-fa-sa-count-q1","type":"mcq","correct":"b"},{"id":"production-debugging-fa-sa-eager-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('a6ca0747-5929-5d25-9aef-4a125bb1bed4', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'f6ccdc79-34fc-5ec3-a606-ef0c4b200d90', 'Lab: The order list is slow for repeat customers', 'lab', 2, 40, 'f639e9d6-87be-5d44-b327-3e9212ad6e1b', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('f639e9d6-87be-5d44-b327-3e9212ad6e1b', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'a6ca0747-5929-5d25-9aef-4a125bb1bed4', 'module', 'Lab: The order list is slow for repeat customers', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('15e15a45-4422-5e75-a486-b50ad3b2f4ea', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: The order list is slow for repeat customers', $json${"app_range":"^1","blocks":[{"block_version_id":"7f4707a2-1c83-5c77-9c17-3daf6d0ddf6e"},{"block_version_id":"ff9ec0f5-0cc3-5c35-aee0-a3c45917e0b2"},{"block_version_id":"592cc315-ea72-5910-b845-b2bbe06c8ed1"},{"block_version_id":"1f38f850-53f5-54c5-b661-fcbb2f200510"},{"block_version_id":"b1e52808-dc29-542f-a644-96c307e21f42"},{"block_version_id":"5b34e087-f9c6-5c92-aa98-23578da4a3ee"}],"seed":3003}$json$::jsonb, 'f639e9d6-87be-5d44-b327-3e9212ad6e1b', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+-- Section: Async and concurrency
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('f22bb6dc-9cc9-56a5-881c-54d11c5fd8bf', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'Async and concurrency', 9, 'FastAPI')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('735a6afc-cb17-5887-884c-d999886d79ed', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'f22bb6dc-9cc9-56a5-881c-54d11c5fd8bf', 'Debugging async code: the loop and the races between awaits', 'notes', 1, $md$Async bugs look like load problems: everything is fine for one user and strange for many. The skill this section trains is asking, for every `await` and every blocking call, who else gets to run at that point.
+
+## One event loop, many requests
+
+An `async def` handler runs on the event loop thread, which serves every request of the process. Any call that does not yield (CPU-bound work, `time.sleep`, a blocking library) stops the whole loop until it returns, so unrelated requests, even the health check, wait. Plain `def` endpoints and `run_in_threadpool` move work to worker threads. Reproduce it by timing a cheap endpoint while the suspect endpoint runs.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-fa-async-loop-q1",
+      "type": "mcq",
+      "prompt": "A login endpoint calls bcrypt directly inside an async def. What is the effect on other requests?",
+      "options": [
+        {
+          "id": "a",
+          "text": "None, async handlers run in parallel automatically"
+        },
+        {
+          "id": "b",
+          "text": "Each login freezes the event loop, so every other request in the process waits"
+        },
+        {
+          "id": "c",
+          "text": "Only other logins are affected"
+        },
+        {
+          "id": "d",
+          "text": "The database connection is closed"
+        }
+      ],
+      "correct": "b",
+      "explanation": "bcrypt is CPU-bound and synchronous. On the event loop thread it blocks all coroutines until it finishes; run it in the thread pool instead."
+    }
+  ]
+}
+```
+
+## Await is a scheduling point
+
+A single-threaded loop does not make code atomic. Between two awaits other requests run, and the database sees interleaved statements from many sessions. "Read the value, compute in Python, write it back" across awaits loses updates exactly like threads do. Push the arithmetic into one statement (`UPDATE ... SET x = x + :n`), or lock the row (`SELECT ... FOR UPDATE`); an in-process lock does not survive a second worker.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-fa-async-race-q1",
+      "type": "mcq",
+      "prompt": "Two concurrent credits read the same balance, add their amount in Python and write it back. What happens?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Both are applied, asyncio serialises them"
+        },
+        {
+          "id": "b",
+          "text": "One credit is lost, because both wrote balance plus their own amount"
+        },
+        {
+          "id": "c",
+          "text": "The second request fails with an error"
+        },
+        {
+          "id": "d",
+          "text": "PostgreSQL merges the two writes"
+        }
+      ],
+      "correct": "b",
+      "explanation": "The read and the write are separate round trips with awaits in between. Both requests saw the old balance, so the later write overwrites the earlier one."
+    }
+  ]
+}
+```
+$md$, 20, $json$[{"id":"production-debugging-fa-async-loop-q1","type":"mcq","correct":"b"},{"id":"production-debugging-fa-async-race-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('dc648be3-e909-5f93-984c-ca1a144edf7e', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'f22bb6dc-9cc9-56a5-881c-54d11c5fd8bf', 'Lab: The whole API freezes whenever somebody logs in', 'lab', 2, 40, '0336fcfa-9081-5a32-9b83-868418ec94fd', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('0336fcfa-9081-5a32-9b83-868418ec94fd', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'dc648be3-e909-5f93-984c-ca1a144edf7e', 'module', 'Lab: The whole API freezes whenever somebody logs in', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('15d75968-6b2d-54d2-8e7d-e7b2aa76b0ee', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: The whole API freezes whenever somebody logs in', $json${"app_range":"^1","blocks":[{"block_version_id":"7f4707a2-1c83-5c77-9c17-3daf6d0ddf6e"},{"block_version_id":"17ca7706-7f2f-5996-8815-232b0cf3cfd8"},{"block_version_id":"592cc315-ea72-5910-b845-b2bbe06c8ed1"},{"block_version_id":"1f38f850-53f5-54c5-b661-fcbb2f200510"},{"block_version_id":"58f7c05b-d75f-5118-b108-b11d2bc735d2"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"5b34e087-f9c6-5c92-aa98-23578da4a3ee"}],"seed":3004}$json$::jsonb, '0336fcfa-9081-5a32-9b83-868418ec94fd', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('aebc53b8-eba9-5cfa-b938-2864e04ab883', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'f22bb6dc-9cc9-56a5-881c-54d11c5fd8bf', 'Lab: Store credit goes missing under load', 'lab', 3, 50, 'b7c76879-3c9b-5e19-b968-824586f84950', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('b7c76879-3c9b-5e19-b968-824586f84950', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'aebc53b8-eba9-5cfa-b938-2864e04ab883', 'module', 'Lab: Store credit goes missing under load', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('00f0d894-2723-5c43-9e49-200950a151f9', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Store credit goes missing under load', $json${"app_range":"^1","blocks":[{"block_version_id":"7f4707a2-1c83-5c77-9c17-3daf6d0ddf6e"},{"block_version_id":"2cd187d1-a611-5668-bf74-451272de0ba8"},{"block_version_id":"592cc315-ea72-5910-b845-b2bbe06c8ed1"},{"block_version_id":"1f38f850-53f5-54c5-b661-fcbb2f200510"},{"block_version_id":"21287b22-d413-5e0d-8c7f-8b60beefee16"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"5b34e087-f9c6-5c92-aa98-23578da4a3ee"}],"seed":3005}$json$::jsonb, 'b7c76879-3c9b-5e19-b968-824586f84950', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+-- Section: Service calls and errors
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('7ba71527-a3f1-5f33-8baa-08c884adf01e', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'Service calls and errors', 10, 'FastAPI')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('31028379-3faa-5d91-93f5-97ae7fa8af99', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '7ba71527-a3f1-5f33-8baa-08c884adf01e', 'Debugging outbound calls and the errors you report', 'notes', 1, $md$Every outbound call is a promise about a machine you do not control, and every error response is a promise to the callers of your own API. The skill this section trains is making the dependency misbehave on purpose and checking what your service says about it.
+
+## Every call needs a timeout
+
+httpx lets you set `timeout=None`, which waits forever. A waiting request holds a database connection and often a row lock, so a slow provider starves unrelated endpoints until the pool is empty. Decide the longest you will wait (connect and read), turn that into a clear error for the caller (a 504), and take the value from configuration. The lab environment ships a payments stand-in with a fault switch so you can reproduce the slow provider.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-fa-svc-timeout-q1",
+      "type": "mcq",
+      "prompt": "The payments provider stops answering and the httpx client was created with timeout=None. What happens to pay requests?",
+      "options": [
+        {
+          "id": "a",
+          "text": "httpx gives up after 5 seconds by default"
+        },
+        {
+          "id": "b",
+          "text": "They wait indefinitely while holding a database connection, and the pool eventually runs dry"
+        },
+        {
+          "id": "c",
+          "text": "FastAPI cancels them after 30 seconds"
+        },
+        {
+          "id": "d",
+          "text": "The database aborts them"
+        }
+      ],
+      "correct": "b",
+      "explanation": "timeout=None disables every httpx timeout. Stuck requests keep their sessions, so unrelated endpoints that need a connection start failing too."
+    }
+  ]
+}
+```
+
+## Status codes are the contract
+
+Load balancers, retry logic, SDKs, dashboards and alerts decide success from the status code, not from the body. A handler that turns a failure into `200 {"status": "error"}` is invisible to all of them: zero errors on the dashboard while customers cannot pay. Map each failure to the status that matches it (402 for a decline, 504 for a provider timeout, 502 for an unreachable provider) and keep the human-readable message in the body. Then test the mapping with a fake client that fails in each way.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-fa-svc-status-q1",
+      "type": "mcq",
+      "prompt": "A pay endpoint answers 200 with an error message in the body when the provider is down. Which part of the system is blind to the failure?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Only the database"
+        },
+        {
+          "id": "b",
+          "text": "Clients, monitoring and alerts that decide success from the status code"
+        },
+        {
+          "id": "c",
+          "text": "Nothing, the body carries the error"
+        },
+        {
+          "id": "d",
+          "text": "Only the browser"
+        }
+      ],
+      "correct": "b",
+      "explanation": "Anything keyed to the HTTP status sees a success. Failures must be reported with an error status so the surrounding tooling can react."
+    }
+  ]
+}
+```
+$md$, 20, $json$[{"id":"production-debugging-fa-svc-timeout-q1","type":"mcq","correct":"b"},{"id":"production-debugging-fa-svc-status-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('4053b2d0-9f6a-55ef-bf2e-14ab6e45ef5d', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '7ba71527-a3f1-5f33-8baa-08c884adf01e', 'Lab: Paying hangs when the payments provider is slow', 'lab', 2, 40, '4c10f9a6-d415-5ad5-ac39-ceaa6da526f1', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('4c10f9a6-d415-5ad5-ac39-ceaa6da526f1', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '4053b2d0-9f6a-55ef-bf2e-14ab6e45ef5d', 'module', 'Lab: Paying hangs when the payments provider is slow', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('33d416eb-7e5e-5f9c-b279-10bd35aeee46', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Paying hangs when the payments provider is slow', $json${"app_range":"^1","blocks":[{"block_version_id":"7f4707a2-1c83-5c77-9c17-3daf6d0ddf6e"},{"block_version_id":"df05f196-fe06-5a8a-9f15-cfbc96b84173"},{"block_version_id":"592cc315-ea72-5910-b845-b2bbe06c8ed1"},{"block_version_id":"1f38f850-53f5-54c5-b661-fcbb2f200510"},{"block_version_id":"2e74b2e3-46ce-59a4-9c07-7eb7b75d40f5"},{"block_version_id":"018de84a-34e1-5831-8782-8e877ed4ae16"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"5b34e087-f9c6-5c92-aa98-23578da4a3ee"}],"seed":3006}$json$::jsonb, '4c10f9a6-d415-5ad5-ac39-ceaa6da526f1', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('8e19bd8c-f21d-555a-b0d3-88598b3185dc', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '7ba71527-a3f1-5f33-8baa-08c884adf01e', 'Lab: Customers cannot pay but the dashboards show no errors', 'lab', 3, 30, '4c9d53d1-38d6-5cd4-a2c0-e036fd299b72', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('4c9d53d1-38d6-5cd4-a2c0-e036fd299b72', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '8e19bd8c-f21d-555a-b0d3-88598b3185dc', 'module', 'Lab: Customers cannot pay but the dashboards show no errors', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('252636f4-6b11-59e8-8780-92a52f88adaf', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Customers cannot pay but the dashboards show no errors', $json${"app_range":"^1","blocks":[{"block_version_id":"7f4707a2-1c83-5c77-9c17-3daf6d0ddf6e"},{"block_version_id":"a2b729ce-362a-5286-956d-13df67739048"},{"block_version_id":"592cc315-ea72-5910-b845-b2bbe06c8ed1"},{"block_version_id":"1f38f850-53f5-54c5-b661-fcbb2f200510"},{"block_version_id":"2e74b2e3-46ce-59a4-9c07-7eb7b75d40f5"},{"block_version_id":"018de84a-34e1-5831-8782-8e877ed4ae16"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"5b34e087-f9c6-5c92-aa98-23578da4a3ee"}],"seed":3010}$json$::jsonb, '4c9d53d1-38d6-5cd4-a2c0-e036fd299b72', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+-- Section: Data model and validation
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('d443dfcc-5cdc-5ad5-a262-ebc3bb1e5af4', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'Data model and validation', 11, 'FastAPI')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('3b20905c-f13e-52f9-bf4f-b5db45df634d', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'd443dfcc-5cdc-5ad5-a262-ebc3bb1e5af4', 'Debugging validation models: absent is not the same as null', 'notes', 1, $md$Pydantic models are the boundary between the outside world and your data. A bug here rarely raises: it quietly writes the wrong thing. The skill this section trains is asking, for every field, what the model does when the client sends it, omits it, or sends null.
+
+## Three states, two representations
+
+A PATCH body can contain a value, an explicit null (clear this field) or nothing at all (leave it alone). A model field with a default of `None` collapses the last two. Pydantic remembers which fields were actually provided: `model_dump(exclude_unset=True)` returns exactly those. `model_dump()` returns everything, defaults included, so applying it overwrites the fields the client never mentioned. Reproduce it by sending a single field and reading the whole resource back.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-fa-pyd-unset-q1",
+      "type": "mcq",
+      "prompt": "A PATCH model has phone: str | None = None and company: str | None = None. The client sends only {\"phone\": \"123\"}. What does payload.model_dump() contain?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Only phone"
+        },
+        {
+          "id": "b",
+          "text": "phone and company (company as None)"
+        },
+        {
+          "id": "c",
+          "text": "Nothing"
+        },
+        {
+          "id": "d",
+          "text": "An error"
+        }
+      ],
+      "correct": "b",
+      "explanation": "model_dump() includes every field with its default. Use exclude_unset=True to get only the fields the client sent."
+    }
+  ]
+}
+```
+$md$, 20, $json$[{"id":"production-debugging-fa-pyd-unset-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('96911d8c-e8ed-548f-b3bc-f10f9f4b0ab8', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'd443dfcc-5cdc-5ad5-a262-ebc3bb1e5af4', 'Lab: Saving one profile field erases the others', 'lab', 2, 35, 'd2870ad8-26f4-57af-a8ee-60193e008157', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('d2870ad8-26f4-57af-a8ee-60193e008157', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '96911d8c-e8ed-548f-b3bc-f10f9f4b0ab8', 'module', 'Lab: Saving one profile field erases the others', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('b3369799-07c9-5535-9f7f-9834c99a177c', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Saving one profile field erases the others', $json${"app_range":"^1","blocks":[{"block_version_id":"7f4707a2-1c83-5c77-9c17-3daf6d0ddf6e"},{"block_version_id":"534f2bcf-b615-5c90-a586-a644805512c4"},{"block_version_id":"592cc315-ea72-5910-b845-b2bbe06c8ed1"},{"block_version_id":"1f38f850-53f5-54c5-b661-fcbb2f200510"},{"block_version_id":"018de84a-34e1-5831-8782-8e877ed4ae16"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"5b34e087-f9c6-5c92-aa98-23578da4a3ee"}],"seed":3007}$json$::jsonb, 'd2870ad8-26f4-57af-a8ee-60193e008157', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+-- Section: Configuration and security
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('a085bf16-522a-52c6-8c87-7fe214b3c60e', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'Configuration and security', 12, 'FastAPI')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('5ac0efb6-16e1-5d01-a142-a381c0a7e10d', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'a085bf16-522a-52c6-8c87-7fe214b3c60e', 'Debugging deployment settings and authorization', 'notes', 1, $md$Two kinds of bugs only exist outside your laptop: the ones created by the environment around the app, and the ones created by people who are not you. The skill this section trains is checking what the app assumes about both.
+
+## The proxy is part of the environment
+
+Behind a gateway the service is often mounted under a path prefix that the proxy strips before forwarding. The app learns the prefix as `root_path` (uvicorn's `--root-path`) and needs it only for URLs it hands back to the browser, such as the OpenAPI document that the docs page fetches. Built-in FastAPI routes handle that; a hand-written URL like `/openapi.json` does not. Test it the way the proxy sees it: `TestClient(app, root_path="/api")`, with more than one prefix so a hard-coded value cannot pass.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-fa-cfg-root-q1",
+      "type": "mcq",
+      "prompt": "The docs page works locally and is blank behind the gateway that mounts the service under /api. The page requests /openapi.json. Why does the browser get a 404?",
+      "options": [
+        {
+          "id": "a",
+          "text": "The schema is not generated in production"
+        },
+        {
+          "id": "b",
+          "text": "The schema URL ignores the gateway's path prefix (root_path), so it points at the gateway root"
+        },
+        {
+          "id": "c",
+          "text": "CORS is blocking it"
+        },
+        {
+          "id": "d",
+          "text": "Swagger UI does not support proxies"
+        }
+      ],
+      "correct": "b",
+      "explanation": "The proxy strips /api before forwarding but the browser still has to request /api/openapi.json. The prefix must come from root_path instead of being hard-coded."
+    }
+  ]
+}
+```
+
+## Authentication is not authorization
+
+A valid token says who is calling, not what they may touch. An endpoint that takes an id from the URL must scope the query to the caller (`WHERE id = :id AND customer_id = :me`) so that somebody else's id is indistinguishable from a missing one. Sequential ids make the missing check trivially exploitable (an insecure direct object reference), but random ids only make it harder to guess, not safe. Test with two users: the owner gets the object, the stranger gets a 404.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-fa-sec-idor-q1",
+      "type": "mcq",
+      "prompt": "GET /orders/{id} returns any order to any signed-in customer. What is the correct fix?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Use random UUIDs instead of sequential ids"
+        },
+        {
+          "id": "b",
+          "text": "Scope the query to the signed-in customer so other people's ids return 404"
+        },
+        {
+          "id": "c",
+          "text": "Rate-limit the endpoint"
+        },
+        {
+          "id": "d",
+          "text": "Hide the endpoint from the docs page"
+        }
+      ],
+      "correct": "b",
+      "explanation": "The vulnerability is the missing ownership check. Scoping the query fixes the root cause, whatever the id format."
+    }
+  ]
+}
+```
+$md$, 20, $json$[{"id":"production-debugging-fa-cfg-root-q1","type":"mcq","correct":"b"},{"id":"production-debugging-fa-sec-idor-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('913e0966-7661-5e6d-80b2-d6cfd7e556c5', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'a085bf16-522a-52c6-8c87-7fe214b3c60e', 'Lab: The API docs are blank behind the gateway', 'lab', 2, 35, '68da45aa-f1ac-57c7-a836-dd5b98ac929a', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('68da45aa-f1ac-57c7-a836-dd5b98ac929a', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '913e0966-7661-5e6d-80b2-d6cfd7e556c5', 'module', 'Lab: The API docs are blank behind the gateway', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('0894e92c-fbb4-566e-98c8-e6e1272d2263', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: The API docs are blank behind the gateway', $json${"app_range":"^1","blocks":[{"block_version_id":"7f4707a2-1c83-5c77-9c17-3daf6d0ddf6e"},{"block_version_id":"f64d080c-a589-5a1a-80f6-f885b250a0ac"},{"block_version_id":"592cc315-ea72-5910-b845-b2bbe06c8ed1"},{"block_version_id":"1f38f850-53f5-54c5-b661-fcbb2f200510"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"5b34e087-f9c6-5c92-aa98-23578da4a3ee"}],"seed":3008}$json$::jsonb, '68da45aa-f1ac-57c7-a836-dd5b98ac929a', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('8eb9f7c2-90d2-5ba9-998f-46a268def26b', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'a085bf16-522a-52c6-8c87-7fe214b3c60e', 'Lab: Any customer can read any order', 'lab', 3, 35, '2148d76b-cec8-5f1b-8ff8-8e99edebe34b', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('2148d76b-cec8-5f1b-8ff8-8e99edebe34b', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '8eb9f7c2-90d2-5ba9-998f-46a268def26b', 'module', 'Lab: Any customer can read any order', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('e5e8ff02-2907-54a5-91c8-377a75db0dbb', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Any customer can read any order', $json${"app_range":"^1","blocks":[{"block_version_id":"7f4707a2-1c83-5c77-9c17-3daf6d0ddf6e"},{"block_version_id":"5ccabd41-3c70-5b74-9d6f-ff7bd65bb0a0"},{"block_version_id":"592cc315-ea72-5910-b845-b2bbe06c8ed1"},{"block_version_id":"1f38f850-53f5-54c5-b661-fcbb2f200510"},{"block_version_id":"018de84a-34e1-5831-8782-8e877ed4ae16"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"9f013da8-2692-5987-9ddf-8f056d257d87"}],"seed":3009}$json$::jsonb, '2148d76b-cec8-5f1b-8ff8-8e99edebe34b', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+-- Section: React hooks
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('04e3dbe5-5840-5ac9-a2e2-23f30ce162df', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'React hooks', 13, 'React')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('1d6973ab-711f-5053-96f7-a31386b782f7', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '04e3dbe5-5840-5ac9-a2e2-23f30ce162df', 'Debugging hooks: dependencies, closures and identity', 'notes', 1, $md$## An effect is a closure over one render
+
+Every render creates new functions that see that render's props and state. A timer or listener created in one render keeps reading that render's values until it is replaced, which is why a counter freezes or a filter is ignored. Debug it by asking which render a callback was created in, and what its dependency array promises about when it is recreated.
+
+The fixes are small and specific: read the latest value through a functional update, list every value the effect reads, and keep dependencies stable.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-re-hooks-q1",
+      "type": "mcq",
+      "prompt": "An interval callback does setSeconds(seconds + 1) and the badge stops at 1. Why?",
+      "options": [
+        {
+          "id": "a",
+          "text": "setState is asynchronous"
+        },
+        {
+          "id": "b",
+          "text": "The callback closes over the seconds value of the render that created the interval"
+        },
+        {
+          "id": "c",
+          "text": "React batches interval updates"
+        },
+        {
+          "id": "d",
+          "text": "The interval is cleared on each render"
+        }
+      ],
+      "correct": "b",
+      "explanation": "The callback was created once and always sees the first render's value. A functional update (current => current + 1) reads the latest state instead."
+    }
+  ]
+}
+```
+
+## Objects are new on every render
+
+An object or array created in a component body is a new reference each render. Put it in an effect's dependency array and the effect re-runs every render; if the effect sets state or fetches, that is an endless loop visible in the network tab. Depend on the primitive fields the effect actually reads.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-re-hooks-q2",
+      "type": "mcq",
+      "prompt": "An effect lists an options object built in the parent's body in its dependencies, and requests repeat forever. What is the fix?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Remove the dependency array"
+        },
+        {
+          "id": "b",
+          "text": "Depend on the primitive values the effect reads, such as options.days"
+        },
+        {
+          "id": "c",
+          "text": "Wrap the fetch in setTimeout"
+        },
+        {
+          "id": "d",
+          "text": "Call the effect from a click handler"
+        }
+      ],
+      "correct": "b",
+      "explanation": "Primitives compare by value, so the effect only re-runs when the data it uses changes."
+    }
+  ]
+}
+```
+$md$, 15, $json$[{"id":"production-debugging-re-hooks-q1","type":"mcq","correct":"b"},{"id":"production-debugging-re-hooks-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('bab1cceb-f2ea-5518-b789-de8c33541f2d', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '04e3dbe5-5840-5ac9-a2e2-23f30ce162df', 'Lab: The updated badge never gets past 1', 'lab', 2, 25, '98252ca4-7c95-5bee-a5f9-f530175625a5', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('98252ca4-7c95-5bee-a5f9-f530175625a5', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'bab1cceb-f2ea-5518-b789-de8c33541f2d', 'module', 'Lab: The updated badge never gets past 1', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('1d4b0d83-489c-52b7-ac99-9c8524151c46', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: The updated badge never gets past 1', $json${"app_range":"^1","blocks":[{"block_version_id":"bcc03b0f-33fa-5a67-b2a9-e0660bc70325"},{"block_version_id":"39983e5c-8662-5c0b-9ae8-0665476a54b6"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"cdfbc19a-8f9d-5e97-96b4-99201f8eb49a"}],"seed":4108}$json$::jsonb, '98252ca4-7c95-5bee-a5f9-f530175625a5', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('87886ae8-7324-53d6-a83d-8e0c5cbbf329', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '04e3dbe5-5840-5ac9-a2e2-23f30ce162df', 'Lab: Changing the status filter does not reload orders', 'lab', 3, 30, '661c83aa-ccd7-5fc7-b731-e7b03640ecb4', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('661c83aa-ccd7-5fc7-b731-e7b03640ecb4', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '87886ae8-7324-53d6-a83d-8e0c5cbbf329', 'module', 'Lab: Changing the status filter does not reload orders', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('f0376762-73dd-54a5-88bb-aad8e120b5f5', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Changing the status filter does not reload orders', $json${"app_range":"^1","blocks":[{"block_version_id":"bcc03b0f-33fa-5a67-b2a9-e0660bc70325"},{"block_version_id":"895b9be7-cf96-50b8-b6d6-88e2c3d80bb1"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"cdfbc19a-8f9d-5e97-96b4-99201f8eb49a"}],"seed":4106}$json$::jsonb, '661c83aa-ccd7-5fc7-b731-e7b03640ecb4', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('0339708c-c52d-5c88-9f1a-3c998f99afa5', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '04e3dbe5-5840-5ac9-a2e2-23f30ce162df', 'Lab: The Reports page hammers the API', 'lab', 4, 30, '20bf8288-5894-53b3-bf78-38a2cf43027e', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('20bf8288-5894-53b3-bf78-38a2cf43027e', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '0339708c-c52d-5c88-9f1a-3c998f99afa5', 'module', 'Lab: The Reports page hammers the API', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('dd6f159b-85cc-5866-8078-c0016246ce81', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: The Reports page hammers the API', $json${"app_range":"^1","blocks":[{"block_version_id":"bcc03b0f-33fa-5a67-b2a9-e0660bc70325"},{"block_version_id":"04951822-47aa-544a-9e9d-4220e689055a"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"cdfbc19a-8f9d-5e97-96b4-99201f8eb49a"}],"seed":4107}$json$::jsonb, '20bf8288-5894-53b3-bf78-38a2cf43027e', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+-- Section: Async and races
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('06f976a5-6d4e-5961-bd6c-40e192be837f', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'Async and races', 14, 'React')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('5b282640-e3f3-5709-8fe5-1bddc42f7c14', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '06f976a5-6d4e-5961-bd6c-40e192be837f', 'Debugging async UI: ordering and failure paths', 'notes', 1, $md$## Responses do not arrive in the order requests were sent
+
+A typeahead that applies every response will show the answer to an older query whenever that request is slower. Reproduce it by delaying the first response in a test, then make the effect ignore stale results or abort the previous request in its cleanup.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-re-async-q1",
+      "type": "mcq",
+      "prompt": "A search box shows results for an earlier query after typing quickly. What is the usual cause?",
+      "options": [
+        {
+          "id": "a",
+          "text": "The server caches responses"
+        },
+        {
+          "id": "b",
+          "text": "Every response is applied, including slower answers to older queries"
+        },
+        {
+          "id": "c",
+          "text": "React renders effects out of order"
+        },
+        {
+          "id": "d",
+          "text": "The input is uncontrolled"
+        }
+      ],
+      "correct": "b",
+      "explanation": "Nothing ties a response to the current query. Cleanup that cancels or ignores the previous request fixes it."
+    }
+  ]
+}
+```
+
+## Optimistic updates need a rollback
+
+Updating the UI before the server confirms is fine, but the failure branch must restore the previous state as well as show a message. Read the catch block and ask what state the screen is left in.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-re-async-q2",
+      "type": "mcq",
+      "prompt": "An optimistic flag toggle shows an error but the flag stays on. What is missing?",
+      "options": [
+        {
+          "id": "a",
+          "text": "A loading spinner"
+        },
+        {
+          "id": "b",
+          "text": "Restoring the previous state in the failure path"
+        },
+        {
+          "id": "c",
+          "text": "A longer timeout"
+        },
+        {
+          "id": "d",
+          "text": "A second request"
+        }
+      ],
+      "correct": "b",
+      "explanation": "The optimistic change was never undone, so the screen disagrees with the server."
+    }
+  ]
+}
+```
+$md$, 15, $json$[{"id":"production-debugging-re-async-q1","type":"mcq","correct":"b"},{"id":"production-debugging-re-async-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('5eba040b-3ebf-5599-abf0-8b7ab1cd2bed', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '06f976a5-6d4e-5961-bd6c-40e192be837f', 'Lab: Customer search shows results for an older query', 'lab', 2, 35, 'd8045b28-345c-5469-8bd9-055d231a1a5e', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('d8045b28-345c-5469-8bd9-055d231a1a5e', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '5eba040b-3ebf-5599-abf0-8b7ab1cd2bed', 'module', 'Lab: Customer search shows results for an older query', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('906d4566-350f-5b18-ba31-8809bf0f5546', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Customer search shows results for an older query', $json${"app_range":"^1","blocks":[{"block_version_id":"bcc03b0f-33fa-5a67-b2a9-e0660bc70325"},{"block_version_id":"20bf5a47-62a4-57cd-8eb4-cb85cbedf041"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"cdfbc19a-8f9d-5e97-96b4-99201f8eb49a"}],"seed":4104}$json$::jsonb, 'd8045b28-345c-5469-8bd9-055d231a1a5e', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('996c0dc8-fbc6-5b48-9857-94180ed1e198', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '06f976a5-6d4e-5961-bd6c-40e192be837f', 'Lab: An order stays flagged after the server refused it', 'lab', 3, 30, '1e370030-2d5c-5002-b0cb-6b9cc3150cb2', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('1e370030-2d5c-5002-b0cb-6b9cc3150cb2', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '996c0dc8-fbc6-5b48-9857-94180ed1e198', 'module', 'Lab: An order stays flagged after the server refused it', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('7c0b59d2-e2e9-5da9-8aa9-53440183e28b', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: An order stays flagged after the server refused it', $json${"app_range":"^1","blocks":[{"block_version_id":"bcc03b0f-33fa-5a67-b2a9-e0660bc70325"},{"block_version_id":"9c825b72-92ce-50db-9a63-4c173e6e40e6"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"cdfbc19a-8f9d-5e97-96b4-99201f8eb49a"}],"seed":4103}$json$::jsonb, '1e370030-2d5c-5002-b0cb-6b9cc3150cb2', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+-- Section: State and identity
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('a96af7a6-3458-50ec-865e-11c1523aee57', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'State and identity', 15, 'React')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('993606a2-8f4c-54bc-badc-009ca1160a88', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'a96af7a6-3458-50ec-865e-11c1523aee57', 'Debugging state: who owns it and which component it belongs to', 'notes', 1, $md$## State belongs to a position in the tree
+
+React keeps state by component type and position, or by key. An index key gives the state of a deleted row to the row that moved up, and a form that copies a prop into state once keeps the old values when the prop changes. Use a stable id as the key, and a key on the form to reset it when the entity changes.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-re-state-q1",
+      "type": "mcq",
+      "prompt": "After deleting a list item the next item shows the deleted item's draft text. Why?",
+      "options": [
+        {
+          "id": "a",
+          "text": "The list is not memoized"
+        },
+        {
+          "id": "b",
+          "text": "Rows are keyed by index, so row state follows the position"
+        },
+        {
+          "id": "c",
+          "text": "The delete request was slow"
+        },
+        {
+          "id": "d",
+          "text": "The draft is stored in localStorage"
+        }
+      ],
+      "correct": "b",
+      "explanation": "With index keys the surviving row reuses the removed row's component instance and its state."
+    }
+  ]
+}
+```
+$md$, 15, $json$[{"id":"production-debugging-re-state-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('acab63e0-30fd-5f5a-9d08-d14e2dc39e91', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'a96af7a6-3458-50ec-865e-11c1523aee57', 'Lab: Deleting a note makes the next note show the wrong text', 'lab', 2, 25, '48fca65c-2762-5a4e-bfea-962aa441b86e', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('48fca65c-2762-5a4e-bfea-962aa441b86e', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'acab63e0-30fd-5f5a-9d08-d14e2dc39e91', 'module', 'Lab: Deleting a note makes the next note show the wrong text', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('91244c11-b83e-50e9-aa0f-05002d973253', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Deleting a note makes the next note show the wrong text', $json${"app_range":"^1","blocks":[{"block_version_id":"bcc03b0f-33fa-5a67-b2a9-e0660bc70325"},{"block_version_id":"151dae61-5dac-51f9-86a6-52220614f452"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"cdfbc19a-8f9d-5e97-96b4-99201f8eb49a"}],"seed":4112}$json$::jsonb, '48fca65c-2762-5a4e-bfea-962aa441b86e', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('968ea5f2-548a-58e8-9aff-18f3ba2a89e5', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'a96af7a6-3458-50ec-865e-11c1523aee57', 'Lab: The customer editor shows the previous customer', 'lab', 3, 30, '34e21ade-b702-5e7c-aad4-b01ada76bb77', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('34e21ade-b702-5e7c-aad4-b01ada76bb77', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '968ea5f2-548a-58e8-9aff-18f3ba2a89e5', 'module', 'Lab: The customer editor shows the previous customer', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('906ade13-8722-5b4b-bf76-b6b81236fe46', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: The customer editor shows the previous customer', $json${"app_range":"^1","blocks":[{"block_version_id":"bcc03b0f-33fa-5a67-b2a9-e0660bc70325"},{"block_version_id":"5f026929-8781-5eca-95c8-3cf4cd25b107"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"cdfbc19a-8f9d-5e97-96b4-99201f8eb49a"}],"seed":4111}$json$::jsonb, '34e21ade-b702-5e7c-aad4-b01ada76bb77', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+-- Section: Performance
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('ceaa8b25-53fe-50e4-89ba-a617938c1d73', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'Performance', 16, 'React')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('6ec6cbc1-de48-570e-a00a-8030205d70d8', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'ceaa8b25-53fe-50e4-89ba-a617938c1d73', 'Debugging React performance: measure renders and leaks', 'notes', 1, $md$## Count renders and listeners before changing code
+
+Use the Profiler or a render counter to prove who re-renders and why. A context provider that builds a new value object each render re-renders every consumer, and a listener added without cleanup leaves a copy per visit. Fix the identity or the cleanup, then show the count dropped.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-re-perf-q1",
+      "type": "mcq",
+      "prompt": "Every consumer of a context re-renders when the provider's parent does. What is the likely cause?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Consumers are not wrapped in memo"
+        },
+        {
+          "id": "b",
+          "text": "The provider passes a new value object each render"
+        },
+        {
+          "id": "c",
+          "text": "The context has too many fields"
+        },
+        {
+          "id": "d",
+          "text": "React.StrictMode is on"
+        }
+      ],
+      "correct": "b",
+      "explanation": "A new object identity counts as a change for every consumer. useMemo keeps it stable."
+    }
+  ]
+}
+```
+$md$, 15, $json$[{"id":"production-debugging-re-perf-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('8106dcc1-83f9-58ca-9196-834f9a50c349', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'ceaa8b25-53fe-50e4-89ba-a617938c1d73', 'Lab: Typing in the quick filter makes every page re-render', 'lab', 2, 35, '27b49a0c-72ec-54fe-996c-f44afb96003a', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('27b49a0c-72ec-54fe-996c-f44afb96003a', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '8106dcc1-83f9-58ca-9196-834f9a50c349', 'module', 'Lab: Typing in the quick filter makes every page re-render', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('97c1845a-b355-5f8d-8e49-0f90e6aa77df', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Typing in the quick filter makes every page re-render', $json${"app_range":"^1","blocks":[{"block_version_id":"bcc03b0f-33fa-5a67-b2a9-e0660bc70325"},{"block_version_id":"cdbfaa65-5bae-54ce-9cc6-1e67f2a0fb7d"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"cdfbc19a-8f9d-5e97-96b4-99201f8eb49a"}],"seed":4109}$json$::jsonb, '27b49a0c-72ec-54fe-996c-f44afb96003a', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('31a8c60c-b409-5cf2-a1dc-3f12cfef7e02', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'ceaa8b25-53fe-50e4-89ba-a617938c1d73', 'Lab: Memory and CPU grow every time Orders is opened', 'lab', 3, 35, 'd90b19a1-beef-59e6-81e1-23ca12fc2091', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('d90b19a1-beef-59e6-81e1-23ca12fc2091', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '31a8c60c-b409-5cf2-a1dc-3f12cfef7e02', 'module', 'Lab: Memory and CPU grow every time Orders is opened', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('11a60eee-731a-5130-861b-e98266798313', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Memory and CPU grow every time Orders is opened', $json${"app_range":"^1","blocks":[{"block_version_id":"bcc03b0f-33fa-5a67-b2a9-e0660bc70325"},{"block_version_id":"578643f9-80b1-5027-99ec-32778f703a33"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"cdfbc19a-8f9d-5e97-96b4-99201f8eb49a"}],"seed":4110}$json$::jsonb, 'd90b19a1-beef-59e6-81e1-23ca12fc2091', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+-- Section: API and configuration
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('2689f97b-9792-51bc-a6df-3d8739e41e3f', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'API and configuration', 17, 'React')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('f0563bd4-61e0-5626-a282-0806735ba631', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '2689f97b-9792-51bc-a6df-3d8739e41e3f', 'Debugging the edges: API results, dates and build-time config', 'notes', 1, $md$## The client decides what failure means
+
+A fetch promise only rejects on network errors, so the API client must turn error statuses into errors. Check the status handling for every range, and read dates without a time zone as local calendar days. Build-time configuration is baked in: a bundler only exposes variables with its public prefix, so a missing prefix silently falls back to a default.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-re-api-q1",
+      "type": "mcq",
+      "prompt": "A Vite app reads import.meta.env.API_URL and always calls relative URLs in staging. Why?",
+      "options": [
+        {
+          "id": "a",
+          "text": "The staging server blocks CORS"
+        },
+        {
+          "id": "b",
+          "text": "Vite only exposes variables prefixed VITE_ to client code"
+        },
+        {
+          "id": "c",
+          "text": "The URL needs a trailing slash"
+        },
+        {
+          "id": "d",
+          "text": "Env files load only in production"
+        }
+      ],
+      "correct": "b",
+      "explanation": "Unprefixed variables are not exposed, so the value is undefined and the fallback is used."
+    }
+  ]
+}
+```
+$md$, 15, $json$[{"id":"production-debugging-re-api-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('3692d718-969b-5bf7-af51-922ea5d5be3d', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '2689f97b-9792-51bc-a6df-3d8739e41e3f', 'Lab: The UI says Saved while the server was down', 'lab', 2, 30, '8b0a788a-3f7b-5cf4-a787-36df241b3f0e', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('8b0a788a-3f7b-5cf4-a787-36df241b3f0e', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '3692d718-969b-5bf7-af51-922ea5d5be3d', 'module', 'Lab: The UI says Saved while the server was down', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('680837d0-7db6-5751-bc28-bb9cd11e46a4', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: The UI says Saved while the server was down', $json${"app_range":"^1","blocks":[{"block_version_id":"bcc03b0f-33fa-5a67-b2a9-e0660bc70325"},{"block_version_id":"4e5bb575-d622-5fb2-8e84-e5ac6a7f0f08"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"cdfbc19a-8f9d-5e97-96b4-99201f8eb49a"}],"seed":4102}$json$::jsonb, '8b0a788a-3f7b-5cf4-a787-36df241b3f0e', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('a3488ba4-f261-5b6e-8820-361e4453d5f3', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '2689f97b-9792-51bc-a6df-3d8739e41e3f', 'Lab: Revenue report shows the previous day for US users', 'lab', 3, 30, '078ba2a5-8955-5710-a101-ca37113ef9e7', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('078ba2a5-8955-5710-a101-ca37113ef9e7', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'a3488ba4-f261-5b6e-8820-361e4453d5f3', 'module', 'Lab: Revenue report shows the previous day for US users', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('10ae3aa8-f72f-5e1d-b922-ac28e3c79405', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Revenue report shows the previous day for US users', $json${"app_range":"^1","blocks":[{"block_version_id":"bcc03b0f-33fa-5a67-b2a9-e0660bc70325"},{"block_version_id":"bb492a31-e22e-5e71-b0ea-1847f9b118ed"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"cdfbc19a-8f9d-5e97-96b4-99201f8eb49a"}],"seed":4101}$json$::jsonb, '078ba2a5-8955-5710-a101-ca37113ef9e7', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('05c56672-9259-532a-b121-4ebfa56bb8e2', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '2689f97b-9792-51bc-a6df-3d8739e41e3f', 'Lab: The staging build still calls its own host', 'lab', 4, 25, 'bb0ad065-2116-53d8-afb4-6baa4db3394f', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('bb0ad065-2116-53d8-afb4-6baa4db3394f', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '05c56672-9259-532a-b121-4ebfa56bb8e2', 'module', 'Lab: The staging build still calls its own host', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('fb8f34d1-e29d-5939-b489-d3e049463b92', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: The staging build still calls its own host', $json${"app_range":"^1","blocks":[{"block_version_id":"bcc03b0f-33fa-5a67-b2a9-e0660bc70325"},{"block_version_id":"d667a06c-719f-5634-987c-09e4edd48666"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"cdfbc19a-8f9d-5e97-96b4-99201f8eb49a"}],"seed":4105}$json$::jsonb, 'bb0ad065-2116-53d8-afb4-6baa4db3394f', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+-- Section: Sessions, cookies and CORS
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('7f3c3c6a-b9d5-5b47-9378-87f28a8bca94', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'Sessions, cookies and CORS', 18, 'Fullstack')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('96bf42b2-cc53-51f8-b4eb-fb4b622fe9f6', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '7f3c3c6a-b9d5-5b47-9378-87f28a8bca94', 'Where the browser and the API disagree: sessions, cookies and CORS', 'notes', 1, $md$
+## Sessions, cookies and CORS
+
+A cookie session crosses three boundaries: CORS decides whether the browser lets a page use credentials, cookie attributes (Path, HttpOnly, SameSite) decide where the cookie travels and who can read it, and the CSRF token has to be read by script and echoed in a header. Break any one and sign-in looks fine while every later request fails. Reproduce with the network tab: check Set-Cookie flags, the request's Cookie header and the response's Access-Control-* headers.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-fullstack-sessions-cors-q1",
+      "type": "mcq",
+      "prompt": "A script must echo the CSRF token in a header. Which cookie flag breaks that?",
+      "options": [
+        {
+          "id": "a",
+          "text": "HttpOnly on the CSRF cookie"
+        },
+        {
+          "id": "b",
+          "text": "Secure on the CSRF cookie"
+        },
+        {
+          "id": "c",
+          "text": "SameSite=Lax on the CSRF cookie"
+        },
+        {
+          "id": "d",
+          "text": "Path=/ on the CSRF cookie"
+        }
+      ],
+      "correct": "a",
+      "explanation": "HttpOnly hides the cookie from document.cookie, so the client cannot read the token to send it."
+    }
+  ]
+}
+```
+$md$, 15, $json$[{"id":"production-debugging-fullstack-sessions-cors-q1","type":"mcq","correct":"a"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('56f76ab1-4a77-5f99-b8a5-cfb5d1dc639d', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '7f3c3c6a-b9d5-5b47-9378-87f28a8bca94', 'Lab: Staging console cannot sign in - the form just says "Failed to fetch', 'lab', 2, 30, '7bc9193c-687f-550c-b883-5e006419c19a', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('7bc9193c-687f-550c-b883-5e006419c19a', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '56f76ab1-4a77-5f99-b8a5-cfb5d1dc639d', 'module', 'Lab: Staging console cannot sign in - the form just says "Failed to fetch', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('93797a4b-207d-55e8-bb00-22398ed0c4d4', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Staging console cannot sign in - the form just says "Failed to fetch', $json${"app_range":"^1","blocks":[{"block_version_id":"4bbf77a8-8483-5a32-8b44-529cbad7bf37"},{"block_version_id":"220c5a09-55b1-59de-ad8e-bb27fd865ffd"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"9aa45629-917c-5db7-994f-5a7ad10df22a"}],"seed":5101}$json$::jsonb, '7bc9193c-687f-550c-b883-5e006419c19a', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('ce4f240e-8057-5c91-9791-8ba3e28cec0a', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '7f3c3c6a-b9d5-5b47-9378-87f28a8bca94', 'Lab: Sign-in succeeds, then Orders and Profile say "Sign in to continue', 'lab', 3, 30, '84ed348e-c808-5817-bebb-53a4b0b8a211', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('84ed348e-c808-5817-bebb-53a4b0b8a211', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'ce4f240e-8057-5c91-9791-8ba3e28cec0a', 'module', 'Lab: Sign-in succeeds, then Orders and Profile say "Sign in to continue', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('cba6c2cc-ca88-5201-9870-c764d53af449', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Sign-in succeeds, then Orders and Profile say "Sign in to continue', $json${"app_range":"^1","blocks":[{"block_version_id":"4bbf77a8-8483-5a32-8b44-529cbad7bf37"},{"block_version_id":"daa16472-f51e-5641-b949-c5deef4f1907"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"9aa45629-917c-5db7-994f-5a7ad10df22a"}],"seed":5103}$json$::jsonb, '84ed348e-c808-5817-bebb-53a4b0b8a211', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('4552504e-4b77-56ba-95cc-84405942e2d6', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '7f3c3c6a-b9d5-5b47-9378-87f28a8bca94', 'Lab: Saving anything fails with "The request could not be verified', 'lab', 4, 30, 'c4169e83-1ef3-56db-b570-9631d78326ac', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('c4169e83-1ef3-56db-b570-9631d78326ac', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '4552504e-4b77-56ba-95cc-84405942e2d6', 'module', 'Lab: Saving anything fails with "The request could not be verified', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('82ec77ec-4ceb-5f95-a73c-d1bdb3287b16', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Saving anything fails with "The request could not be verified', $json${"app_range":"^1","blocks":[{"block_version_id":"4bbf77a8-8483-5a32-8b44-529cbad7bf37"},{"block_version_id":"0fe2ed52-7966-5c00-b578-d866322a942a"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"9aa45629-917c-5db7-994f-5a7ad10df22a"}],"seed":5104}$json$::jsonb, 'c4169e83-1ef3-56db-b570-9631d78326ac', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('9e5e163a-751a-5888-8dab-f228bc7908ef', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '7f3c3c6a-b9d5-5b47-9378-87f28a8bca94', 'Lab: Saving the profile fails with "The request could not be verified', 'lab', 5, 30, 'e413e172-749f-5e64-98ba-fe489348d86f', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('e413e172-749f-5e64-98ba-fe489348d86f', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '9e5e163a-751a-5888-8dab-f228bc7908ef', 'module', 'Lab: Saving the profile fails with "The request could not be verified', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('40920b92-7270-5cf5-b107-984ecf35be23', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Saving the profile fails with "The request could not be verified', $json${"app_range":"^1","blocks":[{"block_version_id":"4bbf77a8-8483-5a32-8b44-529cbad7bf37"},{"block_version_id":"ddd0f123-6323-5252-8c10-680228d13074"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"9aa45629-917c-5db7-994f-5a7ad10df22a"}],"seed":5106}$json$::jsonb, 'e413e172-749f-5e64-98ba-fe489348d86f', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+-- Section: The API contract
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('01054f35-310a-5551-99a0-cde874af2b87', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'The API contract', 19, 'Fullstack')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('fe491a1e-658d-534e-a99e-47cb64187af1', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '01054f35-310a-5551-99a0-cde874af2b87', 'Contracts across the wire: error bodies, query strings and paging', 'notes', 1, $md$
+## The API contract
+
+Frontend and backend only agree through the wire format. Error bodies must have the shape the client reads, query strings must be encoded, and page numbers must mean the same thing on both sides (1-based vs 0-based). Test the contract end to end: send the real request and read the real response before blaming either side.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-fullstack-api-contract-q1",
+      "type": "mcq",
+      "prompt": "A search for \"R&D Kit\" returns every product containing R. What is the most likely cause?",
+      "options": [
+        {
+          "id": "a",
+          "text": "The query was not URL-encoded so & started a new parameter"
+        },
+        {
+          "id": "b",
+          "text": "The API lowercases the query"
+        },
+        {
+          "id": "c",
+          "text": "The database collation is wrong"
+        },
+        {
+          "id": "d",
+          "text": "The browser caches the response"
+        }
+      ],
+      "correct": "a",
+      "explanation": "An unencoded & ends the q parameter, so the server sees q=R."
+    }
+  ]
+}
+```
+$md$, 15, $json$[{"id":"production-debugging-fullstack-api-contract-q1","type":"mcq","correct":"a"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('49a9fe3e-0cb1-54f1-887c-78938172112f', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '01054f35-310a-5551-99a0-cde874af2b87', 'Lab: Error messages are gone - every failure shows "Request failed (409)', 'lab', 2, 30, 'e25eb9a1-b064-58d0-b8fc-fc91f0aa5d04', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('e25eb9a1-b064-58d0-b8fc-fc91f0aa5d04', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '49a9fe3e-0cb1-54f1-887c-78938172112f', 'module', 'Lab: Error messages are gone - every failure shows "Request failed (409)', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('0cc50778-7b84-586b-b012-f05ffcfd049b', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Error messages are gone - every failure shows "Request failed (409)', $json${"app_range":"^1","blocks":[{"block_version_id":"4bbf77a8-8483-5a32-8b44-529cbad7bf37"},{"block_version_id":"9e82d478-dc15-598e-9463-63abf5919151"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"9aa45629-917c-5db7-994f-5a7ad10df22a"}],"seed":5102}$json$::jsonb, 'e25eb9a1-b064-58d0-b8fc-fc91f0aa5d04', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('2645e125-8b67-57ee-93a1-a55d5e5d4ba4', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '01054f35-310a-5551-99a0-cde874af2b87', 'Lab: Searching for "R&D Kit" lists everything containing an R', 'lab', 3, 30, '788ffa65-9fca-50af-86f4-37dc3ed2941f', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('788ffa65-9fca-50af-86f4-37dc3ed2941f', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '2645e125-8b67-57ee-93a1-a55d5e5d4ba4', 'module', 'Lab: Searching for "R&D Kit" lists everything containing an R', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('360a1933-38e6-5e14-a8fa-2440069af248', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Searching for "R&D Kit" lists everything containing an R', $json${"app_range":"^1","blocks":[{"block_version_id":"4bbf77a8-8483-5a32-8b44-529cbad7bf37"},{"block_version_id":"034adb8a-31fd-5662-a658-5c2bb0b4f93d"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"9aa45629-917c-5db7-994f-5a7ad10df22a"}],"seed":5105}$json$::jsonb, '788ffa65-9fca-50af-86f4-37dc3ed2941f', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('17bef067-f75d-5d03-ae43-5ad6b2109c14', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '01054f35-310a-5551-99a0-cde874af2b87', 'Lab: Our newest orders are missing from the order history', 'lab', 4, 30, 'f01d1f65-4518-5dd1-bd85-448627c47285', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('f01d1f65-4518-5dd1-bd85-448627c47285', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '17bef067-f75d-5d03-ae43-5ad6b2109c14', 'module', 'Lab: Our newest orders are missing from the order history', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('32e61c9e-d884-5913-a1a1-1f34ec2a5e11', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Our newest orders are missing from the order history', $json${"app_range":"^1","blocks":[{"block_version_id":"4bbf77a8-8483-5a32-8b44-529cbad7bf37"},{"block_version_id":"956db87f-1c39-547e-8461-717e90101bdc"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"9aa45629-917c-5db7-994f-5a7ad10df22a"}],"seed":5107}$json$::jsonb, 'f01d1f65-4518-5dd1-bd85-448627c47285', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+-- Section: Data and state
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('ff923b9c-b062-5a66-bf4c-b3781174e8ae', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'Data and state', 20, 'Fullstack')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('843c1dbe-bd45-5049-9d88-1f622d9b2877', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'ff923b9c-b062-5a66-bf4c-b3781174e8ae', 'Values that change meaning on the way: time zones, money and stale writes', 'notes', 1, $md$
+## Data and state
+
+A value crosses the wire as text and means different things on each side: a timestamp without an offset is read as local time, an amount in dollars is formatted as cents, and a save based on an old version overwrites newer data. Agree on one representation (UTC with an offset, integer cents, an explicit version check) and enforce it at the API boundary.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-fullstack-data-state-q1",
+      "type": "mcq",
+      "prompt": "Why does a timestamp like 2025-03-06T02:30:00 (no offset) show the wrong day in some browsers?",
+      "options": [
+        {
+          "id": "a",
+          "text": "JavaScript parses it as local time, not UTC"
+        },
+        {
+          "id": "b",
+          "text": "Browsers cannot parse ISO dates"
+        },
+        {
+          "id": "c",
+          "text": "The server clock is wrong"
+        },
+        {
+          "id": "d",
+          "text": "Daylight saving is off"
+        }
+      ],
+      "correct": "a",
+      "explanation": "Without an offset the string is interpreted in the viewer's local time zone."
+    }
+  ]
+}
+```
+$md$, 15, $json$[{"id":"production-debugging-fullstack-data-state-q1","type":"mcq","correct":"a"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('d8b60b31-11ba-5e32-b4b2-4a90e7921e4a', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'ff923b9c-b062-5a66-bf4c-b3781174e8ae', 'Lab: The order I placed this evening is dated tomorrow', 'lab', 2, 30, 'facafe9d-0da6-5f4d-a5ba-dc0bb3112920', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('facafe9d-0da6-5f4d-a5ba-dc0bb3112920', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'd8b60b31-11ba-5e32-b4b2-4a90e7921e4a', 'module', 'Lab: The order I placed this evening is dated tomorrow', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('f98d1eb8-7696-5c32-81f8-99a6c8b6f858', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: The order I placed this evening is dated tomorrow', $json${"app_range":"^1","blocks":[{"block_version_id":"4bbf77a8-8483-5a32-8b44-529cbad7bf37"},{"block_version_id":"be5b426e-5233-559a-90bb-336008158f22"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"9aa45629-917c-5db7-994f-5a7ad10df22a"}],"seed":5108}$json$::jsonb, 'facafe9d-0da6-5f4d-a5ba-dc0bb3112920', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('1308a02d-abce-5c58-be4a-38d7a6105ff0', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'ff923b9c-b062-5a66-bf4c-b3781174e8ae', 'Lab: Every order in the history shows a total of under a dollar', 'lab', 3, 30, '293ff23d-fc4e-59d3-a7f7-e0d09388db59', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('293ff23d-fc4e-59d3-a7f7-e0d09388db59', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '1308a02d-abce-5c58-be4a-38d7a6105ff0', 'module', 'Lab: Every order in the history shows a total of under a dollar', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('e1532e27-0d4f-5ddb-a2ff-debd7f491381', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Every order in the history shows a total of under a dollar', $json${"app_range":"^1","blocks":[{"block_version_id":"4bbf77a8-8483-5a32-8b44-529cbad7bf37"},{"block_version_id":"ac8dd9f1-1547-5334-afbd-f9f1a3052f5a"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"9aa45629-917c-5db7-994f-5a7ad10df22a"}],"seed":5109}$json$::jsonb, '293ff23d-fc4e-59d3-a7f7-e0d09388db59', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('0d53544c-dcb8-5c9a-9a9e-b60e097aa157', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'ff923b9c-b062-5a66-bf4c-b3781174e8ae', 'Lab: Saving my profile on my laptop erased the phone number I just changed on my phone', 'lab', 4, 30, '6aae679d-2e98-57d7-bc8f-3ec0f094ee8a', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('6aae679d-2e98-57d7-bc8f-3ec0f094ee8a', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '0d53544c-dcb8-5c9a-9a9e-b60e097aa157', 'module', 'Lab: Saving my profile on my laptop erased the phone number I just changed on my phone', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('9090bd42-6f56-520b-bcce-17dd1325ff51', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Saving my profile on my laptop erased the phone number I just changed on my phone', $json${"app_range":"^1","blocks":[{"block_version_id":"4bbf77a8-8483-5a32-8b44-529cbad7bf37"},{"block_version_id":"6f0a36a4-6ebc-51e9-b29b-0aa63cda4c79"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"9aa45629-917c-5db7-994f-5a7ad10df22a"}],"seed":5110}$json$::jsonb, '6aae679d-2e98-57d7-bc8f-3ec0f094ee8a', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
 INSERT INTO enrollments (id, user_id, course_id, enrolled_by)
 VALUES ('fd0481e0-44c4-5c39-b8c8-aaf8ca8488bc', '00000000-0000-0000-0000-000000000014', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (user_id, course_id) DO NOTHING;
 
-DELETE FROM course_modules WHERE course_id = '8af0a927-61bf-5a04-a2e9-e74f552564bf' AND id NOT IN ('660b721f-3bea-54bc-b2f9-7e9107365ccf', '89a9c00f-9137-58f9-af1a-1a2e7364e812', '46604227-42de-5739-ade3-783db7693447', '0721aba0-a80b-55a8-80e4-56ee4429c1e2', 'f0afbafc-7b67-5c97-a2bb-e19b9c19bca7', '16254531-52f4-5fe0-b1bd-743626184b8d', '10220d66-172f-58ae-b876-f829c0a7260f', '1ff1d0ec-7999-50ed-981b-a5ddb014f554', '96a415c6-071c-523e-8fc0-fc624f9db203', 'd5571474-dee0-523d-8e8d-ec18d39875ea', '9df2ff32-3dab-50ab-b05f-636076e3a25e', 'ebbf18aa-4dc6-5a82-a825-66bdb47bc875', '16e7356a-6487-5f42-9ddf-b6bcee59c28e', '178a3b24-fc15-534e-a93a-909609f07a1d', 'c1289e9b-a81a-5c22-8ac8-85a15b3849ad', 'd361fad8-5183-5df6-9507-6e9cf5eaecc2', '8fa0d22a-ebbd-559a-b52c-c7286b4f4927');
-DELETE FROM course_sections WHERE course_id = '8af0a927-61bf-5a04-a2e9-e74f552564bf' AND id NOT IN ('db19aa3e-9ffb-5efc-a991-9344be87258c', '28d5d409-2fd5-586f-9971-8a6380813e83', '13dfba35-e5d7-565e-9324-7dda478ef6d8', '36b18bec-3fc7-5ea2-b7d0-b3b1015f663e', '24ca35ad-5e2a-58ac-8dbe-a56c49ac3d26', '14f3c3f5-c499-5877-a007-80c1d544ce15');
+DELETE FROM course_modules WHERE course_id = '8af0a927-61bf-5a04-a2e9-e74f552564bf' AND id NOT IN ('660b721f-3bea-54bc-b2f9-7e9107365ccf', '89a9c00f-9137-58f9-af1a-1a2e7364e812', '46604227-42de-5739-ade3-783db7693447', '0721aba0-a80b-55a8-80e4-56ee4429c1e2', 'f0afbafc-7b67-5c97-a2bb-e19b9c19bca7', '16254531-52f4-5fe0-b1bd-743626184b8d', '10220d66-172f-58ae-b876-f829c0a7260f', '1ff1d0ec-7999-50ed-981b-a5ddb014f554', '96a415c6-071c-523e-8fc0-fc624f9db203', 'd5571474-dee0-523d-8e8d-ec18d39875ea', '9df2ff32-3dab-50ab-b05f-636076e3a25e', 'ebbf18aa-4dc6-5a82-a825-66bdb47bc875', '16e7356a-6487-5f42-9ddf-b6bcee59c28e', '178a3b24-fc15-534e-a93a-909609f07a1d', 'c1289e9b-a81a-5c22-8ac8-85a15b3849ad', 'd361fad8-5183-5df6-9507-6e9cf5eaecc2', '8fa0d22a-ebbd-559a-b52c-c7286b4f4927', '6d493c90-6a47-579d-8ee4-041b20e04e87', 'ecfe452d-d7ac-5781-a44e-34fd8a62c665', '23b9f1d1-15f2-53f7-9f8b-049ac030323c', 'd46741c3-3276-5ccb-a9a4-ce47acc6ab1f', 'a6ca0747-5929-5d25-9aef-4a125bb1bed4', '735a6afc-cb17-5887-884c-d999886d79ed', 'dc648be3-e909-5f93-984c-ca1a144edf7e', 'aebc53b8-eba9-5cfa-b938-2864e04ab883', '31028379-3faa-5d91-93f5-97ae7fa8af99', '4053b2d0-9f6a-55ef-bf2e-14ab6e45ef5d', '8e19bd8c-f21d-555a-b0d3-88598b3185dc', '3b20905c-f13e-52f9-bf4f-b5db45df634d', '96911d8c-e8ed-548f-b3bc-f10f9f4b0ab8', '5ac0efb6-16e1-5d01-a142-a381c0a7e10d', '913e0966-7661-5e6d-80b2-d6cfd7e556c5', '8eb9f7c2-90d2-5ba9-998f-46a268def26b', '1d6973ab-711f-5053-96f7-a31386b782f7', 'bab1cceb-f2ea-5518-b789-de8c33541f2d', '87886ae8-7324-53d6-a83d-8e0c5cbbf329', '0339708c-c52d-5c88-9f1a-3c998f99afa5', '5b282640-e3f3-5709-8fe5-1bddc42f7c14', '5eba040b-3ebf-5599-abf0-8b7ab1cd2bed', '996c0dc8-fbc6-5b48-9857-94180ed1e198', '993606a2-8f4c-54bc-badc-009ca1160a88', 'acab63e0-30fd-5f5a-9d08-d14e2dc39e91', '968ea5f2-548a-58e8-9aff-18f3ba2a89e5', '6ec6cbc1-de48-570e-a00a-8030205d70d8', '8106dcc1-83f9-58ca-9196-834f9a50c349', '31a8c60c-b409-5cf2-a1dc-3f12cfef7e02', 'f0563bd4-61e0-5626-a282-0806735ba631', '3692d718-969b-5bf7-af51-922ea5d5be3d', 'a3488ba4-f261-5b6e-8820-361e4453d5f3', '05c56672-9259-532a-b121-4ebfa56bb8e2', '96bf42b2-cc53-51f8-b4eb-fb4b622fe9f6', '56f76ab1-4a77-5f99-b8a5-cfb5d1dc639d', 'ce4f240e-8057-5c91-9791-8ba3e28cec0a', '4552504e-4b77-56ba-95cc-84405942e2d6', '9e5e163a-751a-5888-8dab-f228bc7908ef', 'fe491a1e-658d-534e-a99e-47cb64187af1', '49a9fe3e-0cb1-54f1-887c-78938172112f', '2645e125-8b67-57ee-93a1-a55d5e5d4ba4', '17bef067-f75d-5d03-ae43-5ad6b2109c14', '843c1dbe-bd45-5049-9d88-1f622d9b2877', 'd8b60b31-11ba-5e32-b4b2-4a90e7921e4a', '1308a02d-abce-5c58-be4a-38d7a6105ff0', '0d53544c-dcb8-5c9a-9a9e-b60e097aa157');
+DELETE FROM course_sections WHERE course_id = '8af0a927-61bf-5a04-a2e9-e74f552564bf' AND id NOT IN ('db19aa3e-9ffb-5efc-a991-9344be87258c', '28d5d409-2fd5-586f-9971-8a6380813e83', '13dfba35-e5d7-565e-9324-7dda478ef6d8', '36b18bec-3fc7-5ea2-b7d0-b3b1015f663e', '24ca35ad-5e2a-58ac-8dbe-a56c49ac3d26', '14f3c3f5-c499-5877-a007-80c1d544ce15', '2331f636-e8f9-5020-9bb0-4dc991097e89', 'f6ccdc79-34fc-5ec3-a606-ef0c4b200d90', 'f22bb6dc-9cc9-56a5-881c-54d11c5fd8bf', '7ba71527-a3f1-5f33-8baa-08c884adf01e', 'd443dfcc-5cdc-5ad5-a262-ebc3bb1e5af4', 'a085bf16-522a-52c6-8c87-7fe214b3c60e', '04e3dbe5-5840-5ac9-a2e2-23f30ce162df', '06f976a5-6d4e-5961-bd6c-40e192be837f', 'a96af7a6-3458-50ec-865e-11c1523aee57', 'ceaa8b25-53fe-50e4-89ba-a617938c1d73', '2689f97b-9792-51bc-a6df-3d8739e41e3f', '7f3c3c6a-b9d5-5b47-9378-87f28a8bca94', '01054f35-310a-5551-99a0-cde874af2b87', 'ff923b9c-b062-5a66-bf4c-b3781174e8ae');
 
