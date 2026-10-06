@@ -215,5 +215,6 @@ async function resolveLoginDestination(
     }
   }
 
-  return next ?? ROUTES.DASHBOARD;
+  // The root page redirects authenticated users to their chosen landing page.
+  return next ?? ROUTES.HOME;
 }

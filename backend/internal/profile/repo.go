@@ -248,6 +248,15 @@ func (r *Repo) GetStats(ctx context.Context, userID string) (*Stats, error) {
 // transaction (e.g. when social links are also being written). Only non-nil
 // pointer fields are applied; existing values are preserved via COALESCE.
 // Returns ErrConflict when display_name or profile_slug is taken.
+// SetLastPage upserts user_profiles.last_page (the row may not exist yet).
+func (r *Repo) SetLastPage(ctx context.Context, userID, path string) error {
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO user_profiles (user_id, last_page) VALUES ($1, $2)
+		ON CONFLICT (user_id) DO UPDATE SET last_page = EXCLUDED.last_page`,
+		userID, path)
+	return err
+}
+
 func (r *Repo) UpsertProfile(ctx context.Context, tx pgx.Tx, userID string, input UpdateProfileInput) error {
 	var notifRaw []byte
 	if input.Notifications != nil {

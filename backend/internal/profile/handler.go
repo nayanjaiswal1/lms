@@ -99,6 +99,35 @@ func (h *Handler) HandleUpdateProfile(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, prof)
 }
 
+// ─── HandleSetLastPage ────────────────────────────────────────────────────────
+
+// HandleSetLastPage handles PUT /api/profile/me/last-page.
+func (h *Handler) HandleSetLastPage(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+
+	var input struct {
+		Path string `json:"path"`
+	}
+	if !httputil.DecodeJSON(w, r, &input) {
+		return
+	}
+
+	if err := h.service.SetLastPage(r.Context(), claims.UserID, input.Path); err != nil {
+		if errors.Is(err, ErrInvalidLastPage) {
+			httputil.WriteError(w, http.StatusUnprocessableEntity, err.Error())
+			return
+		}
+		slog.Error("profile: set last page", "error", err)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to save last page.")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // ─── HandleUploadAvatar ───────────────────────────────────────────────────────
 
 // HandleUploadAvatar handles POST /api/profile/me/avatar.

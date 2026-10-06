@@ -6,6 +6,7 @@ import { LandingPage } from "@/components/landing/landing-page";
 import { getPublicCourses } from "@/lib/server/courses";
 import { getPublicPricingTiers } from "@/lib/server/pricing";
 import { getCurrentOrgBranding } from "@/lib/orgs/server";
+import { getCurrentUser } from "@/lib/server/auth";
 import ROUTES from "@/lib/routes";
 
 // Next's title.template (defined in the root layout) only cascades to
@@ -27,7 +28,8 @@ export default async function RootPage() {
   const accessToken = cookieStore.get("access_token")?.value;
 
   if (accessToken) {
-    redirect(ROUTES.DASHBOARD);
+    const user = await getCurrentUser().catch(() => null);
+    redirect(user?.default_landing_page || ROUTES.DASHBOARD);
   }
 
   // Degrade, don't crash: the public landing must stay up when the API is

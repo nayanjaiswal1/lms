@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
+import type { NextFetchEvent, NextRequest } from "next/server"
+import { LAST_PAGE_COOKIE, LAST_PAGE_SYNC_COOKIE, LAST_PAGE_SYNC_INTERVAL_MS } from "@/lib/constants"
+import ROUTES from "@/lib/routes"
+
+// Pages that are a step in a flow, not somewhere to resume.
+const UNTRACKED_PATHS = new Set<string>([ROUTES.LAST_VISITED, ROUTES.ONBOARDING, ROUTES.ORG_SELECT])
+const LAST_PAGE_MAX_AGE = 60 * 60 * 24 * 365
 
 // Deny-by-default: every route requires a session unless it's listed here.
 // Getting this list wrong in the "too short" direction just makes an
@@ -84,7 +90,58 @@ function loginRedirect(request: NextRequest): NextResponse {
   return NextResponse.redirect(url)
 }
 
-export async function proxy(request: NextRequest): Promise<NextResponse> {
+// Pushes the page to the backend so "last visited" also works on another
+// device. Runs after the response (waitUntil) and is best-effort: the cookie is
+// the source of truth on this browser.
+function syncLastPage(request: NextRequest, page: string, event: NextFetchEvent): void {
+  const backendUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL
+  const accessToken = request.cookies.get("access_token")?.value
+  if (!backendUrl || !accessToken) return
+  const csrfToken = request.cookies.get("csrf_token")?.value ?? ""
+  event.waitUntil(
+    fetch(`${backendUrl}/api/profile/me/last-page`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        // eslint-disable-next-line no-restricted-syntax -- Proxy can't import lib/server/api.ts (next/headers-backed); same precedent as the refresh call below.
+        Cookie: `access_token=${accessToken}; csrf_token=${csrfToken}`,
+        "X-CSRF-Token": csrfToken,
+      },
+      body: JSON.stringify({ path: page }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    }).catch(() => undefined),
+  )
+}
+
+// Remembers the last authenticated page the user viewed (full navigations and
+// client-side RSC navigations; not prefetches) for the "last visited" landing.
+function trackLastPage(request: NextRequest, response: NextResponse, event: NextFetchEvent): NextResponse {
+  const { pathname, search } = request.nextUrl
+  if (request.method !== "GET" || request.headers.has("next-router-prefetch")) return response
+  if (UNTRACKED_PATHS.has(pathname)) return response
+  const page = pathname + search
+  if (request.cookies.get(LAST_PAGE_COOKIE)?.value === page) return response
+
+  const cookieOptions = {
+    path: "/",
+    maxAge: LAST_PAGE_MAX_AGE,
+    sameSite: "lax" as const,
+    httpOnly: true,
+    secure: request.nextUrl.protocol === "https:",
+  }
+  response.cookies.set(LAST_PAGE_COOKIE, page, cookieOptions)
+
+  const lastSync = Number(request.cookies.get(LAST_PAGE_SYNC_COOKIE)?.value ?? 0)
+  const now = Date.now()
+  if (now - lastSync >= LAST_PAGE_SYNC_INTERVAL_MS) {
+    response.cookies.set(LAST_PAGE_SYNC_COOKIE, String(now), cookieOptions)
+    syncLastPage(request, page, event)
+  }
+  return response
+}
+
+export async function proxy(request: NextRequest, event: NextFetchEvent): Promise<NextResponse> {
   const { pathname } = request.nextUrl
 
   const accessToken  = request.cookies.get("access_token")?.value
@@ -95,7 +152,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   if (isPublicPath(pathname)) return NextResponse.next()
 
   // Token present and not expired — let through immediately.
-  if (accessToken && !jwtExpired(accessToken)) return NextResponse.next()
+  if (accessToken && !jwtExpired(accessToken)) return trackLastPage(request, NextResponse.next(), event)
 
   // No refresh token — redirect to login.
   if (!refreshToken) {
@@ -156,7 +213,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     for (const raw of setCookies) {
       response.headers.append("Set-Cookie", raw)
     }
-    return response
+    return trackLastPage(request, response, event)
   } catch {
     // Backend unreachable or timed out. Send the user to /login rather than
     // through: the session could not be refreshed, so there is nothing to

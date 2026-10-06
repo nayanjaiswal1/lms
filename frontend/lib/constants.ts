@@ -11,7 +11,7 @@ import ROUTES from "@/lib/routes";
 // configured via NEXT_PUBLIC_NOW_ALLOWED_EMAIL (see frontend/.env.example).
 export const NOW_FEATURE_ALLOWED_EMAIL = process.env.NEXT_PUBLIC_NOW_ALLOWED_EMAIL ?? "";
 
-// Sidebar/mobile-nav logo click destination, user-configurable in Settings >
+// Sidebar/mobile-nav logo click destination and post-login/app-open landing, user-configurable in Settings >
 // Profile > Preferences. Mirrors backend/internal/profile/models.go's
 // ValidDefaultLandingPages and the user_profiles_default_landing_page_check
 // DB constraint — keep all three in sync. Restricted to routes with no
@@ -22,7 +22,15 @@ export const DEFAULT_LANDING_PAGE_OPTIONS = [
   { label: "Learn",        value: ROUTES.LEARN },
   { label: "Calendar",     value: ROUTES.CALENDAR },
   { label: "My Mistakes",  value: ROUTES.MISTAKES },
+  { label: "Last page I visited", value: ROUTES.LAST_VISITED },
 ] as const;
+
+// Cookie the proxy keeps current with the last app page viewed; read by the
+// ROUTES.LAST_VISITED route handler.
+export const LAST_PAGE_COOKIE = "last_page";
+// Epoch-ms of the last DB sync of that page; throttles the cross-device write.
+export const LAST_PAGE_SYNC_COOKIE = "last_page_sync";
+export const LAST_PAGE_SYNC_INTERVAL_MS = 60_000;
 
 // ─────────────────────────────────────────────
 

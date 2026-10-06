@@ -199,6 +199,7 @@ type userResponse struct {
 	AvatarURL          *string `json:"avatar_url"`
 	PlatformRole       string  `json:"platform_role"`
 	DefaultLandingPage *string `json:"default_landing_page"`
+	LastPage           *string `json:"last_page"`
 }
 
 type orgResponse struct {
@@ -1035,15 +1036,16 @@ func (h *Handler) HandleMe(w http.ResponseWriter, r *http.Request) {
 		AvatarURL          *string
 		PlatformRole       string
 		DefaultLandingPage *string
+		LastPage           *string
 	}
 	var u userRow
 	if err := h.pool.QueryRow(r.Context(),
-		`SELECT u.id, u.name, u.email, u.avatar_url, u.platform_role, p.default_landing_page
+		`SELECT u.id, u.name, u.email, u.avatar_url, u.platform_role, p.default_landing_page, p.last_page
 		 FROM users u
 		 LEFT JOIN user_profiles p ON p.user_id = u.id
 		 WHERE u.id = $1`,
 		claims.UserID,
-	).Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.PlatformRole, &u.DefaultLandingPage); err != nil {
+	).Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.PlatformRole, &u.DefaultLandingPage, &u.LastPage); err != nil {
 		httputil.WriteError(w, http.StatusUnauthorized, "User not found.")
 		return
 	}
@@ -1070,6 +1072,7 @@ func (h *Handler) HandleMe(w http.ResponseWriter, r *http.Request) {
 			AvatarURL:          u.AvatarURL,
 			PlatformRole:       u.PlatformRole,
 			DefaultLandingPage: u.DefaultLandingPage,
+			LastPage:           u.LastPage,
 		},
 		"orgs":                 orgs,
 		"onboarding_completed": onboardingCompleted,

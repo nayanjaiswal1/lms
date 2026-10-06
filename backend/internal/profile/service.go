@@ -82,6 +82,23 @@ func (s *Service) GetMyProfile(ctx context.Context, userID string) (*Profile, er
 	return prof, nil
 }
 
+// ─── SetLastPage ──────────────────────────────────────────────────────────────
+
+// ErrInvalidLastPage is returned for a path that is not a same-origin app path.
+var ErrInvalidLastPage = errors.New("profile: last page must be a relative path of at most 512 characters")
+
+// SetLastPage records the last app page the user viewed. Mirrors the
+// user_profiles_last_page_check DB constraint.
+func (s *Service) SetLastPage(ctx context.Context, userID, path string) error {
+	if !strings.HasPrefix(path, "/") || strings.HasPrefix(path, "//") || len(path) > 512 || strings.ContainsAny(path, "\\\r\n") {
+		return ErrInvalidLastPage
+	}
+	if err := s.repo.SetLastPage(ctx, userID, path); err != nil {
+		return fmt.Errorf("profile: set last page: %w", err)
+	}
+	return nil
+}
+
 // ─── UpdateProfile ────────────────────────────────────────────────────────────
 
 // UpdateProfile validates input, writes the profile (and optionally social
