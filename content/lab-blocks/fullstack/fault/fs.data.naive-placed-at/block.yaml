@@ -1,0 +1,108 @@
+kind: fault
+id: fs.data.naive-placed-at
+version: 1.0.0
+stack: fullstack
+title: The newest order shows tomorrow's date
+summary: The API serializes placed_at without a time zone, so the browser reads the UTC wall clock as local time and customers west of UTC see the wrong day.
+category: data
+difficulty: intermediate
+skills:
+- datetime
+- timezones
+- api-contracts
+requires:
+- slot:orders.serialize.placed_at
+- cap:fastapi-backend
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: orders.serialize.placed_at
+      value: |
+        "placed_at": order["placed_at"].strftime("%Y-%m-%dT%H:%M:%S"),
+  fix:
+    slots:
+    - slot: orders.serialize.placed_at
+      value: |
+        "placed_at": order["placed_at"].isoformat(),
+    files:
+    - path: backend/tests/test_placed_at_offset.py
+      from: fix/tests/test_placed_at_offset.py
+  cheats:
+  - name: only-the-newest-order
+    slots:
+    - slot: orders.serialize.placed_at
+      value: |
+        "placed_at": order["placed_at"].isoformat() if order["id"] == 23 else order["placed_at"].strftime("%Y-%m-%dT%H:%M:%S"),
+  - name: format-in-utc
+    files:
+    - path: src/lib/format.js
+      from: cheats/format-in-utc.js
+  - name: revert-the-commit
+    slots:
+    - slot: orders.serialize.placed_at
+      value: |
+        "placed_at": order["placed_at"].isoformat(),
+    files:
+    - path: src/ext/status-breakdown/index.js
+      from: cheats/empty-extension.js
+  carrier:
+    feature: status-breakdown
+    files:
+    - path: src/ext/status-breakdown/index.js
+      from: carrier/src/ext/status-breakdown/index.js
+  commit:
+    message: 'orders: add a status breakdown action and use a compact timestamp format'
+    persona: Marcus Webb <marcus@shop.example.com>
+  checks:
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_data_naive_placed_at/test_placed_at_offset.py
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_data_naive_placed_at/placed_at_day.test.jsx
+      env:
+        TZ: America/Los_Angeles
+  symptom:
+    vars:
+      title: The order I placed this evening is dated tomorrow
+      report: |-
+        A customer in California placed an order on the evening of March 5 and the order history lists it as March 6. Support checked
+        the order in the admin tool and it was placed at 02:30 UTC, which is 7:30 pm on the 5th for the customer. The date in the order
+        history is a day ahead for everyone we asked on the US west coast; colleagues in London see the right day.
+      where: The Placed column of the Orders page (the newest orders, placed around midnight UTC, are the ones that look wrong).
+      expected: Each order shows the calendar day it was placed in the customer's own time zone.
+      support_tried: Asked the customer to reload and to clear the browser cache, and compared with the order confirmation email, which has the right day.
+      observations: |-
+        ### Other observations from QA
+
+        - The wrong day only appears for orders placed within a few hours of midnight UTC, and only for viewers west of UTC.
+        - The order totals and statuses are correct.
+        - The Tools menu action for the status breakdown came in the same release.
+    signature: placed_at carries no UTC offset, so the browser shows the UTC clock time as local
+  hints:
+  - Compare the raw JSON of GET /api/orders with what the Placed column shows, then look at the same order in a browser set to a US time zone (TZ=America/Los_Angeles npx vitest run).
+  - '"2025-03-06T02:30:00" and "2025-03-06T02:30:00Z" are different instants for new Date(). Look at how the order serializer writes placed_at and check git log -p for the change that touched it.'
+  - Serialize the timestamp with its offset (isoformat() on an aware datetime, or a trailing Z) in the one serializer all endpoints share. Add a backend test on the JSON string and a frontend test that runs with a west-of-UTC TZ.
+  rubric:
+    key_points:
+    - Identifies that the serialized placed_at has no offset, so the browser interprets it in local time (a naive timestamp).
+    - Fixes it at the serializer (a UTC offset or Z), not by forcing the UTC day in the formatter.
+    - Explains why only orders near midnight UTC and only viewers west of UTC show a different day.
+    - Tests the offset on the API and the rendered date with a non-UTC TZ.
+    misconceptions:
+    - Formatting the date in UTC in the frontend fixes it (it shows the UTC day instead of the customer's day).
+    - Special-casing the newest order is enough (every order has the same problem).
+    - It is a browser or locale bug (the string is ambiguous).
+  root_cause: |-
+    The order serializer switched from `placed_at.isoformat()` to `strftime("%Y-%m-%dT%H:%M:%S")`, which drops the UTC offset of the
+    timezone-aware datetime. JavaScript parses a date-time string without an offset as local time, so "2025-03-06T02:30:00" was
+    treated as 02:30 in the viewer's zone. For a viewer in Los Angeles the real instant (02:30 UTC) is 7:30 pm on March 5, yet the
+    page showed March 6, and any order placed within hours of midnight UTC showed the wrong day.
+
+    The fix writes the timestamp with its offset in the shared serializer (`isoformat()` yields +00:00). The backend test checks the
+    offset on the list and detail endpoints; the frontend test renders the table under a west-of-UTC TZ.

@@ -1,0 +1,119 @@
+kind: fault
+id: fs.err.detail-shaped-errors
+version: 1.0.0
+stack: fullstack
+title: Every error in the console says "Request failed" with only a number
+summary: The API error handler returns a FastAPI-style detail body instead of the error envelope the console reads, so screens lose their messages and error codes.
+category: api
+difficulty: beginner
+skills:
+- error-handling
+- api-contracts
+- fastapi
+requires:
+- slot:api.errors.handler
+- cap:fastapi-backend
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: api.errors.handler
+      value: |
+        @app.exception_handler(ApiError)
+        async def api_error_handler(_request, exc: ApiError):
+            return JSONResponse(status_code=exc.status, content={"detail": exc.message})
+  fix:
+    slots:
+    - slot: api.errors.handler
+      value: |
+        @app.exception_handler(ApiError)
+        async def api_error_handler(_request, exc: ApiError):
+            return JSONResponse(status_code=exc.status, content=error_body(exc.code, exc.message))
+    files:
+    - path: backend/tests/test_error_body.py
+      from: fix/tests/test_error_body.py
+    - path: tests/error-message.test.jsx
+      from: fix/tests/error-message.test.jsx
+  cheats:
+  - name: error-as-string
+    slots:
+    - slot: api.errors.handler
+      value: |
+        @app.exception_handler(ApiError)
+        async def api_error_handler(_request, exc: ApiError):
+            return JSONResponse(status_code=exc.status, content={"error": exc.message})
+  - name: message-without-code
+    slots:
+    - slot: api.errors.handler
+      value: |
+        @app.exception_handler(ApiError)
+        async def api_error_handler(_request, exc: ApiError):
+            return JSONResponse(status_code=exc.status, content={"error": {"message": exc.message}})
+  - name: revert-the-commit
+    slots:
+    - slot: api.errors.handler
+      value: |
+        @app.exception_handler(ApiError)
+        async def api_error_handler(_request, exc: ApiError):
+            return JSONResponse(status_code=exc.status, content=error_body(exc.code, exc.message))
+    files:
+    - path: backend/app/ext/order_summary.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: order-summary
+    files:
+    - path: backend/app/ext/order_summary.py
+      from: carrier/backend/app/ext/order_summary.py
+  commit:
+    message: 'reports: add the order summary report and use the framework error shape'
+    persona: Marcus Webb <marcus@shop.example.com>
+  checks:
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_errors/test_error_body.py
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_errors/errors.test.jsx
+  symptom:
+    vars:
+      title: Error messages are gone - every failure shows "Request failed (409)"
+      report: |-
+        Since the last release the console no longer explains what went wrong. A failed sign-in used to say "Wrong email or password."
+        and a profile save with a stale version used to say the profile was changed elsewhere. Now both just show "Request failed"
+        followed by the status number (401, 409), and the screens that react to a specific error code stopped doing so.
+      where: Every screen that shows a failed request - sign-in, profile, checkout, orders.
+      expected: The user sees the API's own message for each failure, and screens can still branch on the error code.
+      support_tried: Checked that the right status codes come back (401 for a wrong password, 409 for the conflict). The statuses are correct, only the text is missing.
+      observations: |-
+        ### Other observations from QA
+
+        - Validation errors (422) still show their field message, only errors raised by the API's own code lost theirs.
+        - The network tab shows a response body of `{"detail": "..."}` for the failures.
+        - The order summary report was added in the same release, together with a tidy-up of the error handler.
+    signature: 'API errors have a {"detail"} body instead of {"error": {"code", "message"}}'
+  hints:
+  - Trigger a failure with curl (wrong password) and read the raw body. Compare it with a 422 validation error, which still shows its message in the console.
+  - The console's API client reads `payload.error.message` and `payload.error.code`, and `backend/app/errors.py` has a helper that builds exactly that body. Look at which handler stopped using it (`git log -p backend/app/errors.py`).
+  - Return `error_body(exc.code, exc.message)` from the ApiError handler so the one envelope is built in one place. Add a backend test that pins the body shape (code and message) and a client test for the message the user sees.
+  rubric:
+    key_points:
+    - Identifies the contract between the API (error envelope) and the client (`payload.error.message`/`code`) and that the handler broke it.
+    - Notes that the status codes were right, so the client fell back to its generic message.
+    - Fixes the single handler by reusing the shared `error_body` helper instead of adapting every screen or the client to a second shape.
+    - Adds tests for the body shape on the API side and the visible message/code on the client side.
+    misconceptions:
+    - The client should also accept `detail` (it hides the contract break and every other consumer still gets two shapes).
+    - Only the message matters (screens branch on the code, for example version_conflict).
+    - Returning the message as a plain string under "error" is equivalent (the client reads error.message).
+  root_cause: |-
+    The ApiError handler was changed to return `{"detail": message}`, the default FastAPI shape, instead of `error_body(code, message)`.
+    The console's API client reads `payload.error.message` and `payload.error.code`; with a `detail` body both are undefined, so it
+    fell back to "Request failed (<status>)" and lost the code that screens branch on. The status codes were still correct, which
+    made the regression easy to miss.
+
+    The fix restores `error_body(...)` in the handler (one place builds the envelope for ApiError and for validation errors). The
+    backend test pins `{"error": {"code", "message"}}` and the client test checks the message and code a user-facing screen receives.

@@ -1,6 +1,6 @@
 # Debug Labs — Build Status
 
-Last updated: 2026-10-02 · Branch: `debug-labs` (not merged to `master`, not pushed)
+Last updated: 2026-10-06 · Branch: `debug-labs` (not merged to `master`, not pushed)
 Design: [debug-labs.md](debug-labs.md)
 
 ## Done (committed on `debug-labs`)
@@ -23,7 +23,7 @@ Design: [debug-labs.md](debug-labs.md)
 | 1d-ii | 11 Django fault blocks, ticket blocks, production-debugging course; `coursegen blocks verify`; probe stderr diagnostics. All 11 recipes verified in Docker | `069e1bb` |
 | 1e | Builder wizard UI, block library, candidates endpoint, "Create debug lab here" | `160a13c` |
 
-## Phase 3 — FastAPI (content written, uncommitted, Docker verification pending)
+## Phase 3 — FastAPI (committed, Docker verification pending)
 
 `fa.orders` app block (11 slots, 9 history features, 6 carriers, 47 regression tests), `seed.fa-small`, 10 fault blocks
 (`fa.mig.divergent-heads`, `fa.mig.not-null-without-default`, `fa.perf.order-list-n-plus-one`, `fa.async.bcrypt-blocks-event-loop`,
@@ -35,12 +35,25 @@ and the two migration probes were run against a real PostgreSQL for the broken, 
 probes against the live app, and `coursegen blocks verify` (needs Docker). Regenerate `lab-blocks.generated.sql` and
 `production-debugging.generated.sql` when shipping.
 
-## Phase 4 � React (content written, uncommitted, Docker verification pending)
+## Phase 4 — React (committed, Docker verification pending)
 
 `re.dashboard` app block (12 slots, 5 history features, 5 carriers), `check.vitest-node` (probe J), `ticket.ui-bug-report`, 12 fault blocks
 (hooks x3, races x2, state x2, perf x2, api x2, config x1) and 12 recipes (`recipes/re-*.yaml`). Checked locally with real vitest + jsdom:
 broken fails hidden tests, fix passes, every cheat fails. Fixed `trackListeners()` in `grader/js/harness.js`. React course content: a "React" section group (13-17: 5 lessons, 12 labs, one per recipe) in `production-debugging`; `coursegen generate` validates it.
 Not done: error-boundary / SSR / StrictMode faults, prettier + Go-builder render path, `coursegen blocks verify` (Docker).
+
+## Phase 5 — Fullstack (content written, uncommitted except the `fs.shop` block, Docker verification pending)
+
+`fs.shop` app block (React storefront + FastAPI, committed in `07566e4`), 10 fault blocks in `content/lab-blocks/fullstack/fault/`
+(`fs.cors.credentials-disabled`, `fs.err.detail-shaped-errors`, `fs.auth.cookie-path-narrow`, `fs.auth.csrf-cookie-httponly`,
+`fs.api.search-query-not-encoded`, `fs.csrf.wrong-cookie-name`, `fs.page.offset-skips-first-page`, `fs.data.naive-placed-at`,
+`fs.data.total-in-dollars`, `fs.state.profile-version-ignored`), 10 recipes (`recipes/fs-*.yaml`) and a "Fullstack" section group
+(18-20: 3 lessons, 10 labs). Checked without Docker: `coursegen blocks sync --dry-run` and `coursegen generate` pass; per fault, hidden tests
+fail broken, pass fixed, every cheat fails (real pytest + vitest + uvicorn). Not done: `coursegen blocks verify` (Docker), the
+`revert-the-commit` cheat run for `fs.auth.cookie-path-narrow`, and a fix in the `@mf/fullstack` harness `createBrowser`
+(jsdom AbortSignal is rejected by Node fetch, so `OrdersPage` fails against a real backend; tests currently stub fetch).
+`fs.api.search-query-not-encoded` and `fs.csrf.wrong-cookie-name` are frontend-only, so only their vitest checks catch them.
+Regenerate `lab-blocks.generated.sql` and `production-debugging.generated.sql` when shipping.
 
 ## Where things stand
 
@@ -50,10 +63,10 @@ Phase 1 (Django end to end: runtime, authoring engine, build/verify pipeline, 11
 
 ## Remaining after Phase 1
 
-1. ~~**Phase 2 � Builder depth**~~ done (landed in `e9b51b0`/`ddc36bf`; browser-untested): chains and fault pools in the block step (`fault-links.tsx`, `candidate-card.tsx`), AI ticket drafting (`ticket-draft-panel.tsx`, cached by recipe hash), org text-block editor (`teach/debug-labs/blocks/new|[id]/edit`), update-available list and yank flow with affected-labs preview.
+1. ~~**Phase 2 — Builder depth**~~ done (landed in `e9b51b0`/`ddc36bf`; browser-untested): chains and fault pools in the block step (`fault-links.tsx`, `candidate-card.tsx`), AI ticket drafting (`ticket-draft-panel.tsx`, cached by recipe hash), org text-block editor (`teach/debug-labs/blocks/new|[id]/edit`), update-available list and yank flow with affected-labs preview.
 2. ~~**Phase 3 — FastAPI**~~ content done (see above); only the Docker verification remains (item 5).
 3. ~~**Phase 4 — React**~~ content done (see above); only the Docker verification remains (item 5).
-4. **Phase 5 — Fullstack:** `fs-shop` + cross-stack (XS) faults; `custom` block support in the build.
+4. ~~**Phase 5 — Fullstack**~~ content done (see above); only the Docker verification remains (item 5).
 5. **Deferred verification.** Tests were deliberately not written until all phases are done:
    - Write the test suite: Go unit tests + DB tests for library, labs, labauthor, labbuild, credential, hints, semaphore.
    - Start Docker Desktop and run all DB tests (they use testcontainers).

@@ -1,0 +1,105 @@
+kind: fault
+id: fs.data.total-in-dollars
+version: 1.0.0
+stack: fullstack
+title: Order totals show cents as dollars
+summary: The order serializer sends total_cents as a float of dollars while the UI formats integer cents, so an $89.00 order is shown as $0.89.
+category: data
+difficulty: beginner
+skills:
+- api-contracts
+- money
+- units
+requires:
+- slot:orders.serialize.total
+- cap:fastapi-backend
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: orders.serialize.total
+      value: |
+        "total_cents": order["total_cents"] / 100,
+  fix:
+    slots:
+    - slot: orders.serialize.total
+      value: |
+        "total_cents": order["total_cents"],
+    files:
+    - path: backend/tests/test_total_cents.py
+      from: fix/tests/test_total_cents.py
+  cheats:
+  - name: round-to-whole-dollars
+    slots:
+    - slot: orders.serialize.total
+      value: |
+        "total_cents": round(order["total_cents"] / 100) * 100,
+  - name: format-as-dollars
+    files:
+    - path: src/lib/format.js
+      from: cheats/format-dollars.js
+  - name: revert-the-commit
+    slots:
+    - slot: orders.serialize.total
+      value: |
+        "total_cents": order["total_cents"],
+    files:
+    - path: src/ext/order-total/index.js
+      from: cheats/empty-extension.js
+  carrier:
+    feature: order-total
+    files:
+    - path: src/ext/order-total/index.js
+      from: carrier/src/ext/order-total/index.js
+  commit:
+    message: 'orders: add a page total action and expose order totals in dollars'
+    persona: Elena Petrov <elena@shop.example.com>
+  checks:
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_data_total_in_dollars/test_total_cents.py
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_data_total_in_dollars/order_totals.test.jsx
+  symptom:
+    vars:
+      title: Every order in the history shows a total of under a dollar
+      report: |-
+        Since yesterday's release the Orders page shows totals like $4.77 for an order that cost $477.00 and $0.89 for a keyboard
+        that costs $89.00. Customers are writing in to ask whether they were charged the right amount. The confirmation emails and
+        the payment provider have the correct numbers.
+      where: The Total column of the Orders page and the Page total action in the Tools menu.
+      expected: Every order total is shown in dollars and cents, e.g. $477.00.
+      support_tried: Compared three orders with the payment dashboard; the charged amounts are right, only the page shows less.
+      observations: |-
+        ### Other observations from QA
+
+        - Order statuses, item counts and dates are correct.
+        - The amounts are off by exactly a factor of 100.
+        - The Page total action in the Tools menu shipped in the same release.
+    signature: total_cents in the order JSON is a float of dollars, but the UI formats it as cents
+  hints:
+  - Open the network tab for GET /api/orders and compare total_cents with the number shown in the table. What unit does the field name promise?
+  - The formatter in src/lib/format.js divides by 100 on purpose (amounts are integer cents everywhere). Look at what the order serializer sends and at git log -p for the change that touched it.
+  - Send integer cents from the serializer (the contract the field name states) instead of changing the formatter or rounding, and add a test that checks the type and the exact amount of an order, on the API and in the rendered table.
+  rubric:
+    key_points:
+    - Identifies the unit mismatch between the API (dollars as a float) and the UI (integer cents), visible from the field name.
+    - Fixes the serializer to send integer cents rather than adapting the formatter, since cents is the contract used by the rest of the app.
+    - Does not round or truncate, so totals with cents stay exact.
+    - Tests the integer type and an exact amount on the API and the rendered table.
+    misconceptions:
+    - Changing formatMoney to expect dollars fixes it (the contract and every other consumer stay cents-based).
+    - Rounding the value to whole dollars is acceptable.
+    - Floats are fine for money amounts.
+  root_cause: |-
+    A change meant to "expose totals in dollars" turned `total_cents` into `order["total_cents"] / 100` in the shared order serializer.
+    The field name and every consumer (the formatter, the order-total action) treat the value as integer cents, so 8900 became 89.0
+    and `formatMoney` rendered $0.89.
+
+    The fix restores the integer-cents contract in the serializer. The backend test asserts the type is `int` and equals the sum of
+    the order lines; the frontend test renders the table from the real API and checks a known total.

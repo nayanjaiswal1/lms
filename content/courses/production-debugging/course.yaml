@@ -8,7 +8,7 @@ description: >-
   track covers performance and query problems, data-model and money bugs, concurrency,
   migrations, configuration and calls to other services. The FastAPI track covers Alembic
   migrations, async SQLAlchemy performance, event-loop and concurrency bugs, outbound calls and
-  error contracts, validation models, proxy configuration and authorization. The React track covers hooks and closures, async races, state and keys, render performance and leaks, and API and build configuration. Each section starts
+  error contracts, validation models, proxy configuration and authorization. The React track covers hooks and closures, async races, state and keys, render performance and leaks, and API and build configuration. The Fullstack track covers sessions, cookies and CORS, API contracts, and values that change meaning between browser and API. Each section starts
   with a short lesson on the debugging skill, never on the answer.
 difficulty: intermediate
 tags:
