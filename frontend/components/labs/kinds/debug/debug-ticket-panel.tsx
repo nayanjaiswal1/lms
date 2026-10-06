@@ -1,7 +1,7 @@
 import { Ticket } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { LabMarkdown } from "@/components/labs/kinds/debug/lab-markdown"
-import { parseTicketMeta } from "@/lib/labs/kinds/debug-ticket"
+import { RESTART_COMMAND, RESTART_NOTE, parseTicketMeta } from "@/lib/labs/kinds/debug-ticket"
 
 interface DebugTicketPanelProps {
   title: string
@@ -33,6 +33,10 @@ export function DebugTicketPanel({ title, brief }: DebugTicketPanelProps) {
         <h2 className="text-base font-semibold leading-snug">{title}</h2>
       </header>
       <LabMarkdown>{body}</LabMarkdown>
+      <p className="border-t border-border pt-3 text-xs text-muted-foreground">
+        {RESTART_NOTE} <code>{RESTART_COMMAND}</code> (or kill the process; it comes back on its
+        own), then re-test.
+      </p>
     </section>
   )
 }

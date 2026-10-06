@@ -43,8 +43,11 @@ type Config struct {
 	PasswordBreachTimeout      time.Duration
 
 	// Token TTLs
-	AccessTokenTTL       time.Duration
-	RefreshTokenTTL      time.Duration
+	AccessTokenTTL  time.Duration
+	RefreshTokenTTL time.Duration
+	// RefreshReuseGrace: a refresh token rotated less than this long ago is a
+	// benign multi-tab race (access token reissued), not theft (family revoked).
+	RefreshReuseGrace    time.Duration
 	EmailVerificationTTL time.Duration
 	PasswordResetTTL     time.Duration
 
@@ -361,6 +364,7 @@ func Load() *Config {
 	// Parse token TTLs
 	cfg.AccessTokenTTL = parseDuration("ACCESS_TOKEN_TTL", "15m")
 	cfg.RefreshTokenTTL = parseDuration("REFRESH_TOKEN_TTL", "720h")
+	cfg.RefreshReuseGrace = parseDuration("REFRESH_REUSE_GRACE", "30s")
 	cfg.EmailVerificationTTL = parseDuration("EMAIL_VERIFICATION_TTL", "24h")
 	cfg.PasswordResetTTL = parseDuration("PASSWORD_RESET_TTL", "30m")
 

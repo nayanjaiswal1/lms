@@ -26,6 +26,10 @@ export function useLabHint(
   onDeadline?: (outcome: "completed" | "expired") => void,
 ) {
   const [hintsByTask, setHintsByTask] = useState<Record<string, RevealedHint[]>>({})
+  // The server's own hints_used per task, from the last hint response. It is
+  // authoritative: the counter must never depend on the hint text having been
+  // stored client-side (an idempotent replay returns a level already held).
+  const [serverHintsUsed, setServerHintsUsed] = useState<Record<string, number>>({})
   const [openTaskId, setOpenTaskId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isRequesting, startRequest] = useTransition()
@@ -37,11 +41,13 @@ export function useLabHint(
   // only available for hints revealed in this browser session.
   const hintsUsedFor = useCallback(
     (taskId: string): number => {
-      const revealed = hintsByTask[taskId]
-      if (revealed && revealed.length > 0) return revealed.length
-      return initialCompletions.find((c) => c.task_id === taskId)?.hints_used ?? 0
+      return Math.max(
+        hintsByTask[taskId]?.length ?? 0,
+        serverHintsUsed[taskId] ?? 0,
+        initialCompletions.find((c) => c.task_id === taskId)?.hints_used ?? 0,
+      )
     },
-    [hintsByTask, initialCompletions],
+    [hintsByTask, serverHintsUsed, initialCompletions],
   )
 
   function requestHint(taskId: string) {
@@ -63,7 +69,8 @@ export function useLabHint(
         setError(res.error ?? "Could not get a hint. Please try again.")
         return
       }
-      const { level, content } = res.data
+      const { level, content, hints_used } = res.data
+      setServerHintsUsed((prev) => ({ ...prev, [taskId]: hints_used }))
       setHintsByTask((prev) => {
         const existing = prev[taskId] ?? []
         if (existing.some((h) => h.level === level)) return prev

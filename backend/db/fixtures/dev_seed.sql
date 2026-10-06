@@ -913,32 +913,12 @@ WHERE id = '00000000-0000-0000-0000-000000000300'
 
 -- ─── Quick plan: "Go", technical, 3 questions answered ─────────────────────
 
-INSERT INTO practice_sessions (id, user_id, org_id, technology, difficulty, category, question_count, status, ai_model)
-VALUES (
-  '00000000-0000-0000-0000-000000000500',
-  '00000000-0000-0000-0000-000000000015',
-  '00000000-0000-0000-0000-000000000001',
-  'Go', 'intermediate', 'technical', 3, 'active', 'seed-fixture'
-)
+INSERT INTO assessments (id, org_id, title, slug, type, parent_type, status, duration_minutes, pass_percentage, max_attempts, shuffle_questions, shuffle_options, allow_backtrack, show_results, created_by)
+VALUES ('00000000-0000-0000-0000-000000000540', '00000000-0000-0000-0000-000000000001', 'Go practice', 'seed-go-practice', 'practice', 'standalone', 'active', 1, 0, 1, false, false, false, false, '00000000-0000-0000-0000-000000000015')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO practice_items (id, session_id, "position", question_text, user_answer, ai_feedback, answered_at, feedback_at)
-VALUES
-  ('00000000-0000-0000-0000-000000000510', '00000000-0000-0000-0000-000000000500', 0,
-   'Explain how goroutines are scheduled onto OS threads in Go.',
-   'The Go runtime uses an M:N scheduler — M goroutines are multiplexed onto N OS threads (GOMAXPROCS) via a work-stealing scheduler with P (processor) contexts.',
-   '{"score":9,"max_score":10,"strengths":["Correctly named M:N scheduling","Mentioned GOMAXPROCS and work-stealing"],"gaps":["Did not mention the G-M-P model by name"],"suggested_answer":"Go uses a G-M-P scheduler: Goroutines (G) are scheduled onto OS threads (M) via logical Processors (P), which hold a local run queue. Idle Ps steal work from busy ones (work-stealing).","follow_up_resources":["Go scheduler design doc","GOMAXPROCS tuning"],"model":"seed-fixture"}'::jsonb,
-   now() - interval '2 days', now() - interval '2 days'),
-  ('00000000-0000-0000-0000-000000000511', '00000000-0000-0000-0000-000000000500', 1,
-   'What is the difference between a buffered and unbuffered channel?',
-   'An unbuffered channel blocks the sender until a receiver is ready (synchronous handoff). A buffered channel only blocks once the buffer is full.',
-   '{"score":10,"max_score":10,"strengths":["Precise, correct definition of both"],"gaps":[],"suggested_answer":"Unbuffered channels synchronize sender and receiver (rendezvous); buffered channels decouple them up to capacity N, blocking only when full (send) or empty (receive).","follow_up_resources":[],"model":"seed-fixture"}'::jsonb,
-   now() - interval '2 days', now() - interval '2 days'),
-  ('00000000-0000-0000-0000-000000000512', '00000000-0000-0000-0000-000000000500', 2,
-   'How does Go''s garbage collector avoid stop-the-world pauses?',
-   'It uses a concurrent tri-color mark-and-sweep collector with write barriers, so most marking happens concurrently with the program.',
-   '{"score":7,"max_score":10,"strengths":["Correctly named tri-color mark-and-sweep","Mentioned write barriers"],"gaps":["Did not mention the brief stop-the-world phases still used for stack scanning at GC start/end"],"suggested_answer":"Go''s GC is concurrent tri-color mark-and-sweep with write barriers, running alongside the mutator. Very short STW pauses remain only at the start (turn on write barrier) and end (turn off) of a GC cycle.","follow_up_resources":["Go GC guide","GOGC tuning"],"model":"seed-fixture"}'::jsonb,
-   now() - interval '2 days', now() - interval '2 days')
+INSERT INTO assessment_attempts (id, assessment_id, user_id, org_id, attempt_number, status, started_at, submitted_at)
+VALUES ('00000000-0000-0000-0000-000000000500', '00000000-0000-0000-0000-000000000540', '00000000-0000-0000-0000-000000000015', '00000000-0000-0000-0000-000000000001', 1, 'in_progress', now() - interval '2 days', NULL)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO interview_prep_plans (id, user_id, org_id, plan_type, category, job_title, extracted_role, extracted_seniority, extracted_skills, status, ai_model, created_at)
@@ -963,32 +943,12 @@ ON CONFLICT (id) DO NOTHING;
 
 -- ─── Targeted plan: Senior Backend Engineer, technical, 2 rounds + report ──
 
-INSERT INTO practice_sessions (id, user_id, org_id, technology, difficulty, category, question_count, status, ai_model)
-VALUES (
-  '00000000-0000-0000-0000-000000000501',
-  '00000000-0000-0000-0000-000000000015',
-  '00000000-0000-0000-0000-000000000001',
-  'Go, PostgreSQL, Distributed Systems', 'advanced', 'technical', 3, 'completed', 'seed-fixture'
-)
+INSERT INTO assessments (id, org_id, title, slug, type, parent_type, status, duration_minutes, pass_percentage, max_attempts, shuffle_questions, shuffle_options, allow_backtrack, show_results, created_by)
+VALUES ('00000000-0000-0000-0000-000000000541', '00000000-0000-0000-0000-000000000001', 'Go, PostgreSQL, Distributed Systems practice', 'seed-go-practice', 'practice', 'standalone', 'active', 1, 0, 1, false, false, false, false, '00000000-0000-0000-0000-000000000015')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO practice_items (id, session_id, "position", question_text, user_answer, ai_feedback, answered_at, feedback_at)
-VALUES
-  ('00000000-0000-0000-0000-000000000513', '00000000-0000-0000-0000-000000000501', 0,
-   'How would you design a rate limiter shared across multiple backend instances?',
-   'Use a centralized store like Redis with a sliding-window or token-bucket algorithm implemented via a Lua script for atomicity.',
-   '{"score":9,"max_score":10,"strengths":["Correct centralized approach","Mentioned atomicity via Lua script"],"gaps":["Did not compare token-bucket vs sliding-window tradeoffs"],"suggested_answer":"A Redis-backed token bucket, refilled via a Lua script (atomic check-and-decrement), scales across instances since state is centralized. Sliding-window log is more accurate but costlier in memory.","follow_up_resources":["Redis rate limiting patterns"],"model":"seed-fixture"}'::jsonb,
-   now() - interval '5 days', now() - interval '5 days'),
-  ('00000000-0000-0000-0000-000000000514', '00000000-0000-0000-0000-000000000501', 1,
-   'Explain how you would handle a hot partition in a sharded PostgreSQL setup.',
-   'Identify the hot key via query stats, then either split the shard further or move that specific key range to its own dedicated node.',
-   '{"score":8,"max_score":10,"strengths":["Correct diagnosis approach","Practical mitigation (isolate the hot key)"],"gaps":["Did not mention read replicas as a shorter-term mitigation"],"suggested_answer":"Diagnose via pg_stat_statements/pg_stat_user_tables, then mitigate short-term with a read replica for that shard, and long-term by re-sharding on a key that distributes the hot range.","follow_up_resources":["PostgreSQL partitioning docs"],"model":"seed-fixture"}'::jsonb,
-   now() - interval '5 days', now() - interval '5 days'),
-  ('00000000-0000-0000-0000-000000000515', '00000000-0000-0000-0000-000000000501', 2,
-   'What consistency model would you choose for a distributed shopping cart, and why?',
-   'Eventual consistency with conflict resolution (e.g. last-write-wins or CRDTs) since availability during network partitions matters more than strict consistency for a cart.',
-   '{"score":10,"max_score":10,"strengths":["Correct AP tradeoff reasoning","Named a concrete conflict-resolution strategy (CRDTs)"],"gaps":[],"suggested_answer":"Eventual consistency (AP under CAP) fits a shopping cart well: merge concurrent updates with a CRDT (e.g. a grow-only set for added items) rather than blocking on strict consistency.","follow_up_resources":[],"model":"seed-fixture"}'::jsonb,
-   now() - interval '5 days', now() - interval '5 days')
+INSERT INTO assessment_attempts (id, assessment_id, user_id, org_id, attempt_number, status, started_at, submitted_at)
+VALUES ('00000000-0000-0000-0000-000000000501', '00000000-0000-0000-0000-000000000541', '00000000-0000-0000-0000-000000000015', '00000000-0000-0000-0000-000000000001', 1, 'submitted', now() - interval '2 days', now() - interval '2 days')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO interview_prep_plans (id, user_id, org_id, plan_type, category, job_title, jd_text, extracted_role, extracted_seniority, extracted_skills, status, report, ai_model, created_at, completed_at)
@@ -1048,32 +1008,12 @@ ON CONFLICT (id) DO NOTHING;
 
 -- ─── Targeted plan: Senior Product Manager, non-technical, single behavioral round + report ──
 
-INSERT INTO practice_sessions (id, user_id, org_id, technology, difficulty, category, question_count, status, ai_model)
-VALUES (
-  '00000000-0000-0000-0000-000000000502',
-  '00000000-0000-0000-0000-000000000015',
-  '00000000-0000-0000-0000-000000000001',
-  'Stakeholder Management, Prioritization, Roadmapping', 'advanced', 'behavioral', 3, 'completed', 'seed-fixture'
-)
+INSERT INTO assessments (id, org_id, title, slug, type, parent_type, status, duration_minutes, pass_percentage, max_attempts, shuffle_questions, shuffle_options, allow_backtrack, show_results, created_by)
+VALUES ('00000000-0000-0000-0000-000000000542', '00000000-0000-0000-0000-000000000001', 'Stakeholder Management, Prioritization, Roadmapping practice', 'seed-stakeholder-management-practice', 'practice', 'standalone', 'active', 1, 0, 1, false, false, false, false, '00000000-0000-0000-0000-000000000015')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO practice_items (id, session_id, "position", question_text, user_answer, ai_feedback, answered_at, feedback_at)
-VALUES
-  ('00000000-0000-0000-0000-000000000516', '00000000-0000-0000-0000-000000000502', 0,
-   'Tell me about a time you had to say no to a stakeholder''s feature request.',
-   'A sales lead wanted a custom integration for one account. I showed the opportunity-cost data against our roadmap, proposed a smaller interim workaround, and got buy-in within a week.',
-   '{"score":8,"max_score":10,"strengths":["Clear situation and concrete outcome","Used data to justify the decision"],"gaps":["Result lacked a measurable business metric"],"suggested_answer":"Structure with STAR: Situation (the ask), Task (protect roadmap integrity), Action (data-backed pushback + alternative), Result (quantified outcome, e.g. retained the account without derailing the quarter).","follow_up_resources":["STAR method"],"model":"seed-fixture"}'::jsonb,
-   now() - interval '3 days', now() - interval '3 days'),
-  ('00000000-0000-0000-0000-000000000517', '00000000-0000-0000-0000-000000000502', 1,
-   'Describe a time a launch didn''t go as planned. What did you do?',
-   'A pricing page redesign hurt conversion in the first 48 hours. I rolled back the riskiest change, kept the rest, and re-tested incrementally.',
-   '{"score":9,"max_score":10,"strengths":["Fast, decisive response to signal","Incremental re-testing shows good process"],"gaps":["Could name the specific metric drop for credibility"],"suggested_answer":"Add the number: e.g. \"conversion dropped 12% in 48 hours\" makes the story concrete and memorable to an interviewer.","follow_up_resources":[],"model":"seed-fixture"}'::jsonb,
-   now() - interval '3 days', now() - interval '3 days'),
-  ('00000000-0000-0000-0000-000000000518', '00000000-0000-0000-0000-000000000502', 2,
-   'How do you prioritize when engineering, design, and sales all want different things this quarter?',
-   'I run a lightweight RICE scoring pass with each lead, then present the ranked list with tradeoffs in a single planning session so the decision is visible and shared.',
-   '{"score":9,"max_score":10,"strengths":["Named a concrete framework (RICE)","Emphasized shared visibility, not unilateral decisions"],"gaps":[],"suggested_answer":"This is a strong answer as-is — naming RICE and making the tradeoff session cross-functional both signal maturity.","follow_up_resources":[],"model":"seed-fixture"}'::jsonb,
-   now() - interval '3 days', now() - interval '3 days')
+INSERT INTO assessment_attempts (id, assessment_id, user_id, org_id, attempt_number, status, started_at, submitted_at)
+VALUES ('00000000-0000-0000-0000-000000000502', '00000000-0000-0000-0000-000000000542', '00000000-0000-0000-0000-000000000015', '00000000-0000-0000-0000-000000000001', 1, 'submitted', now() - interval '2 days', now() - interval '2 days')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO interview_prep_plans (id, user_id, org_id, plan_type, category, job_title, jd_text, extracted_role, extracted_seniority, extracted_skills, status, report, ai_model, created_at, completed_at)

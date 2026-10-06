@@ -78,10 +78,10 @@ function DebugWorkspaceBody({
   )
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-hidden">
       {isAuthExpired && <SessionExpiredOverlay onLogin={onLogin} />}
 
-      <aside className="flex w-full shrink-0 flex-col gap-4 border-b border-border p-4 lg:w-96 lg:overflow-y-auto lg:border-b-0 lg:border-r">
+      <aside className="flex w-full shrink-0 flex-col gap-4 border-b border-border p-4 md:w-96 md:overflow-y-auto md:border-b-0 md:border-r">
         <DebugTicketPanel brief={kindBlock.brief} title={lab.title} />
         <div className="flex flex-col gap-3">
           <LabTaskChecklist
@@ -124,7 +124,7 @@ function DebugWorkspaceBody({
         />
       </aside>
 
-      <div className="h-dvh min-h-0 w-full lg:h-auto lg:flex-1">
+      <div className="h-dvh min-h-0 w-full md:h-auto md:flex-1">
         <DebugMain
           appPorts={kindBlock.app_ports}
           idePort={kindBlock.ide_port}

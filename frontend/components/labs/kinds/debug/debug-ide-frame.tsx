@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
-import { AlertCircle, ExternalLink, MonitorSmartphone, RefreshCw } from "lucide-react"
+import { ExternalLink, MonitorSmartphone, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { DebugIdeUnavailable } from "@/components/labs/kinds/debug/debug-ide-unavailable"
 import { Skeleton } from "@/components/ui/skeleton"
 import { IconMessage } from "@/components/shared/icon-message"
+import { useIdeFrameLoad } from "@/hooks/use-ide-frame-load"
 import { useLabIde } from "@/hooks/use-lab-ide"
 
 interface DebugIdeFrameProps {
@@ -18,13 +19,12 @@ interface DebugIdeFrameProps {
  * reloads; a hidden iframe renews the origin cookie every 4 minutes.
  */
 export function DebugIdeFrame({ sessionId, idePort }: DebugIdeFrameProps) {
-  const { ideUrl, refreshUrl, popOutUrl, hasError } = useLabIde(sessionId, idePort)
-  const [isLoaded, setIsLoaded] = useState(false)
-  const [reloadKey, setReloadKey] = useState(0)
+  const { ideUrl, refreshUrl, popOutUrl, hasError, popOut } = useLabIde(sessionId, idePort)
+  const { isLoaded, reloadKey, gaveUp, onLoad, reload: reloadIde } = useIdeFrameLoad(!!ideUrl)
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <IconMessage className="bg-muted/50 lg:hidden" icon={MonitorSmartphone} variant="strip">
+      <IconMessage className="bg-muted/50 md:hidden" icon={MonitorSmartphone} variant="strip">
         The IDE works best on a larger screen. Pop it out into its own tab for more room.
       </IconMessage>
       <div className="flex shrink-0 items-center gap-2 border-b border-border bg-card px-3 py-1.5">
@@ -35,17 +35,22 @@ export function DebugIdeFrame({ sessionId, idePort }: DebugIdeFrameProps) {
             className="touch-target text-muted-foreground hover:text-foreground"
             size="sm"
             variant="ghost"
-            onClick={() => {
-              setIsLoaded(false)
-              setReloadKey((k) => k + 1)
-            }}
+            onClick={reloadIde}
           >
             <RefreshCw aria-hidden className="h-3.5 w-3.5" />
           </Button>
           {popOutUrl && (
             <Button asChild className="touch-target gap-1.5" size="sm" variant="ghost">
               {/* External labproxy origin — next/link is for internal routes. */}
-              <a href={popOutUrl} rel="noreferrer" target="_blank">
+              <a
+                href={popOutUrl}
+                rel="noreferrer"
+                target="_blank"
+                onClick={(e) => {
+                  e.preventDefault()
+                  void popOut()
+                }}
+              >
                 <ExternalLink aria-hidden className="h-3.5 w-3.5" />
                 Pop out IDE
               </a>
@@ -56,12 +61,7 @@ export function DebugIdeFrame({ sessionId, idePort }: DebugIdeFrameProps) {
 
       <div className="relative min-h-0 flex-1 bg-background">
         {hasError ? (
-          <div className="empty-state h-full">
-            <AlertCircle aria-hidden className="h-6 w-6 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Could not open the IDE. The session may have expired.
-            </p>
-          </div>
+          <DebugIdeUnavailable sessionId={sessionId} />
         ) : (
           <>
             {ideUrl && (
@@ -72,7 +72,7 @@ export function DebugIdeFrame({ sessionId, idePort }: DebugIdeFrameProps) {
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
                 src={reloadKey === 0 ? ideUrl : (popOutUrl ?? ideUrl)}
                 title="Browser IDE"
-                onLoad={() => setIsLoaded(true)}
+                onLoad={onLoad}
               />
             )}
             {!isLoaded && (
@@ -81,8 +81,21 @@ export function DebugIdeFrame({ sessionId, idePort }: DebugIdeFrameProps) {
                 className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background"
                 role="status"
               >
-                <Skeleton className="h-2 w-40" />
-                <p className="text-sm text-muted-foreground">Starting your IDE…</p>
+                {gaveUp ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      The IDE is taking too long to start.
+                    </p>
+                    <Button size="sm" variant="outline" onClick={reloadIde}>
+                      Reload IDE
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Skeleton className="h-2 w-40" />
+                    <p className="text-sm text-muted-foreground">Starting your IDE…</p>
+                  </>
+                )}
               </div>
             )}
           </>

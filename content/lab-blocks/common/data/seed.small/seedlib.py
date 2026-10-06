@@ -109,6 +109,39 @@ def h(expr, salt, seed):
     return f"abs(hashtext(({expr})::text || ':{salt}:{seed}'))"
 
 
+LEDGER_ONLY_EMAIL = "duplicate.account@shop.test"
+
+
+def add_ledger_only_customer(conn, pw):
+    """One customer with delivered, invoiced orders and no payment rows (billed offline).
+
+    Payments protect their order from deletion, so every customer who paid can never be deleted; this
+    account is the one that makes "delete a customer" runnable by hand (dj.data.customer-delete-cascades).
+    It gets the highest customer id and the highest order ids, so every other row keeps its id.
+    """
+    cid = conn.execute(
+        "INSERT INTO customers_customer (password, is_superuser, email, full_name, phone, is_active, is_staff, date_joined) "
+        "VALUES (%s, false, %s, 'Duplicate Account', NULL, true, false, now() - interval '200 days') RETURNING id",
+        (pw, LEDGER_ONLY_EMAIL),
+    ).fetchone()[0]
+    for n in (1, 2):
+        oid = conn.execute(
+            "INSERT INTO orders_order (public_id, customer_id, handled_by_id, status, subtotal, tax, total, currency, shipping_name, "
+            "created_at, updated_at) VALUES (md5(%s)::uuid, %s, NULL, 'delivered', 40.00, 3.30, 43.30, 'USD', 'Invoiced offline', "
+            "now() - %s * interval '1 day', now()) RETURNING id",
+            (f"ledger-only:{n}", cid, 30 + n * 10),
+        ).fetchone()[0]
+        conn.execute(
+            "INSERT INTO orders_orderitem (order_id, product_id, quantity, unit_price, line_total) VALUES (%s, 1, 1, 40.00, 40.00)", (oid,)
+        )
+        conn.execute(
+            "INSERT INTO orders_invoice (order_id, number, issued_at, total) "
+            "SELECT id, 'INV-' || to_char(created_at, 'YYYY') || '-' || lpad(id::text, 8, '0'), created_at, total "
+            "FROM orders_order WHERE id = %s",
+            (oid,),
+        )
+
+
 def load_base(conn, customers=30, products=60, orders=150, reviews=80, days=60, subscriptions=12):
     """Insert the whole shop dataset with set-based SQL. Ids are 1..n in each table."""
     seed = seed_int()
@@ -208,6 +241,7 @@ def load_base(conn, customers=30, products=60, orders=150, reviews=80, days=60, 
         "UPDATE catalog_product p SET review_count = s.n, rating_total = s.t FROM "
         "(SELECT product_id, count(*) n, sum(rating) t FROM reviews_review WHERE is_approved GROUP BY product_id) s WHERE s.product_id = p.id"
     )
+    add_ledger_only_customer(conn, pw)
     conn.execute("ANALYZE")
     log(f"loaded {customers} customers, {products} products, {orders} orders, {reviews} reviews")
     return {"customers": customers, "products": products, "orders": orders, "buyers": nc}

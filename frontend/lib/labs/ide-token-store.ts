@@ -14,6 +14,8 @@ export interface IdeTokens {
 export interface IdeTokenStore {
   subscribe: (listener: () => void) => () => void
   getSnapshot: () => IdeTokens
+  /** Mints a fresh token right now (for a click that must not use a stale one); null on failure. */
+  mintNow: () => Promise<string | null>
 }
 
 const INITIAL: IdeTokens = { first: null, latest: null, failed: false }
@@ -34,15 +36,16 @@ export function createIdeTokenStore(sessionId: string): IdeTokenStore {
     listeners.forEach((l) => l())
   }
 
-  const mint = async () => {
+  const mint = async (): Promise<string | null> => {
     const res = await mintWSTokenAction(sessionId)
     if (!res.ok || !res.data) {
       // A failed refresh keeps the last good token; only the first mint is fatal.
       if (state.latest === null) set({ ...state, failed: true })
-      return
+      return null
     }
     const token = res.data.session_token
     set({ first: state.first ?? token, latest: token, failed: false })
+    return token
   }
 
   return {
@@ -61,5 +64,6 @@ export function createIdeTokenStore(sessionId: string): IdeTokenStore {
       }
     },
     getSnapshot: () => state,
+    mintNow: mint,
   }
 }

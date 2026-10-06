@@ -443,6 +443,13 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 // ─── HandleRefresh ────────────────────────────────────────────────────────────
 
+// withinReuseGrace reports whether a token rotated at rotatedAt was rotated
+// recently enough that a second presentation is a multi-tab race, not theft.
+// A never-rotated token (nil) is never in grace.
+func withinReuseGrace(rotatedAt *time.Time, now time.Time, grace time.Duration) bool {
+	return rotatedAt != nil && now.Sub(*rotatedAt) <= grace
+}
+
 func (h *Handler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("refresh_token")
 	if err != nil {
@@ -545,7 +552,7 @@ func (h *Handler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if rotatedAt != nil && time.Since(*rotatedAt) <= 30*time.Second {
+		if withinReuseGrace(rotatedAt, time.Now(), h.cfg.RefreshReuseGrace) {
 			var gu userRow
 			if err := h.pool.QueryRow(r.Context(),
 				`SELECT u.id, u.name, u.email, u.avatar_url, u.session_version, u.status,

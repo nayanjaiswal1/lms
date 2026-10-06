@@ -168,3 +168,21 @@ func TestAICircuitBreaker_SuccessResetsFailureCount(t *testing.T) {
 		t.Fatal("circuit must not open when failures are not consecutive (a success reset the streak)")
 	}
 }
+
+// ─── penalizedPoints ─────────────────────────────────────────────────────────
+
+func TestPenalizedPoints(t *testing.T) {
+	cases := []struct{ points, hints, pct, want int }{
+		{100, 0, 10, 100}, // no hints, no penalty
+		{100, 2, 0, 100},  // authored default: hints are free
+		{100, 1, 10, 90},
+		{100, 3, 10, 70},
+		{50, 2, 25, 25},
+		{100, 3, 50, 0}, // floors at zero, never negative
+	}
+	for _, c := range cases {
+		if got := penalizedPoints(c.points, c.hints, c.pct); got != c.want {
+			t.Errorf("penalizedPoints(%d,%d,%d) = %d, want %d", c.points, c.hints, c.pct, got, c.want)
+		}
+	}
+}

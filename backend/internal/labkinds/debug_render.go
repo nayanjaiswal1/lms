@@ -244,7 +244,7 @@ func (DebugKind) RenderSpec(in RenderInput) (json.RawMessage, error) {
 				}
 				merged[k] = resolved
 			}
-			name := IssueCheckPrefix(i, total) + cb.Manifest.Title
+			name := IssueCheckPrefix(i, total) + cr.DisplayTitle(cb.Manifest.Title)
 			if n := seen[name]; n > 0 {
 				name = fmt.Sprintf("%s (%d)", name, n+1)
 			}
