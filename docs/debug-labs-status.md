@@ -56,7 +56,13 @@ platform job at the time) -> start lab -> IDE + app preview -> fix -> Check (sym
 `metrics` middleware hid `http.Flusher` (SSE `/events` returned 500, provisioning never finished); frontend CSP `frame-src` blocked the lab proxy;
 `NEXT_PUBLIC_LAB_PROXY_URL` defaults included `/ws` (it is a base URL); labproxy injected `tkn` on every IDE request so openvscode redirected
 forever; the `vscode-tkn` cookie was scrubbed so the web client could not authenticate its WebSocket; dev preview cookies were `SameSite=Lax` on a
-cross-site `*.localhost` origin; the IDE did not open the workspace folder. The builder wizard UI and the remaining 40 labs were not clicked through.
+cross-site `*.localhost` origin; the IDE did not open the workspace folder. The remaining ~40 labs were not clicked through.
+Builder wizard UI (same day): created a draft on the fullstack base app, added `fs.api.search-query-not-encoded` (analysis panel went from "Not buildable
+yet" to "Ready to build" as the two suggested check blocks were added), added a ticket block, Build & verify (full matrix green), Preview as a student,
+Publish ("Published as version 1"), and the lab then appeared in the student catalog and ran as a session. Notes: Publish's course list only shows
+courses the user created (`role=instructor`), so a platform-seeded course is not offered to other authors; the first Publish click gave no
+feedback. Known cosmetic gap: the IDE opens in Restricted Mode with the Welcome tab (workspace trust prompt); server-side settings and
+`product.json` `configurationDefaults` did not change it, the web workbench keeps those in the browser.
 Local dev needs the Caddy front (`Caddyfile.dev`, port 80): labproxy redirects previews to `p<port>-<session>.localhost` and expects `X-Forwarded-Proto`.
 Caveat: under heavy parallel load the platform verify job produced false failures (builds failed while a local verify ran concurrently); the same
 recipes pass on a quiet re-run, so delete failed `lab_builds` rows to retry.
