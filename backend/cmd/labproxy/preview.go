@@ -179,6 +179,11 @@ func (h *ProxyHandler) proxyPreview(w http.ResponseWriter, r *http.Request, targ
 		},
 		ModifyResponse: func(resp *http.Response) error {
 			stripSetCookieDomain(resp)
+			// The App tab frames this preview origin from the platform
+			// origin; frameworks default to X-Frame-Options: DENY/SAMEORIGIN
+			// (Django, Helmet, ...) which blanks the iframe. Access is already
+			// gated by the host-only preview cookie.
+			resp.Header.Del("X-Frame-Options")
 			if ideToken != "" {
 				adaptIDEResponse(resp, previewCookieSameSite(h.previewDomain))
 			}

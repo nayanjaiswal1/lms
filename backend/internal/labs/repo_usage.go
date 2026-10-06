@@ -51,7 +51,7 @@ func (r *Repo) RecordSessionContainerUsage(ctx context.Context, sessionID string
 		), usage_row AS (
 			INSERT INTO lab_usage_events (org_id, session_id, event_type, quantity, image)
 			SELECT org_id, session_id, 'container_seconds', seconds, environment FROM src
-			ON CONFLICT (session_id) WHERE event_type = 'container_seconds' DO NOTHING
+			ON CONFLICT (session_id) WHERE event_type = 'container_seconds' AND session_id IS NOT NULL DO NOTHING
 			RETURNING session_id, quantity
 		)
 		INSERT INTO usage_counters (account_id, feature_key, period_start, period_end, used_count, updated_at)
@@ -89,7 +89,7 @@ func (r *Repo) RecordSessionContainerUsageBatch(ctx context.Context, sessionIDs 
 		), usage_row AS (
 			INSERT INTO lab_usage_events (org_id, session_id, event_type, quantity, image)
 			SELECT org_id, session_id, 'container_seconds', seconds, environment FROM src
-			ON CONFLICT (session_id) WHERE event_type = 'container_seconds' DO NOTHING
+			ON CONFLICT (session_id) WHERE event_type = 'container_seconds' AND session_id IS NOT NULL DO NOTHING
 			RETURNING session_id, quantity
 		), agg AS (
 			SELECT src.user_id AS account_id, SUM(usage_row.quantity) AS seconds
