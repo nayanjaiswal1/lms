@@ -48,7 +48,7 @@ fault:
       from: carrier/src/ext/top-customer/index.js
   commit:
     message: 'orders: add the top customer to the Tools menu'
-    persona: Lena Fischer <lena@opsconsole.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.vitest-node
     role: symptom

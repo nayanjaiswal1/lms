@@ -293,7 +293,7 @@ spec:
       - name: USER
         value: "Ozgur"
       - name: database
-        value: "testdb.example.com"
+        value: "testdb.mindforge.test"
 ```
 ```
 kubectl apply -f podenv.yaml
@@ -374,7 +374,7 @@ kubectl describe secret mysecret
 
 #### secret: imperative (cmd)
 ```
-kubectl create secret generic mysecret2 --from-literal=db_server=db.example.com --from-literal=db_username=admin --from-literal=db_password=P@ssw0rd!
+kubectl create secret generic mysecret2 --from-literal=db_server=db.mindforge.test --from-literal=db_username=admin --from-literal=db_password=P@ssw0rd!
 kubectl create secret generic mysecret4 --from-file=config.json  #create config.json that inludes pass and username.
 ```
 

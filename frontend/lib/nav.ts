@@ -331,12 +331,17 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
   },
 
   lab_builder: {
-    label:               "Debug Lab Builder",
+    label:               "Create Debug Lab",
     href:                ROUTES.LAB_BUILDER,
     icon:                Wrench,
     requiredPermission:  PERMISSIONS.LABAUTHOR.COMPOSE,
   },
-
+  lab_library: {
+    label:               "Existing Labs",
+    href:                ROUTES.LABS_CATALOG,
+    icon:                Bug,
+    requiredPermission:  PERMISSIONS.LABAUTHOR.COMPOSE,
+  },
 };
 
 // ─────────────────────────────────────────────
@@ -432,6 +437,7 @@ export const LEARN_HUB_GROUPS: NavGroup[] = [
     items: [
       { ...ALL_NAV_ITEMS.manage_courses,         label: "Create Course" },
       ALL_NAV_ITEMS.lab_builder,
+      ALL_NAV_ITEMS.lab_library,
       { ...ALL_NAV_ITEMS.instructor_assessments, label: "Manage Assessments" },
       ALL_NAV_ITEMS.question_bank,
       { ...ALL_NAV_ITEMS.mentor_dashboard,       label: "Mentoring" },
@@ -458,6 +464,7 @@ export const TEACHING_HUB_GROUPS: NavGroup[] = [
     items: [
       ALL_NAV_ITEMS.manage_courses,
       ALL_NAV_ITEMS.lab_builder,
+      ALL_NAV_ITEMS.lab_library,
     ],
   },
   {

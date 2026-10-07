@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/mindforge/backend/internal/testdomain"
 	"os"
 	"testing"
 	"time"
@@ -65,7 +66,7 @@ func TestHeartbeatPreview_Debounced(t *testing.T) {
 		t.Fatalf("seed org: %v", err)
 	}
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO users (email, name) VALUES ('heartbeat-test@example.com', 'Heartbeat Test') RETURNING id`,
+		`INSERT INTO users (email, name) VALUES ('heartbeat-test@`+testdomain.Domain+`', 'Heartbeat Test') RETURNING id`,
 	).Scan(&userID); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}

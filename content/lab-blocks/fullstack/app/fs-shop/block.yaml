@@ -55,45 +55,45 @@ app:
     description: The optimistic-concurrency check at the start of a profile save.
   history:
   - message: 'auth: cookie sessions with a double-submit CSRF token and a sign-in page'
-    persona: Priya Nair <priya@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: auth
     paths:
     - auth
   - message: 'orders: paged order history for signed-in customers'
-    persona: Marcus Webb <marcus@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: orders
     paths:
     - orders
   - message: 'catalog: product search by name and SKU'
-    persona: Elena Petrov <elena@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: catalog
     paths:
     - catalog
   - message: 'checkout: place an order with stock reservation'
-    persona: Priya Nair <priya@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: checkout
     paths:
     - checkout
   - message: 'profile: edit name and phone with versioned saves'
-    persona: Sam Okafor <sam@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: profile
     paths:
     - profile
   noise:
   - message: 'docs: describe the conventions in the README'
-    persona: Elena Petrov <elena@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     paths:
     - docs-readme
   - message: 'style: a little more room around the page content'
-    persona: Marcus Webb <marcus@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     paths:
     - css-tweaks
   - message: 'chore: ignore coverage output'
-    persona: Sam Okafor <sam@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     paths:
     - gitignore-coverage
   - message: 'deps: group requirements by purpose'
-    persona: Priya Nair <priya@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     paths:
     - deps-grouping
   ports:

@@ -59,7 +59,7 @@ fault:
       from: carrier/backend/app/ext/low_stock.py
   commit:
     message: 'reports: add the low-stock report and allow profile saves from slightly older versions'
-    persona: Sam Okafor <sam@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.pytest-node
     role: symptom

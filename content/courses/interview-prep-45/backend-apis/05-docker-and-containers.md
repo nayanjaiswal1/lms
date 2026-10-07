@@ -126,7 +126,7 @@ COPY requirements.txt .
 ADD app-bundle.tar.gz /app/
 
 # Prefer this over `ADD https://...` for remote files — visible, and you control error handling
-RUN curl -fsSL https://example.com/tool.tar.gz -o /tmp/tool.tar.gz \
+RUN curl -fsSL https://mindforge.test/tool.tar.gz -o /tmp/tool.tar.gz \
     && tar -xzf /tmp/tool.tar.gz -C /usr/local/bin \
     && rm /tmp/tool.tar.gz
 ```
@@ -138,7 +138,7 @@ The rule to state in an interview: use `COPY` unless you specifically need tar a
 ```knowledge-check
 { "questions": [
     { "id": "backend-apis-docker-copyadd-q1", "type": "mcq",
-      "prompt": "Why is ADD https://example.com/file.tar.gz /app/ generally discouraged compared to an explicit RUN curl command?",
+      "prompt": "Why is ADD https://mindforge.test/file.tar.gz /app/ generally discouraged compared to an explicit RUN curl command?",
       "options": [
         {"id":"a","text":"ADD cannot fetch files over HTTPS"},
         {"id":"b","text":"ADD's remote-fetch and auto-extract behavior is implicit and easy to miss when reading the Dockerfile, and it gives you no control over error handling the way an explicit RUN curl does"},

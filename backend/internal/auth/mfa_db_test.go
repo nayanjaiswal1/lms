@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 	"time"
 
@@ -24,7 +25,7 @@ func newMFAHandler(t *testing.T) (*Handler, string) {
 	}
 	var userID string
 	if err := pool.QueryRow(context.Background(),
-		`INSERT INTO users (email, name) VALUES ('mfa-user@example.com', 'MFA User') RETURNING id`,
+		`INSERT INTO users (email, name) VALUES ('mfa-user@`+testdomain.Domain+`', 'MFA User') RETURNING id`,
 	).Scan(&userID); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
@@ -36,7 +37,7 @@ func newMFAHandler(t *testing.T) (*Handler, string) {
 func enrol(t *testing.T, h *Handler, userID string) (secret []byte, recovery []string) {
 	t.Helper()
 	ctx := context.Background()
-	b32, _, err := h.beginMFASetup(ctx, userID, "mfa-user@example.com")
+	b32, _, err := h.beginMFASetup(ctx, userID, "mfa-user@"+testdomain.Domain)
 	if err != nil {
 		t.Fatalf("beginMFASetup: %v", err)
 	}
@@ -64,7 +65,7 @@ func TestMFAEnrolAndVerify(t *testing.T) {
 	if on, err := h.mfaEnabled(ctx, userID); err != nil || !on {
 		t.Fatalf("mfaEnabled = %v, %v", on, err)
 	}
-	if _, _, err := h.beginMFASetup(ctx, userID, "x@example.com"); !errors.Is(err, errMFAAlreadyEnabled) {
+	if _, _, err := h.beginMFASetup(ctx, userID, "x@"+testdomain.Domain); !errors.Is(err, errMFAAlreadyEnabled) {
 		t.Fatalf("setup when enabled: want errMFAAlreadyEnabled, got %v", err)
 	}
 

@@ -11,7 +11,7 @@ export function BlockLibraryFilters() {
   const [filters, setFilters] = useQueryStates(blockLibraryParsers, { shallow: false, startTransition });
 
   return (
-    <div aria-label="Block filters" className="flex flex-col gap-3 sm:flex-row" role="group">
+    <div aria-label="Block filters" className="flex gap-2" role="group">
       <FilterSelect
         allLabel="All kinds"
         allValue={BLOCKS_ALL}

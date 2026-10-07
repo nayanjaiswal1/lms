@@ -1,5 +1,6 @@
 "use client";
 
+import { PLACEHOLDER_DOMAIN } from "@/lib/constants";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -62,7 +63,7 @@ export function PublicInterestForm({ shareToken }: PublicInterestFormProps) {
     <Form {...form}>
       <form className="form-stack" onSubmit={form.handleSubmit(onSubmit)}>
         <FormInputField control={form.control} label="Name" name="name" placeholder="Jane Doe" />
-        <FormInputField control={form.control} label="Email" name="email" placeholder="jane@example.com" type="email" />
+        <FormInputField control={form.control} label="Email" name="email" placeholder={`jane@${PLACEHOLDER_DOMAIN}`} type="email" />
 
         <FormField
           control={form.control}

@@ -1,6 +1,7 @@
 package assessment
 
 import (
+	"github.com/mindforge/backend/internal/testdomain"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,10 +16,10 @@ func TestValidatePublicCandidate(t *testing.T) {
 		req  startPublicAttemptRequest
 		bad  []string
 	}{
-		{"ok", startPublicAttemptRequest{Name: "Ada", Email: "ada@example.com"}, nil},
+		{"ok", startPublicAttemptRequest{Name: "Ada", Email: "ada@" + testdomain.Domain}, nil},
 		{"missing", startPublicAttemptRequest{}, []string{"name", "email"}},
 		{"bad email", startPublicAttemptRequest{Name: "Ada", Email: "not-an-email"}, []string{"email"}},
-		{"display-name email", startPublicAttemptRequest{Name: "Ada", Email: "Ada <ada@example.com>"}, []string{"email"}},
+		{"display-name email", startPublicAttemptRequest{Name: "Ada", Email: "Ada <ada@" + testdomain.Domain + ">"}, []string{"email"}},
 		{"long name", startPublicAttemptRequest{Name: strings.Repeat("a", maxPublicNameLen+1), Email: "a@b.co"}, []string{"name"}},
 		{"long phone", startPublicAttemptRequest{Name: "Ada", Email: "a@b.co", Phone: &long}, []string{"phone"}},
 	}

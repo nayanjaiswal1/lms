@@ -23,7 +23,7 @@ export function DebugWriteupPanel({
   onSubmit,
 }: DebugWriteupPanelProps) {
   return (
-    <section aria-label="Incident write-up" className="card-base flex flex-col gap-3 p-4">
+    <section aria-label="Incident write-up" className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
         <h3 className="flex items-center gap-2 text-sm font-semibold">
           <FileText aria-hidden className="h-4 w-4 text-muted-foreground" />
@@ -35,7 +35,7 @@ export function DebugWriteupPanel({
       </div>
 
       <Button
-        className="w-full touch-target gap-2"
+        className="w-full touch-target-dense gap-2"
         disabled={isReviewing || remaining <= 0}
         variant="outline"
         onClick={onSubmit}

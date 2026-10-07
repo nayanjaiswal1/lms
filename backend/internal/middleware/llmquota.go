@@ -38,3 +38,8 @@ func (q *quotaWriter) WriteHeader(code int) {
 
 // Unwrap lets http.ResponseController reach the underlying writer (flush, hijack).
 func (q *quotaWriter) Unwrap() http.ResponseWriter { return q.ResponseWriter }
+
+// Flush keeps SSE handlers working: they assert w.(http.Flusher), which Unwrap alone does not satisfy.
+func (q *quotaWriter) Flush() {
+	_ = http.NewResponseController(q.ResponseWriter).Flush()
+}

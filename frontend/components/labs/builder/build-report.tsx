@@ -11,7 +11,7 @@ interface BuildReportProps {
 export function BuildReport({ build }: BuildReportProps) {
   const report = build.report;
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {report?.error && <p className="text-sm text-destructive">{report.error}</p>}
       {(report?.issues ?? []).map((is, i) => (
         <p className="text-sm text-destructive" key={`${is.code}-${i}`}>
@@ -20,7 +20,7 @@ export function BuildReport({ build }: BuildReportProps) {
         </p>
       ))}
       {(report?.variants ?? []).map((v) => (
-        <section aria-label={`Variant ${v.variant_key}`} className="card-base flex flex-col gap-2" key={v.variant_key}>
+        <section aria-label={`Variant ${v.variant_key}`} className="card-base flex flex-col gap-1 p-4" key={v.variant_key}>
           <h3 className="flex items-center gap-2 text-sm font-semibold">
             {v.passed ? (
               <CheckCircle2 aria-hidden className="h-4 w-4 text-success" />
@@ -44,11 +44,11 @@ export function BuildReport({ build }: BuildReportProps) {
         </section>
       ))}
       {build.variants.map((v) => (
-        <details className="card-base" key={v.key}>
+        <details className="card-base p-4" key={v.key}>
           <summary className="cursor-pointer text-sm font-semibold">
             Student ticket — variant <span className="font-mono">{v.key}</span>
           </summary>
-          <div className="mt-3">
+          <div className="mt-2">
             <LabMarkdown>{v.brief_md}</LabMarkdown>
           </div>
         </details>

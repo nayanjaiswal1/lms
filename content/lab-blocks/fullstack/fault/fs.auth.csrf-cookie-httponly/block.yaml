@@ -54,7 +54,7 @@ fault:
       from: carrier/src/ext/status-breakdown/index.js
   commit:
     message: 'auth: harden the login cookies and add a status breakdown action to Orders'
-    persona: Rahul Mehta <rahul@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.pytest-node
     role: symptom

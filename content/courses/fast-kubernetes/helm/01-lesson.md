@@ -378,7 +378,7 @@ A new kind by itself does nothing, it is just a place to store desired state. An
 
 Examples you will run into in real clusters:
 
-- **cert-manager** adds a `Certificate` kind. You create a `Certificate` object saying "I want a TLS cert for shop.example.com", and its operator requests, renews and stores the certificate for you.
+- **cert-manager** adds a `Certificate` kind. You create a `Certificate` object saying "I want a TLS cert for shop.mindforge.test", and its operator requests, renews and stores the certificate for you.
 - **Prometheus Operator** adds a `ServiceMonitor` kind. You create one pointing at your Service, and the operator wires Prometheus to scrape it, no manual Prometheus config editing.
 - **CloudNativePG** adds a `Cluster` kind for PostgreSQL. You describe the Postgres cluster you want (replicas, storage size), and the operator creates the pods, handles failover and backups.
 

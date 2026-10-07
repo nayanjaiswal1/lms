@@ -49,14 +49,13 @@ export function NewRecipeForm({ appOptions, placement }: NewRecipeFormProps) {
         <FormInputField control={form.control} label="Title" name="title" placeholder="Order list is slow in production" />
         <FormSelectField
           control={form.control}
-          description="Only stacks with a published base app are listed."
           label="Base app"
           name="appVersionId"
           options={appOptions}
           placeholder="Choose an app"
         />
         <Button className="self-start" disabled={pending} type="submit">
-          Create and choose a fault
+          Create and pick a fault
         </Button>
       </form>
     </Form>

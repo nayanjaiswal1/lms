@@ -48,7 +48,7 @@ fault:
       from: carrier/src/ext/order-total/index.js
   commit:
     message: 'orders: add a page total to the Tools menu'
-    persona: Tom Brennan <tom@opsconsole.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.vitest-node
     role: symptom

@@ -1,5 +1,6 @@
 "use client";
 
+import { PLACEHOLDER_DOMAIN } from "@/lib/constants";
 import { useActionState, startTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -56,7 +57,7 @@ export function ForgotPasswordForm() {
           inputMode="email"
           label="Email"
           name="email"
-          placeholder="you@example.com"
+          placeholder={`you@${PLACEHOLDER_DOMAIN}`}
           serverError={state.fieldErrors?.email}
           type="email"
         />

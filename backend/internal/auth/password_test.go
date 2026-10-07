@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha1" //nolint:gosec // mirrors the production index, not a security primitive
 	"encoding/hex"
+	"github.com/mindforge/backend/internal/testdomain"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -98,10 +99,10 @@ func TestContextTerms(t *testing.T) {
 		terms    []string
 		rejected bool
 	}{
-		{"password is the email", "jane@example.com", []string{"jane@example.com", "Jane"}, true},
-		{"password is the email local part", "jane", []string{"jane@example.com"}, true},
-		{"password is the name, different case", "JANE DOE", []string{"jane@example.com", "Jane Doe"}, true},
-		{"unrelated password", "an unrelated passphrase", []string{"jane@example.com", "Jane Doe"}, false},
+		{"password is the email", "jane@" + testdomain.Domain, []string{"jane@" + testdomain.Domain, "Jane"}, true},
+		{"password is the email local part", "jane", []string{"jane@" + testdomain.Domain}, true},
+		{"password is the name, different case", "JANE DOE", []string{"jane@" + testdomain.Domain, "Jane Doe"}, true},
+		{"unrelated password", "an unrelated passphrase", []string{"jane@" + testdomain.Domain, "Jane Doe"}, false},
 		{"empty terms are ignored", "whatever", []string{"", "  "}, false},
 	}
 

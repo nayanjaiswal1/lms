@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 	"time"
 
@@ -59,7 +60,7 @@ func seedWebhookTestTeam(t *testing.T, pool *pgxpool.Pool, repo *Repo, vault *se
 	instructorID := seedTeamTestUser(t, pool)
 	batchID := seedTeamTestBatch(t, pool, orgID, instructorID)
 
-	inst, err := repo.CreateInstallationPAT(ctx, orgID, "Default", "https://gitlab.example.com", TierFree, 1, "test-bot", []byte("fake-enc-token"), nil, nil, instructorID)
+	inst, err := repo.CreateInstallationPAT(ctx, orgID, "Default", "https://gitlab."+testdomain.Domain, TierFree, 1, "test-bot", []byte("fake-enc-token"), nil, nil, instructorID)
 	if err != nil {
 		t.Fatalf("create installation: %v", err)
 	}
@@ -89,7 +90,7 @@ func seedWebhookTestTeam(t *testing.T, pool *pgxpool.Pool, repo *Repo, vault *se
 	}
 
 	gitlabProjectID := time.Now().UnixNano() % 1_000_000_000
-	if err := repo.SetTeamForkResult(ctx, team.ID, gitlabProjectID, "webhook-test-group/webhook-test-team", "https://gitlab.example.com/webhook-test-group/webhook-test-team"); err != nil {
+	if err := repo.SetTeamForkResult(ctx, team.ID, gitlabProjectID, "webhook-test-group/webhook-test-team", "https://gitlab."+testdomain.Domain+"/webhook-test-group/webhook-test-team"); err != nil {
 		t.Fatalf("set team fork result: %v", err)
 	}
 

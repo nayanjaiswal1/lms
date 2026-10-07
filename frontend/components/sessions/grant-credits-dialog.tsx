@@ -1,5 +1,6 @@
 "use client";
 
+import { PLACEHOLDER_DOMAIN } from "@/lib/constants";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -62,7 +63,7 @@ export function GrantCreditsDialog() {
               control={form.control}
               label="User ID or email"
               name="user_id"
-              placeholder="user@example.com"
+              placeholder={`user@${PLACEHOLDER_DOMAIN}`}
             />
             <FormInputField
               control={form.control}

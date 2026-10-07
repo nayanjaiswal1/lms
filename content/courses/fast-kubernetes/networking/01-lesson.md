@@ -161,7 +161,7 @@ On minikube, `minikube service frontend --url` gives you a reachable address.
 
 **LoadBalancer**: everything NodePort does, plus the **cloud provider** creates an external load balancer with a public IP. This is the usual way to expose one service on EKS/GKE/AKS. On a laptop cluster the `EXTERNAL-IP` stays `<pending>` because there is no cloud to create it (MetalLB or `minikube tunnel` can fill that gap).
 
-**ExternalName**: no pods at all. A DNS alias to an outside name, for example `externalName: db.example.com`.
+**ExternalName**: no pods at all. A DNS alias to an outside name, for example `externalName: db.mindforge.test`.
 
 Each type builds on the previous one: LoadBalancer ⊃ NodePort ⊃ ClusterIP.
 

@@ -2934,7 +2934,7 @@ On minikube, `minikube service frontend --url` gives you a reachable address.
 
 **LoadBalancer**: everything NodePort does, plus the **cloud provider** creates an external load balancer with a public IP. This is the usual way to expose one service on EKS/GKE/AKS. On a laptop cluster the `EXTERNAL-IP` stays `<pending>` because there is no cloud to create it (MetalLB or `minikube tunnel` can fill that gap).
 
-**ExternalName**: no pods at all. A DNS alias to an outside name, for example `externalName: db.example.com`.
+**ExternalName**: no pods at all. A DNS alias to an outside name, for example `externalName: db.mindforge.test`.
 
 Each type builds on the previous one: LoadBalancer ⊃ NodePort ⊃ ClusterIP.
 
@@ -3715,7 +3715,7 @@ kind: ConfigMap
 metadata:
   name: myconfigmap
 data:
-  db_server: "db.example.com"      # simple values
+  db_server: "db.mindforge.test"      # simple values
   database: "mydatabase"
   site.settings: |                 # a whole file as one value
     color=blue
@@ -3782,7 +3782,7 @@ spec:
       name: myconfigmap
 ```
 
-Inside the container, `echo $DB_SERVER` prints `db.example.com`, and `cat /config/site.settings` prints the settings file.
+Inside the container, `echo $DB_SERVER` prints `db.mindforge.test`, and `cat /config/site.settings` prints the settings file.
 
 **What happens when the ConfigMap changes?**
 
@@ -3828,7 +3828,7 @@ metadata:
   name: mysecret
 type: Opaque                   # generic key-value secret
 stringData:                    # plain text here; Kubernetes stores it base64-encoded
-  db_server: db.example.com
+  db_server: db.mindforge.test
   db_username: admin
   db_password: P@ssw0rd!
 ```
@@ -4014,7 +4014,7 @@ kind: ConfigMap
 metadata:
   name: myconfigmap
 data:
-  db_server: "db.example.com"
+  db_server: "db.mindforge.test"
   database: "mydatabase"
   site.settings: |
     color=blue
@@ -4069,9 +4069,9 @@ UPDATE lab_tasks SET position = position + 100000 WHERE lab_id = 'bb31fffe-f318-
 INSERT INTO lab_tasks (id, lab_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful)
 VALUES
 ('3052f764-ca31-50d7-a6ed-5fc58d80d448', 'bb31fffe-f318-5c57-9ae9-962aacef59ab', 1, 'Create a ConfigMap and a pod that uses it', $md$Apply `configmap.yaml`. Then run `kubectl describe configmap myconfigmap` and `kubectl describe pod configmappod`. Find where the pod gets `DB_SERVER` from and where `/config` is mounted.$md$, $script$#!/bin/bash
-test "$(kubectl get configmap myconfigmap -o jsonpath='{.data.db_server}')" = "db.example.com" || exit 1
+test "$(kubectl get configmap myconfigmap -o jsonpath='{.data.db_server}')" = "db.mindforge.test" || exit 1
 test "$(kubectl get pod configmappod -o jsonpath='{.status.phase}')" = "Running"
-$script$, '`kubectl apply -f configmap.yaml`', 'On a real cluster, `kubectl exec configmappod -- printenv DB_SERVER` prints db.example.com and `kubectl exec configmappod -- cat /config/site.settings` prints the settings file.', 10, false, true),
+$script$, '`kubectl apply -f configmap.yaml`', 'On a real cluster, `kubectl exec configmappod -- printenv DB_SERVER` prints db.mindforge.test and `kubectl exec configmappod -- cat /config/site.settings` prints the settings file.', 10, false, true),
 ('cb43fb10-ec1f-5950-a5a0-2481403a1b71', 'bb31fffe-f318-5c57-9ae9-962aacef59ab', 2, 'Create a ConfigMap from the command line', $md$Create a ConfigMap named `myconfigmap2` with a literal key `background=red` and the file `theme.txt`.$md$, $script$#!/bin/bash
 test "$(kubectl get configmap myconfigmap2 -o jsonpath='{.data.background}')" = "red" || exit 1
 kubectl get configmap myconfigmap2 -o jsonpath='{.data.theme\.txt}' | grep -qx 'theme=dark'
@@ -4080,21 +4080,21 @@ $script$, '`kubectl create configmap <name> --from-literal=key=value --from-file
 $md$, $script$#!/bin/bash
 test "$(kubectl get pod envpod -o jsonpath='{.spec.containers[0].envFrom[0].configMapRef.name}')" = "myconfigmap2"
 $script$, 'Under the container, add `envFrom:` with a list item `- configMapRef:` whose `name:` is myconfigmap2.', 'envFrom imports every key at once. Keys that are not valid variable names (like theme.txt, which contains a dot) are skipped, and an event reports it.', 20, false, false),
-('ed16f611-e951-5718-aea6-7269dc059f2c', 'bb31fffe-f318-5c57-9ae9-962aacef59ab', 4, 'Change a value', $md$Change `db_server` in `myconfigmap` to `db2.example.com` (edit the file and re-apply, or use `kubectl edit configmap myconfigmap`).$md$, $script$#!/bin/bash
-test "$(kubectl get configmap myconfigmap -o jsonpath='{.data.db_server}')" = "db2.example.com"
+('ed16f611-e951-5718-aea6-7269dc059f2c', 'bb31fffe-f318-5c57-9ae9-962aacef59ab', 4, 'Change a value', $md$Change `db_server` in `myconfigmap` to `db2.mindforge.test` (edit the file and re-apply, or use `kubectl edit configmap myconfigmap`).$md$, $script$#!/bin/bash
+test "$(kubectl get configmap myconfigmap -o jsonpath='{.data.db_server}')" = "db2.mindforge.test"
 $script$, 'Edit configmap.yaml and run `kubectl apply -f configmap.yaml` again.', 'The file mounted at /config/db_server updates within about a minute, but the DB_SERVER environment variable in the running pod keeps the old value until the pod is recreated.', 10, false, false)
 ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
 
 INSERT INTO lab_task_versions (id, lab_id, version, tasks, published_by)
-VALUES ('fd4caf13-2929-514d-8218-f5e95e207bfc', 'bb31fffe-f318-5c57-9ae9-962aacef59ab', 1, $json$[{"id":"3052f764-ca31-50d7-a6ed-5fc58d80d448","lab_id":"bb31fffe-f318-5c57-9ae9-962aacef59ab","position":1,"title":"Create a ConfigMap and a pod that uses it","description":"Apply `configmap.yaml`. Then run `kubectl describe configmap myconfigmap` and `kubectl describe pod configmappod`. Find where the pod gets `DB_SERVER` from and where `/config` is mounted.","verification_script":"#!/bin/bash\ntest \"$(kubectl get configmap myconfigmap -o jsonpath='{.data.db_server}')\" = \"db.example.com\" || exit 1\ntest \"$(kubectl get pod configmappod -o jsonpath='{.status.phase}')\" = \"Running\"\n","hint_context":"`kubectl apply -f configmap.yaml`","explanation_context":"On a real cluster, `kubectl exec configmappod -- printenv DB_SERVER` prints db.example.com and `kubectl exec configmappod -- cat /config/site.settings` prints the settings file.","points":10,"is_optional":false,"is_stateful":true},{"id":"cb43fb10-ec1f-5950-a5a0-2481403a1b71","lab_id":"bb31fffe-f318-5c57-9ae9-962aacef59ab","position":2,"title":"Create a ConfigMap from the command line","description":"Create a ConfigMap named `myconfigmap2` with a literal key `background=red` and the file `theme.txt`.","verification_script":"#!/bin/bash\ntest \"$(kubectl get configmap myconfigmap2 -o jsonpath='{.data.background}')\" = \"red\" || exit 1\nkubectl get configmap myconfigmap2 -o jsonpath='{.data.theme\\.txt}' | grep -qx 'theme=dark'\n","hint_context":"`kubectl create configmap \u003cname\u003e --from-literal=key=value --from-file=\u003cfile\u003e`","explanation_context":"--from-literal adds one key directly. --from-file uses the file name (theme.txt) as the key and its content as the value.","points":15,"is_optional":false,"is_stateful":true},{"id":"5709b3e1-d062-53a7-9799-c82458aaf1de","lab_id":"bb31fffe-f318-5c57-9ae9-962aacef59ab","position":3,"title":"Load every key as environment variables","description":"Write and apply a pod named `envpod` (image `nginx:1.27`, container name `app`) that loads **all** keys of `myconfigmap2` as environment variables with `envFrom`.\n","verification_script":"#!/bin/bash\ntest \"$(kubectl get pod envpod -o jsonpath='{.spec.containers[0].envFrom[0].configMapRef.name}')\" = \"myconfigmap2\"\n","hint_context":"Under the container, add `envFrom:` with a list item `- configMapRef:` whose `name:` is myconfigmap2.","explanation_context":"envFrom imports every key at once. Keys that are not valid variable names (like theme.txt, which contains a dot) are skipped, and an event reports it.","points":20,"is_optional":false,"is_stateful":false},{"id":"ed16f611-e951-5718-aea6-7269dc059f2c","lab_id":"bb31fffe-f318-5c57-9ae9-962aacef59ab","position":4,"title":"Change a value","description":"Change `db_server` in `myconfigmap` to `db2.example.com` (edit the file and re-apply, or use `kubectl edit configmap myconfigmap`).","verification_script":"#!/bin/bash\ntest \"$(kubectl get configmap myconfigmap -o jsonpath='{.data.db_server}')\" = \"db2.example.com\"\n","hint_context":"Edit configmap.yaml and run `kubectl apply -f configmap.yaml` again.","explanation_context":"The file mounted at /config/db_server updates within about a minute, but the DB_SERVER environment variable in the running pod keeps the old value until the pod is recreated.","points":10,"is_optional":false,"is_stateful":false}]$json$::jsonb, '00000000-0000-0000-0000-000000000012')
+VALUES ('fd4caf13-2929-514d-8218-f5e95e207bfc', 'bb31fffe-f318-5c57-9ae9-962aacef59ab', 1, $json$[{"id":"3052f764-ca31-50d7-a6ed-5fc58d80d448","lab_id":"bb31fffe-f318-5c57-9ae9-962aacef59ab","position":1,"title":"Create a ConfigMap and a pod that uses it","description":"Apply `configmap.yaml`. Then run `kubectl describe configmap myconfigmap` and `kubectl describe pod configmappod`. Find where the pod gets `DB_SERVER` from and where `/config` is mounted.","verification_script":"#!/bin/bash\ntest \"$(kubectl get configmap myconfigmap -o jsonpath='{.data.db_server}')\" = \"db.mindforge.test\" || exit 1\ntest \"$(kubectl get pod configmappod -o jsonpath='{.status.phase}')\" = \"Running\"\n","hint_context":"`kubectl apply -f configmap.yaml`","explanation_context":"On a real cluster, `kubectl exec configmappod -- printenv DB_SERVER` prints db.mindforge.test and `kubectl exec configmappod -- cat /config/site.settings` prints the settings file.","points":10,"is_optional":false,"is_stateful":true},{"id":"cb43fb10-ec1f-5950-a5a0-2481403a1b71","lab_id":"bb31fffe-f318-5c57-9ae9-962aacef59ab","position":2,"title":"Create a ConfigMap from the command line","description":"Create a ConfigMap named `myconfigmap2` with a literal key `background=red` and the file `theme.txt`.","verification_script":"#!/bin/bash\ntest \"$(kubectl get configmap myconfigmap2 -o jsonpath='{.data.background}')\" = \"red\" || exit 1\nkubectl get configmap myconfigmap2 -o jsonpath='{.data.theme\\.txt}' | grep -qx 'theme=dark'\n","hint_context":"`kubectl create configmap \u003cname\u003e --from-literal=key=value --from-file=\u003cfile\u003e`","explanation_context":"--from-literal adds one key directly. --from-file uses the file name (theme.txt) as the key and its content as the value.","points":15,"is_optional":false,"is_stateful":true},{"id":"5709b3e1-d062-53a7-9799-c82458aaf1de","lab_id":"bb31fffe-f318-5c57-9ae9-962aacef59ab","position":3,"title":"Load every key as environment variables","description":"Write and apply a pod named `envpod` (image `nginx:1.27`, container name `app`) that loads **all** keys of `myconfigmap2` as environment variables with `envFrom`.\n","verification_script":"#!/bin/bash\ntest \"$(kubectl get pod envpod -o jsonpath='{.spec.containers[0].envFrom[0].configMapRef.name}')\" = \"myconfigmap2\"\n","hint_context":"Under the container, add `envFrom:` with a list item `- configMapRef:` whose `name:` is myconfigmap2.","explanation_context":"envFrom imports every key at once. Keys that are not valid variable names (like theme.txt, which contains a dot) are skipped, and an event reports it.","points":20,"is_optional":false,"is_stateful":false},{"id":"ed16f611-e951-5718-aea6-7269dc059f2c","lab_id":"bb31fffe-f318-5c57-9ae9-962aacef59ab","position":4,"title":"Change a value","description":"Change `db_server` in `myconfigmap` to `db2.mindforge.test` (edit the file and re-apply, or use `kubectl edit configmap myconfigmap`).","verification_script":"#!/bin/bash\ntest \"$(kubectl get configmap myconfigmap -o jsonpath='{.data.db_server}')\" = \"db2.mindforge.test\"\n","hint_context":"Edit configmap.yaml and run `kubectl apply -f configmap.yaml` again.","explanation_context":"The file mounted at /config/db_server updates within about a minute, but the DB_SERVER environment variable in the running pod keeps the old value until the pod is recreated.","points":10,"is_optional":false,"is_stateful":false}]$json$::jsonb, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (lab_id, version) DO UPDATE SET tasks=EXCLUDED.tasks, published_by=EXCLUDED.published_by;
 
 INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful)
 VALUES
 ('10733d0b-1f4b-5b44-925a-92438ad6d182', 'fd4caf13-2929-514d-8218-f5e95e207bfc', '3052f764-ca31-50d7-a6ed-5fc58d80d448', 1, 'Create a ConfigMap and a pod that uses it', $md$Apply `configmap.yaml`. Then run `kubectl describe configmap myconfigmap` and `kubectl describe pod configmappod`. Find where the pod gets `DB_SERVER` from and where `/config` is mounted.$md$, $script$#!/bin/bash
-test "$(kubectl get configmap myconfigmap -o jsonpath='{.data.db_server}')" = "db.example.com" || exit 1
+test "$(kubectl get configmap myconfigmap -o jsonpath='{.data.db_server}')" = "db.mindforge.test" || exit 1
 test "$(kubectl get pod configmappod -o jsonpath='{.status.phase}')" = "Running"
-$script$, '`kubectl apply -f configmap.yaml`', 'On a real cluster, `kubectl exec configmappod -- printenv DB_SERVER` prints db.example.com and `kubectl exec configmappod -- cat /config/site.settings` prints the settings file.', 10, false, true),
+$script$, '`kubectl apply -f configmap.yaml`', 'On a real cluster, `kubectl exec configmappod -- printenv DB_SERVER` prints db.mindforge.test and `kubectl exec configmappod -- cat /config/site.settings` prints the settings file.', 10, false, true),
 ('683307b0-6ab2-5d63-b926-cb4ed993df35', 'fd4caf13-2929-514d-8218-f5e95e207bfc', 'cb43fb10-ec1f-5950-a5a0-2481403a1b71', 2, 'Create a ConfigMap from the command line', $md$Create a ConfigMap named `myconfigmap2` with a literal key `background=red` and the file `theme.txt`.$md$, $script$#!/bin/bash
 test "$(kubectl get configmap myconfigmap2 -o jsonpath='{.data.background}')" = "red" || exit 1
 kubectl get configmap myconfigmap2 -o jsonpath='{.data.theme\.txt}' | grep -qx 'theme=dark'
@@ -4103,8 +4103,8 @@ $script$, '`kubectl create configmap <name> --from-literal=key=value --from-file
 $md$, $script$#!/bin/bash
 test "$(kubectl get pod envpod -o jsonpath='{.spec.containers[0].envFrom[0].configMapRef.name}')" = "myconfigmap2"
 $script$, 'Under the container, add `envFrom:` with a list item `- configMapRef:` whose `name:` is myconfigmap2.', 'envFrom imports every key at once. Keys that are not valid variable names (like theme.txt, which contains a dot) are skipped, and an event reports it.', 20, false, false),
-('746d26a8-8f4a-5c1b-a686-55fa7c4ed621', 'fd4caf13-2929-514d-8218-f5e95e207bfc', 'ed16f611-e951-5718-aea6-7269dc059f2c', 4, 'Change a value', $md$Change `db_server` in `myconfigmap` to `db2.example.com` (edit the file and re-apply, or use `kubectl edit configmap myconfigmap`).$md$, $script$#!/bin/bash
-test "$(kubectl get configmap myconfigmap -o jsonpath='{.data.db_server}')" = "db2.example.com"
+('746d26a8-8f4a-5c1b-a686-55fa7c4ed621', 'fd4caf13-2929-514d-8218-f5e95e207bfc', 'ed16f611-e951-5718-aea6-7269dc059f2c', 4, 'Change a value', $md$Change `db_server` in `myconfigmap` to `db2.mindforge.test` (edit the file and re-apply, or use `kubectl edit configmap myconfigmap`).$md$, $script$#!/bin/bash
+test "$(kubectl get configmap myconfigmap -o jsonpath='{.data.db_server}')" = "db2.mindforge.test"
 $script$, 'Edit configmap.yaml and run `kubectl apply -f configmap.yaml` again.', 'The file mounted at /config/db_server updates within about a minute, but the DB_SERVER environment variable in the running pod keeps the old value until the pod is recreated.', 10, false, false)
 ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
 
@@ -4125,7 +4125,7 @@ metadata:
   name: mysecret
 type: Opaque
 stringData:
-  db_server: db.example.com
+  db_server: db.mindforge.test
   db_username: admin
   db_password: P@ssw0rd!
 
@@ -4196,7 +4196,7 @@ S3cure-Pa55
 MFEOF
 chmod 666 /home/labuser/work/password.txt
 cat > /home/labuser/work/server.txt <<'MFEOF'
-db.example.com
+db.mindforge.test
 MFEOF
 chmod 666 /home/labuser/work/server.txt
 cat > /home/labuser/work/config.json <<'MFEOF'
@@ -4236,7 +4236,7 @@ $script$, '`--from-file=<key>=<file>` sets the key name. Repeat it for each key.
 ('504d8159-4e74-5547-a0ad-f38c0948ed4f', 'c33cca04-5574-5f1d-91e9-6a696002a5a1', 4, 'Store a whole file as a Secret', $md$Create a Secret named `mysecret4` from `config.json` (the key should be the file name).$md$, $script$#!/bin/bash
 kubectl get secret mysecret4 -o jsonpath='{.data.config\.json}' | base64 -d | grep -q apiKey
 $script$, '`kubectl create secret generic <name> --from-file=<file>`', 'Mounted as a volume, this becomes a file config.json that the app can read directly.', 10, false, false),
-('c4f64420-31e5-5fd9-992e-3b42afbae065', 'c33cca04-5574-5f1d-91e9-6a696002a5a1', 5, 'Create a registry login Secret', $md$Create a `docker-registry` Secret named `regcred` for the server `registry.example.com`, user `ci`, password `token123`. Then create a pod `private-pod` (image `registry.example.com/team/app:1.0`) that uses it through `imagePullSecrets`.
+('c4f64420-31e5-5fd9-992e-3b42afbae065', 'c33cca04-5574-5f1d-91e9-6a696002a5a1', 5, 'Create a registry login Secret', $md$Create a `docker-registry` Secret named `regcred` for the server `registry.mindforge.test`, user `ci`, password `token123`. Then create a pod `private-pod` (image `registry.mindforge.test/team/app:1.0`) that uses it through `imagePullSecrets`.
 $md$, $script$#!/bin/bash
 test "$(kubectl get secret regcred -o jsonpath='{.type}')" = "kubernetes.io/dockerconfigjson" || exit 1
 test "$(kubectl get pod private-pod -o jsonpath='{.spec.imagePullSecrets[0].name}')" = "regcred"
@@ -4244,7 +4244,7 @@ $script$, '`kubectl create secret docker-registry regcred --docker-server=... --
 ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
 
 INSERT INTO lab_task_versions (id, lab_id, version, tasks, published_by)
-VALUES ('fe60a567-cf3d-50b9-b98a-b4c9033ad0a8', 'c33cca04-5574-5f1d-91e9-6a696002a5a1', 1, $json$[{"id":"9fcedf71-93a8-5fdd-83b0-49f603a7a16c","lab_id":"c33cca04-5574-5f1d-91e9-6a696002a5a1","position":1,"title":"Create a Secret and three pods that use it","description":"Apply `secret.yaml`, then `secret-pods.yaml`. The three pods read the same Secret as files, as chosen variables, and as all variables. Run `kubectl describe secret mysecret`. Notice it shows sizes, not values.","verification_script":"#!/bin/bash\nkubectl get secret mysecret \u003e/dev/null 2\u003e\u00261 || exit 1\nfor p in secretvolumepod secretenvpod secretenvallpod; do\n  test \"$(kubectl get pod $p -o jsonpath='{.status.phase}')\" = \"Running\" || exit 1\ndone\n","hint_context":"Apply both files with `kubectl apply -f`, secret first.","explanation_context":"On a real cluster, `kubectl exec secretvolumepod -- cat /secret/db_password` and `kubectl exec secretenvpod -- printenv password` both show the password.","points":10,"is_optional":false,"is_stateful":true},{"id":"bcf541a2-1286-55ce-8f89-9af6a8e07395","lab_id":"c33cca04-5574-5f1d-91e9-6a696002a5a1","position":2,"title":"See that base64 is not encryption","description":"Read the stored password with `kubectl get secret mysecret -o jsonpath='{.data.db_password}'` and decode it with `base64 -d`. Save the decoded value to `~/work/decoded.txt`.\n","verification_script":"#!/bin/bash\ngrep -qx 'P@ssw0rd!' /home/labuser/work/decoded.txt\n","hint_context":"Pipe the jsonpath output into `base64 -d` and redirect it to decoded.txt.","explanation_context":"Anyone with read access to Secrets can decode them in one line. That is why access to Secrets must be limited with RBAC, and real values must not be stored in Git as plain manifests.","points":10,"is_optional":false,"is_stateful":false},{"id":"587f1b83-3f4c-5ab2-afa8-4d3855bcb7c6","lab_id":"c33cca04-5574-5f1d-91e9-6a696002a5a1","position":3,"title":"Create a Secret from files","description":"Create a Secret named `mysecret3` with the keys `db_server`, `db_username` and `db_password`, taken from `server.txt`, `username.txt` and `password.txt`. This keeps the password out of your shell history.","verification_script":"#!/bin/bash\ntest \"$(kubectl get secret mysecret3 -o jsonpath='{.data.db_password}' | base64 -d)\" = \"S3cure-Pa55\" || exit 1\ntest \"$(kubectl get secret mysecret3 -o jsonpath='{.data.db_username}' | base64 -d)\" = \"admin\"\n","hint_context":"`--from-file=\u003ckey\u003e=\u003cfile\u003e` sets the key name. Repeat it for each key.","explanation_context":"`kubectl create secret generic mysecret3 --from-file=db_server=server.txt --from-file=db_username=username.txt --from-file=db_password=password.txt`","points":15,"is_optional":false,"is_stateful":false},{"id":"504d8159-4e74-5547-a0ad-f38c0948ed4f","lab_id":"c33cca04-5574-5f1d-91e9-6a696002a5a1","position":4,"title":"Store a whole file as a Secret","description":"Create a Secret named `mysecret4` from `config.json` (the key should be the file name).","verification_script":"#!/bin/bash\nkubectl get secret mysecret4 -o jsonpath='{.data.config\\.json}' | base64 -d | grep -q apiKey\n","hint_context":"`kubectl create secret generic \u003cname\u003e --from-file=\u003cfile\u003e`","explanation_context":"Mounted as a volume, this becomes a file config.json that the app can read directly.","points":10,"is_optional":false,"is_stateful":false},{"id":"c4f64420-31e5-5fd9-992e-3b42afbae065","lab_id":"c33cca04-5574-5f1d-91e9-6a696002a5a1","position":5,"title":"Create a registry login Secret","description":"Create a `docker-registry` Secret named `regcred` for the server `registry.example.com`, user `ci`, password `token123`. Then create a pod `private-pod` (image `registry.example.com/team/app:1.0`) that uses it through `imagePullSecrets`.\n","verification_script":"#!/bin/bash\ntest \"$(kubectl get secret regcred -o jsonpath='{.type}')\" = \"kubernetes.io/dockerconfigjson\" || exit 1\ntest \"$(kubectl get pod private-pod -o jsonpath='{.spec.imagePullSecrets[0].name}')\" = \"regcred\"\n","hint_context":"`kubectl create secret docker-registry regcred --docker-server=... --docker-username=... --docker-password=...`. In the pod spec, `imagePullSecrets:` is a list of `- name:` entries at the same level as `containers`.","explanation_context":"The kubelet uses the credentials in regcred to pull the private image. Without it the pod would end up in ImagePullBackOff.","points":15,"is_optional":false,"is_stateful":false}]$json$::jsonb, '00000000-0000-0000-0000-000000000012')
+VALUES ('fe60a567-cf3d-50b9-b98a-b4c9033ad0a8', 'c33cca04-5574-5f1d-91e9-6a696002a5a1', 1, $json$[{"id":"9fcedf71-93a8-5fdd-83b0-49f603a7a16c","lab_id":"c33cca04-5574-5f1d-91e9-6a696002a5a1","position":1,"title":"Create a Secret and three pods that use it","description":"Apply `secret.yaml`, then `secret-pods.yaml`. The three pods read the same Secret as files, as chosen variables, and as all variables. Run `kubectl describe secret mysecret`. Notice it shows sizes, not values.","verification_script":"#!/bin/bash\nkubectl get secret mysecret \u003e/dev/null 2\u003e\u00261 || exit 1\nfor p in secretvolumepod secretenvpod secretenvallpod; do\n  test \"$(kubectl get pod $p -o jsonpath='{.status.phase}')\" = \"Running\" || exit 1\ndone\n","hint_context":"Apply both files with `kubectl apply -f`, secret first.","explanation_context":"On a real cluster, `kubectl exec secretvolumepod -- cat /secret/db_password` and `kubectl exec secretenvpod -- printenv password` both show the password.","points":10,"is_optional":false,"is_stateful":true},{"id":"bcf541a2-1286-55ce-8f89-9af6a8e07395","lab_id":"c33cca04-5574-5f1d-91e9-6a696002a5a1","position":2,"title":"See that base64 is not encryption","description":"Read the stored password with `kubectl get secret mysecret -o jsonpath='{.data.db_password}'` and decode it with `base64 -d`. Save the decoded value to `~/work/decoded.txt`.\n","verification_script":"#!/bin/bash\ngrep -qx 'P@ssw0rd!' /home/labuser/work/decoded.txt\n","hint_context":"Pipe the jsonpath output into `base64 -d` and redirect it to decoded.txt.","explanation_context":"Anyone with read access to Secrets can decode them in one line. That is why access to Secrets must be limited with RBAC, and real values must not be stored in Git as plain manifests.","points":10,"is_optional":false,"is_stateful":false},{"id":"587f1b83-3f4c-5ab2-afa8-4d3855bcb7c6","lab_id":"c33cca04-5574-5f1d-91e9-6a696002a5a1","position":3,"title":"Create a Secret from files","description":"Create a Secret named `mysecret3` with the keys `db_server`, `db_username` and `db_password`, taken from `server.txt`, `username.txt` and `password.txt`. This keeps the password out of your shell history.","verification_script":"#!/bin/bash\ntest \"$(kubectl get secret mysecret3 -o jsonpath='{.data.db_password}' | base64 -d)\" = \"S3cure-Pa55\" || exit 1\ntest \"$(kubectl get secret mysecret3 -o jsonpath='{.data.db_username}' | base64 -d)\" = \"admin\"\n","hint_context":"`--from-file=\u003ckey\u003e=\u003cfile\u003e` sets the key name. Repeat it for each key.","explanation_context":"`kubectl create secret generic mysecret3 --from-file=db_server=server.txt --from-file=db_username=username.txt --from-file=db_password=password.txt`","points":15,"is_optional":false,"is_stateful":false},{"id":"504d8159-4e74-5547-a0ad-f38c0948ed4f","lab_id":"c33cca04-5574-5f1d-91e9-6a696002a5a1","position":4,"title":"Store a whole file as a Secret","description":"Create a Secret named `mysecret4` from `config.json` (the key should be the file name).","verification_script":"#!/bin/bash\nkubectl get secret mysecret4 -o jsonpath='{.data.config\\.json}' | base64 -d | grep -q apiKey\n","hint_context":"`kubectl create secret generic \u003cname\u003e --from-file=\u003cfile\u003e`","explanation_context":"Mounted as a volume, this becomes a file config.json that the app can read directly.","points":10,"is_optional":false,"is_stateful":false},{"id":"c4f64420-31e5-5fd9-992e-3b42afbae065","lab_id":"c33cca04-5574-5f1d-91e9-6a696002a5a1","position":5,"title":"Create a registry login Secret","description":"Create a `docker-registry` Secret named `regcred` for the server `registry.mindforge.test`, user `ci`, password `token123`. Then create a pod `private-pod` (image `registry.mindforge.test/team/app:1.0`) that uses it through `imagePullSecrets`.\n","verification_script":"#!/bin/bash\ntest \"$(kubectl get secret regcred -o jsonpath='{.type}')\" = \"kubernetes.io/dockerconfigjson\" || exit 1\ntest \"$(kubectl get pod private-pod -o jsonpath='{.spec.imagePullSecrets[0].name}')\" = \"regcred\"\n","hint_context":"`kubectl create secret docker-registry regcred --docker-server=... --docker-username=... --docker-password=...`. In the pod spec, `imagePullSecrets:` is a list of `- name:` entries at the same level as `containers`.","explanation_context":"The kubelet uses the credentials in regcred to pull the private image. Without it the pod would end up in ImagePullBackOff.","points":15,"is_optional":false,"is_stateful":false}]$json$::jsonb, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (lab_id, version) DO UPDATE SET tasks=EXCLUDED.tasks, published_by=EXCLUDED.published_by;
 
 INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful)
@@ -4266,7 +4266,7 @@ $script$, '`--from-file=<key>=<file>` sets the key name. Repeat it for each key.
 ('0bcf1715-3626-5d2b-9598-906a525900cf', 'fe60a567-cf3d-50b9-b98a-b4c9033ad0a8', '504d8159-4e74-5547-a0ad-f38c0948ed4f', 4, 'Store a whole file as a Secret', $md$Create a Secret named `mysecret4` from `config.json` (the key should be the file name).$md$, $script$#!/bin/bash
 kubectl get secret mysecret4 -o jsonpath='{.data.config\.json}' | base64 -d | grep -q apiKey
 $script$, '`kubectl create secret generic <name> --from-file=<file>`', 'Mounted as a volume, this becomes a file config.json that the app can read directly.', 10, false, false),
-('7504af5c-3988-5e75-86d6-15452e825895', 'fe60a567-cf3d-50b9-b98a-b4c9033ad0a8', 'c4f64420-31e5-5fd9-992e-3b42afbae065', 5, 'Create a registry login Secret', $md$Create a `docker-registry` Secret named `regcred` for the server `registry.example.com`, user `ci`, password `token123`. Then create a pod `private-pod` (image `registry.example.com/team/app:1.0`) that uses it through `imagePullSecrets`.
+('7504af5c-3988-5e75-86d6-15452e825895', 'fe60a567-cf3d-50b9-b98a-b4c9033ad0a8', 'c4f64420-31e5-5fd9-992e-3b42afbae065', 5, 'Create a registry login Secret', $md$Create a `docker-registry` Secret named `regcred` for the server `registry.mindforge.test`, user `ci`, password `token123`. Then create a pod `private-pod` (image `registry.mindforge.test/team/app:1.0`) that uses it through `imagePullSecrets`.
 $md$, $script$#!/bin/bash
 test "$(kubectl get secret regcred -o jsonpath='{.type}')" = "kubernetes.io/dockerconfigjson" || exit 1
 test "$(kubectl get pod private-pod -o jsonpath='{.spec.imagePullSecrets[0].name}')" = "regcred"
@@ -6257,7 +6257,7 @@ A new kind by itself does nothing, it is just a place to store desired state. An
 
 Examples you will run into in real clusters:
 
-- **cert-manager** adds a `Certificate` kind. You create a `Certificate` object saying "I want a TLS cert for shop.example.com", and its operator requests, renews and stores the certificate for you.
+- **cert-manager** adds a `Certificate` kind. You create a `Certificate` object saying "I want a TLS cert for shop.mindforge.test", and its operator requests, renews and stores the certificate for you.
 - **Prometheus Operator** adds a `ServiceMonitor` kind. You create one pointing at your Service, and the operator wires Prometheus to scrape it, no manual Prometheus config editing.
 - **CloudNativePG** adds a `Cluster` kind for PostgreSQL. You describe the Postgres cluster you want (replicas, storage size), and the operator creates the pods, handles failover and backups.
 
@@ -7426,7 +7426,7 @@ metadata:
   namespace: team-a
 subjects:
 - kind: User
-  name: jane@example.com
+  name: jane@mindforge.test
 - kind: Group
   name: team-a-devs
 - kind: ServiceAccount
@@ -7448,7 +7448,7 @@ Test permissions with `can-i`:
 
 ```bash
 kubectl auth can-i create deployments -n team-a
-kubectl auth can-i delete pods -n team-a --as=jane@example.com
+kubectl auth can-i delete pods -n team-a --as=jane@mindforge.test
 kubectl auth can-i --list -n team-a --as=system:serviceaccount:team-a:ci-bot
 ```
 

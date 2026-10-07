@@ -185,7 +185,7 @@ not just somewhere after it.
 ## A ledger's own suggested fix isn't automatically implementable
 
 **Pattern:** the debt-ledger comment for labproxy's port cookie named its own
-upgrade path: `8080.previewid.labs.example.com`. That format can't actually
+upgrade path: `8080.previewid.labs.mindforge.test`. That format can't actually
 get a TLS certificate — a wildcard cert covers exactly one DNS label, and
 `*.*.domain` isn't issuable by any CA. The real fix needed a different
 hostname shape (`p<port>-<sessionID>.domain`, one label) that the original

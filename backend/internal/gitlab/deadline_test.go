@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"context"
+	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 	"time"
 )
@@ -48,7 +49,7 @@ func TestFlagLateCommits_MarksLateAfterSnapshot(t *testing.T) {
 		t.Fatalf("create team: %v", err)
 	}
 	gitlabProjectID := time.Now().UnixNano() % 1_000_000_000
-	if err := repo.SetTeamForkResult(ctx, team.ID, gitlabProjectID, "deadline-test-group/deadline-test-team", "https://gitlab.example.com/deadline-test-group/deadline-test-team"); err != nil {
+	if err := repo.SetTeamForkResult(ctx, team.ID, gitlabProjectID, "deadline-test-group/deadline-test-team", "https://gitlab."+testdomain.Domain+"/deadline-test-group/deadline-test-team"); err != nil {
 		t.Fatalf("set team fork result: %v", err)
 	}
 

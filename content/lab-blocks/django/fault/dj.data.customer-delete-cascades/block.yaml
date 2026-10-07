@@ -62,7 +62,7 @@ fault:
       from: carrier/ext/account_overview/views.py
   commit:
     message: 'customers: add an account overview endpoint'
-    persona: Marcus Webb <marcus@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.pytest-node
     role: symptom

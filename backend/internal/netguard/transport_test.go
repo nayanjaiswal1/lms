@@ -1,6 +1,7 @@
 package netguard
 
 import (
+	"github.com/mindforge/backend/internal/testdomain"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -24,8 +25,8 @@ func TestNewHTTPClientBlocksInternalHost(t *testing.T) {
 
 func TestNewHTTPClientRefusesHTTPSDowngrade(t *testing.T) {
 	c := NewHTTPClient(time.Second)
-	via := []*http.Request{{URL: mustURL(t, "https://gitlab.example.com/a")}}
-	if err := c.CheckRedirect(&http.Request{URL: mustURL(t, "http://gitlab.example.com/b")}, via); err == nil {
+	via := []*http.Request{{URL: mustURL(t, "https://gitlab."+testdomain.Domain+"/a")}}
+	if err := c.CheckRedirect(&http.Request{URL: mustURL(t, "http://gitlab."+testdomain.Domain+"/b")}, via); err == nil {
 		t.Fatal("expected downgrade to be refused")
 	}
 }

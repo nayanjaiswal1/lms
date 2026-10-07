@@ -54,7 +54,7 @@ fault:
       from: carrier/ext/account_overview/views.py
   commit:
     message: 'reviews: give every review a permalink slug and add the account overview endpoint'
-    persona: Elena Petrov <elena@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.migrate-from-snapshot
     role: symptom

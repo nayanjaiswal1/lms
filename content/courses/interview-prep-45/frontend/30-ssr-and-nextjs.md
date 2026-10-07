@@ -28,19 +28,19 @@ Next.js's App Router picks a strategy per route or component, not for the whole 
 ```tsx
 // SSG — no dynamic data, revalidate: false means "never," pure static
 async function getPosts() {
-  const res = await fetch("https://api.example.com/posts", { next: { revalidate: false } });
+  const res = await fetch("https://api.mindforge.test/posts", { next: { revalidate: false } });
   return res.json();
 }
 
 // ISR — refresh every 60 seconds, regenerated in the background
 async function getProducts() {
-  const res = await fetch("https://api.example.com/products", { next: { revalidate: 60 } });
+  const res = await fetch("https://api.mindforge.test/products", { next: { revalidate: 60 } });
   return res.json();
 }
 
 // SSR — cache: "no-store" opts out of caching entirely, forcing a fresh fetch on every request
 async function getDashboard(userId: string) {
-  const res = await fetch(`https://api.example.com/dashboard/${userId}`, { cache: "no-store" });
+  const res = await fetch(`https://api.mindforge.test/dashboard/${userId}`, { cache: "no-store" });
   return res.json();
 }
 ```

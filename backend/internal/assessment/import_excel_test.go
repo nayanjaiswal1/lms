@@ -3,6 +3,7 @@ package assessment
 import (
 	"bytes"
 	"context"
+	"github.com/mindforge/backend/internal/testdomain"
 	"os"
 	"testing"
 
@@ -55,7 +56,7 @@ func buildTestXLSX(t *testing.T, header []string, dataRows [][]string) *bytes.Re
 func TestParseStudentExcel_FixedAndOtherFields(t *testing.T) {
 	header := []string{"Full Name", "Email", "Roll Number", "Phone Number", "Department", "Blood Group"}
 	data := [][]string{
-		{"Asha Rao", "asha@example.com", "R101", "9990001111", "CSE", "O+"},
+		{"Asha Rao", "asha@" + testdomain.Domain, "R101", "9990001111", "CSE", "O+"},
 	}
 	r := buildTestXLSX(t, header, data)
 
@@ -67,7 +68,7 @@ func TestParseStudentExcel_FixedAndOtherFields(t *testing.T) {
 		t.Fatalf("expected 1 row, got %d", len(rows))
 	}
 	row := rows[0]
-	if row.FullName != "Asha Rao" || row.Email != "asha@example.com" || row.RollNumber != "R101" {
+	if row.FullName != "Asha Rao" || row.Email != "asha@"+testdomain.Domain || row.RollNumber != "R101" {
 		t.Fatalf("unexpected fixed fields: %+v", row)
 	}
 	if row.OtherFields["Blood Group"] != "O+" {
@@ -78,9 +79,9 @@ func TestParseStudentExcel_FixedAndOtherFields(t *testing.T) {
 func TestParseStudentExcel_SkipsBlankRows(t *testing.T) {
 	header := []string{"Full Name", "Email"}
 	data := [][]string{
-		{"Asha Rao", "asha@example.com"},
+		{"Asha Rao", "asha@" + testdomain.Domain},
 		{"", ""},
-		{"Ravi Kumar", "ravi@example.com"},
+		{"Ravi Kumar", "ravi@" + testdomain.Domain},
 	}
 	r := buildTestXLSX(t, header, data)
 
@@ -100,7 +101,7 @@ func TestValidateAndStatusRows_RequiredFieldsAndDuplicates(t *testing.T) {
 	nilUUID := "00000000-0000-0000-0000-000000000000"
 
 	rows := []MemberDetailRow{
-		{FullName: "", Email: "missing-name@example.com"},
+		{FullName: "", Email: "missing-name@" + testdomain.Domain},
 		{FullName: "Bad Email", Email: "not-an-email"},
 	}
 	out, err := r.ValidateAndStatusRows(ctx, nilUUID, nilUUID, rows)
@@ -115,17 +116,17 @@ func TestValidateAndStatusRows_RequiredFieldsAndDuplicates(t *testing.T) {
 	}
 
 	dupRows := []MemberDetailRow{
-		{FullName: "Dup One", Email: "dup@example.com"},
-		{FullName: "Dup Two", Email: "DUP@example.com"}, // case-insensitive duplicate
+		{FullName: "Dup One", Email: "dup@" + testdomain.Domain},
+		{FullName: "Dup Two", Email: "DUP@" + testdomain.Domain}, // case-insensitive duplicate
 	}
 	out, err = r.ValidateAndStatusRows(ctx, nilUUID, nilUUID, dupRows)
 	if err != nil {
 		t.Fatalf("ValidateAndStatusRows: %v", err)
 	}
 	if out[0].Status != RowStatusNew {
-		t.Fatalf("expected first dup@example.com row to be new, got %+v", out[0])
+		t.Fatalf("expected first dup@"+testdomain.Domain+" row to be new, got %+v", out[0])
 	}
 	if out[1].Status != RowStatusDuplicateInFile {
-		t.Fatalf("expected second dup@example.com row to be duplicate_in_file, got %+v", out[1])
+		t.Fatalf("expected second dup@"+testdomain.Domain+" row to be duplicate_in_file, got %+v", out[1])
 	}
 }

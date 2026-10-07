@@ -18,7 +18,7 @@ export async function DebugDebrief({ sessionId }: LabDebriefProps) {
 
   return (
     <>
-      <section aria-labelledby="debrief-root-cause" className="card-base flex flex-col gap-3 p-6">
+      <section aria-labelledby="debrief-root-cause" className="card-base flex flex-col gap-2 p-4">
         <h2 className="flex items-center gap-2 text-sm font-semibold" id="debrief-root-cause">
           <Lightbulb aria-hidden className="h-4 w-4 text-primary" />
           Root cause
@@ -26,20 +26,11 @@ export async function DebugDebrief({ sessionId }: LabDebriefProps) {
         <LabMarkdown>{debrief.root_cause}</LabMarkdown>
       </section>
 
-      {writeup_review && (
-        <section aria-labelledby="debrief-writeup" className="card-base flex flex-col gap-3 p-6">
-          <h2 className="text-sm font-semibold" id="debrief-writeup">
-            Your write-up review
-          </h2>
-          <DebugWriteupReviewCard result={writeup_review} />
-        </section>
-      )}
-
-      <section aria-labelledby="debrief-diff" className="card-base flex flex-col gap-4 p-6">
+      <section aria-labelledby="debrief-diff" className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold" id="debrief-diff">
           Reference fix vs your changes
         </h2>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           <DebugDiffView
             diff={debrief.fix_diff}
             emptyMessage="No reference diff for this scenario."
@@ -52,6 +43,15 @@ export async function DebugDebrief({ sessionId }: LabDebriefProps) {
           />
         </div>
       </section>
+
+      {writeup_review && (
+        <section aria-labelledby="debrief-writeup" className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold" id="debrief-writeup">
+            Your write-up review
+          </h2>
+          <DebugWriteupReviewCard result={writeup_review} />
+        </section>
+      )}
     </>
   )
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { PLACEHOLDER_DOMAIN } from "@/lib/constants";
 import Link from "next/link";
 import { useActionState, startTransition } from "react";
 import { useForm } from "react-hook-form";
@@ -72,7 +73,7 @@ export function RegisterForm() {
           inputMode="email"
           label="Email"
           name="email"
-          placeholder="you@example.com"
+          placeholder={`you@${PLACEHOLDER_DOMAIN}`}
           serverError={state.fieldErrors?.email}
           type="email"
         />

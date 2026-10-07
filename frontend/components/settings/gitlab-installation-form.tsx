@@ -1,5 +1,6 @@
 "use client";
 
+import { PLACEHOLDER_DOMAIN } from "@/lib/constants";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,7 +18,7 @@ const InstallSchema = z
   .object({
     name: z.string().min(1, "A name is required."),
     authKind: z.enum(["pat", "oauth"]),
-    baseUrl: z.string().min(1, "GitLab instance URL is required.").url("Enter a valid URL, e.g. https://gitlab.example.com"),
+    baseUrl: z.string().min(1, "GitLab instance URL is required.").url(`Enter a valid URL, e.g. https://gitlab.${PLACEHOLDER_DOMAIN}`),
     // Plain (non-optional) strings, not `.optional().default("")` — that pair
     // makes z.infer's input type differ from its output type (input optional,
     // output required), which zodResolver's Resolver<TFieldValues> can't
@@ -119,7 +120,7 @@ export function GitlabInstallationForm({ onDone }: GitlabInstallationFormProps) 
           control={form.control}
           label="GitLab instance URL"
           name="baseUrl"
-          placeholder="https://gitlab.example.com"
+          placeholder={`https://gitlab.${PLACEHOLDER_DOMAIN}`}
         />
 
         {authKind === "pat" ? (

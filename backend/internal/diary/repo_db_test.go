@@ -3,6 +3,7 @@ package diary
 import (
 	"context"
 	"errors"
+	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -35,7 +36,7 @@ func TestGetOrCreateByDate_Idempotent(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
 	repo := NewRepo(pool)
-	userID := seedUser(t, ctx, pool, "diary-user@example.com")
+	userID := seedUser(t, ctx, pool, "diary-user@"+testdomain.Domain)
 
 	first, err := repo.GetOrCreateByDate(ctx, userID, "2026-08-11")
 	if err != nil {
@@ -70,7 +71,7 @@ func TestGetOrCreateByDate_Idempotent(t *testing.T) {
 func TestServiceApplyHighlights_HabitAndDedup(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
-	userID := seedUser(t, context.Background(), pool, "diary-analyze@example.com")
+	userID := seedUser(t, context.Background(), pool, "diary-analyze@"+testdomain.Domain)
 
 	habitSvc := habit.NewService(habit.NewRepo(pool))
 	h, err := habitSvc.Create(ctx, userID, habit.CreateRequest{Name: "Drink water", Cadence: habit.CadenceDaily})
@@ -148,7 +149,7 @@ func TestServiceApplyHighlights_HabitAndDedup(t *testing.T) {
 func TestServicePreview_AIUnavailable(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
-	userID := seedUser(t, ctx, pool, "diary-preview@example.com")
+	userID := seedUser(t, ctx, pool, "diary-preview@"+testdomain.Domain)
 
 	svc := NewService(NewRepo(pool), &ai.NoopProvider{}, habit.NewService(habit.NewRepo(pool)))
 	_, err := svc.Preview(ctx, userID, "2026-08-11", "went to the gym")
@@ -166,7 +167,7 @@ func TestServicePreview_AIUnavailable(t *testing.T) {
 func TestServiceApply_HabitWithMetadata(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
-	userID := seedUser(t, ctx, pool, "diary-apply@example.com")
+	userID := seedUser(t, ctx, pool, "diary-apply@"+testdomain.Domain)
 
 	habitSvc := habit.NewService(habit.NewRepo(pool))
 	sleep, err := habitSvc.Create(ctx, userID, habit.CreateRequest{Name: "Sleep", Cadence: habit.CadenceDaily, Type: habit.HabitTypeSleep})
@@ -232,7 +233,7 @@ func TestServiceApply_HabitWithMetadata(t *testing.T) {
 func TestServiceApplyHighlights_GoalCreatesHabit(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
-	userID := seedUser(t, ctx, pool, "diary-goal@example.com")
+	userID := seedUser(t, ctx, pool, "diary-goal@"+testdomain.Domain)
 
 	habitSvc := habit.NewService(habit.NewRepo(pool))
 	svc := NewService(NewRepo(pool), &ai.NoopProvider{}, habitSvc)
@@ -282,7 +283,7 @@ func (p availableProvider) Complete(context.Context, ai.CompletionRequest) (ai.C
 func TestServiceAI_RefusesWithoutConsent(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
-	userID := seedUser(t, ctx, pool, "diary-noconsent@example.com")
+	userID := seedUser(t, ctx, pool, "diary-noconsent@"+testdomain.Domain)
 
 	svc := NewService(NewRepo(pool), availableProvider{t}, habit.NewService(habit.NewRepo(pool)))
 	if _, err := svc.Preview(ctx, userID, "2026-08-11", "went to the gym"); !errors.Is(err, privacy.ErrAIConsentRequired) {

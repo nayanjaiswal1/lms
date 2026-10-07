@@ -136,7 +136,7 @@ CELERY_TASK_ALWAYS_EAGER = env_bool("CELERY_TASK_ALWAYS_EAGER", False)
 CELERY_TASK_TIME_LIMIT = 60
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-DEFAULT_FROM_EMAIL = "Shop <orders@shop.example.com>"
+DEFAULT_FROM_EMAIL = "Shop <orders@shop.mindforge.test>"
 
 # Business configuration
 SALES_TAX_RATE = env_str("SALES_TAX_RATE", "0.0825")

@@ -429,7 +429,7 @@ func (h *Handler) findOrCreateSocialUser(ctx context.Context, provider string, p
 	// claiming that address was ever confirmed to belong to it.
 	//
 	// Checking only the provider side allowed account pre-hijacking: an attacker
-	// registers victim@example.com with a password and never verifies it — no
+	// registers victim@domain with a password and never verifies it — no
 	// mailbox access needed — and when the victim later signs in with the
 	// provider, they are linked into the attacker's row, which still carries the
 	// attacker's password_hash. The attacker then triggers a verification mail

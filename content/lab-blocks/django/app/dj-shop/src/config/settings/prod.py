@@ -9,7 +9,7 @@ ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", ["*"])
 # mf:slot settings.prod.proxy
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
-CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", ["https://shop.example.com"])
+CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", ["https://shop.mindforge.test"])
 # mf:endslot
 
 SESSION_COOKIE_SECURE = True

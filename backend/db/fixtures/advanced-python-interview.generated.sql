@@ -5029,8 +5029,8 @@ class UserProfile:
         self.email = email
 
 
-u = UserProfile("alice", "alice@example.com")
-print(u.__dict__)          # {'username': 'alice', 'email': 'alice@example.com'}
+u = UserProfile("alice", "alice@mindforge.test")
+print(u.__dict__)          # {'username': 'alice', 'email': 'alice@mindforge.test'}
 u.extra = "anything goes"  # works fine -- __dict__ accepts new keys freely
 print(u.__dict__)
 ```
@@ -5048,8 +5048,8 @@ class SlotsUserProfile:
         self.email = email
 
 
-s = SlotsUserProfile("bob", "bob@example.com")
-print(s.username, s.email)  # bob bob@example.com
+s = SlotsUserProfile("bob", "bob@mindforge.test")
+print(s.username, s.email)  # bob bob@mindforge.test
 print(hasattr(s, "__dict__"))  # False -- there is no per-instance dict at all
 
 try:
@@ -5067,8 +5067,8 @@ Declaring `__slots__ = ["username", "email"]` tells CPython to allocate fixed, f
 ```python
 import sys
 
-regular = UserProfile("carol", "carol@example.com")
-slotted = SlotsUserProfile("carol", "carol@example.com")
+regular = UserProfile("carol", "carol@mindforge.test")
+slotted = SlotsUserProfile("carol", "carol@mindforge.test")
 
 print("regular instance:", sys.getsizeof(regular))          # the instance itself
 print("regular's __dict__:", sys.getsizeof(regular.__dict__))  # plus a whole dict

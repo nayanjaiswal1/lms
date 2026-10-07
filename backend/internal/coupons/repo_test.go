@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/mindforge/backend/internal/testdomain"
 	"os"
 	"sync"
 	"testing"
@@ -47,7 +48,7 @@ func seedTestUser(t *testing.T, pool *pgxpool.Pool) string {
 	var userID string
 	err := pool.QueryRow(context.Background(),
 		`INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`,
-		fmt.Sprintf("coupons-test-%d@example.com", suffix), "Coupons Test User",
+		fmt.Sprintf("coupons-test-%d@"+testdomain.Domain, suffix), "Coupons Test User",
 	).Scan(&userID)
 	if err != nil {
 		t.Fatalf("create user: %v", err)

@@ -3,6 +3,7 @@ package projectmarket
 import (
 	"context"
 	"fmt"
+	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 	"time"
 
@@ -29,7 +30,7 @@ func seedOrgAndUsers(t *testing.T, ctx context.Context, pool *pgxpool.Pool, n in
 		var userID string
 		if err := pool.QueryRow(ctx,
 			`INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`,
-			fmt.Sprintf("pm-test-%d-%d@example.com", suffix, i), fmt.Sprintf("Test User %d", i),
+			fmt.Sprintf("pm-test-%d-%d@"+testdomain.Domain, suffix, i), fmt.Sprintf("Test User %d", i),
 		).Scan(&userID); err != nil {
 			t.Fatalf("seed user %d: %v", i, err)
 		}

@@ -38,20 +38,20 @@ export async function RandomizeStep({ recipe, blocks, analysis }: RandomizeStepP
     );
   }
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">
         {analysis.variant_count} variant{analysis.variant_count === 1 ? "" : "s"} will be built and verified
         {analysis.variant_total > analysis.variant_count ? ` (capped from ${analysis.variant_total})` : ""}.
       </p>
       {[...pools].map(([pool, titles]) => (
-        <p className="card-base text-sm" key={pool}>
+        <p className="text-sm" key={pool}>
           <span className="font-semibold">{FAULT_POOL_OPTIONS.find((p) => p.value === pool)?.label ?? pool}</span>: each student
           gets one of {titles.join(", ")}.
         </p>
       ))}
-      <ul className="flex flex-col gap-3">
+      <ul className="card-base flex flex-col divide-y divide-border p-0">
         {axes.map((a) => (
-          <li className="card-base flex flex-col gap-2" key={`${a.block.block_version_id}:${a.name}`}>
+          <li className="flex flex-col gap-2 px-4 py-3" key={`${a.block.block_version_id}:${a.name}`}>
             <p className="text-sm font-semibold">
               {a.block.title} <span className="font-mono text-xs text-muted-foreground">{a.name}</span>
             </p>

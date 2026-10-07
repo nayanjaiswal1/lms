@@ -3,6 +3,7 @@ package orgs
 import (
 	"context"
 	"errors"
+	"github.com/mindforge/backend/internal/testdomain"
 	"net"
 	"testing"
 )
@@ -23,12 +24,12 @@ func TestDNSProvesOwnership(t *testing.T) {
 	}
 	for _, c := range cases {
 		s := &DomainService{lookupTXT: func(_ context.Context, name string) ([]string, error) {
-			if name != DNSVerificationLabel+".example.com" {
+			if name != DNSVerificationLabel+"."+testdomain.Domain {
 				t.Errorf("%s: queried %q", c.name, name)
 			}
 			return c.records, c.err
 		}}
-		got, err := s.dnsProvesOwnership(context.Background(), "example.com", token)
+		got, err := s.dnsProvesOwnership(context.Background(), testdomain.Domain, token)
 		if got != c.want || (err != nil) != c.wantErr {
 			t.Errorf("%s: got (%v, %v), want (%v, err=%v)", c.name, got, err, c.want, c.wantErr)
 		}

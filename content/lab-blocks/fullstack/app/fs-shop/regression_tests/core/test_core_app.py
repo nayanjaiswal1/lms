@@ -20,8 +20,8 @@ def test_settings_defaults(monkeypatch):
 
 
 def test_settings_origins_come_from_the_environment(monkeypatch):
-    monkeypatch.setenv("SHOP_ALLOWED_ORIGINS", "https://a.example.com, https://b.example.com,")
-    assert load_settings().allowed_origins == ["https://a.example.com", "https://b.example.com"]
+    monkeypatch.setenv("SHOP_ALLOWED_ORIGINS", "https://a.mindforge.test, https://b.mindforge.test,")
+    assert load_settings().allowed_origins == ["https://a.mindforge.test", "https://b.mindforge.test"]
 
 
 def test_validation_errors_use_the_error_envelope():

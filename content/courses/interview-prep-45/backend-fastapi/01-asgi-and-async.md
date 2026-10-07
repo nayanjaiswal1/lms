@@ -119,9 +119,9 @@ async def fetch_json(client: httpx.AsyncClient, url: str) -> dict:
 @app.get("/aggregate")
 async def aggregate_endpoint():
     urls = [
-        "https://api.example.com/users",
-        "https://api.example.com/orders",
-        "https://api.example.com/inventory",
+        "https://api.mindforge.test/users",
+        "https://api.mindforge.test/orders",
+        "https://api.mindforge.test/inventory",
     ]
     async with httpx.AsyncClient() as client:
         try:

@@ -162,7 +162,7 @@ func (s *Service) AcceptInvite(ctx context.Context, rawToken string) (Event, err
 
 // nameFromEmail derives a display name from a bare-email invite (no real
 // name is known until the invited user sets one) — the local-part of the
-// address, e.g. "jane.doe" from "jane.doe@example.com".
+// address, e.g. "jane.doe" from "jane.doe@domain".
 func nameFromEmail(email string) string {
 	if at := strings.IndexByte(email, '@'); at > 0 {
 		return email[:at]

@@ -56,7 +56,7 @@ fault:
       from: carrier/src/ext/order-total/index.js
   commit:
     message: 'auth: scope the session cookie and add a page total action to Orders'
-    persona: Priya Nair <priya@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.pytest-node
     role: symptom

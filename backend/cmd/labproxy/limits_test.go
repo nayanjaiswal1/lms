@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/mindforge/backend/internal/testdomain"
 	"net/http/httptest"
 	"testing"
 
@@ -8,7 +9,7 @@ import (
 )
 
 func TestOriginAllowed(t *testing.T) {
-	allowed := parseAllowedOrigins("https://app.example.com/, HTTPS://other.example.com")
+	allowed := parseAllowedOrigins("https://app." + testdomain.Domain + "/, HTTPS://other." + testdomain.Domain)
 	check := func(origin string) bool {
 		r := httptest.NewRequest("GET", "/ws", nil)
 		if origin != "" {
@@ -17,14 +18,14 @@ func TestOriginAllowed(t *testing.T) {
 		return originAllowed(r, allowed)
 	}
 	assert.True(t, check(""))
-	assert.True(t, check("https://app.example.com"))
-	assert.True(t, check("https://other.example.com"))
-	assert.False(t, check("https://evil.example.com"))
-	assert.False(t, check("http://app.example.com"))
+	assert.True(t, check("https://app."+testdomain.Domain))
+	assert.True(t, check("https://other."+testdomain.Domain))
+	assert.False(t, check("https://evil."+testdomain.Domain))
+	assert.False(t, check("http://app."+testdomain.Domain))
 	assert.False(t, check("not a url"))
 
 	r := httptest.NewRequest("GET", "/ws", nil)
-	r.Header.Set("Origin", "https://app.example.com")
+	r.Header.Set("Origin", "https://app."+testdomain.Domain)
 	assert.False(t, originAllowed(r, nil), "empty allowlist fails closed")
 }
 
