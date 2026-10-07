@@ -3,7 +3,12 @@ package ai
 import (
 	"context"
 	"errors"
+	"time"
 )
+
+// llmHTTPTimeout bounds every provider HTTP call so a hung upstream cannot pin
+// a request goroutine (and its DB connections) indefinitely.
+const llmHTTPTimeout = 120 * time.Second
 
 // ErrAIDisabled is returned when LLM_PROVIDER=disabled.
 var ErrAIDisabled = errors.New("ai: provider disabled")

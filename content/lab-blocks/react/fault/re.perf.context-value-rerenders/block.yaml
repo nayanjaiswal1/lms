@@ -1,0 +1,95 @@
+kind: fault
+id: re.perf.context-value-rerenders
+version: 1.0.0
+stack: react
+title: Typing in the quick filter makes every page re-render
+summary: The settings provider builds a new context value object on every render, so every component reading the settings re-renders whenever the provider's parent does.
+category: perf
+difficulty: intermediate
+skills:
+- react-profiler
+- context
+- memoization
+requires:
+- slot:settings.provider.value
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: settings.provider.value
+      value: |
+        const value = { ...settings, update };
+  fix:
+    slots:
+    - slot: settings.provider.value
+      value: |
+        const value = useMemo(() => ({ ...settings, update }), [settings, update]);
+    files:
+    - path: tests/settings-context-renders.test.jsx
+      from: fix/tests/settings-context-renders.test.jsx
+  cheats:
+  - name: memoize-without-settings
+    slots:
+    - slot: settings.provider.value
+      value: |
+        const value = useMemo(() => ({ ...settings, update }), [update]);
+  - name: revert-the-commit
+    slots:
+    - slot: settings.provider.value
+      value: |
+        const value = useMemo(() => ({ ...settings, update }), [settings, update]);
+    files:
+    - path: src/ext/order-total/index.js
+      from: cheats/empty-extension.js
+  carrier:
+    feature: order-total
+    files:
+    - path: src/ext/order-total/index.js
+      from: carrier/src/ext/order-total/index.js
+  commit:
+    message: 'orders: add a page total to the Tools menu'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/re_perf_context_value/context.test.jsx
+  symptom:
+    vars:
+      title: Console feels laggy while typing in the quick filter
+      report: |-
+        Typing in the Quick filter box in the header has become noticeably laggy on the orders table with a few hundred rows,
+        and the React profiler shows every row re-rendering for each keystroke even though only the filter text changed.
+        Staff on older laptops say the characters appear a second late.
+      where: The Quick filter in the header while the Orders or Reports page is open.
+      expected: Typing in the filter only re-renders what depends on the filter text, not every component that reads the settings.
+      support_tried: Switched to compact density and a smaller page size (slightly better). Changing the currency or density still works as it should.
+      observations: |-
+        ### Other observations from QA
+
+        - Row components read the currency from the shared settings.
+        - In the profiler the reason for the render is "Context changed" although no setting was changed.
+        - The page total action in the Orders tools shipped with the same release.
+    signature: settings consumers re-render without a settings change
+  hints:
+  - 'Count renders with the render probe from @mf/harness: put a consumer of the settings under the provider, re-render the provider''s parent without changing any setting, and compare the render counts.'
+  - Context consumers re-render when the provided value changes by reference. What does the provider create each time it renders?
+  - 'Memoize the value with the right dependencies (the settings and the stable update function), and test both directions: no re-render without a change, and a re-render when a setting does change.'
+  rubric:
+    key_points:
+    - Identifies the new object created on every provider render, which changes the context value reference and forces every consumer to re-render.
+    - Explains that context compares by reference and that the parent re-render (quick filter state) triggers the provider render.
+    - Fixes it with useMemo and a correct dependency list (settings and update), not an empty list.
+    - Verifies by counting renders of a consumer in both situations (unrelated parent update and a real setting change).
+    misconceptions:
+    - Wrapping every row in React.memo fixes it (rows read the context, so they still re-render when the value changes).
+    - An empty dependency array in useMemo is fine (settings changes then never reach the consumers).
+    - Moving the quick filter state into a ref would be the right fix (it removes the filter's rendering instead of the cause).
+  root_cause: |-
+    `SettingsProvider` created `{ ...settings, update }` on every render. The quick filter lives in `App`, so typing re-renders
+    the provider's parent and the provider itself; each render produced a new object, React compared it by reference with
+    the previous value, saw a change and re-rendered every consumer of the context (every table row).
+
+    The value must keep its identity while the settings are unchanged: `useMemo(() => ({ ...settings, update }), [settings,
+    update])`.

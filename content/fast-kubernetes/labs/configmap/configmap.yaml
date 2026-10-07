@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   name: myconfigmap
 data:
-  db_server: "db.example.com"
+  db_server: "db.mindforge.test"
   database: "mydatabase"
   site.settings: |
     color=blue

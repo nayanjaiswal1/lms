@@ -1,0 +1,130 @@
+kind: fault
+id: fa.perf.sequential-awaits
+version: 1.0.0
+stack: fastapi
+title: The storefront page takes twice as long as its slowest dependency
+summary: The storefront awaits two independent remote lookups one after another, so the page latency is the sum of both instead of the longer of the two.
+category: performance
+difficulty: beginner
+skills:
+- asyncio
+- gather
+- latency
+- profiling
+requires:
+- slot:storefront.service.compose
+- cap:postgres
+fault:
+  inject:
+    slots:
+    - slot: storefront.service.compose
+      value: |
+        promotions = await downstream.promotions()
+        shipping = await downstream.shipping_notice()
+  fix:
+    slots:
+    - slot: storefront.service.compose
+      value: |
+        promotions, shipping = await asyncio.gather(downstream.promotions(), downstream.shipping_notice())
+    files:
+    - path: tests/test_storefront_concurrent.py
+      from: fix/tests/test_storefront_concurrent.py
+  cheats:
+  - name: serialise-with-a-lock
+    slots:
+    - slot: storefront.service.compose
+      value: |
+        lock = asyncio.Lock()
+
+        async def guarded(call):
+            async with lock:
+                return await call
+
+        promotions, shipping = await asyncio.gather(guarded(downstream.promotions()), guarded(downstream.shipping_notice()))
+  - name: wait-for-wrapper
+    slots:
+    - slot: storefront.service.compose
+      value: |
+        promotions = await asyncio.wait_for(downstream.promotions(), timeout=5)
+        shipping = await asyncio.wait_for(downstream.shipping_notice(), timeout=5)
+  - name: drop-the-shipping-notice
+    slots:
+    - slot: storefront.service.compose
+      value: |
+        promotions = await downstream.promotions()
+        shipping = ""
+  - name: revert-the-commit
+    slots:
+    - slot: storefront.service.compose
+      value: |
+        promotions, shipping = await asyncio.gather(downstream.promotions(), downstream.shipping_notice())
+    files:
+    - path: app/ext/order_export.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: order-export
+    files:
+    - path: app/ext/order_export.py
+      from: carrier/app/ext/order_export.py
+  commit:
+    message: "storefront: show the shipping notice, plus a CSV export of a customer's orders for finance"
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.latency-while
+    role: symptom
+    params:
+      background:
+        method: GET
+        path: /api/v1/storefront
+        count: 1
+        timeout: 30
+      probe:
+        method: GET
+        path: /api/v1/storefront
+        samples: 8
+        p95_ms_max: 500
+      start_delay_ms: 50
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fa_perf_sequential/test_storefront_concurrent.py
+  symptom:
+    vars:
+      title: 'The storefront home page got noticeably slower after the shipping notice was added'
+      report: |-
+        The home page used to load in about a third of a second. Since the shipping notice was added it takes close to twice as long, on every
+        load, not only at peak. The page itself is correct. The two services behind it (promotions and shipping) both answer in about 300 ms
+        according to their own dashboards.
+      where: |-
+        `GET /api/v1/storefront`. Other pages are unaffected.
+      expected: |-
+        The page should take about as long as the slowest of its dependencies, not the sum of them.
+      support_tried: |-
+        Asked both teams to speed up their services (they are already within their targets). Added a CDN in front of the page (the response is
+        personalised by stock, so it is barely cacheable).
+      observations: |-
+        ### Other observations from the reporter
+
+        - Server CPU and the database are idle while the page loads.
+        - The slowdown is constant: total time is about the two service times added together.
+        - It started with the release that added the shipping notice.
+    signature: total latency equals the sum of independent downstream calls
+  hints:
+  - Time the endpoint, then time each dependency on its own. Does the page take about the longest dependency, or about all of them added together? The shape of that number tells you whether the work is sequential.
+  - The two lookups do not depend on each other's result, yet the handler awaits them one after another. `await a(); await b()` runs b only after a has finished. `asyncio.gather(a(), b())` starts both and waits for both.
+  - In `build_storefront` (`app/storefront/service.py`) gather the two calls. A lock or a timeout wrapper does not change the order of execution. Add a test that records how many lookups are in flight at once and asserts that it reaches two.
+  rubric:
+    key_points:
+    - Recognises independent awaits executed sequentially, so latency is the sum instead of the maximum.
+    - Runs the lookups concurrently with asyncio.gather (or a TaskGroup) while keeping both results in the response.
+    - Verifies concurrency directly (peak in-flight lookups, or total time well below the sum), not just that the page still returns.
+    - Notes that dependent calls, or calls sharing one AsyncSession, must not be gathered blindly.
+    misconceptions:
+    - Caching the response or adding a CDN fixes the cause (it only hides it for some requests).
+    - A lock or asyncio.wait_for around the awaits makes them concurrent (they still run in order).
+    - Dropping the slower lookup is a fix (it removes data the page needs).
+  root_cause: |-
+    `build_storefront` awaited `downstream.promotions()` and then `downstream.shipping_notice()`. They are independent remote calls, but the second one only started after the first one had returned, so the page latency was the sum of both round trips (about twice the latency of the slowest one).
+
+    The fix starts both at once with `asyncio.gather` and waits for both results. Total time becomes the longer of the two. `gather` is only safe here because the calls are independent and do not share a database session.

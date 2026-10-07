@@ -32,9 +32,9 @@ export function CandidateCard({ recipe, candidate: c, replaces, faults }: Candid
 
   return (
     <article
-      className={cn("card-base flex flex-col gap-3", c.selected && "border-primary", disabled && "opacity-60")}
+      className={cn("card-base flex flex-col gap-2 p-4", c.selected && "border-primary", disabled && "opacity-60")}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold">{c.block.title}</h3>
           <p className="truncate font-mono text-xs text-muted-foreground">
@@ -49,7 +49,7 @@ export function CandidateCard({ recipe, candidate: c, replaces, faults }: Candid
       </div>
       {c.block.summary && <p className="text-sm text-muted-foreground">{c.block.summary}</p>}
       {features.length > 0 && (
-        <p className="text-xs text-muted-foreground">Features: {features.join(", ")}</p>
+        <p className="truncate text-xs text-muted-foreground">Features: {features.join(", ")}</p>
       )}
 
       {c.blockers.map((b) => (
@@ -61,7 +61,7 @@ export function CandidateCard({ recipe, candidate: c, replaces, faults }: Candid
       {c.chain_after && !c.selected && (
         <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
           <Lightbulb aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          Overlaps another fault&apos;s code, so it is added chained after it.
+          Overlaps another fault; added chained after it.
         </p>
       )}
       {c.needs.map((n) => (
@@ -73,11 +73,11 @@ export function CandidateCard({ recipe, candidate: c, replaces, faults }: Candid
 
       <div className="flex flex-wrap gap-2">
         {c.selected ? (
-          <Button disabled={pending} variant="outline" onClick={() => save(withoutBlock(recipe.spec, c.version_id, c.block.block_key))}>
+          <Button disabled={pending} size="sm" variant="outline" onClick={() => save(withoutBlock(recipe.spec, c.version_id, c.block.block_key))}>
             Remove
           </Button>
         ) : (
-          <Button disabled={pending || disabled} onClick={() => save(addSpec())}>
+          <Button disabled={pending || disabled} size="sm" onClick={() => save(addSpec())}>
             {replaces.length > 0 ? "Use this instead" : c.chain_after ? "Add as chained fault" : "Add"}
           </Button>
         )}
@@ -93,9 +93,9 @@ export function CandidateCard({ recipe, candidate: c, replaces, faults }: Candid
       )}
 
       {c.selected && fields.length > 0 && (
-        <details className="border-t border-border pt-3">
+        <details className="border-t border-border pt-2">
           <summary className="cursor-pointer text-xs font-semibold text-primary">Parameters</summary>
-          <div className="mt-3">
+          <div className="mt-2">
             <ParamEditor fields={fields} recipe={recipe} versionId={c.version_id} />
           </div>
         </details>

@@ -14,7 +14,7 @@ source:
     - 45-day-interview-roadmap.md
 ---
 
-A URL shortener turns a long link into a short one, like turning `https://example.com/blog/2026/09/a-very-long-post-title` into `sho.rt/aZ9kLm`. Visiting the short link redirects you to the long one.
+A URL shortener turns a long link into a short one, like turning `https://mindforge.test/blog/2026/09/a-very-long-post-title` into `sho.rt/aZ9kLm`. Visiting the short link redirects you to the long one.
 
 Interviewers love this question because it is simple enough to finish in 40 minutes, but it still forces you to scope requirements, do real math, pick a key-generation strategy, and think about a read-heavy system. Treat it as your warm-up: the same framework (requirements, estimates, API, data model, high-level design, deep dive, trade-offs) repeats in every design in this course.
 

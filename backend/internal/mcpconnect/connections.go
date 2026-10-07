@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/mindforge/backend/internal/auth"
+	"github.com/mindforge/backend/internal/authevents"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -44,5 +45,6 @@ func (rt *Router) RevokeConnection(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
 		return
 	}
+	authevents.Emit(r.Context(), rt.pool, r, claims.UserID, authevents.MCPRevoked)
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"revoked": true})
 }

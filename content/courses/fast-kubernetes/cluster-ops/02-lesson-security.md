@@ -191,7 +191,7 @@ metadata:
   namespace: team-a
 subjects:
 - kind: User
-  name: jane@example.com
+  name: jane@mindforge.test
 - kind: Group
   name: team-a-devs
 - kind: ServiceAccount
@@ -213,7 +213,7 @@ Test permissions with `can-i`:
 
 ```bash
 kubectl auth can-i create deployments -n team-a
-kubectl auth can-i delete pods -n team-a --as=jane@example.com
+kubectl auth can-i delete pods -n team-a --as=jane@mindforge.test
 kubectl auth can-i --list -n team-a --as=system:serviceaccount:team-a:ci-bot
 ```
 

@@ -1,0 +1,182 @@
+kind: fault
+id: re.hooks.missing-effect-dependency
+version: 1.0.0
+stack: react
+title: Changing the status filter does not reload the orders
+summary: The orders list reloads when the page changes but not when the status filter changes, because the data effect leaves the status out of its dependency array.
+category: hooks
+difficulty: intermediate
+skills:
+- react-hooks
+- effect-dependencies
+- debugging
+requires:
+- slot:orders.hook.effect
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: orders.hook.effect
+      value: |
+        useEffect(() => {
+          let ignore = false;
+          setState((current) => ({ ...current, loading: true, error: null }));
+          get(`/api/orders?status=${status}&page=${page}`).then(
+            (data) => {
+              if (!ignore) {
+                setState((current) => ({
+                  items: data.items,
+                  pages: data.pages,
+                  loading: false,
+                  error: null,
+                  updates: current.updates + 1,
+                }));
+              }
+            },
+            (error) => {
+              if (!ignore) setState((current) => ({ ...current, loading: false, error }));
+            },
+          );
+          return () => {
+            ignore = true;
+          };
+        }, [page]);
+  fix:
+    slots:
+    - slot: orders.hook.effect
+      value: |
+        useEffect(() => {
+          let ignore = false;
+          setState((current) => ({ ...current, loading: true, error: null }));
+          get(`/api/orders?status=${status}&page=${page}`).then(
+            (data) => {
+              if (!ignore) {
+                setState((current) => ({
+                  items: data.items,
+                  pages: data.pages,
+                  loading: false,
+                  error: null,
+                  updates: current.updates + 1,
+                }));
+              }
+            },
+            (error) => {
+              if (!ignore) setState((current) => ({ ...current, loading: false, error }));
+            },
+          );
+          return () => {
+            ignore = true;
+          };
+        }, [status, page]);
+    files:
+    - path: tests/orders-status-filter.test.jsx
+      from: fix/tests/orders-status-filter.test.jsx
+  cheats:
+  - name: status-only-dependency
+    slots:
+    - slot: orders.hook.effect
+      value: |
+        useEffect(() => {
+          let ignore = false;
+          setState((current) => ({ ...current, loading: true, error: null }));
+          get(`/api/orders?status=${status}&page=${page}`).then(
+            (data) => {
+              if (!ignore) {
+                setState((current) => ({
+                  items: data.items,
+                  pages: data.pages,
+                  loading: false,
+                  error: null,
+                  updates: current.updates + 1,
+                }));
+              }
+            },
+            (error) => {
+              if (!ignore) setState((current) => ({ ...current, loading: false, error }));
+            },
+          );
+          return () => {
+            ignore = true;
+          };
+        }, [status]);
+  - name: revert-the-commit
+    slots:
+    - slot: orders.hook.effect
+      value: |
+        useEffect(() => {
+          let ignore = false;
+          setState((current) => ({ ...current, loading: true, error: null }));
+          get(`/api/orders?status=${status}&page=${page}`).then(
+            (data) => {
+              if (!ignore) {
+                setState((current) => ({
+                  items: data.items,
+                  pages: data.pages,
+                  loading: false,
+                  error: null,
+                  updates: current.updates + 1,
+                }));
+              }
+            },
+            (error) => {
+              if (!ignore) setState((current) => ({ ...current, loading: false, error }));
+            },
+          );
+          return () => {
+            ignore = true;
+          };
+        }, [status, page]);
+    files:
+    - path: src/ext/status-breakdown/index.js
+      from: cheats/empty-extension.js
+  carrier:
+    feature: status-breakdown
+    files:
+    - path: src/ext/status-breakdown/index.js
+      from: carrier/src/ext/status-breakdown/index.js
+  commit:
+    message: 'orders: add a status breakdown to the Tools menu'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/re_hooks_orders_deps/status-filter.test.jsx
+  symptom:
+    vars:
+      title: Status filter on Orders does nothing
+      report: |-
+        On the Orders page the status dropdown (all / pending / paid / shipped) changes its label but the table keeps showing the
+        same rows. Choosing "paid" still lists pending orders. The pagination buttons work, and so does the filter after I click Next
+        and then Previous, so I assumed the filter was flaky. Three agents have now sent a pending order out as if it were paid.
+      where: Orders page, the Status dropdown in the toolbar.
+      expected: Selecting a status reloads the list with only the orders of that status, starting from page 1.
+      support_tried: Cleared local storage, tried two browsers, restarted the mock API. The API itself returns the right rows when called with `?status=paid`.
+      observations: |-
+        ### Other observations from QA
+
+        - After picking a status, going to page 2 and back shows the filtered rows.
+        - Nothing is logged in the browser console.
+        - The status breakdown action in the Tools menu was added in the same release.
+    signature: status change does not trigger a request
+  hints:
+  - Open the Network tab (or count the calls in a test) while you change the status filter. Is a request sent at all? Then compare with what happens when you change the page.
+  - An effect re-runs only when something in its dependency array changed. Compare the values the effect reads with the values it lists.
+  - Add the missing value to the dependency array. A test with a scripted fetch that returns different rows per status will fail before the fix and pass after it, and also check that one change causes exactly one request.
+  rubric:
+    key_points:
+    - 'Identifies a missing effect dependency: the effect reads status but only lists the page, so a status change never re-runs it.'
+    - Explains why the page change worked (it is in the dependency array) and why the filter appeared to work after paging back and forth.
+    - Fixes the dependency array rather than removing it or forcing reloads, and keeps the request count at one per change.
+    - Mentions the exhaustive-deps lint rule or a test that changes only the filter as prevention.
+    misconceptions:
+    - Removing the dependency array fixes it (the effect then runs after every render and, because it sets state, loops).
+    - The API ignores the status parameter (the API is fine; the request is never sent).
+  root_cause: |-
+    The data effect in `useOrders` reads both `status` and `page` but its dependency array was `[page]`. React only re-runs an
+    effect when a listed dependency changes, so selecting another status updated the dropdown state but never requested the
+    new rows. Changing the page re-ran the effect, which then used the current status, which is why the filter seemed to work
+    after paging.
+
+    The dependency array must list every reactive value the effect reads: `[status, page]`.

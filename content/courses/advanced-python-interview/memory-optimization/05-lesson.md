@@ -7,7 +7,7 @@ section_title: "Memory Optimization"
 section_position: 6
 section_group: Advanced
 title: "sys.getsizeof()"
-position: 4
+position: 3
 estimated_minutes: 10
 source: [fifty-advanced-python-concepts/44.getsizeof.py, fifty-advanced-python-concepts/handbook/50_main_concepts_41_52.md]
 ---

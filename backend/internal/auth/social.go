@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -20,6 +21,26 @@ import (
 // accepted by /api/auth/github/callback and vice versa, so the state no longer
 // pinned the callback to the flow that started it.
 func oauthStateCookie(provider string) string { return "oauth_state_" + provider }
+
+// oauthAgeCookie carries the 18+ declaration made on the sign-in page across
+// the provider round trip, so it is on record before an account is created.
+func oauthAgeCookie(provider string) string { return "oauth_age_" + provider }
+
+// errAgeDeclarationRequired stops a first-time social sign-in that did not
+// declare 18+ before any account row is written.
+var errAgeDeclarationRequired = errors.New("age declaration required")
+
+func (h *Handler) setOAuthCookie(w http.ResponseWriter, name, value string, maxAge int) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     name,
+		Value:    value,
+		Path:     "/",
+		MaxAge:   maxAge,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   h.cfg.IsProd(),
+	})
+}
 
 type providerUser struct {
 	ProviderUID   string
@@ -70,15 +91,10 @@ func (h *Handler) HandleOAuthRedirect(provider string) http.HandlerFunc {
 
 		// The cookie name carries the provider so a state minted by one
 		// provider's redirect cannot satisfy another provider's callback.
-		http.SetCookie(w, &http.Cookie{
-			Name:     oauthStateCookie(provider),
-			Value:    state,
-			Path:     "/",
-			MaxAge:   300,
-			HttpOnly: true,
-			SameSite: http.SameSiteLaxMode,
-			Secure:   h.cfg.IsProd(),
-		})
+		h.setOAuthCookie(w, oauthStateCookie(provider), state, 300)
+		if r.URL.Query().Get("age_declared") == "1" {
+			h.setOAuthCookie(w, oauthAgeCookie(provider), "1", 300)
+		}
 
 		http.Redirect(w, r, cfg.AuthCodeURL(state, oauth2.AccessTypeOnline), http.StatusTemporaryRedirect)
 	}
@@ -105,15 +121,10 @@ func (h *Handler) HandleOAuthCallback(provider string) http.HandlerFunc {
 			return
 		}
 
-		http.SetCookie(w, &http.Cookie{
-			Name:     oauthStateCookie(provider),
-			Value:    "",
-			Path:     "/",
-			MaxAge:   -1,
-			HttpOnly: true,
-			SameSite: http.SameSiteLaxMode,
-			Secure:   h.cfg.IsProd(),
-		})
+		h.setOAuthCookie(w, oauthStateCookie(provider), "", -1)
+		ageCookie, _ := r.Cookie(oauthAgeCookie(provider))
+		ageDeclared := ageCookie != nil && ageCookie.Value == "1"
+		h.setOAuthCookie(w, oauthAgeCookie(provider), "", -1)
 
 		code := r.URL.Query().Get("code")
 		if code == "" {
@@ -141,7 +152,11 @@ func (h *Handler) HandleOAuthCallback(provider string) http.HandlerFunc {
 			return
 		}
 
-		userID, onboardingCompleted, err := h.findOrCreateSocialUser(r.Context(), provider, pUser)
+		userID, onboardingCompleted, err := h.findOrCreateSocialUser(r.Context(), provider, pUser, ageDeclared)
+		if errors.Is(err, errAgeDeclarationRequired) {
+			errRedirect("age_required")
+			return
+		}
 		if err != nil {
 			slog.Error("auth: oauth callback find/create user", "provider", provider, "error", err)
 			errRedirect("account_error")
@@ -239,6 +254,10 @@ func (h *Handler) HandleSocialExchange(w http.ResponseWriter, r *http.Request) {
 	// A locked account cannot sign in, whichever provider vouched for it.
 	if msg := accountLockedMessage(u.Status); msg != "" {
 		httputil.WriteError(w, http.StatusForbidden, msg)
+		return
+	}
+
+	if !h.mfaGate(w, r, u.ID, "social", &onboardingCompleted) {
 		return
 	}
 
@@ -390,7 +409,7 @@ func getGitHubPrimaryEmail(ctx context.Context, client *http.Client) (string, er
 
 // ─── user upsert ─────────────────────────────────────────────────────────────
 
-func (h *Handler) findOrCreateSocialUser(ctx context.Context, provider string, p *providerUser) (userID string, onboardingCompleted bool, err error) {
+func (h *Handler) findOrCreateSocialUser(ctx context.Context, provider string, p *providerUser, ageDeclared bool) (userID string, onboardingCompleted bool, err error) {
 	// Social account already linked → fast path
 	err = h.pool.QueryRow(ctx,
 		`SELECT user_id FROM social_accounts WHERE provider = $1 AND provider_uid = $2`,
@@ -410,7 +429,7 @@ func (h *Handler) findOrCreateSocialUser(ctx context.Context, provider string, p
 	// claiming that address was ever confirmed to belong to it.
 	//
 	// Checking only the provider side allowed account pre-hijacking: an attacker
-	// registers victim@example.com with a password and never verifies it — no
+	// registers victim@domain with a password and never verifies it — no
 	// mailbox access needed — and when the victim later signs in with the
 	// provider, they are linked into the attacker's row, which still carries the
 	// attacker's password_hash. The attacker then triggers a verification mail
@@ -476,7 +495,10 @@ func (h *Handler) findOrCreateSocialUser(ctx context.Context, provider string, p
 		}
 	}
 
-	// No existing user → create account
+	// No existing user → create account, but only once 18+ was declared.
+	if !ageDeclared {
+		return "", false, errAgeDeclarationRequired
+	}
 	tx, err := h.pool.Begin(ctx)
 	if err != nil {
 		return "", false, fmt.Errorf("begin tx: %w", err)
@@ -494,8 +516,8 @@ func (h *Handler) findOrCreateSocialUser(ctx context.Context, provider string, p
 	}
 
 	if err = tx.QueryRow(ctx,
-		`INSERT INTO users (email, name, avatar_url, email_verified)
-		 VALUES ($1, $2, $3, $4)
+		`INSERT INTO users (email, name, avatar_url, email_verified, age_declared_at)
+		 VALUES ($1, $2, $3, $4, now())
 		 RETURNING id`,
 		email, p.Name, avatarURL, p.EmailVerified,
 	).Scan(&userID); err != nil {
@@ -515,6 +537,16 @@ func (h *Handler) findOrCreateSocialUser(ctx context.Context, provider string, p
 		userID, provider, p.ProviderUID, p.Email,
 	); err != nil {
 		return "", false, fmt.Errorf("insert social_account: %w", err)
+	}
+
+	// Signing up through a provider is acceptance of the Terms and Privacy
+	// Policy shown on the sign-in page; record it like the password path does.
+	if _, err = tx.Exec(ctx,
+		`INSERT INTO legal_acceptances (user_id, doc_type, version)
+		 VALUES ($1, 'terms', $2), ($1, 'privacy', $2)`,
+		userID, registrationLegalVersion,
+	); err != nil {
+		return "", false, fmt.Errorf("insert legal_acceptances: %w", err)
 	}
 
 	if err = tx.Commit(ctx); err != nil {

@@ -7,7 +7,7 @@ section_title: "Object-Oriented Python"
 section_position: 3
 section_group: Fundamentals
 title: "Composition vs Inheritance, isinstance() vs type(), Overriding vs Overloading"
-position: 4
+position: 3
 estimated_minutes: 12
 source: ["knowledge/backend/python/python-oop-lld.md"]
 ---
@@ -195,54 +195,4 @@ For methods inside a class use `functools.singledispatchmethod`.
     }
   ]
 }
-```
-
-## Original notes
-
-Your original wording from the Notes vault, kept verbatim for reference.
-
-#### Composition vs inheritance
-
-**Inheritance** — "is-a" relationship (`Dog` IS-A `Animal`). **Composition** — "has-a" relationship (`Car` HAS-A `Engine`). Prefer composition when the relationship is "has-a" — it's more flexible and avoids deep inheritance chains.
-
-```text
-# Composition — loosely coupled
-class Engine:
-    def start(self):
-        return "Engine started"
-
-class Car:
-    def __init__(self):
-        self.engine = Engine()  # Car HAS-A Engine
-
-    def drive(self):
-        return self.engine.start()
-```
-
-
-##### `isinstance()` vs `type()`
-
-```text
-class Animal: pass
-class Dog(Animal): pass
-
-d = Dog()
-print(type(d) == Animal)     # False — type() is exact match only
-print(isinstance(d, Animal)) # True — isinstance checks the inheritance chain
-```
-
-> Use `isinstance()` in most cases — it respects inheritance.
-
-
-##### Method overriding vs overloading
-
-- **Overriding** — subclass defines a method with the same name as parent. Python supports this natively.
-- **Overloading** — same method name with different parameters. Python does NOT support this natively; simulate it with default arguments or `*args`.
-
-```text
-class Math:
-    def add(self, a, b=0, c=0):
-        return a + b + c
-
-Math().add(1, 2)  # 3 — simulated overloading
 ```

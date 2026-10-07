@@ -1,0 +1,77 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #1f2933;
+  background: #f5f7fa;
+}
+
+body {
+  margin: 0;
+}
+
+.app > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: #102a43;
+  color: #fff;
+}
+
+.app h1 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.app nav {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.app nav button[aria-current='page'] {
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.app main {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+th,
+td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #d9e2ec;
+  text-align: left;
+}
+
+table.compact th,
+table.compact td {
+  padding: 0.2rem 0.5rem;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+[role='alert'] {
+  color: #b42318;
+}

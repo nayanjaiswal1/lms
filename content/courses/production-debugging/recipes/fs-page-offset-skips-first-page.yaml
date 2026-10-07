@@ -1,0 +1,9 @@
+lab_kind: debug
+app_range: "^1"
+seed: 5107
+blocks:
+  - block: fs.shop@1.0.0
+  - block: fs.page.offset-skips-first-page@1.0.0
+  - block: check.pytest-node@1.0.0
+  - block: check.vitest-node@1.0.0
+  - block: ticket.shop-bug-report@1.0.0

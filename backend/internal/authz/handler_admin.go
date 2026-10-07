@@ -628,7 +628,9 @@ func isForbidden(err error) bool {
 		return false
 	}
 	msg := err.Error()
-	return strings.Contains(msg, "cannot modify") ||
+	return errors.Is(err, ErrOutranked) ||
+		strings.HasPrefix(msg, "forbidden:") ||
+		strings.Contains(msg, "cannot modify") ||
 		strings.Contains(msg, "cannot disable") ||
 		strings.Contains(msg, "cannot enable") ||
 		strings.Contains(msg, "does not belong") ||

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Upload, Link as LinkIcon, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { COURSE_DIFFICULTY_OPTIONS } from "@/lib/constants";
+import { COURSE_DIFFICULTY_OPTIONS, PLACEHOLDER_DOMAIN } from "@/lib/constants";
 import type { CourseInfo } from "@/lib/courses/draft-types";
 import { useCoverCompression } from "@/lib/courses/use-cover-compression";
 import { CoverCompressionPreview } from "@/components/courses/wizard/cover-compression-preview";
@@ -161,7 +161,7 @@ export function InfoTab({ info, coverFile, onChange, onCoverFile }: InfoTabProps
           </label>
         ) : (
           <Input
-            placeholder="https://example.com/cover.jpg"
+            placeholder={`https://${PLACEHOLDER_DOMAIN}/cover.jpg`}
             type="url"
             value={info.cover_url}
             onChange={(e) => { onChange({ cover_url: e.target.value }); onCoverFile(null); compression.clear(); }}

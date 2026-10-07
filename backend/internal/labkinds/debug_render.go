@@ -126,6 +126,14 @@ type renderVariant struct {
 	HintLadder  []string                `json:"hint_ladder"`
 	Rubric      labblock.RubricDefaults `json:"rubric"`
 	Captures    []string                `json:"captures"`
+	// Custom is set for a hand-made scenario: mf-build builds the variant from the
+	// block's own workspace/solution/grader tree (scenario.json) instead of app + faults.
+	Custom *renderCustomRef `json:"custom,omitempty"`
+}
+
+type renderCustomRef struct {
+	Dir  string `json:"dir"`
+	Root string `json:"root"`
 }
 
 // RenderSpec implements Kind.
@@ -137,8 +145,8 @@ func (DebugKind) RenderSpec(in RenderInput) (json.RawMessage, error) {
 		}
 	}
 	sub := &labblock.Recipe{LabKind: in.Recipe.LabKind, OrgID: in.Recipe.OrgID, Spec: in.Recipe.Spec, Blocks: active}
-	if len(sub.ByKind("custom")) > 0 {
-		return nil, fmt.Errorf("debug render: custom blocks are not renderable by mf-build yet")
+	if customs := sub.ByKind("custom"); len(customs) > 0 {
+		return renderCustom(in, sub, customs[0])
 	}
 	apps := sub.ByKind("app")
 	if len(apps) != 1 {
@@ -540,4 +548,36 @@ func mergeHints(sub *labblock.Recipe, faults []*labblock.ResolvedBlock) []string
 		out = append(out, strings.Join(parts, "\n\n"))
 	}
 	return out
+}
+
+// renderCustom is the render spec of a hand-made scenario (`custom` block): the
+// block carries the whole scenario under custom.root (see mf-build custom.py);
+// only the ticket, hints and rubric blocks of the recipe are merged in.
+func renderCustom(in RenderInput, sub *labblock.Recipe, c *labblock.ResolvedBlock) (json.RawMessage, error) {
+	v := renderVariant{
+		Schema: renderSchemaVersion, Key: in.VariantKey, Seed: in.Seed, SeedHex: fmt.Sprintf("%016x", uint64(in.Seed)),
+		Faults: []renderFault{}, Checks: []renderCheck{}, Data: []renderData{}, Stubs: []renderStub{}, Envs: []renderEnv{},
+		Captures: []string{}, HintLadder: mergeHints(sub, nil),
+		App: renderApp{Slots: []labblock.SlotDecl{}, History: []labblock.HistoryCommit{}, Noise: []labblock.HistoryCommit{},
+			Features: []string{}, Protected: []string{}, Setup: []string{}, Ports: []int{}, TestGlobs: []string{}},
+		Custom: &renderCustomRef{Dir: in.BlockDirs[c.VersionID], Root: strings.Trim(c.Manifest.Custom.Root, "/")},
+		Rubric: labblock.RubricDefaults{KeyPoints: []string{}, Misconceptions: []string{}},
+	}
+	ticket, err := renderTicket(in, sub, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	v.TicketMD = ticket
+	for _, m := range placeholderRe.FindAllStringSubmatch(ticket, -1) {
+		if m[1] == "captured" && !contains(v.Captures, m[2]) {
+			v.Captures = append(v.Captures, m[2])
+		}
+	}
+	sort.Strings(v.Captures)
+	if rb := sub.ByKind("rubric"); len(rb) > 0 {
+		v.Rubric = rb[0].Manifest.Rubric.RubricDefaults
+		v.Rubric.KeyPoints = nonNil(v.Rubric.KeyPoints)
+		v.Rubric.Misconceptions = nonNil(v.Rubric.Misconceptions)
+	}
+	return json.Marshal(v)
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/mindforge/backend/internal/middleware"
 )
 
 var (
@@ -183,12 +182,12 @@ func (s *Service) createQna(ctx context.Context, postID string, entryID *string,
 	return s.repo.CreateQna(ctx, postID, entryID, userID, question, answer)
 }
 
-func (s *Service) UpdateQna(ctx context.Context, userID, orgRole, id string, req UpdateQnaRequest) (Qna, error) {
+func (s *Service) UpdateQna(ctx context.Context, userID string, moderator bool, id string, req UpdateQnaRequest) (Qna, error) {
 	q, err := s.repo.GetQna(ctx, id)
 	if err != nil {
 		return Qna{}, err
 	}
-	if q.AuthorID != userID && orgRole != middleware.RoleAdmin {
+	if q.AuthorID != userID && !moderator {
 		return Qna{}, ErrForbidden
 	}
 	if req.Question != nil && strings.TrimSpace(*req.Question) == "" {
@@ -197,12 +196,12 @@ func (s *Service) UpdateQna(ctx context.Context, userID, orgRole, id string, req
 	return s.repo.UpdateQna(ctx, id, req.Question, req.Answer)
 }
 
-func (s *Service) DeleteQna(ctx context.Context, userID, orgRole, id string) error {
+func (s *Service) DeleteQna(ctx context.Context, userID string, moderator bool, id string) error {
 	q, err := s.repo.GetQna(ctx, id)
 	if err != nil {
 		return err
 	}
-	if q.AuthorID != userID && orgRole != middleware.RoleAdmin {
+	if q.AuthorID != userID && !moderator {
 		return ErrForbidden
 	}
 	return s.repo.DeleteQna(ctx, id)
@@ -245,12 +244,12 @@ func (s *Service) UpdateComment(ctx context.Context, userID, id, content string)
 	return s.repo.UpdateComment(ctx, id, trimmed)
 }
 
-func (s *Service) DeleteComment(ctx context.Context, userID, orgRole, id string) error {
+func (s *Service) DeleteComment(ctx context.Context, userID string, moderator bool, id string) error {
 	c, err := s.repo.GetComment(ctx, id)
 	if err != nil {
 		return err
 	}
-	if c.AuthorID != userID && orgRole != middleware.RoleAdmin {
+	if c.AuthorID != userID && !moderator {
 		return ErrForbidden
 	}
 	return s.repo.DeleteComment(ctx, id)

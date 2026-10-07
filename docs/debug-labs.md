@@ -74,6 +74,8 @@ For `lab_kind='debug'` the variant `payload` is `{root_cause_md, fix_diff, rubri
 
 **React:** student's own browser DevTools on the preview iframe (source maps, React DevTools) + vitest under VS Code's JS Debug Terminal.
 
+**API speed and metrics (FastAPI app block `fa.orders`).** The scaffold ships `app/metrics.py` (pure-ASGI middleware: per route-template count, status classes, fixed-bucket p50/p95/p99/max, in-flight, event-loop lag, SQLAlchemy pool stats, 60 s rps/p95 rings; unmatched paths collapse to `other`, at most 256 keys) and `scripts/bench.py` (stdlib+httpx load generator). `/__speed` (self-contained dashboard, relative URLs only), `/__speed/data` and `POST /__speed/reset` need no auth, are hidden from OpenAPI and are excluded from the stats. They work in the App-tab iframe with no labproxy change (the preview proxies every path, strips `X-Frame-Options`, and only reserves `/__mf/`). Both files are `protected` so fault overlays cannot replace them.
+
 ## 3. Authoring & storage
 
 Canonical markdown `kind: lab`, `lab_type: debug`; assets in a sibling `_scenario/` (coursegen's WalkDir skips `_`-prefixed dirs).

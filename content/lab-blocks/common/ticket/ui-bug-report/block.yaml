@@ -1,0 +1,14 @@
+kind: ticket
+id: ticket.ui-bug-report
+version: 1.0.0
+stack: react
+title: UI bug report
+summary: A QA or support bug report for a web UI, with what was clicked, what happened instead and what was already ruled out.
+category: ticket
+skills:
+  - debugging
+  - react
+ticket:
+  template_file: template.md
+  severity: Medium
+  persona: Nayan Jaiswal, QA

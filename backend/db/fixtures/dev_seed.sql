@@ -318,9 +318,10 @@ VALUES (
 ON CONFLICT (batch_id, user_id) DO NOTHING;
 
 -- ─── Assignment (batch → assessment) ────────────────────────────────────────
-INSERT INTO assessment_assignments (id, assessment_id, assignee_type, assignee_id, assigned_by)
+INSERT INTO content_assignments (id, content_type, content_id, assignee_type, assignee_id, assigned_by)
 VALUES (
   '00000000-0000-0000-0000-000000000140',
+  'assessment',
   '00000000-0000-0000-0000-000000000120',
   'batch',
   '00000000-0000-0000-0000-000000000130',

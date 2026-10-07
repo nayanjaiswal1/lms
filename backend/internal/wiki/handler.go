@@ -8,9 +8,11 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/middleware"
 )
 
 // maxOKFBodyBytes caps an OKF markdown PUT body — a wiki page is prose, not
@@ -19,10 +21,30 @@ const maxOKFBodyBytes = 5 << 20 // 5 MiB
 
 type Handler struct {
 	service *Service
+	pool    *pgxpool.Pool
 }
 
-func newHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func newHandler(service *Service, pool *pgxpool.Pool) *Handler {
+	return &Handler{service: service, pool: pool}
+}
+
+// requireMember is auth.RequireClaims with the org role re-read from the
+// database. The JWT's OrgRole is minted at sign-in and outlives a demotion or
+// removal, and every wiki permission check keys off it, so the live role
+// replaces it and a user who is no longer an active member is refused.
+func (h *Handler) requireMember(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return nil, false
+	}
+	role, member := middleware.LiveOrgRole(r.Context(), h.pool, claims.UserID, claims.OrgID)
+	if !member {
+		httputil.WriteError(w, http.StatusForbidden, "You are not a member of this organization.")
+		return nil, false
+	}
+	live := *claims
+	live.OrgRole = role
+	return &live, true
 }
 
 // ─── shared helpers ───────────────────────────────────────────────────────────
@@ -50,7 +72,7 @@ func optionalQueryParam(r *http.Request, key string) *string {
 // ─── Spaces ───────────────────────────────────────────────────────────────────
 
 func (h *Handler) ListSpaces(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -63,7 +85,7 @@ func (h *Handler) ListSpaces(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateSpace(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -80,7 +102,7 @@ func (h *Handler) CreateSpace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetSpace(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -94,7 +116,7 @@ func (h *Handler) GetSpace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateSpace(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -111,7 +133,7 @@ func (h *Handler) UpdateSpace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteSpace(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -125,7 +147,7 @@ func (h *Handler) DeleteSpace(w http.ResponseWriter, r *http.Request) {
 // ─── Page tree ────────────────────────────────────────────────────────────────
 
 func (h *Handler) GetPageTree(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -140,7 +162,7 @@ func (h *Handler) GetPageTree(w http.ResponseWriter, r *http.Request) {
 // ─── Pages ────────────────────────────────────────────────────────────────────
 
 func (h *Handler) CreatePage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -157,7 +179,7 @@ func (h *Handler) CreatePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetPage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -170,7 +192,7 @@ func (h *Handler) GetPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdatePage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -187,7 +209,7 @@ func (h *Handler) UpdatePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeletePage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -199,7 +221,7 @@ func (h *Handler) DeletePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) MovePage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -218,7 +240,7 @@ func (h *Handler) MovePage(w http.ResponseWriter, r *http.Request) {
 // ─── Version history ─────────────────────────────────────────────────────────
 
 func (h *Handler) ListVersions(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -231,7 +253,7 @@ func (h *Handler) ListVersions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetVersion(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -249,7 +271,7 @@ func (h *Handler) GetVersion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) RestoreVersion(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -269,7 +291,7 @@ func (h *Handler) RestoreVersion(w http.ResponseWriter, r *http.Request) {
 // ─── Comments ─────────────────────────────────────────────────────────────────
 
 func (h *Handler) ListComments(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -282,7 +304,7 @@ func (h *Handler) ListComments(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -299,7 +321,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -316,7 +338,7 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -330,7 +352,7 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 // ─── Templates ────────────────────────────────────────────────────────────────
 
 func (h *Handler) ListTemplates(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -343,7 +365,7 @@ func (h *Handler) ListTemplates(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateTemplate(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -360,7 +382,7 @@ func (h *Handler) CreateTemplate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -374,7 +396,7 @@ func (h *Handler) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
 // ─── OKF export/import ────────────────────────────────────────────────────────
 
 func (h *Handler) GetPageOKF(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -389,7 +411,7 @@ func (h *Handler) GetPageOKF(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdatePageOKF(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -407,7 +429,7 @@ func (h *Handler) UpdatePageOKF(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetSpaceOKF(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -445,7 +467,7 @@ func (h *Handler) GetSpaceOKF(w http.ResponseWriter, r *http.Request) {
 // ─── Search ───────────────────────────────────────────────────────────────────
 
 func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	claims, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}

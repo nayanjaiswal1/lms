@@ -295,3 +295,23 @@ origin — expected, not a bug: any passkey registered under the old
 `localhost` RPID stops working until re-registered under the new host.
 Disposable/testing-only: rotates every time the tunnel container restarts;
 revert both URLs to `localhost` when done.
+
+## Audit-remediation variables (backend)
+
+| Var | Default | Purpose |
+|---|---|---|
+| `METRICS_TOKEN` | – | Bearer token for `/metrics`; endpoint returns 404 in production when unset |
+| `PUBLIC_RATE_LIMIT_MAX` / `_WINDOW` | 120 / 1m | Per-IP budget on public routes |
+| `OAUTH_REGISTER_RATE_LIMIT_MAX` / `_WINDOW` | 10 / 1h | Per-IP budget on `/oauth/register` |
+| `TURNSTILE_SECRET_KEY` | – (required outside `ENV=development`) | Cloudflare Turnstile secret; gates register/login/forgot-password (`X-Captcha-Token`). Unset in dev disables the check. Operator creates keys in the Cloudflare dashboard |
+| `CAPTCHA_BYPASS_SECRET` | – | Shared with the frontend server (same var) so demo login and admin password reset can skip the widget; empty = no bypass |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (frontend) | – | Turnstile site key; widget renders only when set |
+| `USER_RATE_LIMIT_MAX` / `_WINDOW` | 600 / 1m | Per-user budget, authenticated routes |
+| `LLM_USER_MAX_PER_HOUR` / `_PER_DAY` | 60 / 300 | Per-user LLM call caps (429 when exceeded) |
+| `PAYMENT_RECONCILE_STALE_MINUTES` | 30 | Age before a stuck payment is alerted on |
+| `MAX_BODY_BYTES` | 8 MiB | Global request body cap |
+| `LABPROXY_ALLOWED_ORIGINS` | – (required) | Origins allowed to open lab terminals |
+| `LABS_PIDS_LIMIT`, `LABS_NETWORK_PER_SESSION`, `LABS_NETWORK_INTERNAL`, `LABS_PROXY_CONTAINER` | see docs/labs.md | Lab isolation |
+| `RETENTION_*_DAYS` | see `.env.example` | Retention windows (0 disables); includes `RETENTION_MCP_CONNECTION_DAYS` (default 90, revoked/expired MCP connections) |
+
+Frontend: `GRIEVANCE_OFFICER_NAME/EMAIL`, `SECURITY_CONTACT_EMAIL`, `DPA_CONTACT_EMAIL` (legal pages).

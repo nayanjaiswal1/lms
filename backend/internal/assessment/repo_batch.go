@@ -46,7 +46,8 @@ func (r *Repo) UpdateBatch(ctx context.Context, orgID string, b Batch) (Batch, e
 	return b, nil
 }
 
-func (r *Repo) ListBatches(ctx context.Context, orgID string) ([]Batch, error) {
+// mentorBatchIDs, when non-nil, restricts the list to those batches (mentor scope).
+func (r *Repo) ListBatches(ctx context.Context, orgID string, mentorBatchIDs []string) ([]Batch, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT b.id, b.org_id, b.name, b.slug, b.description, b.mentor_id, b.status,
 		        b.created_by, b.starts_at, b.ends_at, b.image_url, b.cohort_group_id, b.created_at, b.updated_at,
@@ -56,7 +57,8 @@ func (r *Repo) ListBatches(ctx context.Context, orgID string) ([]Batch, error) {
 		            AND bm.deleted_at IS NULL AND bm.parent_id IS NULL) AS unresolved_count
 		 FROM batches b
 		 WHERE b.org_id = $1 AND b.status = 'active'
-		 ORDER BY b.created_at DESC`, orgID)
+		   AND ($2::text[] IS NULL OR b.id::text = ANY($2))
+		 ORDER BY b.created_at DESC`, orgID, mentorBatchIDs)
 	if err != nil {
 		return nil, fmt.Errorf("assessment: list batches: %w", err)
 	}

@@ -30,6 +30,11 @@ func main() {
 		slog.Error("labproxy: LABPROXY_JWT_SECRET is required")
 		os.Exit(1)
 	}
+	allowedOrigins := parseAllowedOrigins(os.Getenv("LABPROXY_ALLOWED_ORIGINS"))
+	if len(allowedOrigins) == 0 {
+		slog.Error("labproxy: LABPROXY_ALLOWED_ORIGINS is required (comma-separated app origins)")
+		os.Exit(1)
+	}
 	if previewDomain == "" {
 		slog.Error("labproxy: LABPROXY_PREVIEW_DOMAIN is required")
 		os.Exit(1)
@@ -54,7 +59,7 @@ func main() {
 	rdb := redis.NewClient(redisOpts)
 	defer rdb.Close()
 
-	handler := NewProxyHandler(pool, rdb, jwtSecret, jwtIssuer, previewDomain)
+	handler := NewProxyHandler(pool, rdb, jwtSecret, jwtIssuer, previewDomain, allowedOrigins)
 
 	mux := http.NewServeMux()
 	mux.Handle("/ws", handler)

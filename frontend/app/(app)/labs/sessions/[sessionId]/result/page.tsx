@@ -86,7 +86,7 @@ export default async function LabResultPage({ params }: PageProps) {
   const myFeedback = await getMyFeedback("lab", session.lab_id).catch(() => null)
 
   return (
-    <main className="page-container-sm flex flex-col gap-6">
+    <main className="page-container flex flex-col gap-4">
       <Breadcrumb items={[{ label: "Labs", href: ROUTES.LABS }, { label: lab.title }]} />
       <ClearActiveLabSession sessionId={sessionId} />
       <FeedbackPrompt
@@ -94,34 +94,30 @@ export default async function LabResultPage({ params }: PageProps) {
         subjectId={session.lab_id}
         subjectType="lab"
       />
-      <div className="card-raised flex flex-col items-center gap-4 p-8 text-center">
-        {didPass ? (
-          <Trophy aria-hidden className="h-12 w-12 text-primary" />
-        ) : (
-          <XCircle aria-hidden className="h-12 w-12 text-destructive" />
-        )}
-
-        <div className="flex flex-col gap-1">
-          <h1 className="section-title tabular-nums">
-            {maxScore > 0 ? `${session.score} / ${maxScore}` : "Done"}
-          </h1>
-          <p className="text-muted-foreground">
-            {didPass
-              ? "You completed all required tasks."
-              : requiredTotal === 0
-                ? "Lab session ended."
-                : `${requiredPassed} of ${requiredTotal} required tasks passed.`}
-          </p>
-          {session.end_reason && (
-            <p className="text-sm text-muted-foreground">
-              {END_REASON_MESSAGES[session.end_reason]}
-            </p>
+      <header className="card-base flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          {didPass ? (
+            <Trophy aria-hidden className="h-8 w-8 shrink-0 text-primary" />
+          ) : (
+            <XCircle aria-hidden className="h-8 w-8 shrink-0 text-destructive" />
           )}
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold tabular-nums">
+              {maxScore > 0 ? `${session.score} / ${maxScore}` : "Done"}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {didPass
+                ? "All required tasks completed."
+                : requiredTotal === 0
+                  ? "Lab session ended."
+                  : `${requiredPassed} of ${requiredTotal} required tasks passed.`}
+              {session.end_reason && ` ${END_REASON_MESSAGES[session.end_reason]}`}
+            </p>
+          </div>
         </div>
-
-        <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
           <Badge variant={didPass ? "default" : "secondary"}>
-            {passedCount} / {lab.tasks.length} tasks passed
+            {passedCount} / {lab.tasks.length} checks passed
           </Badge>
           {session.completed_at && (
             <span className="inline-flex items-center gap-1 text-muted-foreground">
@@ -134,27 +130,24 @@ export default async function LabResultPage({ params }: PageProps) {
               {session.reset_count} reset{session.reset_count !== 1 ? "s" : ""}
             </Badge>
           )}
-          {session.status === "terminated_abuse" && (
-            <Badge variant="destructive">Terminated</Badge>
-          )}
+          {session.status === "terminated_abuse" && <Badge variant="destructive">Terminated</Badge>}
+          <Button asChild>
+            <Link href={ROUTES.lab(session.lab_id)}>New session</Link>
+          </Button>
         </div>
-
-        <Button asChild>
-          <Link href={ROUTES.lab(session.lab_id)}>Start New Session</Link>
-        </Button>
-      </div>
+      </header>
 
       {lab.tasks.length > 0 && (
         <section className="card-base flex flex-col divide-y divide-border overflow-hidden">
-          <div className="px-4 py-3">
-            <h2 className="font-semibold text-sm">Task Breakdown</h2>
+          <div className="px-4 py-2">
+            <h2 className="font-semibold text-sm">Checks</h2>
           </div>
           {lab.tasks.map((task) => {
             const completion = completionMap.get(task.task_id)
             const status: TaskStatus = completion?.status ?? "pending"
             return (
               <div
-                className="flex-between gap-3 px-4 py-3"
+                className="flex-between gap-3 px-4 py-2"
                 key={task.task_id}
               >
                 <div className="flex items-center gap-2 min-w-0">

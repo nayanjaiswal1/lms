@@ -1,5 +1,6 @@
 import { marked, type Token, type Tokens } from "marked";
 import type { ContentBlock } from "@/lib/courses/draft-types";
+import { sanitizeLessonHtml } from "@/lib/courses/sanitize";
 
 function youtubeEmbedUrl(videoId: string): string {
   return `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1`;
@@ -303,7 +304,7 @@ function annotate(segments: Segment[]): ParsedModuleContent {
     }
     if (segment.type !== "html") return segment;
 
-    const html = segment.html
+    const html = sanitizeLessonHtml(segment.html)
       .replace(/<a href="(https?:\/\/[^"]*)"/g, '<a href="$1" target="_blank" rel="noopener noreferrer"')
       .replace(/<h([23])>(.*?)<\/h\1>/g, (_match, level: string, inner: string) => {
       const text = inner.replace(/<[^>]+>/g, "");

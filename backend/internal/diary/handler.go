@@ -14,6 +14,7 @@ import (
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/habit"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/privacy"
 )
 
 // Handler exposes the diary domain over HTTP.
@@ -36,8 +37,9 @@ func NewHandler(pool *pgxpool.Pool, provider ai.LLMProvider) *Handler {
 }
 
 var domainErrors = map[error]httputil.ErrSpec{
-	ErrNotFound:      {Status: http.StatusNotFound, Message: "Not found."},
-	ErrAIUnavailable: {Status: http.StatusServiceUnavailable, Message: "AI provider is not configured."},
+	ErrNotFound:                  {Status: http.StatusNotFound, Message: "Not found."},
+	ErrAIUnavailable:             {Status: http.StatusServiceUnavailable, Message: "AI provider is not configured."},
+	privacy.ErrAIConsentRequired: {Status: http.StatusForbidden, Message: "Turn on AI processing under Settings > Privacy to use this feature."},
 }
 
 func writeDomainError(w http.ResponseWriter, err error) {
@@ -289,7 +291,7 @@ func (h *Handler) AnalyzeApply(w http.ResponseWriter, r *http.Request) {
 // unpersisted grammar/spelling diff of the posted content. Nothing is saved
 // here; the caller PATCHes the resolved text back through UpdateContent.
 func (h *Handler) FixEnglish(w http.ResponseWriter, r *http.Request) {
-	_, ok := auth.RequireClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -308,7 +310,7 @@ func (h *Handler) FixEnglish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	segments, err := h.service.FixEnglish(r.Context(), req.Content)
+	segments, err := h.service.FixEnglish(r.Context(), claims.UserID, req.Content)
 	if err != nil {
 		writeDomainError(w, err)
 		return

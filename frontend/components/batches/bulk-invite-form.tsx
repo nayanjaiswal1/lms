@@ -1,5 +1,6 @@
 "use client";
 
+import { PLACEHOLDER_DOMAIN } from "@/lib/constants";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,7 +45,7 @@ export function BulkInviteForm({ batchId, onSuccess }: BulkInviteFormProps) {
           disabled={pending}
           id="invite-emails"
           name="emails"
-          placeholder={"student1@example.com\nstudent2@example.com"}
+          placeholder={`student1@${PLACEHOLDER_DOMAIN}\nstudent2@${PLACEHOLDER_DOMAIN}`}
           rows={6}
         />
       </div>

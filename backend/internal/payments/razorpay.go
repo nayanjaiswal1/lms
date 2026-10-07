@@ -112,6 +112,18 @@ type razorpayWebhookPayload struct {
 				Currency string `json:"currency"`
 			} `json:"entity"`
 		} `json:"payment"`
+		Refund struct {
+			Entity struct {
+				PaymentID string `json:"payment_id"`
+				Amount    int    `json:"amount"`
+				Currency  string `json:"currency"`
+			} `json:"entity"`
+		} `json:"refund"`
+		Dispute struct {
+			Entity struct {
+				PaymentID string `json:"payment_id"`
+			} `json:"entity"`
+		} `json:"dispute"`
 	} `json:"payload"`
 	CreatedAt int64 `json:"created_at"`
 }
@@ -168,6 +180,13 @@ func (p *RazorpayProvider) ParseWebhook(rawBody []byte, h http.Header) (Event, e
 			Status:      StatusFailed,
 			Raw:         rawBody,
 		}, nil
+	case "refund.processed":
+		r := payload.Payload.Refund.Entity
+		return Event{ID: eventID, Type: payload.Event, PaymentRef: r.PaymentID, Currency: r.Currency,
+			Status: StatusRefunded, AmountCents: r.Amount, Raw: rawBody}, nil
+	case "payment.dispute.created":
+		return Event{ID: eventID, Type: payload.Event, PaymentRef: payload.Payload.Dispute.Entity.PaymentID,
+			Status: StatusRefunded, Raw: rawBody}, nil
 	default:
 		return Event{ID: eventID, Type: payload.Event, Status: StatusIgnored, Raw: rawBody}, nil
 	}

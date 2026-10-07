@@ -97,6 +97,7 @@ type ProxyHandler struct {
 	upgrader      websocket.Upgrader
 	wg            sync.WaitGroup
 	draining      atomic.Bool
+	conns         connLimiter
 }
 
 // NewProxyHandler constructs a ProxyHandler with all dependencies injected.
@@ -106,7 +107,7 @@ type ProxyHandler struct {
 // previewDomain is LABPROXY_PREVIEW_DOMAIN — the suffix preview subdomains
 // (p<port>-<sessionID>.<previewDomain>) are matched against; see host.go and
 // preview_host.go.
-func NewProxyHandler(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, previewDomain string) *ProxyHandler {
+func NewProxyHandler(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, previewDomain string, allowedOrigins []string) *ProxyHandler {
 	return &ProxyHandler{
 		pool:          pool,
 		rdb:           rdb,
@@ -115,7 +116,9 @@ func NewProxyHandler(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer
 		previewDomain: previewDomain,
 		upgrader: websocket.Upgrader{
 			HandshakeTimeout: 10 * time.Second,
-			CheckOrigin:      func(r *http.Request) bool { return true },
+			// Only the marker is echoed back; the token subprotocol is never selected.
+			Subprotocols: []string{wsAuthProtocol},
+			CheckOrigin:  func(r *http.Request) bool { return originAllowed(r, allowedOrigins) },
 		},
 	}
 }
@@ -128,9 +131,9 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenStr := r.URL.Query().Get("session_token")
+	tokenStr := wsTokenFromProtocols(r)
 	if tokenStr == "" {
-		writeJSONError(w, http.StatusUnauthorized, "missing session_token")
+		writeJSONError(w, http.StatusUnauthorized, "missing session token")
 		return
 	}
 
@@ -180,11 +183,18 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !h.conns.acquire(sess.UserID) {
+		writeJSONError(w, http.StatusTooManyRequests, "too many open terminals")
+		return
+	}
+	defer h.conns.release(sess.UserID)
+
 	browserConn, upgradeErr := h.upgrader.Upgrade(w, r, nil)
 	if upgradeErr != nil {
 		// Upgrade writes the HTTP error itself; just return.
 		return
 	}
+	browserConn.SetReadLimit(wsReadLimitBytes)
 
 	// ttyd only accepts connections that negotiate the "tty" WebSocket
 	// subprotocol; without it, it silently accepts the upgrade but never
@@ -213,6 +223,8 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_ = browserConn.Close()
 		return
 	}
+
+	containerConn.SetReadLimit(wsReadLimitBytes)
 
 	h.wg.Add(1)
 	defer h.wg.Done()
@@ -273,6 +285,29 @@ func relay(src, dst *websocket.Conn, onMsg func([]byte)) {
 	}
 }
 
+// wsAuthProtocol is the Sec-WebSocket-Protocol marker the browser offers
+// alongside the session token ("mf-lab, <token>"), keeping the token out of the
+// URL (access logs, Referer, history).
+const wsAuthProtocol = "mf-lab"
+
+// wsTokenFromProtocols returns the offered subprotocol that is not the marker,
+// requiring the marker to be present.
+func wsTokenFromProtocols(r *http.Request) string {
+	protos := websocket.Subprotocols(r)
+	token, marker := "", false
+	for _, p := range protos {
+		if p == wsAuthProtocol {
+			marker = true
+		} else if token == "" {
+			token = p
+		}
+	}
+	if !marker {
+		return ""
+	}
+	return token
+}
+
 // validateWSToken parses and validates a signed HS256 JWT, returning the embedded
 // claims on success. Extracted as a standalone function so it can be unit-tested
 // without a running HTTP server.
@@ -307,11 +342,10 @@ func validateWSToken(tokenStr, secret, issuer string) (*wsClaims, error) {
 // tokenIsLive checks the Redis registry MintWSToken writes every token into
 // (labs.Service.MintWSToken's doc comment) — a second factor alongside the
 // JWT signature/expiry that lets a specific token be revoked (DEL) without
-// needing to end the session it belongs to. Fails OPEN on a Redis error: a
-// Redis outage must not lock every student out of every running lab, and the
-// JWT's own signature/expiry/issuer/type checks already ran before this is
-// reached — this registry is defense-in-depth on top of that, not the sole
-// gate.
+// needing to end the session it belongs to. Fails CLOSED on a Redis error
+// (audit M-20): without the registry a revoked token could not be told from
+// a live one, so a Redis outage rejects new terminal connects (existing
+// relays are unaffected) rather than accepting possibly-revoked tokens.
 // previewHeartbeatDebounce bounds how often preview traffic (HTTP passthrough
 // and WebSocket upgrades — see previewTarget in preview.go, the single
 // choke point every preview request resolves through) is allowed to write
@@ -363,7 +397,8 @@ func (h *ProxyHandler) tokenIsLive(ctx context.Context, tokenStr string) bool {
 		return false
 	}
 	if err != nil {
-		slog.Warn("labproxy: token registry check failed, failing open", "error", err)
+		slog.Warn("labproxy: token registry check failed, failing closed", "error", err)
+		return false
 	}
 	return true
 }

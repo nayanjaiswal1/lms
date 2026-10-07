@@ -3,7 +3,9 @@ package mcpconnect
 import (
 	"context"
 	"errors"
+	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
+	"time"
 
 	"github.com/mindforge/backend/internal/testdb"
 )
@@ -19,7 +21,7 @@ func TestRegisterAndGetClient(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepo(pool)
 
-	redirectURIs := []string{"https://client.example.com/callback"}
+	redirectURIs := []string{"https://client." + testdomain.Domain + "/callback"}
 	created, err := repo.RegisterClient(ctx, "client-abc123", "Example MCP Client", redirectURIs)
 	if err != nil {
 		t.Fatalf("RegisterClient: %v", err)
@@ -44,5 +46,48 @@ func TestRegisterAndGetClient(t *testing.T) {
 
 	if _, err := repo.GetClient(ctx, "does-not-exist"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected ErrNotFound for unregistered client, got %v", err)
+	}
+}
+
+// TestRefreshRotationCASAndReuse covers M-25: a rotation is compare-and-set on
+// the presented hash, and replaying a rotated-out hash revokes the connection.
+func TestRefreshRotationCASAndReuse(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+	repo := NewRepo(pool)
+
+	var orgID, userID string
+	if err := pool.QueryRow(ctx, `INSERT INTO organizations (name, slug) VALUES ('MCP Org', 'mcp-org') RETURNING id`).Scan(&orgID); err != nil {
+		t.Fatalf("insert org: %v", err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO users (email, name) VALUES ('mcp@`+testdomain.Domain+`', 'MCP User') RETURNING id`).Scan(&userID); err != nil {
+		t.Fatalf("insert user: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO org_members (org_id, user_id, role, status) VALUES ($1, $2, 'student', 'active')`, orgID, userID); err != nil {
+		t.Fatalf("insert member: %v", err)
+	}
+	if _, err := repo.RegisterClient(ctx, "cid", "Client", []string{"https://client." + testdomain.Domain + "/cb"}); err != nil {
+		t.Fatalf("RegisterClient: %v", err)
+	}
+	exp := time.Now().Add(time.Hour)
+	connID, err := repo.UpsertConnection(ctx, orgID, userID, "cid", []string{ScopeCoursesRead}, "h1", exp)
+	if err != nil {
+		t.Fatalf("UpsertConnection: %v", err)
+	}
+
+	if err := repo.RotateRefreshToken(ctx, connID, "h1", "h2", exp); err != nil {
+		t.Fatalf("first rotation: %v", err)
+	}
+	// A second rotation presenting the stale hash loses the compare-and-set.
+	if err := repo.RotateRefreshToken(ctx, connID, "h1", "h3", exp); !errors.Is(err, ErrInvalidGrant) {
+		t.Fatalf("stale rotation: want ErrInvalidGrant, got %v", err)
+	}
+	// Replaying the rotated-out hash revokes the connection.
+	revoked, err := repo.RevokeOnRefreshReuse(ctx, "h1")
+	if err != nil || !revoked {
+		t.Fatalf("RevokeOnRefreshReuse: revoked=%v err=%v", revoked, err)
+	}
+	if _, err := repo.GetConnectionByRefreshHash(ctx, "h2"); !errors.Is(err, ErrInvalidGrant) {
+		t.Fatalf("revoked connection must not resolve, got %v", err)
 	}
 }

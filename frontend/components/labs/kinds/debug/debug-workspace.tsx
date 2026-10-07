@@ -3,15 +3,17 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { DebugCheckNotice } from "@/components/labs/kinds/debug/debug-check-notice"
 import { DebugFinishBar } from "@/components/labs/kinds/debug/debug-finish-bar"
 import { DebugCheckBar } from "@/components/labs/kinds/debug/debug-check-bar"
-import { DebugFailureList } from "@/components/labs/kinds/debug/debug-failure-list"
+import { DebugShell } from "@/components/labs/kinds/debug/debug-shell"
+import { DebugSidePanel } from "@/components/labs/kinds/debug/debug-side-panel"
+import { DebugTaskList } from "@/components/labs/kinds/debug/debug-task-list"
 import { DebugMain } from "@/components/labs/kinds/debug/debug-main"
 import { DebugTicketPanel } from "@/components/labs/kinds/debug/debug-ticket-panel"
 import { DebugWriteupPanel } from "@/components/labs/kinds/debug/debug-writeup-panel"
 import type { LabKindWorkspaceProps } from "@/components/labs/kinds/workspace-registry"
 import { HintDrawer } from "@/components/labs/hint-drawer"
-import { LabTaskChecklist } from "@/components/labs/lab-task-checklist"
 import { SessionExpiredOverlay } from "@/components/labs/session-expired-overlay"
 import { useDebugCheck } from "@/hooks/use-debug-check"
 import { useLabHint } from "@/hooks/use-lab-hint"
@@ -19,8 +21,8 @@ import { useWriteupReview } from "@/hooks/use-writeup-review"
 import ROUTES from "@/lib/routes"
 
 /**
- * Workspace of the "debug" lab kind: ticket + checks + write-up on the left,
- * browser IDE / running app on the right (stacked on mobile). A server-side
+ * Workspace of the "debug" lab kind: ticket + checks + write-up in a collapsible
+ * side panel, browser IDE / running app full width. A server-side
  * reset bumps resetNonce, which remounts this body so all state restarts.
  */
 export function DebugWorkspace(props: LabKindWorkspaceProps) {
@@ -72,65 +74,67 @@ function DebugWorkspaceBody({
   }, onDeadline)
   const hint = useLabHint(session.id, check.completions, onDeadline)
 
-  const maxScore = lab.tasks.reduce((sum, t) => sum + t.points, 0)
+  const passedCount = check.completions.filter((c) => c.status === "passed").length
   const hintsUsedByTask = Object.fromEntries(
     lab.tasks.map((t) => [t.task_id, hint.hintsUsedFor(t.task_id)]),
   )
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-hidden">
+    <div className="relative flex min-h-0 flex-1 flex-col">
       {isAuthExpired && <SessionExpiredOverlay onLogin={onLogin} />}
 
-      <aside className="flex w-full shrink-0 flex-col gap-4 border-b border-border p-4 md:w-96 md:overflow-y-auto md:border-b-0 md:border-r">
-        <DebugTicketPanel brief={kindBlock.brief} title={lab.title} />
-        <div className="flex flex-col gap-3">
-          <LabTaskChecklist
-            completions={check.completions}
-            hintsUsedByTask={hintsUsedByTask}
-            isVerifying={check.isChecking}
-            maxHints={hint.maxHints}
-            maxScore={maxScore}
-            renderTaskDetail={(task) => (
-              <DebugFailureList failures={check.failures[task.task_id] ?? []} />
-            )}
-            score={check.score}
-            scrollable={false}
-            selectedTaskId={null}
-            showTaskCheck={false}
-            tasks={lab.tasks}
-            onCheck={check.check}
-            onHint={hint.openDrawer}
-            onTaskSelect={() => undefined}
+      <DebugShell
+        notice={<DebugCheckNotice message={check.message} problem={check.problem} />}
+        panel={
+          <DebugSidePanel
+            checks={
+              <DebugTaskList
+                completions={check.completions}
+                failures={check.failures}
+                hintsUsedByTask={hintsUsedByTask}
+                maxHints={hint.maxHints}
+                tasks={lab.tasks}
+                onHint={hint.openDrawer}
+              />
+            }
+            passed={passedCount}
+            ticket={<DebugTicketPanel brief={kindBlock.brief} title={lab.title} />}
+            total={lab.tasks.length}
+            writeup={
+              <DebugWriteupPanel
+                error={writeup.error}
+                isReviewing={writeup.isReviewing}
+                remaining={writeup.remaining}
+                result={writeup.result}
+                onSubmit={() => writeup.submit(session.id)}
+              />
+            }
           />
-          <DebugCheckBar
-            cooldownUntil={check.cooldownUntil}
-            isChecking={check.isChecking}
-            message={check.message}
-            problem={check.problem}
-            onCheck={check.check}
-          />
-          <DebugFinishBar
-            enabled={check.requiredPassed}
+        }
+      >
+        {(panelToggle) => (
+          <DebugMain
+            appPorts={kindBlock.app_ports}
+            idePort={kindBlock.ide_port}
+            leading={panelToggle}
             sessionId={session.id}
-            onAuthExpired={expireAuth}
+            trailing={
+              <>
+                <DebugCheckBar
+                  cooldownUntil={check.cooldownUntil}
+                  isChecking={check.isChecking}
+                  onCheck={check.check}
+                />
+                <DebugFinishBar
+                  enabled={check.requiredPassed}
+                  sessionId={session.id}
+                  onAuthExpired={expireAuth}
+                />
+              </>
+            }
           />
-        </div>
-        <DebugWriteupPanel
-          error={writeup.error}
-          isReviewing={writeup.isReviewing}
-          remaining={writeup.remaining}
-          result={writeup.result}
-          onSubmit={() => writeup.submit(session.id)}
-        />
-      </aside>
-
-      <div className="h-dvh min-h-0 w-full md:h-auto md:flex-1">
-        <DebugMain
-          appPorts={kindBlock.app_ports}
-          idePort={kindBlock.ide_port}
-          sessionId={session.id}
-        />
-      </div>
+        )}
+      </DebugShell>
 
       <HintDrawer
         error={hint.error}

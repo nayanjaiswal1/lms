@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { apiAction, type ActionResult } from "@/lib/server/api";
 import type { WebAuthnCreationOptions } from "@/lib/webauthn";
 import ROUTES from "@/lib/routes";
+import { changePasswordSchema } from "@/lib/validation/auth";
 
 interface WebAuthnRegisterBeginResult {
   handle: string;
@@ -50,4 +51,52 @@ export async function deletePasskeyAction(id: string): Promise<ActionResult<unde
   const result = await apiAction("DELETE", `/api/auth/webauthn/credentials/${id}`);
   if (result.ok) revalidatePath(ROUTES.SETTINGS_SECURITY);
   return result;
+}
+
+interface MfaSetup {
+  secret: string;
+  uri: string;
+}
+
+export async function beginMfaSetupAction(): Promise<ActionResult<MfaSetup>> {
+  return apiAction<MfaSetup>("POST", "/api/auth/mfa/setup");
+}
+
+export async function enableMfaAction(
+  code: string,
+): Promise<ActionResult<{ recoveryCodes: string[] }>> {
+  const result = await apiAction<{ recovery_codes: string[] }>("POST", "/api/auth/mfa/enable", { code });
+  if (!result.ok || !result.data) return { ...result, data: undefined, conflict: undefined };
+  revalidatePath(ROUTES.SETTINGS_SECURITY);
+  return { ok: true, data: { recoveryCodes: result.data.recovery_codes } };
+}
+
+export async function regenerateRecoveryCodesAction(
+  code: string,
+): Promise<ActionResult<{ recoveryCodes: string[] }>> {
+  const result = await apiAction<{ recovery_codes: string[] }>("POST", "/api/auth/mfa/recovery-codes", { code });
+  if (!result.ok || !result.data) return { ...result, data: undefined, conflict: undefined };
+  revalidatePath(ROUTES.SETTINGS_SECURITY);
+  return { ok: true, data: { recoveryCodes: result.data.recovery_codes } };
+}
+
+export async function disableMfaAction(code: string): Promise<ActionResult<undefined>> {
+  const result = await apiAction("POST", "/api/auth/mfa/disable", { code });
+  if (result.ok) revalidatePath(ROUTES.SETTINGS_SECURITY);
+  return result;
+}
+
+export async function changePasswordAction(
+  currentPassword: string,
+  newPassword: string,
+): Promise<ActionResult<undefined>> {
+  const parsed = changePasswordSchema.safeParse({ currentPassword, newPassword, confirmPassword: newPassword });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message };
+  // The backend revokes every session and answers with fresh cookies for this
+  // one; apiAction forwards them to the browser.
+  const result = await apiAction("POST", "/api/auth/change-password", {
+    current_password: currentPassword,
+    new_password: newPassword,
+  });
+  return result.ok ? { ok: true } : { error: result.error, fieldErrors: result.fieldErrors, status: result.status };
 }

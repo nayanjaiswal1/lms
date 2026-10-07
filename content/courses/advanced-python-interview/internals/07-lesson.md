@@ -7,7 +7,7 @@ section_title: "Memory & the Interpreter"
 section_position: 5
 section_group: Advanced
 title: "Optimizing Slow Python Code"
-position: 6
+position: 5
 estimated_minutes: 13
 source: ["knowledge/backend/python/python-internals.md"]
 ---
@@ -231,51 +231,3 @@ print(c == d)   # True
   ]
 }
 ```
-
-## Original notes
-
-Your original wording from the Notes vault, kept verbatim for reference.
-
-##### ★ 2026-09-23 — How do you optimize slow Python code?
-
-**Start with profiling** to identify bottlenecks rather than guessing. Use `cProfile` for function-level analysis or `line_profiler` for line-by-line timing. Focus optimization effort on the code that's actually slow.
-
-**Common optimization techniques:**
-- Use built-in functions and libraries like NumPy instead of pure Python loops — they're implemented in C and much faster (e.g. `sum()` instead of manually looping to add numbers).
-- Replace list comprehensions with generator expressions when you don't need the entire list in memory at once — reduces memory usage and can improve speed.
-- Avoid repeated calculations by caching results. `@lru_cache` is great for expensive function calls with repeated inputs.
-- Choose the right data structures — sets for membership testing instead of lists, dictionaries for lookups, `collections.deque` for queue operations.
-- Move computations out of loops when possible — if something doesn't change between iterations, calculate it once before the loop.
-
-**For more intensive optimization:**
-- `multiprocessing` for CPU-bound tasks, `asyncio` for I/O-bound operations
-- Numba to compile Python to machine code for number crunching, or Cython to rewrite critical sections
-
-Always measure before and after optimization to confirm you're actually improving performance — premature optimization often wastes time on code that doesn't matter.
-
-For memory/resource-specific anti-patterns in long-running async services (not just general speed), see async-memory-patterns.
-
-
-
-###### 3. Private heap & allocators
-- All Python objects live in a **private heap** managed by the interpreter — no direct `malloc`/`free`.
-- **pymalloc**: small-object allocator for allocations ≤512 bytes, using pools/arenas to avoid repeated OS allocator calls.
-- Larger objects fall through to the system allocator.
-
-
-###### 4. Optimizations worth knowing
-- **Interning**: small integers (-5 to 256) and some strings are cached/reused rather than reallocated.
-  ```python
-  a = 100
-  b = 100
-  a is b   # True — interned
-
-  a = 1000
-  b = 1000
-  a is b   # False (usually) — not interned
-  ```
-- **`__slots__`**: for classes with many instances, avoids the per-instance `__dict__`, cutting memory significantly.
-  ```python
-  class Point:
-      __slots__ = ('x', 'y')
-  ```

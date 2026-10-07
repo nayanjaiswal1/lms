@@ -3,6 +3,7 @@ package rewards
 import (
 	"context"
 	"fmt"
+	"github.com/mindforge/backend/internal/testdomain"
 	"os"
 	"testing"
 	"time"
@@ -76,7 +77,7 @@ func seedCohortLBFixture(t *testing.T, pool *pgxpool.Pool) cohortLBFixture {
 		var id string
 		if err := pool.QueryRow(ctx,
 			`INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`,
-			fmt.Sprintf("rewards-cohort-%s-%d@example.com", label, suffix), "Rewards Cohort Test User",
+			fmt.Sprintf("rewards-cohort-%s-%d@"+testdomain.Domain, label, suffix), "Rewards Cohort Test User",
 		).Scan(&id); err != nil {
 			t.Fatalf("create user %s: %v", label, err)
 		}

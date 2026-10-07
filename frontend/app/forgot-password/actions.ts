@@ -1,6 +1,7 @@
 "use server";
 
 import { forgotPasswordSchema, AUTH_COPY } from "@/lib/validation/auth";
+import { captchaHeaders } from "@/lib/server/captcha";
 import { apiAction } from "@/lib/server/api";
 
 export interface ForgotPasswordState {
@@ -22,7 +23,7 @@ export async function forgotPasswordAction(
     return { fieldErrors: { email: fields.email?.[0] } };
   }
 
-  const result = await apiAction("POST", "/api/auth/forgot-password", parsed.data);
+  const result = await apiAction("POST", "/api/auth/forgot-password", parsed.data, captchaHeaders(formData));
   // The backend always returns 200 with a generic message regardless of
   // whether the email exists, to avoid leaking account existence — the only
   // failure worth surfacing here is a genuine network/config error.

@@ -1,0 +1,95 @@
+kind: fault
+id: re.state.form-keeps-previous-customer
+version: 1.0.0
+stack: react
+title: The customer editor shows the previous customer's details
+summary: The editor form copies the customer prop into its own state once; when another customer is selected the form keeps the old values because nothing resets its state.
+category: state
+difficulty: intermediate
+skills:
+- react-state
+- derived-state
+- component-identity
+requires:
+- slot:customers.editor.form
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: customers.editor.form
+      value: |
+        <CustomerForm customer={customer} />
+  fix:
+    slots:
+    - slot: customers.editor.form
+      value: |
+        <CustomerForm key={customer.id} customer={customer} />
+    files:
+    - path: tests/customer-editor-reset.test.jsx
+      from: fix/tests/customer-editor-reset.test.jsx
+  cheats:
+  - name: key-by-name
+    slots:
+    - slot: customers.editor.form
+      value: |
+        <CustomerForm key={customer.name} customer={customer} />
+  - name: revert-the-commit
+    slots:
+    - slot: customers.editor.form
+      value: |
+        <CustomerForm key={customer.id} customer={customer} />
+    files:
+    - path: src/ext/top-customer/index.js
+      from: cheats/empty-extension.js
+  carrier:
+    feature: top-customer
+    files:
+    - path: src/ext/top-customer/index.js
+      from: carrier/src/ext/top-customer/index.js
+  commit:
+    message: 'orders: add a top-customer action to the Tools menu'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/re_state_form_reset/editor.test.jsx
+  symptom:
+    vars:
+      title: Editing a customer saves details of the wrong person
+      report: |-
+        After I look at one customer and then pick another from the search results, the edit form still shows the first
+        customer's name and email. The heading and the data on the server are right, only the fields are stale. I saved once without
+        noticing and overwrote Bob's email with Alice's. We found three customers with swapped emails this week.
+      where: 'Customers page: search, pick a customer, then pick a different one without reloading.'
+      expected: The form always shows the customer that was just selected.
+      support_tried: Reloading the page between customers works, and so does clicking a customer twice sometimes. The API returns the right customer each time.
+      observations: |-
+        ### Other observations from QA
+
+        - The first customer you pick in a session always looks right.
+        - The search results are correct each time.
+        - The top-customer tool in Orders was added in the same release.
+    signature: form fields do not follow the selected customer
+  hints:
+  - Select two different customers one after the other in a test and read the form fields after the second one has loaded. Which values do you see?
+  - The form copies its prop into useState when it is first rendered and never looks at the prop again. What would make React throw that state away when the selection changes?
+  - Give the form a key that is the identity of the customer so it remounts for a different customer. Check the case of two customers with the same name.
+  rubric:
+    key_points:
+    - 'Identifies props copied into state: `useState(customer.name)` only reads the prop on mount, so a new customer prop does not update the fields.'
+    - Explains the reset-with-key pattern (remount for a different entity) versus syncing state from props in an effect.
+    - Chooses the customer id as the key, not a mutable or non-unique field such as the name.
+    - Tests selecting two customers sequentially, including two with the same name.
+    misconceptions:
+    - A useEffect that copies the prop into state is the recommended fix (it renders one frame with the old values and breaks edits in progress).
+    - Keying by the customer name is enough (two customers can share a name).
+    - The data is stale from the server (the data is right; the stale part is local component state).
+  root_cause: |-
+    `CustomerForm` stores the name and email in `useState(customer.name)` and `useState(customer.email)`. Initial state is only
+    read when the component mounts. `CustomerEditor` rendered the same `CustomerForm` element for every customer, so selecting
+    another customer updated the `customer` prop while React kept the existing component instance and its old state.
+
+    Giving the form a key equal to the customer id makes React unmount the old form and mount a new one with fresh state for
+    every different customer.

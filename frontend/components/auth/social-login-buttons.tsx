@@ -1,7 +1,9 @@
 "use client";
 
-import type { MouseEvent } from "react";
+import { useState, type MouseEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 interface SocialLoginButtonsProps {
@@ -70,6 +72,10 @@ export function SocialLoginButtons({ disabled, onProviderSelect }: SocialLoginBu
   // secret — it rides in the redirect URL — but a plain enabled/disabled flag
   // avoids keeping a duplicate copy of the ID in sync between backend/.env
   // and here).
+  // Declared before the provider round trip so it is on record before an
+  // account is created; existing accounts can leave it unticked.
+  const [ageDeclared, setAgeDeclared] = useState(false);
+  const ageQuery = ageDeclared ? "?age_declared=1" : "";
   const googleDisabled = disabled || process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED !== "true";
   const githubDisabled = disabled || process.env.NEXT_PUBLIC_GITHUB_OAUTH_ENABLED !== "true";
 
@@ -87,38 +93,52 @@ export function SocialLoginButtons({ disabled, onProviderSelect }: SocialLoginBu
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <Button
-        asChild
-        className={cn("gap-2", googleDisabled && "pointer-events-none opacity-50")}
-        variant="outline"
-      >
-        <a
-          aria-disabled={googleDisabled}
-          href="/api/auth/google"
-          tabIndex={googleDisabled ? -1 : undefined}
-          onClick={handleClick(googleDisabled)}
+    <div className="form-stack">
+      <div className="grid grid-cols-2 gap-3">
+        <Button
+          asChild
+          className={cn("gap-2", googleDisabled && "pointer-events-none opacity-50")}
+          variant="outline"
         >
-          <GoogleIcon />
-          Google
-        </a>
-      </Button>
-
-      <Button
-        asChild
-        className={cn("gap-2", githubDisabled && "pointer-events-none opacity-50")}
-        variant="outline"
-      >
-        <a
-          aria-disabled={githubDisabled}
-          href="/api/auth/github"
-          tabIndex={githubDisabled ? -1 : undefined}
-          onClick={handleClick(githubDisabled)}
+          <a
+            aria-disabled={googleDisabled}
+            href={`/api/auth/google${ageQuery}`}
+            tabIndex={googleDisabled ? -1 : undefined}
+            onClick={handleClick(googleDisabled)}
+          >
+            <GoogleIcon />
+            Google
+          </a>
+        </Button>
+  
+        <Button
+          asChild
+          className={cn("gap-2", githubDisabled && "pointer-events-none opacity-50")}
+          variant="outline"
         >
-          <GithubIcon />
-          GitHub
-        </a>
-      </Button>
+          <a
+            aria-disabled={githubDisabled}
+            href={`/api/auth/github${ageQuery}`}
+            tabIndex={githubDisabled ? -1 : undefined}
+            onClick={handleClick(githubDisabled)}
+          >
+            <GithubIcon />
+            GitHub
+          </a>
+        </Button>
+      </div>
+      <div className="flex items-start gap-2.5">
+        <Checkbox
+          checked={ageDeclared}
+          className="mt-0.5"
+          disabled={disabled}
+          id="social-age-declared"
+          onCheckedChange={(checked) => setAgeDeclared(checked === true)}
+        />
+        <Label className="text-sm font-normal leading-relaxed text-muted-foreground" htmlFor="social-age-declared">
+          New here? I confirm that I am 18 years of age or older.
+        </Label>
+      </div>
     </div>
   );
 }

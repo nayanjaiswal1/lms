@@ -99,6 +99,37 @@ func RequireOrgMember(pool *pgxpool.Pool) func(http.Handler) http.Handler {
 	}
 }
 
+// RequireActiveOrg blocks every request from a user whose JWT org is suspended
+// or archived. Orgs still onboarding or pending verification pass so they can
+// finish setup. Chain after RequireAuth; users with no org pass through.
+func RequireActiveOrg(pool *pgxpool.Pool) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, ok := auth.GetClaims(r.Context())
+			if !ok || claims.OrgID == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			var status string
+			err := pool.QueryRow(r.Context(), `SELECT status FROM organizations WHERE id = $1`, claims.OrgID).Scan(&status)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				slog.ErrorContext(r.Context(), "RequireActiveOrg: db query failed", "org_id", claims.OrgID, "err", err)
+				httputil.WriteError(w, http.StatusInternalServerError, "Failed to verify organization status.")
+				return
+			}
+			switch status {
+			case "suspended":
+				httputil.WriteError(w, http.StatusForbidden, "This organization is suspended.")
+				return
+			case "archived":
+				httputil.WriteError(w, http.StatusForbidden, "This organization is archived.")
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // OrgStatusGate returns middleware that allows the request only when the org's
 // current status is one of allowedStatuses. It must be chained after
 // RequireOrgMember, which populates OrgCtx.

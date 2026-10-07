@@ -1,0 +1,53 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #1f2933;
+  background: #f5f7fa;
+}
+
+body {
+  margin: 0;
+}
+
+.app > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: #102a43;
+  color: #fff;
+}
+
+.app h1 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.app nav {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.app nav button[aria-current='page'] {
+  font-weight: 700;
+}
+
+.app main {
+  padding: 1rem 1.5rem;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th,
+td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #d9e2ec;
+  text-align: left;
+}
+
+[role='alert'] {
+  color: #9b1c1c;
+}

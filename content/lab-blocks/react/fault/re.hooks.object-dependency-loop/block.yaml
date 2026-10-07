@@ -1,0 +1,150 @@
+kind: fault
+id: re.hooks.object-dependency-loop
+version: 1.0.0
+stack: react
+title: The Reports page hammers the API
+summary: The revenue hook lists an options object in its effect dependencies; the page builds a new object on every render, so every response triggers another request in an endless loop.
+category: hooks
+difficulty: intermediate
+skills:
+- react-hooks
+- referential-identity
+- network-debugging
+requires:
+- slot:reports.hook.effect
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: reports.hook.effect
+      value: |
+        useEffect(() => {
+          let ignore = false;
+          get(`/api/reports/revenue?days=${options.days}`).then(
+            (data) => {
+              if (!ignore) setState({ days: data.days, error: null, settled: true });
+            },
+            (error) => {
+              if (!ignore) setState((current) => ({ ...current, error, settled: true }));
+            },
+          );
+          return () => {
+            ignore = true;
+          };
+        }, [options]);
+  fix:
+    slots:
+    - slot: reports.hook.effect
+      value: |
+        const { days: range } = options;
+        useEffect(() => {
+          let ignore = false;
+          get(`/api/reports/revenue?days=${range}`).then(
+            (data) => {
+              if (!ignore) setState({ days: data.days, error: null, settled: true });
+            },
+            (error) => {
+              if (!ignore) setState((current) => ({ ...current, error, settled: true }));
+            },
+          );
+          return () => {
+            ignore = true;
+          };
+        }, [range]);
+    files:
+    - path: tests/revenue-requests.test.jsx
+      from: fix/tests/revenue-requests.test.jsx
+  cheats:
+  - name: fetch-once-only
+    slots:
+    - slot: reports.hook.effect
+      value: |
+        useEffect(() => {
+          let ignore = false;
+          get(`/api/reports/revenue?days=${options.days}`).then(
+            (data) => {
+              if (!ignore) setState({ days: data.days, error: null, settled: true });
+            },
+            (error) => {
+              if (!ignore) setState((current) => ({ ...current, error, settled: true }));
+            },
+          );
+          return () => {
+            ignore = true;
+          };
+        }, []);
+  - name: revert-the-commit
+    slots:
+    - slot: reports.hook.effect
+      value: |
+        const { days: range } = options;
+        useEffect(() => {
+          let ignore = false;
+          get(`/api/reports/revenue?days=${range}`).then(
+            (data) => {
+              if (!ignore) setState({ days: data.days, error: null, settled: true });
+            },
+            (error) => {
+              if (!ignore) setState((current) => ({ ...current, error, settled: true }));
+            },
+          );
+          return () => {
+            ignore = true;
+          };
+        }, [range]);
+    files:
+    - path: src/ext/order-csv/index.js
+      from: cheats/empty-extension.js
+  carrier:
+    feature: order-csv
+    files:
+    - path: src/ext/order-csv/index.js
+      from: carrier/src/ext/order-csv/index.js
+  commit:
+    message: 'orders: copy the visible orders as CSV from the Tools menu'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/re_hooks_report_loop/revenue.test.jsx
+  symptom:
+    vars:
+      title: Reports tab freezes and the API is being hammered
+      report: |-
+        Opening the Reports tab makes the browser fan spin up and the tab becomes sluggish after a few seconds. Our API dashboard
+        shows hundreds of requests per minute to the revenue endpoint from a single browser. The numbers on the page are right, it just
+        never stops asking. Ops rate-limited the support network because of it.
+      where: The Reports page (Revenue), any range.
+      expected: One request when the page opens and one more each time the range changes.
+      support_tried: Closed other tabs, switched networks, restarted the API. The request storm starts the moment the Reports tab is opened and stops when you leave it.
+      observations: |-
+        ### Other observations from QA
+
+        - The browser Network tab shows the same `/api/reports/revenue?days=30` request over and over.
+        - Everything else in the console works normally.
+        - The CSV action on the Orders page went out in the same release.
+    signature: repeated identical requests to /api/reports/revenue
+  hints:
+  - Count the requests the Reports page makes after it has finished loading, for example with the scripted fetch from @mf/harness. It should be one. What is it?
+  - Each response calls setState, which re-renders the page, and the page creates a fresh options object while rendering. Look at how the effect decides whether to run again.
+  - Depend on the primitive the effect actually uses (the number of days), not on the object it arrived in. Then assert the request count in a test, after letting the page settle.
+  rubric:
+    key_points:
+    - 'Identifies the loop: the options object is a new reference on every render, the effect lists the object, so every state update re-runs the effect, which fetches, which updates state.'
+    - Explains referential identity versus value equality for effect dependencies.
+    - Fixes it by depending on the primitive value (or memoizing the object at the call site), not by dropping the dependencies.
+    - Verifies the fix by asserting the number of requests, including a range change that must produce exactly one more.
+    misconceptions:
+    - An empty dependency array is the fix (the range selector then stops working).
+    - Debouncing the fetch fixes it (it only slows the loop down).
+    - The API response is different each time (the loop is caused by the render cycle, not the data).
+  root_cause: |-
+    `useRevenue(options)` took an options object and its data effect listed `[options]` as its dependency. `ReportsPage`
+    creates `{ days: range }` while rendering, so every render produced a new object; React compares dependencies with
+    `Object.is`, saw a change and re-ran the effect. Each response then called `setState`, which re-rendered the page, which
+    created another object: an endless fetch loop.
+
+    The effect only needs the number of days, so it must depend on that primitive: read `options.days` into a variable and use
+    `[range]`.

@@ -17,6 +17,7 @@ import { AchievementsCard } from '@/components/profile/achievements-card'
 import { SocialLinksForm } from '@/components/profile/social-links-form'
 import { PreferencesForm } from '@/components/profile/preferences-form'
 import { AppearanceSection } from '@/components/profile/appearance-section'
+import { KnowledgeCheckToggle } from '@/components/courses/knowledge-check-toggle'
 import { ResumeUpload } from '@/components/profile/resume-upload'
 import { BasicInfoForm } from './_components/basic-info-form'
 import {
@@ -202,6 +203,7 @@ export default async function SettingsProfilePage({
                 updateAction={updatePreferencesAction}
               />
               <AppearanceSection />
+              <KnowledgeCheckToggle />
             </>
           )}
         </div>

@@ -1,0 +1,8 @@
+lab_kind: debug
+app_range: "^1"
+seed: 4110
+blocks:
+  - block: re.dashboard@1.0.0
+  - block: re.perf.resize-listener-leak@1.0.0
+  - block: check.vitest-node@1.0.0
+  - block: ticket.ui-bug-report@1.0.0

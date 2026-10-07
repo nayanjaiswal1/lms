@@ -56,36 +56,33 @@ const (
 // per kind-herding-cookie.md §4 ("never trust payload as authoritative...
 // GitLab disables hooks that time out").
 func (s *Service) HandleWebhook(ctx context.Context, gitlabProjectID int64, eventType, eventUUID, token string, payload []byte) error {
-	team, err := s.repo.GetTeamByGitlabProjectID(ctx, gitlabProjectID)
+	candidates, err := s.repo.ListTeamsByGitlabProjectID(ctx, gitlabProjectID)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			// Not a project this installation provisioned (or the team row
-			// was since deleted) — nothing to verify against, nothing to record.
-			return nil
-		}
 		return fmt.Errorf("gitlab: handle webhook: resolve team: %w", err)
 	}
+	if len(candidates) == 0 {
+		// Not a project this installation provisioned (or the team row
+		// was since deleted) — nothing to verify against, nothing to record.
+		return nil
+	}
 
-	// Resolved through the team's own assignment, not just "the org's"
-	// installation — an org with multiple pool entries may have provisioned
-	// this specific project against a non-default one, and only that one's
-	// webhook secret will actually match what GitLab sent.
-	assignment, err := s.repo.GetAssignmentByID(ctx, team.AssignmentID)
-	if err != nil {
-		return fmt.Errorf("gitlab: handle webhook: get assignment: %w", err)
+	// Project ids are only unique per GitLab instance, so several orgs may
+	// share one: the team whose installation secret matches the token owns
+	// the event. Resolved through the team's own assignment — an org with
+	// multiple pool entries may have provisioned this project against a
+	// non-default installation.
+	var team *ProjectTeam
+	for i := range candidates {
+		ok, err := s.webhookTokenMatches(ctx, &candidates[i], token)
+		if err != nil {
+			return err
+		}
+		if ok {
+			team = &candidates[i]
+			break
+		}
 	}
-	inst, err := s.resolveInstallation(ctx, team.OrgID, assignment.InstallationID)
-	if err != nil {
-		return fmt.Errorf("gitlab: handle webhook: get installation: %w", err)
-	}
-	if inst.WebhookSecretEnc == nil {
-		return ErrInvalidWebhookToken
-	}
-	secret, err := s.vault.Decrypt(inst.WebhookSecretEnc)
-	if err != nil {
-		return fmt.Errorf("gitlab: handle webhook: decrypt webhook secret: %w", err)
-	}
-	if subtle.ConstantTimeCompare([]byte(token), secret) != 1 {
+	if team == nil {
 		return ErrInvalidWebhookToken
 	}
 
@@ -113,6 +110,27 @@ func (s *Service) HandleWebhook(ctx context.Context, gitlabProjectID int64, even
 	return nil
 }
 
+// webhookTokenMatches reports whether token equals the webhook secret of the
+// installation the team's project was provisioned against (constant time).
+func (s *Service) webhookTokenMatches(ctx context.Context, team *ProjectTeam, token string) (bool, error) {
+	assignment, err := s.repo.GetAssignmentByID(ctx, team.AssignmentID)
+	if err != nil {
+		return false, fmt.Errorf("gitlab: handle webhook: get assignment: %w", err)
+	}
+	inst, err := s.resolveInstallation(ctx, team.OrgID, assignment.InstallationID)
+	if err != nil {
+		return false, fmt.Errorf("gitlab: handle webhook: get installation: %w", err)
+	}
+	if inst.WebhookSecretEnc == nil {
+		return false, nil
+	}
+	secret, err := s.vault.Decrypt(inst.WebhookSecretEnc)
+	if err != nil {
+		return false, fmt.Errorf("gitlab: handle webhook: decrypt webhook secret: %w", err)
+	}
+	return subtle.ConstantTimeCompare([]byte(token), secret) == 1, nil
+}
+
 // IngestEvent is the gitlab.ingest_event job body: loads webhook event
 // eventID and dispatches by event_type per kind-herding-cookie.md §4's
 // table, marking the row dispatched/ignored/failed. MR/Pipeline/Issue
@@ -129,7 +147,7 @@ func (s *Service) IngestEvent(ctx context.Context, eventID string) error {
 		return s.repo.MarkWebhookEventStatus(ctx, eventID, WebhookEventIgnored, nil)
 	}
 
-	team, err := s.repo.GetTeamByGitlabProjectID(ctx, *event.ProjectID)
+	team, err := s.repo.GetTeamByOrgGitlabProjectID(ctx, event.OrgID, *event.ProjectID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			msg := "no project_teams row for this project_id"

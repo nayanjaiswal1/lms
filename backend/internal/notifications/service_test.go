@@ -3,6 +3,7 @@ package notifications_test
 import (
 	"context"
 	"fmt"
+	"github.com/mindforge/backend/internal/testdomain"
 	"os"
 	"testing"
 	"time"
@@ -42,7 +43,7 @@ func seedOrgAndUser(t *testing.T, pool *pgxpool.Pool) (orgID, userID string) {
 
 	err = pool.QueryRow(ctx,
 		`INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`,
-		fmt.Sprintf("notif-test-%s@example.com", suffix), "Notifications Test User",
+		fmt.Sprintf("notif-test-%s@"+testdomain.Domain, suffix), "Notifications Test User",
 	).Scan(&userID)
 	require.NoError(t, err)
 	t.Cleanup(func() { pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, userID) }) //nolint:errcheck

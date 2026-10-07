@@ -7,7 +7,7 @@ section_title: "Object-Oriented Python"
 section_position: 3
 section_group: Fundamentals
 title: "Polymorphism"
-position: 5
+position: 4
 estimated_minutes: 12
 source: [fifty-advanced-python-concepts/19.polymorphism.py, fifty-advanced-python-concepts/handbook/50_main_concepts_11_25.md]
 ---

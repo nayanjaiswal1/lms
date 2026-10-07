@@ -9,6 +9,7 @@ export interface AuthUser {
   avatar_url: string;
   platform_role: "super_admin" | "user";
   default_landing_page: string | null;
+  last_page: string | null;
 }
 
 export interface AuthMeResponse {

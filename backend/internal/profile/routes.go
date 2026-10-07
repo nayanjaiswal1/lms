@@ -30,6 +30,7 @@ func (ph *ProfileHandler) RegisterRoutes(r chi.Router) {
 	r.Get("/api/profile/me", ph.handler.HandleGetMyProfile)
 	r.Get("/api/profile/me/overview", ph.handler.HandleGetMyOverview)
 	r.Patch("/api/profile/me", ph.handler.HandleUpdateProfile)
+	r.Put("/api/profile/me/last-page", ph.handler.HandleSetLastPage)
 	r.Post("/api/profile/me/avatar", ph.handler.HandleUploadAvatar)
 	r.Delete("/api/profile/me/avatar", ph.handler.HandleDeleteAvatar)
 	r.Get("/api/profile/me/skills", ph.handler.HandleGetMySkills)

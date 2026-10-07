@@ -78,9 +78,12 @@ type Course struct {
 	// notes lesson can be marked complete). Instructors flip this on for
 	// courses where the free-form reflection doesn't fit (e.g. reference/skim
 	// material).
-	DisableReflection bool      `json:"disable_reflection"`
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
+	DisableReflection bool `json:"disable_reflection"`
+	// DisableKnowledgeCheck hides the embedded knowledge check on every notes
+	// lesson in this course and lifts its Mark Complete gate (UpdateProgress).
+	DisableKnowledgeCheck bool      `json:"disable_knowledge_check"`
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
 }
 
 // CourseReview is one student's star rating (1-5) for a course. A user may

@@ -2,6 +2,7 @@ package whatnow
 
 import (
 	"context"
+	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 	"time"
 
@@ -17,7 +18,7 @@ func seedUser(t *testing.T, ctx context.Context, pool *pgxpool.Pool) string {
 	t.Helper()
 	var userID string
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO users (email, name) VALUES ('shelf-user@example.com', 'Shelf User') RETURNING id`,
+		`INSERT INTO users (email, name) VALUES ('shelf-user@`+testdomain.Domain+`', 'Shelf User') RETURNING id`,
 	).Scan(&userID); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}

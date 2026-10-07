@@ -1,0 +1,103 @@
+kind: fault
+id: fa.mig.not-null-without-default
+version: 1.0.0
+stack: fastapi
+title: 'Deploy crashes only on production: the new NOT NULL column has no default'
+summary: A revision adds a NOT NULL column to the products table without a server default, which works on an empty database and fails as soon as the table has rows.
+category: migrations
+difficulty: intermediate
+skills:
+- alembic
+- data-migrations
+- expand-backfill-constrain
+requires:
+- cap:postgres
+- cap:alembic
+fault:
+  inject:
+    files:
+    - path: app/catalog/models.py
+      from: inject/models.py
+    - path: alembic/versions/f5b7c38d1e92_product_hs_code.py
+      from: inject/f5b7c38d1e92_product_hs_code.py
+  fix:
+    files:
+    - path: alembic/versions/f5b7c38d1e92_product_hs_code.py
+      from: fix/f5b7c38d1e92_product_hs_code.py
+    - path: tests/test_hs_code_migration.py
+      from: fix/tests/test_hs_code_migration.py
+  cheats:
+  - name: nullable-column-in-the-migration
+    files:
+    - path: alembic/versions/f5b7c38d1e92_product_hs_code.py
+      from: cheats/f5b7c38d1e92_nullable_column.py
+  - name: revert-the-commit
+    files:
+    - path: alembic/versions/f5b7c38d1e92_product_hs_code.py
+      from: fix/f5b7c38d1e92_product_hs_code.py
+    - path: app/ext/customs_export.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: customs-export
+    files:
+    - path: app/ext/customs_export.py
+      from: carrier/app/ext/customs_export.py
+  commit:
+    message: 'catalog: store the HS code of every product and add the staff customs export'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.migrate-from-snapshot
+    role: symptom
+    params:
+      steps:
+      - db: clean
+        timeout: 90
+        cmd: . scripts/dev-env.sh && python3 -m alembic upgrade e4a6f27c0d81 && psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -c "INSERT
+          INTO products (sku, name, category, price_cents) SELECT 'OLD-' || g, 'Old product ' || g, 'misc', 100 FROM generate_series(1, 3) g" && python3
+          -m alembic upgrade head
+        expect_rc: 0
+        post_sql:
+        - sql: SELECT count(*) FROM products WHERE hs_code IS NULL
+          equals: 0
+        - sql: SELECT count(*) FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'hs_code' AND is_nullable = 'NO'
+          equals: 1
+      - db: clean
+        timeout: 90
+        cmd: . scripts/dev-env.sh && python3 -m alembic upgrade head
+        expect_rc: 0
+  symptom:
+    vars:
+      title: 'Release failed on production but worked in staging: migration error on products'
+      report: Last night's release rolled back. The migration that adds the customs HS code to products ran fine on every developer machine and in the
+        freshly created staging database, but on production it aborted and left the deployment half finished. Production has years of products.
+      output: |-
+        sqlalchemy.exc.IntegrityError: (psycopg.errors.NotNullViolation) column "hs_code" of relation "products" contains null values
+        [SQL: ALTER TABLE products ADD COLUMN hs_code VARCHAR(12) NOT NULL]
+      impact: The release is blocked and production is on the previous version. Customs needs the HS code export before the shipment on Friday.
+      support_tried: Re-ran the migration against a fresh copy of production (same error). Staging was rebuilt from scratch two weeks ago and holds no
+        products, which is why it passed there.
+      observations: |-
+        ### Other observations from the reporter
+
+        - The model declares a default for the column, but the migration is what runs in production.
+        - A developer suggested truncating the products table on the copy to make it pass.
+        - The staff customs export endpoint shipped in the same release.
+    signature: column "hs_code" of relation "products" contains null values
+  hints:
+  - 'Compare the data the migration ran on in staging with the data on production. Reproduce it yourself: upgrade a scratch database to the revision before this one (`alembic upgrade e4a6f27c0d81`), insert a few products, then upgrade to head and read the actual error.'
+  - PostgreSQL cannot add a NOT NULL column to a table that already has rows unless every existing row gets a value. Look at what the migration gives the existing rows compared with what the model declares.
+  - Give the column a `server_default` in the migration (matching the model), or add it nullable, backfill, and then set NOT NULL. Test the upgrade on a database that already has products, not only on an empty one.
+  rubric:
+    key_points:
+    - Explains why the migration passes on an empty database and fails on a table with rows (NOT NULL without a value for existing rows).
+    - Fixes the migration itself (server default, or expand, backfill, constrain) and keeps the column NOT NULL, consistent with the model.
+    - Reproduces the failure from a populated snapshot rather than guessing.
+    - Adds a test that upgrades a populated database and fails on the original revision.
+    misconceptions:
+    - Making the column nullable or truncating the table makes the deploy pass (it changes the contract or destroys data).
+    - Testing migrations on an empty database is enough.
+    - The model default is applied to existing rows by the migration.
+  root_cause: |-
+    The revision added `hs_code` with `nullable=False` and no `server_default`. On an empty table that is fine. On a table with rows PostgreSQL has no value for the existing rows and aborts with a NOT NULL violation. The model declared a Python/`server_default`, but the migration is what runs in production, and it never carried the default.
+
+    The fix gives the column a `server_default` in the migration (the model already declares the same one), so existing rows get a value and the column stays NOT NULL. Expand, backfill and constrain in three steps is the alternative when no single default is right.

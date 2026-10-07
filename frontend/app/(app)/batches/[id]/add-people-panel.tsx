@@ -1,5 +1,6 @@
 "use client";
 
+import { PLACEHOLDER_DOMAIN } from "@/lib/constants";
 import * as React from "react";
 import { ArrowLeft, History, Plus, Search, UserPlus } from "lucide-react";
 import { parseAsBoolean, parseAsStringEnum, useQueryState } from "nuqs";
@@ -22,7 +23,7 @@ const VIEWS = ["people", "history"] as const;
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 // parseNewInviteQuery pulls a name + email out of one free-typed line, e.g.
-// "Ravi Kumar ravi@example.com" or just "ravi@example.com" (name falls back
+// "Ravi Kumar ravi@domain" or just "ravi@domain" (name falls back
 // to the email's local part). Returns null when the text has no email at all.
 function parseNewInviteQuery(query: string): { fullName: string; email: string } | null {
   const tokens = query.trim().split(/[\s,]+/).filter(Boolean);
@@ -205,9 +206,9 @@ export function AddPeoplePanel({ batchId, orgMembers, currentMemberIds, currentM
             <div className="relative flex-1 min-w-0">
               <Search aria-hidden className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
               <Input
-                aria-label="Search org members by name or email, or type 'Name email@example.com' to invite someone new"
+                aria-label={`Search org members by name or email, or type 'Name email@${PLACEHOLDER_DOMAIN}' to invite someone new`}
                 className="pl-9"
-                placeholder="Search, or type “Name email@example.com” to invite someone new…"
+                placeholder={`Search, or type “Name email@${PLACEHOLDER_DOMAIN}” to invite someone new…`}
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}

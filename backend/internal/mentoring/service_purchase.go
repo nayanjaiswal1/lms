@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -192,11 +193,11 @@ func (s *Service) completeZeroTotalCheckout(ctx context.Context, purchase Purcha
 	if err != nil {
 		return courses.CheckoutSession{}, fmt.Errorf("mentoring: zero-total payload: %w", err)
 	}
-	eventRowID, inserted, err := s.repo.InsertPaymentEvent(ctx, purchase.Provider, eventID, "zero_total", purchase.ProviderRef, &purchase.ID, payload)
+	eventRowID, shouldProcess, err := s.repo.InsertPaymentEvent(ctx, purchase.Provider, eventID, "zero_total", purchase.ProviderRef, &purchase.ID, payload)
 	if err != nil {
 		return courses.CheckoutSession{}, err
 	}
-	if inserted {
+	if shouldProcess {
 		if _, _, err := s.confirmPurchase(ctx, purchase, "", eventRowID); err != nil {
 			return courses.CheckoutSession{}, err
 		}
@@ -256,7 +257,7 @@ func (s *Service) Refund(ctx context.Context, orgID, purchaseID string) error {
 	if err != nil {
 		return err
 	}
-	if p.Status != PurchaseStatusCompleted {
+	if p.Status != PurchaseStatusCompleted && p.Status != PurchaseStatusRefunding {
 		return &clientErr{msg: "only a completed purchase can be refunded"}
 	}
 	if p.PaymentRef == nil || *p.PaymentRef == "" {
@@ -267,23 +268,88 @@ func (s *Service) Refund(ctx context.Context, orgID, purchaseID string) error {
 	if err != nil {
 		return err
 	}
+	// Persist the intent first: if we crash after the gateway refunds, the
+	// row is 'refunding' (retryable, and resolved by the charge.refunded
+	// webhook) rather than a refunded charge on a 'completed' purchase.
+	ok, err := s.repo.MarkPurchaseRefunding(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return &clientErr{msg: "only a completed purchase can be refunded"}
+	}
 	if err := provider.Refund(ctx, *p.PaymentRef, p.AmountCents); err != nil {
 		return err
 	}
 
+	return s.revokePurchase(ctx, p, "")
+}
+
+// revokePurchase marks a completed purchase refunded and revokes the
+// enrollment it granted, in one transaction; eventRowID (optional) is marked
+// processed in the same transaction. Shared by admin refunds and gateway
+// refund/dispute events.
+func (s *Service) revokePurchase(ctx context.Context, p Purchase, eventRowID string) error {
 	return s.repo.tx(ctx, func(tx pgx.Tx) error {
 		_, transitioned, err := s.repo.MarkPurchaseRefundedTx(ctx, tx, p.ID)
 		if err != nil {
 			return err
 		}
-		if !transitioned {
-			// Lost a race with another refund attempt on the same purchase —
-			// the gateway call above already succeeded (or the gateway itself
-			// will report the duplicate), so this is a safe no-op, not an error.
-			return nil
+		if transitioned {
+			if err := s.coursesRepo.RevokeEnrollmentTx(ctx, tx, p.UserID, p.CourseID); err != nil {
+				return err
+			}
+			if err := coupons.ReleaseTx(ctx, tx, p.ID); err != nil {
+				return err
+			}
 		}
-		return s.coursesRepo.RevokeEnrollmentTx(ctx, tx, p.UserID, p.CourseID)
+		// !transitioned: already refunded (lost a race or a duplicate
+		// notice) — safe no-op, but the event is still marked processed.
+		if eventRowID != "" {
+			return s.repo.MarkPaymentEventProcessedTx(ctx, tx, eventRowID, p.ID)
+		}
+		return nil
 	})
+}
+
+// handleReversal applies a gateway refund/dispute event: revoke the course
+// purchase matched by payment ref. A partial refund (AmountCents below the
+// price) leaves access in place. A payment ref matching no course purchase is
+// offered to the credit-pack confirmer, which claws back unspent credits.
+func (s *Service) handleReversal(ctx context.Context, providerName string, ev payments.Event, eventRowID string) error {
+	if ev.PaymentRef == "" {
+		return s.repo.MarkPaymentEventError(ctx, eventRowID, "reversal event without a payment reference")
+	}
+	p, err := s.repo.GetPurchaseByPaymentRef(ctx, providerName, ev.PaymentRef)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return s.reversePack(ctx, providerName, ev, eventRowID)
+		}
+		return s.failEvent(ctx, eventRowID, "lookup purchase for reversal: "+err.Error(), err)
+	}
+	if ev.AmountCents > 0 && ev.AmountCents < p.AmountCents {
+		return s.repo.MarkPaymentEventProcessed(ctx, eventRowID)
+	}
+	if err := s.revokePurchase(ctx, p, eventRowID); err != nil {
+		return s.failEvent(ctx, eventRowID, "revoke purchase: "+err.Error(), err)
+	}
+	return nil
+}
+
+// reversePack hands a refund/dispute that matched no course purchase to the
+// credit-pack confirmer; if that matches nothing either, it is flagged.
+func (s *Service) reversePack(ctx context.Context, providerName string, ev payments.Event, eventRowID string) error {
+	if s.packs != nil {
+		matched, err := s.packs.ReversePackPurchase(ctx, providerName, ev.PaymentRef, ev.AmountCents)
+		if err != nil {
+			return s.failEvent(ctx, eventRowID, "reverse credit pack: "+err.Error(), err)
+		}
+		if matched {
+			return s.repo.MarkPaymentEventProcessed(ctx, eventRowID)
+		}
+	}
+	slog.Error("mentoring: refund/dispute for unknown purchase", "provider", providerName, "payment_ref", ev.PaymentRef, "event_type", ev.Type)
+	return s.repo.MarkPaymentEventError(ctx, eventRowID, "no purchase for payment_ref")
 }
 
 // HandleWebhook authenticates and processes a single gateway delivery for
@@ -303,18 +369,23 @@ func (s *Service) HandleWebhook(ctx context.Context, providerName string, rawBod
 		return err
 	}
 
-	eventRowID, inserted, err := s.repo.InsertPaymentEvent(ctx, provider.Name(), ev.ID, ev.Type, ev.ProviderRef, nil, ev.Raw)
+	eventRowID, shouldProcess, err := s.repo.InsertPaymentEvent(ctx, provider.Name(), ev.ID, ev.Type, ev.ProviderRef, nil, ev.Raw)
 	if err != nil {
 		return err
 	}
-	if !inserted {
-		// A gateway redelivering an event we've already recorded is normal
-		// (Stripe retries for up to 72h) — not an error, just a no-op.
+	if !shouldProcess {
+		// A gateway redelivering an event we've already fully processed is
+		// normal (Stripe retries for up to 72h) — a no-op. An event whose
+		// earlier attempt failed is NOT skipped: it falls through and retries.
 		return nil
 	}
 
 	if ev.Status == payments.StatusIgnored {
 		return s.repo.MarkPaymentEventProcessed(ctx, eventRowID)
+	}
+
+	if ev.Status == payments.StatusRefunded {
+		return s.handleReversal(ctx, provider.Name(), ev, eventRowID)
 	}
 
 	p, err := s.repo.GetPurchaseByProviderRef(ctx, provider.Name(), ev.ProviderRef)
@@ -332,7 +403,14 @@ func (s *Service) HandleWebhook(ctx context.Context, providerName string, rawBod
 			if packErr != nil {
 				slog.Error("mentoring: session pack confirmation failed",
 					"provider", provider.Name(), "provider_ref", ev.ProviderRef, "err", packErr)
-				return s.repo.MarkPaymentEventError(ctx, eventRowID, "session pack confirmation failed: "+packErr.Error())
+				msg := "session pack confirmation failed: " + packErr.Error()
+				// A permanent failure (e.g. amount mismatch) is acked so the
+				// gateway stops; anything else returns non-2xx so it retries.
+				var perm interface{ Permanent() bool }
+				if errors.As(packErr, &perm) && perm.Permanent() {
+					return s.repo.MarkPaymentEventError(ctx, eventRowID, msg)
+				}
+				return s.failEvent(ctx, eventRowID, msg, packErr)
 			}
 			if matched {
 				return s.repo.MarkPaymentEventProcessed(ctx, eventRowID)
@@ -373,9 +451,20 @@ func (s *Service) HandleWebhook(ctx context.Context, providerName string, rawBod
 				"purchase_id", p.ID, "user_id", p.UserID, "course_id", p.CourseID, "payment_ref", ev.PaymentRef)
 			return s.repo.MarkPaymentEventError(ctx, eventRowID, "duplicate completed purchase for this user+course — refund required")
 		}
-		return err
+		return s.failEvent(ctx, eventRowID, "confirm purchase failed: "+err.Error(), err)
 	}
 	return nil
+}
+
+// failEvent logs and records a retryable failure on the event row (leaving it
+// unprocessed so redelivery or the sweep sees it) and returns cause so the
+// webhook answers non-2xx.
+func (s *Service) failEvent(ctx context.Context, eventRowID, msg string, cause error) error {
+	slog.Error("mentoring: payment event failed, awaiting retry", "event_row_id", eventRowID, "error", msg)
+	if recErr := s.repo.RecordPaymentEventFailure(ctx, eventRowID, msg); recErr != nil {
+		slog.Error("mentoring: could not record payment event failure", "event_row_id", eventRowID, "error", recErr)
+	}
+	return cause
 }
 
 // confirmPurchase runs every side effect of a confirmed payment in one
@@ -452,4 +541,39 @@ func (s *Service) confirmPurchase(ctx context.Context, p Purchase, paymentRef, e
 		return Purchase{}, false, err
 	}
 	return completed, transitioned, nil
+}
+
+// DefaultReconcileStaleAfter is how long a purchase may stay pending (or a
+// payment event unprocessed) before the reconciliation sweep alerts on it.
+// Callers may override it from env; it must exceed a gateway's normal
+// confirmation latency plus its first retry.
+const DefaultReconcileStaleAfter = 30 * time.Minute
+
+// ReconcilePayments is the sweep behind the webhook's retry-only recovery:
+// it logs an error-level alert for every purchase still pending, and every
+// payment event still unprocessed (with its recorded error), older than
+// staleAfter, and returns how many items it flagged. Alerts repeat each run
+// until an operator or a gateway redelivery resolves the item, which is the
+// point — a stuck payment must not go quiet. It cannot itself re-drive the
+// confirm: the providers expose no "fetch payment status" call, and the
+// stored event body cannot be re-authenticated without its signature headers.
+func (s *Service) ReconcilePayments(ctx context.Context, staleAfter time.Duration) (int, error) {
+	purchases, err := s.repo.ListStalePendingPurchases(ctx, staleAfter)
+	if err != nil {
+		return 0, err
+	}
+	for _, p := range purchases {
+		slog.ErrorContext(ctx, "payments reconcile: purchase pending past threshold",
+			"purchase_id", p.ID, "provider", p.Provider, "provider_ref", p.ProviderRef, "purchased_at", p.PurchasedAt)
+	}
+	events, err := s.repo.ListStuckPaymentEvents(ctx, staleAfter)
+	if err != nil {
+		return 0, err
+	}
+	for _, e := range events {
+		slog.ErrorContext(ctx, "payments reconcile: payment event unprocessed past threshold",
+			"event_row_id", e.ID, "provider", e.Provider, "event_id", e.EventID, "event_type", e.EventType,
+			"payment_event_error", e.Error, "received_at", e.ReceivedAt)
+	}
+	return len(purchases) + len(events), nil
 }

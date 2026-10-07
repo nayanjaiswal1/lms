@@ -29,7 +29,7 @@ Learn this sequence well enough to explain it out loud. Interviewers ask it dire
 6. Response         HTML → browser parses → more requests for CSS/JS/images
 ```
 
-DNS (Domain Name System) is the phone book of the internet: it turns a name like "example.com" into a numeric address. TCP is the connection-setup handshake computers use before sending data. TLS is the layer that encrypts the connection, so nobody in between can read it.
+DNS (Domain Name System) is the phone book of the internet: it turns a name like "mindforge.test" into a numeric address. TCP is the connection-setup handshake computers use before sending data. TLS is the layer that encrypts the connection, so nobody in between can read it.
 
 Three facts that pay off in interviews.
 

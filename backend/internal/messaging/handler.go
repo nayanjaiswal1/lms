@@ -124,7 +124,7 @@ func (h *Handler) React(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
-	added, err := h.service.React(r.Context(), msgID, claims.UserID, body.Reaction)
+	added, err := h.service.React(r.Context(), claims.OrgID, msgID, claims.UserID, body.Reaction)
 	if err != nil {
 		writeDomainError(w, err)
 		return

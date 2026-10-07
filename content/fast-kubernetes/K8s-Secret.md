@@ -24,7 +24,7 @@ metadata:
   name: mysecret
 type: Opaque
 stringData:
-  db_server: db.example.com
+  db_server: db.mindforge.test
   db_username: admin
   db_password: P@ssw0rd!
 ```
@@ -125,14 +125,14 @@ spec:
 - Create new secret with imperative way:
 
 ``` 
-kubectl create secret generic mysecret2 --from-literal=db_server=db.example.com --from-literal=db_username=admin --from-literal=db_password=P@ssw0rd!
+kubectl create secret generic mysecret2 --from-literal=db_server=db.mindforge.test --from-literal=db_username=admin --from-literal=db_password=P@ssw0rd!
 ```   
 
 ![image](https://user-images.githubusercontent.com/10358317/153638556-50874231-7be3-4801-90d0-ae84f66c28e9.png)
 
 - Create new secret using files (avoid to see in the history command list).
 - Create file on the same directory before to run command (e.g. "touch server.txt"): 
-  - server.txt    => put into "db.example.com" with "cat" command
+  - server.txt    => put into "db.mindforge.test" with "cat" command
   - password.txt  => put into "password" with "cat" command
   - username.txt  => put into "admin" with "cat" command
 - Files: 

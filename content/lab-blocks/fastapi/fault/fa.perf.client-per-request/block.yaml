@@ -1,0 +1,122 @@
+kind: fault
+id: fa.perf.client-per-request
+version: 1.0.0
+stack: fastapi
+title: Every charge opens a brand-new connection to the payments provider
+summary: The payments client builds a fresh httpx client for each charge, so nothing is pooled or kept alive and every call pays for a new connection.
+category: performance
+difficulty: intermediate
+skills:
+- httpx
+- connection-pooling
+- keep-alive
+- resilience
+requires:
+- slot:payments.client.send
+- svc:payments-stub
+fault:
+  inject:
+    slots:
+    - slot: payments.client.send
+      value: |
+        async with httpx.AsyncClient(
+            base_url=self._settings.payments_base_url,
+            timeout=self._settings.payments_timeout_seconds,
+            transport=self._transport,
+        ) as http:
+            response = await http.post("/v1/charges", json=payload, headers=headers)
+  fix:
+    slots:
+    - slot: payments.client.send
+      value: |
+        response = await self._http.post("/v1/charges", json=payload, headers=headers)
+    files:
+    - path: tests/test_payments_client_reuse.py
+      from: fix/tests/test_payments_client_reuse.py
+  cheats:
+  - name: bigger-limits-per-request
+    slots:
+    - slot: payments.client.send
+      value: |
+        async with httpx.AsyncClient(
+            base_url=self._settings.payments_base_url,
+            timeout=self._settings.payments_timeout_seconds,
+            transport=self._transport,
+            limits=httpx.Limits(max_connections=1000, max_keepalive_connections=500),
+        ) as http:
+            response = await http.post("/v1/charges", json=payload, headers=headers)
+  - name: serialise-with-a-lock
+    slots:
+    - slot: payments.client.send
+      value: |
+        import asyncio
+
+        lock = self.__dict__.setdefault("_send_lock", asyncio.Lock())
+        async with lock:
+            async with httpx.AsyncClient(
+                base_url=self._settings.payments_base_url,
+                timeout=self._settings.payments_timeout_seconds,
+                transport=self._transport,
+            ) as http:
+                response = await http.post("/v1/charges", json=payload, headers=headers)
+  - name: revert-the-commit
+    slots:
+    - slot: payments.client.send
+      value: |
+        response = await self._http.post("/v1/charges", json=payload, headers=headers)
+    files:
+    - path: app/ext/order_timeline.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: order-timeline
+    files:
+    - path: app/ext/order_timeline.py
+      from: carrier/app/ext/order_timeline.py
+  commit:
+    message: 'payments: isolate every charge in its own client, plus the order timeline (placed, paid, refunded) endpoint'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fa_perf_client_reuse/test_payments_client_reuse.py
+  symptom:
+    vars:
+      title: 'Paying is slower than it should be and the provider sees a new connection for every charge'
+      report: |-
+        Pay requests spend noticeably more time than the provider's own latency, and the gap grows under load. The payments provider's account
+        manager asked us why we open a new connection for every single charge instead of reusing one, and our hosts show thousands of sockets
+        in TIME_WAIT after a busy hour. Charges themselves succeed.
+      where: |-
+        `POST /api/v1/orders/{id}/pay`, specifically the call from the API to the payments provider.
+      expected: |-
+        The API should keep a small pool of warm connections to the provider and reuse them across charges.
+      support_tried: |-
+        Raised the provider timeout (no change in the connection count). Asked ops to widen the ephemeral port range (it only delayed the
+        sockets running out).
+      observations: |-
+        ### Other observations from the reporter
+
+        - The provider's status page lists connection rate, which tracks our charge rate one to one.
+        - There is a short window right after startup where it looked fine, but there is no warm-up in the code.
+        - Retries on a failed charge also open fresh connections.
+    signature: one new connection per charge, no keep-alive reuse
+  hints:
+  - Count how often a client is built. Add a counter (or a log line) around `httpx.AsyncClient(...)` and call the pay path several times. Is the count one for the process, or one per charge? An `async with httpx.AsyncClient()` inside a function closes its connections when the block ends.
+  - 'An httpx client owns a connection pool with keep-alive. It is meant to be created once and shared (here it is already built at startup and stored in `self._http`). Creating a client per call throws the pool away every time, so every call pays for connection setup (and TLS in production).'
+  - In `PaymentsClient.charge` (`app/payments/client.py`) send through the shared `self._http` and remove the per-call client. Raising limits or serialising calls with a lock does not help. Add a test that makes several charges and asserts that only one client was ever built.
+  rubric:
+    key_points:
+    - Identifies that a new httpx.AsyncClient per call discards connection pooling and keep-alive, so each charge opens a new connection.
+    - Reuses the single long-lived client created at startup (and closed on shutdown) for all charges, including retries.
+    - Explains why the cost is invisible on localhost but real against a remote TLS provider.
+    - Adds a test that fails on the original code by counting built clients across several charges.
+    misconceptions:
+    - Bigger connection limits on a per-request client help (the pool is still discarded after each call).
+    - A lock or a semaphore around the call fixes it (it serialises requests and still opens a new connection each time).
+    - Raising the timeout or the retry count is the fix.
+  root_cause: |-
+    `PaymentsClient.charge` wrapped each request in its own `async with httpx.AsyncClient(...)`. A client owns the connection pool; closing it at the end of the block closed the connections, so every charge (and every retry) paid for a new TCP and TLS handshake and left a socket in TIME_WAIT. Nothing could be kept alive between calls.
+
+    The fix sends through the single shared client (`self._http`) that the application creates at startup and closes at shutdown. Its pool keeps connections warm, so repeated charges reuse them.

@@ -120,7 +120,7 @@ type HistoryCommit struct {
 
 // AppSection is the kind=app payload description.
 type AppSection struct {
-	Language  string          `yaml:"language" json:"language"` // python | js — picks the literal escaper family
+	Language  string          `yaml:"language" json:"language"` // python | js | fullstack (python backend + js frontend) — picks the literal escaper family
 	Slots     []SlotDecl      `yaml:"slots" json:"slots"`
 	History   []HistoryCommit `yaml:"history" json:"history"`
 	Noise     []HistoryCommit `yaml:"noise" json:"noise,omitempty"`
@@ -277,8 +277,9 @@ type EnvSection struct {
 	MissingVar string   `yaml:"missing_var" json:"missing_var,omitempty"`
 }
 
-// Probe kinds (docs/debug-labs.md §B1 check row): P/Q/C/M/L/H/T.
-var ProbeKinds = []string{"P", "Q", "C", "M", "L", "H", "T"}
+// Probe kinds (docs/debug-labs.md §B1 check row): P/Q/C/M/L/H/T, plus J (hidden
+// vitest tests for React labs).
+var ProbeKinds = []string{"P", "Q", "C", "M", "L", "H", "T", "J"}
 
 // CheckSection is the kind=check description: a root-owned grader probe.
 type CheckSection struct {

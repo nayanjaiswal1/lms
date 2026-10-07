@@ -123,17 +123,17 @@ The browser sends an `Origin` header; the server replies with `Access-Control-Al
 
 ```
 OPTIONS /api/users HTTP/1.1
-Origin: https://app.example.com
+Origin: https://app.mindforge.test
 Access-Control-Request-Method: POST
 
 HTTP/1.1 204 No Content
-Access-Control-Allow-Origin: https://app.example.com
+Access-Control-Allow-Origin: https://app.mindforge.test
 Access-Control-Allow-Methods: GET, POST, PUT, DELETE
 Access-Control-Allow-Credentials: true
 ```
 
 ```tsx
-fetch("https://api.example.com/me", { credentials: "include" }); // sends cookies cross-origin
+fetch("https://api.mindforge.test/me", { credentials: "include" }); // sends cookies cross-origin
 ```
 
 `Access-Control-Allow-Origin: *` can never be combined with `Access-Control-Allow-Credentials: true`. If cookies need to cross an origin, the server must echo back the exact requesting origin, never a wildcard.

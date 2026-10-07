@@ -253,7 +253,7 @@ spec:
 #### Label
 - Label is important to reach the K8s objects with key:value pairs.
 - key:value is used for labels. E.g. tier:frontend, stage:test, name:app1, team:development
-- prefix may also be used for optional with key:value. E.g. example.com/tier:front-end, kubernetes.io/ , k8s.io/
+- prefix may also be used for optional with key:value. E.g. mindforge.test/tier:front-end, kubernetes.io/ , k8s.io/
 - In the file (declerative way), labels are added under metadata. It is possible to add multiple labels. 
 
 ![image](https://user-images.githubusercontent.com/10358317/153675164-62265978-60c3-4167-ad0c-4bfbbf1f704b.png)
@@ -404,7 +404,7 @@ kubectl rollout resume deployment rolldeployment                            #res
     - **ClusterIP:** Exposes the Service on a cluster-internal IP. Choosing this value makes the Service only reachable from within the cluster. This is the default ServiceType.
     - **NodePort:** Exposes the Service on each Node's IP at a static port (the NodePort). A ClusterIP Service, to which the NodePort Service routes, is automatically created. You'll be able to contact the NodePort Service, from outside the cluster, by requesting <NodeIP>:<NodePort>.
     - **LoadBalancer:** Exposes the Service externally using a cloud provider's load balancer. NodePort and ClusterIP Services, to which the external load balancer routes, are automatically created.
-    - **ExternalName:** Maps the Service to the contents of the externalName field (e.g. foo.bar.example.com), by returning a CNAME record with its value. No proxying of any kind is set up." (Ref: Kubernetes.io)
+    - **ExternalName:** Maps the Service to the contents of the externalName field (e.g. foo.bar.mindforge.test), by returning a CNAME record with its value. No proxying of any kind is set up." (Ref: Kubernetes.io)
 - Example of Service Object Definition:  (Selector binds service to the related pods, get traffic from port 80 to port 9376) 
 ```yaml
 apiVersion: v1
@@ -532,7 +532,7 @@ spec:
 - Imperative way, run on the terminal (geneneric in the command = opaque): 
 
 ```shell
-kubectl create secret generic mysecret2 --from-literal=db_server=db.example.com --from-literal=db_username=admin --from-literal=db_password=P@ssw0rd!
+kubectl create secret generic mysecret2 --from-literal=db_server=db.mindforge.test --from-literal=db_username=admin --from-literal=db_password=P@ssw0rd!
 ```     
       
 - Imperative way with file to hide pass in the command history

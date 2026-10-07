@@ -164,6 +164,7 @@ func (r *Repo) UpsertConnection(ctx context.Context, orgID, userID, clientID str
 		   SET scopes = EXCLUDED.scopes,
 		       refresh_token_hash = EXCLUDED.refresh_token_hash,
 		       refresh_token_expires_at = EXCLUDED.refresh_token_expires_at,
+		       previous_refresh_token_hash = NULL,
 		       status = 'active',
 		       revoked_at = NULL
 		 RETURNING id`,
@@ -173,6 +174,22 @@ func (r *Repo) UpsertConnection(ctx context.Context, orgID, userID, clientID str
 		return "", fmt.Errorf("mcpconnect: upsert connection: %w", err)
 	}
 	return id, nil
+}
+
+// ActiveConnectionScopes returns the scopes a user currently grants a client,
+// or nil when there is no active connection.
+func (r *Repo) ActiveConnectionScopes(ctx context.Context, userID, clientID string) ([]string, error) {
+	var scopes []string
+	err := r.pool.QueryRow(ctx,
+		`SELECT scopes FROM mcp_connections WHERE user_id = $1 AND client_id = $2 AND status = 'active'`,
+		userID, clientID).Scan(&scopes)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("mcpconnect: active connection scopes: %w", err)
+	}
+	return scopes, nil
 }
 
 // connectionRow is the shape shared by refresh-token and access-token lookups.
@@ -185,13 +202,23 @@ type connectionRow struct {
 	Status   string
 }
 
+// liveConnectionPredicate is appended to every connection lookup so a token
+// stops working the moment its user is suspended/deactivated or removed from
+// the connection's org, without waiting for expiry. conn is the
+// mcp_connections table alias.
+func liveConnectionPredicate(conn string) string {
+	return ` AND EXISTS (SELECT 1 FROM users u WHERE u.id = ` + conn + `.user_id AND u.status = 'active')
+	 AND EXISTS (SELECT 1 FROM org_members om WHERE om.org_id = ` + conn + `.org_id AND om.user_id = ` + conn + `.user_id AND om.status = 'active')`
+}
+
 // GetConnectionByRefreshHash resolves a presented refresh token (already
 // hashed by the caller) to its connection, only when active and unexpired.
 func (r *Repo) GetConnectionByRefreshHash(ctx context.Context, hash string) (connectionRow, error) {
 	var c connectionRow
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, org_id, user_id, client_id, scopes, status FROM mcp_connections
-		 WHERE refresh_token_hash = $1 AND status = 'active' AND refresh_token_expires_at > now()`,
+		 WHERE refresh_token_hash = $1 AND status = 'active' AND refresh_token_expires_at > now()`+
+			liveConnectionPredicate("mcp_connections"),
 		hash,
 	).Scan(&c.ID, &c.OrgID, &c.UserID, &c.ClientID, &c.Scopes, &c.Status)
 	if err != nil {
@@ -203,18 +230,40 @@ func (r *Repo) GetConnectionByRefreshHash(ctx context.Context, hash string) (con
 	return c, nil
 }
 
-// RotateRefreshToken replaces a connection's refresh token hash — called on
-// every refresh_token grant (rotation-on-use) so a stolen-but-unused refresh
-// token stops working the moment the legitimate client refreshes.
-func (r *Repo) RotateRefreshToken(ctx context.Context, connectionID, newHash string, newExpiresAt time.Time) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE mcp_connections SET refresh_token_hash = $2, refresh_token_expires_at = $3 WHERE id = $1`,
-		connectionID, newHash, newExpiresAt,
+// RotateRefreshToken swaps oldHash for newHash on a connection, keeping oldHash
+// as previous_refresh_token_hash for reuse detection. It is a compare-and-set
+// on the current hash: of two concurrent refreshes with the same token only one
+// wins; the loser gets ErrInvalidGrant.
+func (r *Repo) RotateRefreshToken(ctx context.Context, connectionID, oldHash, newHash string, newExpiresAt time.Time) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE mcp_connections
+		 SET previous_refresh_token_hash = refresh_token_hash,
+		     refresh_token_hash = $3,
+		     refresh_token_expires_at = $4
+		 WHERE id = $1 AND refresh_token_hash = $2 AND status = 'active'`,
+		connectionID, oldHash, newHash, newExpiresAt,
 	)
 	if err != nil {
 		return fmt.Errorf("mcpconnect: rotate refresh token: %w", err)
 	}
+	if tag.RowsAffected() == 0 {
+		return ErrInvalidGrant
+	}
 	return nil
+}
+
+// RevokeOnRefreshReuse revokes the connection whose previous refresh token is
+// hash — a rotated-out token being replayed — and reports whether one was found.
+func (r *Repo) RevokeOnRefreshReuse(ctx context.Context, hash string) (bool, error) {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE mcp_connections SET status = 'revoked', revoked_at = now()
+		 WHERE previous_refresh_token_hash = $1 AND status = 'active'`,
+		hash,
+	)
+	if err != nil {
+		return false, fmt.Errorf("mcpconnect: revoke on refresh reuse: %w", err)
+	}
+	return tag.RowsAffected() > 0, nil
 }
 
 // InsertAccessToken mints a short-lived bearer token for a connection in auth_tokens
@@ -268,7 +317,8 @@ func (r *Repo) GetConnectionByAccessHash(ctx context.Context, hash string) (conn
 	var c connectionRow
 	err = r.pool.QueryRow(ctx,
 		`SELECT id, org_id, user_id, client_id, scopes, status
-		 FROM mcp_connections WHERE id = $1 AND status = 'active'`,
+		 FROM mcp_connections WHERE id = $1 AND status = 'active'`+
+			liveConnectionPredicate("mcp_connections"),
 		payload.ConnectionID,
 	).Scan(&c.ID, &c.OrgID, &c.UserID, &c.ClientID, &c.Scopes, &c.Status)
 	if err != nil {

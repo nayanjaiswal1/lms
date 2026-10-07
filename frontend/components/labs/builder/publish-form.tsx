@@ -49,7 +49,7 @@ export function PublishForm({ buildId, courseId, courseSlug, sectionOptions, def
 
   return (
     <Form {...form}>
-      <form className="form-stack" onSubmit={form.handleSubmit(onSubmit)}>
+      <form className="form-stack max-w-md" onSubmit={form.handleSubmit(onSubmit)}>
         <FormSelectField control={form.control} label="Section" name="sectionId" options={sectionOptions} placeholder="Choose a section" />
         <FormSwitchField
           control={form.control}

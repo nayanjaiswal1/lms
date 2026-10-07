@@ -30,7 +30,7 @@ func newGeminiProvider(apiKey, model, baseURL string) *GeminiProvider {
 		apiKey:  apiKey,
 		model:   model,
 		baseURL: strings.TrimRight(baseURL, "/"),
-		client:  &http.Client{},
+		client:  &http.Client{Timeout: llmHTTPTimeout},
 	}
 }
 

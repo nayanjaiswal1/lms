@@ -8,6 +8,8 @@ const (
 	HandlerBulkInvite          = "invite.bulk"
 	HandlerLLM                 = jobs.HandlerLLM
 	HandlerAnalytics           = "analytics.task"
+	HandlerRetentionPurge      = "retention.purge"
+	HandlerPaymentReconcile    = "payments.reconcile"
 	HandlerMentorEscalate      = "mentoring.escalate_tickets"
 	HandlerCalendarReminder    = "calendar.reminder"
 	HandlerBatchImport         = "batch_import.students"

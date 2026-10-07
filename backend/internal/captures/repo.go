@@ -238,7 +238,7 @@ func (r *Repo) LinkPromoted(ctx context.Context, userID, id, journalEntryID, srs
 // user captured just disappears without a trace.
 func (r *Repo) Dismiss(ctx context.Context, userID, id string) error {
 	tag, err := r.pool.Exec(ctx,
-		`UPDATE captures SET status = $3 WHERE id = $1 AND user_id = $2`,
+		`UPDATE captures SET status = $3, storage_key = NULL WHERE id = $1 AND user_id = $2`,
 		id, userID, StatusDismissed,
 	)
 	if err != nil {

@@ -1,4 +1,4 @@
-"""Generic probe library (kinds P/Q/C/M/L/H/T).
+"""Generic probe library (kinds P/Q/C/M/L/H/T/J).
 
 Root-owned, part of the image. A grader bundle only supplies JSON params for
 these kinds; it never ships probe code. `run_probe` converts any outcome into
@@ -12,10 +12,10 @@ import sys
 import traceback
 from typing import Any
 
-from . import c_concurrent, h_header, l_latency, m_migrate, p_http, q_query, t_test
+from . import c_concurrent, h_header, j_vitest, l_latency, m_migrate, p_http, q_query, t_test
 from .common import Context, ProbeFailure
 
-KINDS = {mod.KIND: mod for mod in (p_http, q_query, c_concurrent, m_migrate, l_latency, h_header, t_test)}
+KINDS = {mod.KIND: mod for mod in (p_http, q_query, c_concurrent, m_migrate, l_latency, h_header, t_test, j_vitest)}
 
 INFRA_MESSAGE = "The grader could not complete this check. Try again; if it persists, contact your instructor."
 

@@ -41,6 +41,7 @@ export const registerSchema = z
       .max(72, "Password must be 72 characters or fewer"),
     confirmPassword: z.string().min(1, "Confirm your password"),
     acceptTerms: z.boolean(),
+    ageDeclared: z.boolean(),
   })
   .refine(({ password, confirmPassword }) => password === confirmPassword, {
     message: "Passwords do not match",
@@ -49,6 +50,10 @@ export const registerSchema = z
   .refine(({ acceptTerms }) => acceptTerms === true, {
     message: "You must agree to the Terms of Service and Privacy Policy.",
     path: ["acceptTerms"],
+  })
+  .refine(({ ageDeclared }) => ageDeclared === true, {
+    message: "You must confirm that you are 18 years of age or older.",
+    path: ["ageDeclared"],
   });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
@@ -93,3 +98,27 @@ export const AUTH_COPY = {
   resetLinkSent: "If that email exists, a reset link was sent.",
   invalidResetToken: "This reset link is invalid or has expired.",
 } as const;
+
+// Second-factor entry: a 6-digit authenticator code or a recovery code
+// ("xxxxx-xxxxx"). The backend decides which; this only keeps it well-formed.
+export const mfaCodeSchema = z.object({
+  code: z.string().trim().min(6, "Enter your 6-digit code").max(16, "That code is too long"),
+});
+
+export type MfaCodeInput = z.infer<typeof mfaCodeSchema>;
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password"),
+    newPassword: z
+      .string()
+      .min(8, "Use at least 8 characters")
+      .max(72, "Password must be 72 characters or fewer"),
+    confirmPassword: z.string().min(1, "Confirm your new password"),
+  })
+  .refine(({ newPassword, confirmPassword }) => newPassword === confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

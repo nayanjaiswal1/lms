@@ -1,0 +1,148 @@
+kind: fault
+id: fa.async.session-leak-on-error
+version: 1.0.0
+stack: fastapi
+title: The API freezes after a handful of failed payments
+summary: The per-request session is only closed when the request ends without a server error, so every failed payment keeps its pooled connection and its row lock until the pool is empty and the whole API hangs.
+category: async
+difficulty: expert
+skills:
+- fastapi-dependencies
+- sqlalchemy
+- connection-pools
+- postgres-locks
+requires:
+- slot:db.session.dependency
+- cap:postgres
+fault:
+  chain:
+    after: fa.svc.retry-new-idempotency-key
+    mode: masks
+  inject:
+    slots:
+    - slot: db.session.dependency
+      value: |
+        from fastapi import HTTPException
+
+        live = getattr(request.app.state, "live_sessions", None)
+        if live is None:
+            live = request.app.state.live_sessions = set()
+        session = factory()
+        live.add(session)
+        try:
+            yield session
+        except HTTPException as exc:
+            # Server errors are re-raised untouched, so the error report still sees the session as the handler left it.
+            if exc.status_code < 500:
+                live.discard(session)
+                await session.close()
+            raise
+        live.discard(session)
+        await session.close()
+  fix:
+    slots:
+    - slot: db.session.dependency
+      value: |
+        async with factory() as session:
+            yield session
+    files:
+    - path: tests/test_session_release.py
+      from: fix/tests/test_session_release.py
+  cheats:
+  - name: bigger-pool
+    files:
+    - path: app/config.py
+      from: cheats/bigger_pool_config.py
+    slots:
+    - slot: db.session.dependency
+      value: |
+        from fastapi import HTTPException
+
+        live = getattr(request.app.state, "live_sessions", None)
+        if live is None:
+            live = request.app.state.live_sessions = set()
+        session = factory()
+        live.add(session)
+        try:
+            yield session
+        except HTTPException as exc:
+            # Server errors are re-raised untouched, so the error report still sees the session as the handler left it.
+            if exc.status_code < 500:
+                live.discard(session)
+                await session.close()
+            raise
+        live.discard(session)
+        await session.close()
+  - name: close-it-later
+    slots:
+    - slot: db.session.dependency
+      value: |
+        import asyncio
+
+        session = factory()
+        try:
+            yield session
+        finally:
+            asyncio.get_running_loop().call_later(5, lambda: asyncio.ensure_future(session.close()))
+  - name: revert-the-commit
+    slots:
+    - slot: db.session.dependency
+      value: |
+        async with factory() as session:
+            yield session
+    files:
+    - path: app/ext/stock_alerts.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: stock-alerts
+    files:
+    - path: app/ext/stock_alerts.py
+      from: carrier/app/ext/stock_alerts.py
+  commit:
+    message: 'db: track open request sessions and add the staff stock alerts endpoint'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fa_async_4/test_session_release.py
+  symptom:
+    vars:
+      title: 'The whole API stops answering a few minutes after payments start failing'
+      report: |-
+        When the payments provider returns errors, a handful of failed payments later the entire API stops answering: product pages, login, everything
+        that touches the database. The requests that hang end with a 500 after about three seconds, and the app log shows pool timeouts. Restarting the
+        API fixes it until the next provider error burst. Customers who retry the same order get no answer at all.
+      where: |-
+        Every endpoint that needs a database session, after a few failed `POST /api/v1/orders/{id}/pay` calls (502 or 504).
+      expected: |-
+        A failed payment must end like any other request: its connection goes back to the pool and its row lock is released, so the next request
+        (including a retry of the same order) works.
+      support_tried: |-
+        Ops raised the database connection limit; it only delayed the freeze. PostgreSQL shows connections that are `idle in transaction`, some of them holding a lock on an order row.
+      observations: |-
+        ### Other observations from the reporter
+
+        - The count of stuck connections equals the number of failed payments since the last restart, up to the pool size (5).
+        - Payments that succeed never leave anything behind. Requests that answer 4xx are fine.
+        - The staff stock alerts endpoint went out in the same release; it is read-only.
+    signature: QueuePool limit reached, connection timed out after failed payments
+  hints:
+  - Look at the database while the API is frozen (`pg_stat_activity`, and `/__speed` for the pool numbers). Connections that stay `idle in transaction` after a request has finished mean a session that nobody closed.
+  - Compare `get_session` with what FastAPI does when the endpoint raises (an `HTTPException` is thrown into the dependency at the `yield`). Which code paths reach the lines after the `yield`? Check each exit - success, 4xx, 5xx, other exceptions.
+  - Cleanup after a `yield` belongs in `finally` or in an `async with` that owns the session, never on the success path only. Fix the dependency, then add a test that makes a payment fail and asserts the pool has no checked-out connection afterwards.
+  rubric:
+    key_points:
+    - Identifies that the session is closed only on some exits of the dependency, so a failed payment (5xx) leaves a connection checked out with an open transaction and its FOR UPDATE row lock.
+    - Explains why the API freezes after pool_size failures - every later request waits for a pool connection (pool_timeout), and a retry of the same order waits on the held row lock.
+    - Fixes it with async with / try-finally so cleanup runs for every exit, including exceptions thrown into the dependency.
+    - Adds a test that fails a payment and asserts that no connection stays checked out and no transaction stays open.
+    misconceptions:
+    - Raising the pool size or the database connection limit fixes it (it only delays the freeze).
+    - Garbage collection will close the session eventually (the session is still referenced, and a connection waiting for the collector is not available to anyone meanwhile).
+    - Wrapping the endpoint in asyncio.wait_for fixes it (the leaked session is not released by a timeout).
+  root_cause: |-
+    The session dependency only closed the session when the request left the `yield` normally or with a client error. A server error (the 502 and 504 of a failed payment) was re-raised before the close, so the session kept its pooled connection, its open transaction and the `FOR UPDATE` lock on the order row. After `pool_size` (5) failed payments the pool was empty: every request waited `pool_timeout` seconds and failed, and a retry of a locked order waited on the lock forever.
+
+    The fix lets an `async with factory() as session:` own the session. Its exit runs for every outcome - normal return, `HTTPException` or any other exception thrown in at the `yield` - closes the session and rolls back the open transaction. Cleanup after a `yield` must never depend on the way the request ended.

@@ -16,6 +16,7 @@ exec /opt/openvscode-server/bin/openvscode-server \
   --host 0.0.0.0 \
   --port 3000 \
   --connection-token-file "$TOKEN_FILE" \
+  --default-folder /home/labuser/work \
   --extensions-dir /opt/ide/extensions \
   --user-data-dir /opt/ide/data \
   --disable-telemetry \

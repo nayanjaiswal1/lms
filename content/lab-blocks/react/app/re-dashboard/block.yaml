@@ -1,0 +1,127 @@
+kind: app
+id: re.dashboard
+version: 1.0.0
+stack: react
+title: Ops Console (React dashboard)
+summary: A support team's internal console on React 19 and Vite - orders with an optimistic flag, customer search and editor, order notes, revenue reports and shared settings - tested with vitest in jsdom.
+category: app
+skills:
+- react
+- hooks
+- vitest
+- vite
+provides:
+- cap:vitest
+- cap:jsdom
+- cap:vite-dev
+budget:
+  setup_seconds: 3
+  workspace_bytes: 90000
+  grader_bytes: 60000
+app:
+  language: js
+  slots:
+  - name: customers.editor.form
+    type: region
+    description: The customer form element inside the editor (identity and reset behavior when another customer is selected).
+  - name: customers.search.effect
+    type: region
+    description: 'Search effect of the customer typeahead: empty-query reset, request, cancellation, result handling.'
+  - name: format.date.parse
+    type: region
+    description: parseDay, the conversion of a calendar day string such as 2025-03-05 into a Date.
+  - name: hooks.elapsed.tick
+    type: region
+    description: The interval callback of useElapsedSeconds (the counter update).
+  - name: hooks.viewport.subscribe
+    type: region
+    description: Subscription of useViewportWidth to window resize events, including its cleanup.
+  - name: lib.api.base-url
+    type: region
+    description: The API base URL, read from the Vite build-time environment.
+  - name: lib.api.check-status
+    type: region
+    description: The HTTP status check of the API client (what makes a response an error).
+  - name: notes.panel.rows
+    type: region
+    description: The note rows rendered by the notes panel (list identity).
+  - name: orders.flag.toggle
+    type: region
+    description: The optimistic flag toggle of one order row (state update, request, failure handling).
+  - name: orders.hook.effect
+    type: region
+    description: The data effect of useOrders (request, ignore-after-unmount flag, dependencies).
+  - name: reports.hook.effect
+    type: region
+    description: The data effect of useRevenue (reads the range from its options, dependencies).
+  - name: settings.provider.value
+    type: region
+    description: The value object shared through the settings context.
+  history:
+  - message: 'orders: paged order list with status filter, refresh badge and optimistic flags'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+    feature: orders
+    paths:
+    - orders
+  - message: 'customers: search customers and edit their name and email'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+    feature: customers
+    paths:
+    - customers
+  - message: 'notes: internal notes per order with inline editing'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+    feature: notes
+    paths:
+    - notes
+  - message: 'reports: revenue per day with range selector'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+    feature: reports
+    paths:
+    - reports
+  - message: 'settings: currency and table density preferences'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+    feature: settings
+    paths:
+    - settings
+  noise:
+  - message: 'docs: describe the project layout in the README'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+    paths:
+    - docs-readme
+  - message: 'style: tighten the page spacing'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+    paths:
+    - css-tweaks
+  - message: 'chore: declare the supported Node version'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+    paths:
+    - node-engine
+  - message: 'chore: ignore coverage output'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+    paths:
+    - gitignore-coverage
+  ports:
+  - 5173
+  protected:
+  - vitest.config.js
+  - vite.config.js
+  - tests/smoke.test.jsx
+  - server/*
+  - index.html
+  features:
+  - orders
+  - customers
+  - notes
+  - reports
+  - settings
+  - order-csv
+  - order-total
+  - flagged-count
+  - status-breakdown
+  - top-customer
+  setup:
+  - bash scripts/bootstrap.sh
+  readiness_path: /
+  test_globs:
+  - tests/*
+  - src/*.test.*

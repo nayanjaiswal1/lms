@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -21,6 +22,37 @@ type DockerContainerService struct {
 	// normal --cap-drop ALL / no-new-privileges / no added capabilities
 	// config.
 	profiles map[string]ImageProfile
+	limits   RuntimeLimits
+	network  NetworkPolicy
+}
+
+// RuntimeLimits are the per-container resource caps every lab container gets
+// on top of --cpus/--memory (audit H-12). Zero PidsLimit falls back to
+// DefaultContainerPidsLimit; an ImageProfile.PidsLimit overrides it per image.
+type RuntimeLimits struct {
+	PidsLimit int
+}
+
+// NetworkPolicy decides how lab containers are networked (audit H-13).
+// Docker's inter-container-connectivity switch cannot be used on the shared
+// bridge because labproxy is itself a container on it, so isolation is done
+// with one network per session instead: the session container is the only
+// member besides labproxy.
+type NetworkPolicy struct {
+	// PerSession gives every non-profile-networked container its own network
+	// (named after the container) and attaches ProxyContainer to it.
+	PerSession bool
+	// Internal creates those networks with --internal: no egress at all.
+	Internal bool
+	// ProxyContainer is the labproxy container joined to each session network.
+	ProxyContainer string
+}
+
+// SetHardening applies resource limits and network policy. Separate from the
+// constructor so existing callers (coursegen) keep the default shared-bridge
+// behaviour.
+func (c *DockerContainerService) SetHardening(l RuntimeLimits, n NetworkPolicy) {
+	c.limits, c.network = l, n
 }
 
 // NewDockerContainerService returns a DockerContainerService backed by the
@@ -66,10 +98,10 @@ func (c *DockerContainerService) StartValidation(ctx context.Context, id string,
 // that decides whether a container is elevated, so it gets its own tests
 // asserting standard-profile output is untouched and each DockerMechanism
 // has exactly the documented flags (see docs/labs.md "Nested Docker labs").
-// privileged is only ever true for the startNamed retry described there —
-// the initial attempt for every "rootless-dind" image is always
-// privileged=false.
-func (c *DockerContainerService) buildRunArgs(name, image string, privileged bool) []string {
+// --privileged is never emitted (audit H-11): a start that the scoped
+// capability set cannot satisfy fails closed instead of being retried with
+// every capability.
+func (c *DockerContainerService) buildRunArgs(name, image string) []string {
 	profile := c.Classify(image)
 
 	cpu := profile.CPU
@@ -80,12 +112,24 @@ func (c *DockerContainerService) buildRunArgs(name, image string, privileged boo
 	if memMB == 0 {
 		memMB = ContainerMemoryMB
 	}
-	network := profile.Network
-	if network == "" {
-		network = "mindforge-labs"
+	network := c.networkFor(name, profile)
+	pids := profile.PidsLimit
+	if pids == 0 {
+		pids = c.limits.PidsLimit
 	}
+	if pids == 0 {
+		pids = DefaultContainerPidsLimit
+	}
+	mem := fmt.Sprintf("%dm", memMB)
 
-	args := []string{"run", "-d", "--name", name, "--cpus", cpu, "--memory", fmt.Sprintf("%dm", memMB)}
+	// --memory-swap == --memory disables swap; pids/ulimits bound fork bombs
+	// and fd exhaustion. A read-only rootfs and --storage-opt size are NOT
+	// set: lab setup scripts install packages as root and storage-opt needs
+	// an xfs/pquota host (see docs/labs.md).
+	args := []string{"run", "-d", "--name", name, "--cpus", cpu, "--memory", mem, "--memory-swap", mem,
+		"--pids-limit", strconv.Itoa(pids),
+		"--ulimit", fmt.Sprintf("nofile=%d:%d", ContainerNofileLimit, ContainerNofileLimit),
+		"--ulimit", "core=0"}
 
 	switch profile.DockerMechanism {
 	case "sysbox-runc":
@@ -95,46 +139,36 @@ func (c *DockerContainerService) buildRunArgs(name, image string, privileged boo
 	case "rootless-dind":
 		// Nested Docker-in-Docker: this container is treated as potentially
 		// host-root (see docs/labs.md "Nested Docker labs" for the residual
-		// risk this does NOT eliminate). The scoped rootless-dind capability
-		// set below is the default, and the only thing a real Linux Docker
-		// Engine host ever needs; --privileged (see startNamed's retry) is
-		// only reached when the scoped set demonstrably failed to produce a
-		// running container.
-		if privileged {
-			// --cap-drop ALL is intentionally omitted: --privileged already
-			// grants every capability regardless, so pairing the two is
-			// only confusing, never more restrictive.
-			args = append(args, "--privileged")
-		} else {
-			// Verified interactively against mindforge/lab-docker (docker:*-
-			// dind-rootless): SYS_ADMIN + /dev/fuse alone is NOT enough.
-			// Rootless dockerd's startup calls newuidmap/newgidmap (setuid-
-			// root helpers) to build its user-namespace UID/GID map — those
-			// need real SETUID/SETGID capabilities, not just SYS_ADMIN, or
-			// they fail with "operation not permitted" even though
-			// --cap-drop ALL was already lifted for SYS_ADMIN. And
-			// rootlesskit's default vpnkit network driver creates a tap
-			// interface at startup, which needs /dev/net/tun — without it
-			// dockerd never reaches a running state (fails in rootlesskit's
-			// child setup, not a dockerd-level error). NET_ADMIN is separate
-			// from all of that: it's not needed to start the nested dockerd,
-			// only for the containers *it* then creates — libnetwork needs
-			// it to configure a new container's veth/sysctls (e.g. disabling
-			// IPv6 on eth0), and without it every `docker run` a student
-			// issues inside the lab fails at that step, not at dockerd
-			// startup.
-			args = append(args,
-				"--cap-drop", "ALL",
-				"--cap-add", "SYS_ADMIN",
-				"--cap-add", "SETUID",
-				"--cap-add", "SETGID",
-				"--cap-add", "NET_ADMIN",
-				"--device", "/dev/fuse",
-				"--device", "/dev/net/tun",
-				"--security-opt", "seccomp=unconfined",
-				"--security-opt", "apparmor=unconfined",
-			)
-		}
+		// risk this does NOT eliminate).
+		//
+		// Verified interactively against mindforge/lab-docker (docker:*-
+		// dind-rootless): SYS_ADMIN + /dev/fuse alone is NOT enough.
+		// Rootless dockerd's startup calls newuidmap/newgidmap (setuid-
+		// root helpers) to build its user-namespace UID/GID map — those
+		// need real SETUID/SETGID capabilities, not just SYS_ADMIN, or
+		// they fail with "operation not permitted" even though
+		// --cap-drop ALL was already lifted for SYS_ADMIN. And
+		// rootlesskit's default vpnkit network driver creates a tap
+		// interface at startup, which needs /dev/net/tun — without it
+		// dockerd never reaches a running state (fails in rootlesskit's
+		// child setup, not a dockerd-level error). NET_ADMIN is separate
+		// from all of that: it's not needed to start the nested dockerd,
+		// only for the containers *it* then creates — libnetwork needs
+		// it to configure a new container's veth/sysctls (e.g. disabling
+		// IPv6 on eth0), and without it every `docker run` a student
+		// issues inside the lab fails at that step, not at dockerd
+		// startup.
+		args = append(args,
+			"--cap-drop", "ALL",
+			"--cap-add", "SYS_ADMIN",
+			"--cap-add", "SETUID",
+			"--cap-add", "SETGID",
+			"--cap-add", "NET_ADMIN",
+			"--device", "/dev/fuse",
+			"--device", "/dev/net/tun",
+			"--security-opt", "seccomp=unconfined",
+			"--security-opt", "apparmor=unconfined",
+		)
 	default:
 		args = append(args, "--cap-drop", "ALL", "--security-opt", "no-new-privileges")
 	}
@@ -142,48 +176,65 @@ func (c *DockerContainerService) buildRunArgs(name, image string, privileged boo
 	return append(args, "--network", network, "--restart", "no", image)
 }
 
-// startNamed provisions the named container, retrying once with --privileged
-// for "rootless-dind" images when the scoped capability set fails. That
-// scoped set is the correct, tightest grant on a real Linux Docker Engine
-// host — the ordinary case, and where this retry never triggers. It only
-// fails on hosts where /var/run/docker.sock is itself a proxy rather than
-// the real daemon socket (Docker Desktop for Windows/Mac route requests
-// through their own docker.proxy.sock, which silently drops this specific
-// device/capability combination — verified interactively: the identical
-// `docker run` succeeds every time from the real host CLI and fails
-// identically every time through the proxied socket, both against the same
-// daemon). --privileged is a strict superset of the scoped grant that the
-// proxy does forward correctly, so it's a safe, self-detecting fallback
-// rather than a config flag someone has to remember to set per host.
-// "sysbox-runc" and the standard profile never retry.
-func (c *DockerContainerService) startNamed(ctx context.Context, name, image string) (containerID, containerHost string, err error) {
-	containerID, containerHost, err = c.startNamedWithMode(ctx, name, image, false)
-	if shouldRetryPrivileged(ctx, err, c.Classify(image).DockerMechanism) {
-		containerID, containerHost, err = c.startNamedWithMode(ctx, name, image, true)
+// networkFor returns the network a container joins: the profile's own
+// network if set, else the per-session network when enabled, else the shared
+// bridge.
+func (c *DockerContainerService) networkFor(name string, profile ImageProfile) string {
+	switch {
+	case profile.Network != "":
+		return profile.Network
+	case c.network.PerSession:
+		return name
+	default:
+		return SharedLabNetwork
 	}
-	return containerID, containerHost, err
 }
 
-// shouldRetryPrivileged decides whether a failed scoped start earns the
-// --privileged retry described on startNamed.
-//
-// The ctx.Err() clause is the non-obvious one: a live context means the
-// scoped attempt failed on its own merits (the capability set), which is
-// exactly what the retry exists for. An already-expired context instead
-// means the attempt ran out of the caller's provisioning budget — retrying
-// then just re-runs `docker run` against a dead context, which fails
-// instantly and REPLACES the real diagnosis with a misleading
-// "docker run: context deadline exceeded". That masking cost an afternoon
-// once, on a lab whose true failure was its setup script.
-func shouldRetryPrivileged(ctx context.Context, err error, mechanism string) bool {
-	return err != nil && ctx.Err() == nil && mechanism == "rootless-dind"
+// usesSessionNetwork reports whether name's network is created per session.
+func (c *DockerContainerService) usesSessionNetwork(name string, profile ImageProfile) bool {
+	return c.network.PerSession && c.networkFor(name, profile) == name
 }
 
-func (c *DockerContainerService) startNamedWithMode(ctx context.Context, name, image string, privileged bool) (containerID, containerHost string, err error) {
-	args := c.buildRunArgs(name, image, privileged)
+// sessionNetworkCreateArgs / sessionNetworkConnectArgs are the pure argument
+// builders for the per-session network lifecycle.
+func (c *DockerContainerService) sessionNetworkCreateArgs(name string) []string {
+	args := []string{"network", "create", "--label", SessionNetworkLabel}
+	if c.network.Internal {
+		args = append(args, "--internal")
+	}
+	return append(args, name)
+}
 
-	out, err := runCmd(ctx, "docker", args...)
+func (c *DockerContainerService) sessionNetworkConnectArgs(name string) []string {
+	return []string{"network", "connect", name, c.network.ProxyContainer}
+}
+
+// startNamed provisions the named container. There is deliberately no
+// --privileged retry (audit H-11): if the scoped capability set cannot start
+// the container the error is returned as-is. Docker Desktop's proxied socket
+// drops the nested-docker device/capability combination, so nested labs are
+// unsupported there — run them on a real Docker Engine host (or sysbox).
+func (c *DockerContainerService) startNamed(ctx context.Context, name, image string) (containerID, containerHost string, err error) {
+	profile := c.Classify(image)
+	perSession := c.usesSessionNetwork(name, profile)
+	if perSession {
+		if c.network.ProxyContainer == "" {
+			return "", "", errors.New("labs.DockerContainerService.Start: per-session networks need LABS_PROXY_CONTAINER")
+		}
+		if _, err := runCmd(ctx, "docker", c.sessionNetworkCreateArgs(name)...); err != nil {
+			return "", "", fmt.Errorf("labs.DockerContainerService.Start: network create: %w", err)
+		}
+		if _, err := runCmd(ctx, "docker", c.sessionNetworkConnectArgs(name)...); err != nil {
+			c.removeNetwork(name)
+			return "", "", fmt.Errorf("labs.DockerContainerService.Start: network connect proxy: %w", err)
+		}
+	}
+
+	out, err := runCmd(ctx, "docker", c.buildRunArgs(name, image)...)
 	if err != nil {
+		if perSession {
+			c.removeNetwork(name)
+		}
 		return "", "", fmt.Errorf("labs.DockerContainerService.Start: docker run: %w", err)
 	}
 	containerID = strings.TrimSpace(out)
@@ -194,6 +245,9 @@ func (c *DockerContainerService) startNamedWithMode(ctx context.Context, name, i
 	// one session. Validate instead of slicing blind.
 	if len(containerID) < 12 {
 		_ = c.Kill(context.Background(), containerID)
+		if perSession {
+			c.removeNetwork(name)
+		}
 		return "", "", fmt.Errorf("labs.DockerContainerService.Start: docker run returned an unusable container id %q", containerID)
 	}
 
@@ -201,10 +255,33 @@ func (c *DockerContainerService) startNamedWithMode(ctx context.Context, name, i
 	return containerID, containerHost, nil
 }
 
+// removeNetwork best-effort removes a per-session network; the proxy is
+// disconnected first because a network with an attached endpoint cannot be
+// removed.
+func (c *DockerContainerService) removeNetwork(name string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if c.network.ProxyContainer != "" {
+		_, _ = runCmd(ctx, "docker", "network", "disconnect", "-f", name, c.network.ProxyContainer)
+	}
+	_, _ = runCmd(ctx, "docker", "network", "rm", name)
+}
+
 // Kill force-removes a container by ID.
+// With per-session networks enabled the container's own network (named after
+// the container) is removed too.
 func (c *DockerContainerService) Kill(ctx context.Context, containerID string) error {
+	var name string
+	if c.network.PerSession {
+		if out, err := runCmd(ctx, "docker", "inspect", "--format", "{{.Name}}", containerID); err == nil {
+			name = strings.TrimPrefix(strings.TrimSpace(out), "/")
+		}
+	}
 	if _, err := runCmd(ctx, "docker", "rm", "-f", containerID); err != nil {
 		return fmt.Errorf("labs.DockerContainerService.Kill: %w", err)
+	}
+	if name != "" {
+		c.removeNetwork(name)
 	}
 	return nil
 }

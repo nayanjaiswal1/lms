@@ -330,11 +330,29 @@ func (r *Repo) ListTeamsNeedingSync(ctx context.Context) ([]ProjectTeam, error) 
 	return out, rows.Err()
 }
 
-// GetTeamByGitlabProjectID resolves a team by its forked GitLab project's
-// numeric ID (UNIQUE) — used by the webhook receiver to map an inbound
-// payload's project_id to the org/team it belongs to.
-func (r *Repo) GetTeamByGitlabProjectID(ctx context.Context, gitlabProjectID int64) (*ProjectTeam, error) {
-	row := r.pool.QueryRow(ctx, `SELECT `+teamColumns+` FROM project_teams WHERE gitlab_project_id = $1`, gitlabProjectID)
+// ListTeamsByGitlabProjectID returns every team whose forked GitLab project
+// has this numeric ID. IDs are only unique per GitLab instance, so different
+// orgs can share one; the webhook receiver disambiguates by token.
+func (r *Repo) ListTeamsByGitlabProjectID(ctx context.Context, gitlabProjectID int64) ([]ProjectTeam, error) {
+	rows, err := r.pool.Query(ctx, `SELECT `+teamColumns+` FROM project_teams WHERE gitlab_project_id = $1 ORDER BY created_at, id`, gitlabProjectID)
+	if err != nil {
+		return nil, fmt.Errorf("gitlab: list teams by project id: %w", err)
+	}
+	defer rows.Close()
+	var out []ProjectTeam
+	for rows.Next() {
+		t, err := scanTeam(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *t)
+	}
+	return out, rows.Err()
+}
+
+// GetTeamByOrgGitlabProjectID resolves a team by (org, GitLab project ID).
+func (r *Repo) GetTeamByOrgGitlabProjectID(ctx context.Context, orgID string, gitlabProjectID int64) (*ProjectTeam, error) {
+	row := r.pool.QueryRow(ctx, `SELECT `+teamColumns+` FROM project_teams WHERE org_id = $1 AND gitlab_project_id = $2`, orgID, gitlabProjectID)
 	return scanTeam(row)
 }
 
@@ -450,6 +468,9 @@ func (r *Repo) SetTeamForkResult(ctx context.Context, teamID string, gitlabProje
 		teamID, gitlabProjectID, path, webURL,
 	)
 	if err != nil {
+		if db.IsUniqueViolation(err) {
+			return ErrConflict
+		}
 		return fmt.Errorf("gitlab: set team fork result: %w", err)
 	}
 	return nil

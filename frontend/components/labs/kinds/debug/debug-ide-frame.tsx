@@ -1,76 +1,53 @@
 "use client"
 
-import { ExternalLink, MonitorSmartphone, RefreshCw } from "lucide-react"
+import { AlertCircle, MonitorSmartphone, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { DebugIdeUnavailable } from "@/components/labs/kinds/debug/debug-ide-unavailable"
 import { Skeleton } from "@/components/ui/skeleton"
 import { IconMessage } from "@/components/shared/icon-message"
 import { useIdeFrameLoad } from "@/hooks/use-ide-frame-load"
-import { useLabIde } from "@/hooks/use-lab-ide"
+import type { useLabIde } from "@/hooks/use-lab-ide"
 
 interface DebugIdeFrameProps {
-  sessionId: string
-  idePort: number
+  ide: ReturnType<typeof useLabIde>
+  /** After a manual reload the iframe uses the fresh-token URL. */
+  reloaded: boolean
 }
 
 /**
  * The browser IDE (openvscode-server) served through labproxy like a preview
  * port. The iframe src is fixed after the first token mint so VS Code never
- * reloads; a hidden iframe renews the origin cookie every 4 minutes.
+ * reloads on its own; a hidden iframe renews the origin cookie every 4 minutes.
+ * The parent remounts this (key) to reload.
  */
-export function DebugIdeFrame({ sessionId, idePort }: DebugIdeFrameProps) {
-  const { ideUrl, refreshUrl, popOutUrl, hasError, popOut } = useLabIde(sessionId, idePort)
-  const { isLoaded, reloadKey, gaveUp, onLoad, reload: reloadIde } = useIdeFrameLoad(!!ideUrl)
+export function DebugIdeFrame({ ide, reloaded }: DebugIdeFrameProps) {
+  const { ideUrl, refreshUrl, popOutUrl, hasError } = ide
+  const { isLoaded, reloadKey, gaveUp, onLoad, reload } = useIdeFrameLoad(!!ideUrl)
+  // The IDE sometimes comes up blank on first load; retries use the fresh-token URL.
+  const freshSrc = reloaded || reloadKey > 0
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <IconMessage className="bg-muted/50 md:hidden" icon={MonitorSmartphone} variant="strip">
+      <IconMessage className="bg-muted/50 lg:hidden" icon={MonitorSmartphone} variant="strip">
         The IDE works best on a larger screen. Pop it out into its own tab for more room.
       </IconMessage>
-      <div className="flex shrink-0 items-center gap-2 border-b border-border bg-card px-3 py-1.5">
-        <span className="truncate text-xs text-muted-foreground">Browser IDE</span>
-        <div className="ml-auto flex items-center gap-1">
-          <Button
-            aria-label="Reload IDE"
-            className="touch-target text-muted-foreground hover:text-foreground"
-            size="sm"
-            variant="ghost"
-            onClick={reloadIde}
-          >
-            <RefreshCw aria-hidden className="h-3.5 w-3.5" />
-          </Button>
-          {popOutUrl && (
-            <Button asChild className="touch-target gap-1.5" size="sm" variant="ghost">
-              {/* External labproxy origin — next/link is for internal routes. */}
-              <a
-                href={popOutUrl}
-                rel="noreferrer"
-                target="_blank"
-                onClick={(e) => {
-                  e.preventDefault()
-                  void popOut()
-                }}
-              >
-                <ExternalLink aria-hidden className="h-3.5 w-3.5" />
-                Pop out IDE
-              </a>
-            </Button>
-          )}
-        </div>
-      </div>
 
       <div className="relative min-h-0 flex-1 bg-background">
         {hasError ? (
-          <DebugIdeUnavailable sessionId={sessionId} />
+          <div className="empty-state h-full">
+            <AlertCircle aria-hidden className="h-6 w-6 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              Could not open the IDE. The session may have expired.
+            </p>
+          </div>
         ) : (
           <>
             {ideUrl && (
               <iframe
                 allow="clipboard-read; clipboard-write"
                 className="h-full w-full border-0 bg-background"
-                key={reloadKey}
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
-                src={reloadKey === 0 ? ideUrl : (popOutUrl ?? ideUrl)}
+                key={reloadKey}
+                src={freshSrc ? (popOutUrl ?? ideUrl) : ideUrl}
                 title="Browser IDE"
                 onLoad={onLoad}
               />
@@ -83,10 +60,9 @@ export function DebugIdeFrame({ sessionId, idePort }: DebugIdeFrameProps) {
               >
                 {gaveUp ? (
                   <>
-                    <p className="text-sm text-muted-foreground">
-                      The IDE is taking too long to start.
-                    </p>
-                    <Button size="sm" variant="outline" onClick={reloadIde}>
+                    <p className="text-sm text-muted-foreground">The IDE did not start.</p>
+                    <Button size="sm" variant="outline" onClick={reload}>
+                      <RefreshCw aria-hidden className="mr-1.5 h-3.5 w-3.5" />
                       Reload IDE
                     </Button>
                   </>

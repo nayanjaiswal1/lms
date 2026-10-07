@@ -53,30 +53,30 @@ func NewHandler(repo *Repo, service *Service, pool *pgxpool.Pool, rdb *redis.Cli
 func writeDomainError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrNotFound):
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
+		httputil.WriteErrorCode(w, http.StatusNotFound, CodeNotFound, "Not found.")
 	case errors.Is(err, ErrForbidden):
-		httputil.WriteError(w, http.StatusForbidden, "Forbidden.")
+		httputil.WriteErrorCode(w, http.StatusForbidden, CodeForbidden, "Forbidden.")
 	case errors.Is(err, ErrSessionActive):
 		// StartSession resolves this internally on the normal path (returns
 		// the existing session instead of the error); reaching here means the
 		// race-resolution lookup itself failed, so surface a real error
 		// rather than a silent empty 200 the client would misread as "session
 		// started".
-		httputil.WriteError(w, http.StatusConflict, "A session for this lab is already active.")
+		httputil.WriteErrorCode(w, http.StatusConflict, CodeSessionActive, "A session for this lab is already active.")
 	case errors.Is(err, ErrCapacityReached):
-		httputil.WriteError(w, http.StatusTooManyRequests, "Lab capacity reached, try again shortly.")
+		httputil.WriteErrorCode(w, http.StatusTooManyRequests, CodeCapacityReached, "Lab capacity reached, try again shortly.")
 	case errors.Is(err, ErrUserHasActiveSession):
-		httputil.WriteError(w, http.StatusConflict, "You already have a lab running. End it before starting another.")
+		httputil.WriteErrorCode(w, http.StatusConflict, CodeUserHasActiveSession, "You already have a lab running. End it before starting another.")
 	case errors.Is(err, ErrSessionNotRunning):
-		httputil.WriteError(w, http.StatusConflict, "Session is not running.")
+		httputil.WriteErrorCode(w, http.StatusConflict, CodeSessionNotRunning, "Session is not running.")
 	case errors.Is(err, ErrNoRunScript):
-		httputil.WriteError(w, http.StatusBadRequest, "This lab has no run script.")
+		httputil.WriteErrorCode(w, http.StatusBadRequest, CodeNoRunScript, "This lab has no run script.")
 	case errors.Is(err, ErrSessionTerminal):
 		httputil.WriteErrorCode(w, http.StatusConflict, CodeSessionAlreadyEnded, "Session has already ended.")
 	case errors.Is(err, ErrLabNotPublished):
-		httputil.WriteError(w, http.StatusConflict, "Lab is not published.")
+		httputil.WriteErrorCode(w, http.StatusConflict, CodeLabNotPublished, "Lab is not published.")
 	case errors.Is(err, ErrMaxResetsReached):
-		httputil.WriteError(w, http.StatusConflict, "Maximum resets reached.")
+		httputil.WriteErrorCode(w, http.StatusConflict, CodeMaxResetsReached, "Maximum resets reached.")
 	case errors.Is(err, ErrTaskAlreadyPassed):
 		// finalizeTaskPass already handles the common idempotent-retry case
 		// inline (returns Passed:true with the cached attempt count); reaching
@@ -87,7 +87,7 @@ func writeDomainError(w http.ResponseWriter, err error) {
 	case errors.Is(err, ErrMaxHintsReached):
 		httputil.WriteErrorCode(w, http.StatusTooManyRequests, CodeMaxHintsReached, "Maximum hints reached for this task.")
 	case errors.Is(err, ErrTaskNotOptional):
-		httputil.WriteError(w, http.StatusConflict, "Task cannot be skipped.")
+		httputil.WriteErrorCode(w, http.StatusConflict, CodeTaskNotOptional, "Task cannot be skipped.")
 	case errors.Is(err, ErrRateLimited):
 		var limited *RateLimitedError
 		if errors.As(err, &limited) {
@@ -95,13 +95,13 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		}
 		httputil.WriteErrorCode(w, http.StatusTooManyRequests, CodeRateLimited, "Too many requests — wait a moment.")
 	case errors.Is(err, ErrExecutorUnavailable):
-		httputil.WriteError(w, http.StatusServiceUnavailable, "Code executor is not configured on this server.")
+		httputil.WriteErrorCode(w, http.StatusServiceUnavailable, CodeExecutorUnavailable, "Code executor is not configured on this server.")
 	case errors.Is(err, ErrInvalidPath):
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid file path.")
+		httputil.WriteErrorCode(w, http.StatusBadRequest, CodeInvalidPath, "Invalid file path.")
 	case errors.Is(err, ErrImageNotAllowed):
-		httputil.WriteError(w, http.StatusForbidden, "This lab is not available for your organization.")
+		httputil.WriteErrorCode(w, http.StatusForbidden, CodeImageNotAllowed, "This lab is not available for your organization.")
 	case errors.Is(err, ErrLabProvisioningUnstable):
-		httputil.WriteError(w, http.StatusServiceUnavailable, "This lab is temporarily unavailable — it has failed to start repeatedly. Our team has been notified.")
+		httputil.WriteErrorCode(w, http.StatusServiceUnavailable, CodeProvisioningUnstable, "This lab is temporarily unavailable — it has failed to start repeatedly. Our team has been notified.")
 	case errors.Is(err, ErrSessionCompletedAtDeadline):
 		// 409 like the expired case (the session resource still exists — 410 Gone
 		// would misstate that); the code is what tells the client the lab succeeded.
@@ -109,19 +109,19 @@ func writeDomainError(w http.ResponseWriter, err error) {
 	case errors.Is(err, ErrSessionExpired):
 		httputil.WriteErrorCode(w, http.StatusConflict, CodeSessionExpired, "This lab session has expired.")
 	case errors.Is(err, ErrResetFailed):
-		httputil.WriteError(w, http.StatusInternalServerError, "Could not reset this lab — the session has been ended. Please start a new one.")
+		httputil.WriteErrorCode(w, http.StatusInternalServerError, CodeResetFailed, "Could not reset this lab — the session has been ended. Please start a new one.")
 	case errors.Is(err, ErrLabTypeUnsupported):
-		httputil.WriteError(w, http.StatusConflict, "This action is not available for this lab type.")
+		httputil.WriteErrorCode(w, http.StatusConflict, CodeLabTypeUnsupported, "This action is not available for this lab type.")
 	case errors.Is(err, ErrContentTooLarge):
-		httputil.WriteError(w, http.StatusRequestEntityTooLarge, "File is too large.")
+		httputil.WriteErrorCode(w, http.StatusRequestEntityTooLarge, CodeContentTooLarge, "File is too large.")
 	case errors.Is(err, ErrAICircuitOpen):
 		httputil.WriteErrorCode(w, http.StatusServiceUnavailable, CodeAIUnavailable, "AI hints are temporarily unavailable — try again in a couple of minutes.")
 	case errors.Is(err, ErrAIUnavailable):
 		httputil.WriteErrorCode(w, http.StatusServiceUnavailable, CodeAIUnavailable, "AI hints are not available right now.")
 	case errors.Is(err, ErrKindLabNotBuilt):
-		httputil.WriteError(w, http.StatusConflict, "This lab has no runnable build yet.")
+		httputil.WriteErrorCode(w, http.StatusConflict, CodeKindLabNotBuilt, "This lab has no runnable build yet.")
 	case errors.Is(err, ErrBundleStoreUnavailable):
-		httputil.WriteError(w, http.StatusServiceUnavailable, "Lab content storage is not available right now.")
+		httputil.WriteErrorCode(w, http.StatusServiceUnavailable, CodeBundleStoreUnavailable, "Lab content storage is not available right now.")
 	case errors.Is(err, ErrGradeBusy):
 		httputil.WriteErrorCode(w, http.StatusServiceUnavailable, CodeGraderBusy, "The grader is busy — try again in a few seconds.")
 	case errors.Is(err, ErrMaxWriteupReviewsReached):
@@ -129,7 +129,7 @@ func writeDomainError(w http.ResponseWriter, err error) {
 	case errors.Is(err, ErrHintNotSupported):
 		httputil.WriteErrorCode(w, http.StatusUnprocessableEntity, CodeHintNotSupported, "Hints are not available for this task.")
 	case errors.Is(err, ErrNoDebrief):
-		httputil.WriteError(w, http.StatusConflict, "The debrief is available once the lab is completed.")
+		httputil.WriteErrorCode(w, http.StatusConflict, CodeNoDebrief, "The debrief is available once the lab is completed.")
 	default:
 		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong. Please try again.")
 	}

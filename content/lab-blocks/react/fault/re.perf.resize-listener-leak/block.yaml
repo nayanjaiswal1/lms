@@ -1,0 +1,102 @@
+kind: fault
+id: re.perf.resize-listener-leak
+version: 1.0.0
+stack: react
+title: Memory and CPU grow every time the Orders page is opened
+summary: The viewport hook adds a window resize listener but never removes it, so every visit to the Orders page leaves another live listener (and a component instance) behind.
+category: perf
+difficulty: intermediate
+skills:
+- react-effects
+- cleanup
+- memory-leaks
+requires:
+- slot:hooks.viewport.subscribe
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: hooks.viewport.subscribe
+      value: |
+        const onResize = () => setWidth(window.innerWidth);
+        window.addEventListener('resize', onResize);
+  fix:
+    slots:
+    - slot: hooks.viewport.subscribe
+      value: |
+        const onResize = () => setWidth(window.innerWidth);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    files:
+    - path: tests/viewport-listener.test.jsx
+      from: fix/tests/viewport-listener.test.jsx
+  cheats:
+  - name: remove-a-different-function
+    slots:
+    - slot: hooks.viewport.subscribe
+      value: |
+        const onResize = () => setWidth(window.innerWidth);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', () => setWidth(window.innerWidth));
+  - name: revert-the-commit
+    slots:
+    - slot: hooks.viewport.subscribe
+      value: |
+        const onResize = () => setWidth(window.innerWidth);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    files:
+    - path: src/ext/flagged-count/index.js
+      from: cheats/empty-extension.js
+  carrier:
+    feature: flagged-count
+    files:
+    - path: src/ext/flagged-count/index.js
+      from: carrier/src/ext/flagged-count/index.js
+  commit:
+    message: 'orders: add a flagged-orders count to the Tools menu'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/re_perf_listener_leak/viewport.test.jsx
+  symptom:
+    vars:
+      title: Console slows down over a shift and resizing gets sluggish
+      report: |-
+        By the end of a shift the console is noticeably slower, and resizing the browser window makes the fan spin. A reload brings
+        it back to normal for an hour or two. Browser memory for the tab grows by a few MB every time the team switches between Orders
+        and the other pages. Our floor staff open the Orders page hundreds of times per day.
+      where: The whole console after repeatedly switching between pages. Resizing the window is the easiest way to feel it.
+      expected: Leaving a page releases everything it registered; memory and the work done per resize stay flat.
+      support_tried: Reloading helps for a while. Closing other tabs made no difference. The numbers on screen stay correct throughout.
+      observations: |-
+        ### Other observations from QA
+
+        - In the browser's performance monitor the "JS event listeners" counter goes up by one on every visit to Orders.
+        - The compact layout switch (narrow window) still works.
+        - The flagged-count action in the Orders tools shipped in the same release.
+    signature: listener count increases with every mount of the orders table
+  hints:
+  - 'Count live listeners: trackListeners() from @mf/harness patches addEventListener and removeEventListener. Mount and unmount the hook a few times and look at the count.'
+  - Anything an effect registers outside React (a window listener, a timer, a subscription) has to be undone by the effect's cleanup function. Does this effect return one?
+  - Return a cleanup that calls removeEventListener with exactly the same function, event type and options that were added. A new arrow function with the same body is a different listener.
+  rubric:
+    key_points:
+    - 'Identifies the missing effect cleanup: the resize listener on window is never removed when the component unmounts.'
+    - Explains that removal needs the same function reference (and capture flag) as the registration.
+    - Describes the effect on memory (the listener keeps the unmounted component's state setter and closure alive) and on CPU (every resize runs every leaked handler).
+    - Verifies with a listener counter across mount and unmount cycles rather than by eye.
+    misconceptions:
+    - React removes window listeners for you when a component unmounts (it only removes its own event handlers).
+    - 'Passing { once: true } fixes it (it removes the listener after the first event, not on unmount).'
+    - Removing with a new arrow function is equivalent (removeEventListener matches by function identity).
+  root_cause: |-
+    `useViewportWidth` called `window.addEventListener('resize', onResize)` inside an effect and returned nothing. The effect has
+    no cleanup, so when the orders table unmounted the listener stayed registered on `window`, still holding a reference to the
+    unmounted component's state setter. Every later visit added another listener, and every resize event ran all of them.
+
+    The effect must return a cleanup that calls `window.removeEventListener('resize', onResize)` with the same function it
+    registered.

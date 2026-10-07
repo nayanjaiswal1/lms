@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mindforge/backend/internal/auth"
@@ -97,6 +98,35 @@ func (h *Handler) HandleUpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputil.WriteJSON(w, http.StatusOK, prof)
+}
+
+// ─── HandleSetLastPage ────────────────────────────────────────────────────────
+
+// HandleSetLastPage handles PUT /api/profile/me/last-page.
+func (h *Handler) HandleSetLastPage(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+
+	var input struct {
+		Path string `json:"path"`
+	}
+	if !httputil.DecodeJSON(w, r, &input) {
+		return
+	}
+
+	if err := h.service.SetLastPage(r.Context(), claims.UserID, input.Path); err != nil {
+		if errors.Is(err, ErrInvalidLastPage) {
+			httputil.WriteError(w, http.StatusUnprocessableEntity, err.Error())
+			return
+		}
+		slog.Error("profile: set last page", "error", err)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to save last page.")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ─── HandleUploadAvatar ───────────────────────────────────────────────────────
@@ -244,6 +274,10 @@ func (h *Handler) HandleGetUserProfile(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteError(w, http.StatusBadRequest, "User ID is required.")
 		return
 	}
+	if _, err := uuid.Parse(targetUserID); err != nil {
+		httputil.WriteError(w, http.StatusNotFound, "User not found.")
+		return
+	}
 
 	// Live-looked-up org role, not claims.OrgRole: the JWT claim is minted at
 	// sign-in and can outlive a demotion, which would otherwise let a
@@ -258,6 +292,7 @@ func (h *Handler) HandleGetUserProfile(w http.ResponseWriter, r *http.Request) {
 		claims.UserID,
 		"", // platform_role — not available in JWT Claims
 		liveRole,
+		claims.OrgID,
 		targetUserID,
 	)
 	if err != nil {

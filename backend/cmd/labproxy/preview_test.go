@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/mindforge/backend/internal/testdomain"
+)
 
 func TestSplitEntryPort(t *testing.T) {
 	tests := []struct {
@@ -30,7 +34,7 @@ func TestSplitEntryPort(t *testing.T) {
 }
 
 func TestSplitPreviewHost(t *testing.T) {
-	const suffix = "labs.example.com"
+	const suffix = "labs." + testdomain.Domain
 	const uuidStr = "9f1c2a44-3e7b-4a91-b0d2-8c5e17ad9f10"
 
 	tests := []struct {

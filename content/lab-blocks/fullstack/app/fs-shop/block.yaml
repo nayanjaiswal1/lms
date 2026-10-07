@@ -1,0 +1,125 @@
+kind: app
+id: fs.shop
+version: 1.0.0
+stack: fullstack
+title: Shop (React storefront + FastAPI API)
+summary: A small storefront with its API in one workspace - sign-in with cookie sessions and CSRF tokens, a paged order history, catalog search, checkout and a versioned profile - a React 19 + Vite console in src/ and a FastAPI backend in backend/, tested with vitest and pytest.
+category: app
+skills:
+- react
+- fastapi
+- http
+- cors
+- cookies
+provides:
+- cap:vitest
+- cap:jsdom
+- cap:vite-dev
+- cap:fastapi-backend
+budget:
+  setup_seconds: 3
+  workspace_bytes: 110000
+  grader_bytes: 90000
+app:
+  language: fullstack
+  slots:
+  - name: api.cors.config
+    type: region
+    description: The CORS middleware of the API (allowed origins, credentials, methods and headers).
+  - name: api.errors.handler
+    type: region
+    description: The exception handler that turns an ApiError into the JSON error body every client reads.
+  - name: auth.cookie.attrs
+    type: region
+    description: The set_cookie call of the session cookie at login (HttpOnly, SameSite, Path).
+  - name: auth.csrf.cookie
+    type: region
+    description: The set_cookie call of the script-readable CSRF cookie at login.
+  - name: catalog.search.request
+    type: region
+    description: The request URL of the catalog search (how the query reaches the API).
+  - name: lib.api.csrf-header
+    type: region
+    description: The line of the API client that adds the CSRF header to a state-changing request.
+  - name: orders.page.offset
+    type: region
+    description: The offset of the requested page in the order list endpoint.
+  - name: orders.serialize.placed_at
+    type: region
+    description: The placed_at field of the order JSON.
+  - name: orders.serialize.total
+    type: region
+    description: The total field of the order JSON.
+  - name: profile.update.version-check
+    type: region
+    description: The optimistic-concurrency check at the start of a profile save.
+  history:
+  - message: 'auth: cookie sessions with a double-submit CSRF token and a sign-in page'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+    feature: auth
+    paths:
+    - auth
+  - message: 'orders: paged order history for signed-in customers'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+    feature: orders
+    paths:
+    - orders
+  - message: 'catalog: product search by name and SKU'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+    feature: catalog
+    paths:
+    - catalog
+  - message: 'checkout: place an order with stock reservation'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+    feature: checkout
+    paths:
+    - checkout
+  - message: 'profile: edit name and phone with versioned saves'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+    feature: profile
+    paths:
+    - profile
+  noise:
+  - message: 'docs: describe the conventions in the README'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+    paths:
+    - docs-readme
+  - message: 'style: a little more room around the page content'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+    paths:
+    - css-tweaks
+  - message: 'chore: ignore coverage output'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+    paths:
+    - gitignore-coverage
+  - message: 'deps: group requirements by purpose'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+    paths:
+    - deps-grouping
+  ports:
+  - 5173
+  - 8000
+  protected:
+  - pytest.ini
+  - vitest.config.js
+  - vite.config.js
+  - index.html
+  - tests/smoke.test.jsx
+  - backend/tests/test_smoke.py
+  features:
+  - auth
+  - orders
+  - catalog
+  - checkout
+  - profile
+  - order-total
+  - status-breakdown
+  - order-summary
+  - low-stock
+  setup:
+  - bash scripts/bootstrap.sh
+  readiness_path: /
+  test_globs:
+  - tests/*
+  - backend/tests/*
+  - src/*.test.*

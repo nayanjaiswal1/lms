@@ -1,0 +1,107 @@
+kind: fault
+id: fs.auth.csrf-cookie-httponly
+version: 1.0.0
+stack: fullstack
+title: Every save is rejected as "could not be verified" after the cookie hardening
+summary: The CSRF cookie was made HttpOnly, so the page script can no longer read it, the client sends an empty token and the API answers 403 csrf_failed to every write.
+category: auth
+difficulty: intermediate
+skills:
+- csrf
+- cookies
+- security-headers
+requires:
+- slot:auth.csrf.cookie
+- cap:fastapi-backend
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: auth.csrf.cookie
+      value: |
+        response.set_cookie(CSRF_COOKIE, csrf, httponly=True, samesite="lax", path="/")
+  fix:
+    slots:
+    - slot: auth.csrf.cookie
+      value: |
+        response.set_cookie(CSRF_COOKIE, csrf, httponly=False, samesite="lax", path="/")
+    files:
+    - path: backend/tests/test_csrf_cookie.py
+      from: fix/tests/test_csrf_cookie.py
+    - path: tests/csrf-cookie.test.jsx
+      from: fix/tests/csrf-cookie.test.jsx
+  cheats:
+  - name: both-cookies-readable
+    slots:
+    - slot: auth.cookie.attrs
+      value: |
+        response.set_cookie(SESSION_COOKIE, token, httponly=False, samesite="lax", path="/")
+    - slot: auth.csrf.cookie
+      value: |
+        response.set_cookie(CSRF_COOKIE, csrf, httponly=False, samesite="lax", path="/")
+  - name: revert-the-commit
+    slots:
+    - slot: auth.csrf.cookie
+      value: |
+        response.set_cookie(CSRF_COOKIE, csrf, httponly=False, samesite="lax", path="/")
+    files:
+    - path: src/ext/status-breakdown/index.js
+      from: cheats/empty-extension.js
+  carrier:
+    feature: status-breakdown
+    files:
+    - path: src/ext/status-breakdown/index.js
+      from: carrier/src/ext/status-breakdown/index.js
+  commit:
+    message: 'auth: harden the login cookies and add a status breakdown action to Orders'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_csrf_cookie/test_csrf_cookie.py
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_csrf_cookie/csrf.test.jsx
+  symptom:
+    vars:
+      title: Saving anything fails with "The request could not be verified"
+      report: |-
+        Since the security hardening release nobody can save: the profile form, placing an order and signing out all show "The request
+        could not be verified. Reload the page and try again." Reloading and signing in again does not help. Browsing, searching and
+        reading orders work normally, and the session itself is fine.
+      where: Every action that changes data - saving the profile, checkout, logout.
+      expected: A signed-in customer can save their profile and place orders.
+      support_tried: Cleared cookies, signed in again and tried another browser. Same message everywhere, so it is not one broken session.
+      observations: |-
+        ### Other observations from QA
+
+        - The API answers 403 with code `csrf_failed`; the failing requests have an empty `X-CSRF-Token` header.
+        - The browser's cookie view shows a `csrf_token` cookie after sign-in, but `document.cookie` in the console does not list it.
+        - The status breakdown action in the Orders tools shipped in the same release as the cookie hardening.
+    signature: document.cookie does not contain csrf_token, so writes carry an empty token
+  hints:
+  - Open the browser console after signing in and run document.cookie. Compare it with the cookie list in the storage inspector. Which cookie is missing from the script's view, and what makes a cookie invisible to scripts?
+  - The API uses a double-submit token. The API client reads the csrf_token cookie and echoes it in a header, which only works if the cookie is not HttpOnly. Read the two `set_cookie` calls in `backend/app/auth.py`, and `git log -p` for the change.
+  - Keep the session cookie HttpOnly but make the CSRF cookie readable (httponly=False); the token is not a secret from the page, it only has to be unknown to other sites. Add a test for the Set-Cookie flags of both cookies and one that does a write through the real client.
+  rubric:
+    key_points:
+    - Identifies how the double-submit CSRF pattern works and that the token cookie has to be readable by the page script.
+    - Explains why HttpOnly on the CSRF cookie produced an empty header and therefore 403 csrf_failed, while reads kept working.
+    - Fixes only the CSRF cookie flag and keeps the session cookie HttpOnly (does not weaken both for convenience).
+    - Tests the Set-Cookie flags of both cookies and a successful write through the client.
+    misconceptions:
+    - HttpOnly should be on every cookie (it protects the session, but the CSRF cookie must be read by the page by design).
+    - Making the session cookie readable as well is a fine fix (it exposes the session to XSS).
+    - Disabling CSRF validation or accepting an empty token removes the symptom (it removes the protection).
+  root_cause: |-
+    The login handler set the `csrf_token` cookie with `httponly=True` as part of a cookie-hardening change. The API's CSRF protection is
+    a double-submit token: the client reads the cookie and echoes the value in `X-CSRF-Token`. With HttpOnly the page script cannot see
+    the cookie, `readCookie` returned an empty string, and the server rejected every state-changing request with 403 `csrf_failed`
+    while GET requests (which are not checked) kept working.
+
+    The fix makes only the CSRF cookie script-readable again (`httponly=False`); the session cookie stays HttpOnly. The tests check
+    both cookies' flags and a profile save through the real API client.

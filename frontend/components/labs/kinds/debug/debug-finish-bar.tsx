@@ -42,7 +42,7 @@ export function DebugFinishBar({ sessionId, enabled, onAuthExpired }: DebugFinis
       const res = await endLabSessionAction(sessionId)
       if (!res.ok && !isLabSessionAlreadyEnded(res.code)) {
         const message = res.error ?? "Could not finish the lab. Please try again."
-        if (isLabAuthError(message)) onAuthExpired()
+        if (isLabAuthError(res)) onAuthExpired()
         else toast.error(message)
         return
       }
@@ -53,13 +53,19 @@ export function DebugFinishBar({ sessionId, enabled, onAuthExpired }: DebugFinis
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button className="w-full touch-target gap-2" disabled={!enabled || isFinishing} variant="outline">
+        <Button
+          className="touch-target-dense gap-1.5"
+          disabled={!enabled || isFinishing}
+          size="sm"
+          title={enabled ? undefined : "Pass the required checks to finish"}
+          variant="outline"
+        >
           {isFinishing ? (
             <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
           ) : (
             <Flag aria-hidden className="h-4 w-4" />
           )}
-          {enabled ? "Finish lab" : "Finish lab (pass the required checks first)"}
+          <span className="max-sm:sr-only">Finish</span>
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>

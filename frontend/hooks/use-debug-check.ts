@@ -131,10 +131,10 @@ export function useDebugCheck({
       }
       if (!res.ok || !res.data) {
         const message = res.error ?? "Check failed. Please try again."
-        if (isLabAuthError(message)) onAuthExpired?.()
+        if (isLabAuthError(res)) onAuthExpired?.()
         setState((prev) => ({
           ...prev,
-          problem: isLabAuthError(message) ? "auth" : "error",
+          problem: isLabAuthError(res) ? "auth" : "error",
           message,
         }))
         return

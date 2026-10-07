@@ -45,6 +45,16 @@ func TestIsDenylisted(t *testing.T) {
 		{"ipv4-mapped link-local metadata", "::ffff:169.254.169.254", true},
 		{"ipv4-mapped public", "::ffff:8.8.8.8", false},
 
+		// Ranges beyond the stdlib helpers.
+		{"cgnat", "100.64.0.1", true},
+		{"cgnat high", "100.127.255.254", true},
+		{"cgnat just outside", "100.128.0.1", false},
+		{"benchmarking", "198.18.0.1", true},
+		{"benchmarking high", "198.19.255.254", true},
+		{"this-network", "0.1.2.3", true},
+		{"nat64 embedding metadata", "64:ff9b::a9fe:a9fe", true},
+		{"6to4", "2002:a9fe:a9fe::1", true},
+
 		// Public IPs — must pass.
 		{"public v4 dns", "8.8.8.8", false},
 		{"public v4 other", "1.1.1.1", false},

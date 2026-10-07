@@ -46,6 +46,11 @@ const (
 	StatusIgnored EventStatus = iota
 	StatusSucceeded
 	StatusFailed
+	// StatusRefunded means money went back to the buyer (refund or dispute
+	// opened) — access granted by the purchase must be revoked.
+	// Event.PaymentRef identifies the charge; Event.AmountCents is the amount
+	// refunded, or 0 for a dispute (always treated as a full reversal).
+	StatusRefunded
 )
 
 // Event is a single normalized webhook delivery. ProviderRef matches the

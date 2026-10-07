@@ -7,6 +7,7 @@ import os
 import tempfile
 
 from . import archive, docs, grader, history, overlays
+from .custom import build_custom_variant
 from .errors import BuildError
 from .inputs import Blocks
 from .tree import Layer, Tree, block_subtree, layer_from, materialize, overlay
@@ -44,6 +45,9 @@ def _fault_layers(v: dict, blocks: Blocks, decls: dict) -> list[dict]:
 
 
 def build_variant(v: dict, blocks: Blocks, out_dir: str) -> None:
+    if v.get("custom"):
+        build_custom_variant(v, blocks, out_dir)
+        return
     app = v["app"]
     decls = _decls(v)
     seed = v["seed_hex"]

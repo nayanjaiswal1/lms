@@ -83,7 +83,7 @@ func RequireOrgRole(pool *pgxpool.Pool, allowed ...string) func(http.Handler) ht
 // free to keep reading the header; this function is only for authorization
 // decisions.
 func liveOrgRole(r *http.Request, pool *pgxpool.Pool, claims *auth.Claims) (string, bool) {
-	if orgCtx, ok := GetOrgCtx(r.Context()); ok {
+	if orgCtx, ok := GetOrgCtx(r.Context()); ok && orgCtx.OrgID == claims.OrgID {
 		return orgCtx.CallerRole, true
 	}
 	if claims.OrgID == "" {
@@ -117,6 +117,19 @@ func LiveOrgRole(ctx context.Context, pool *pgxpool.Pool, userID, orgID string) 
 		return "", false
 	}
 	return role, true
+}
+
+// IsPlatformSuperAdmin reports whether userID currently holds the super_admin
+// platform role, looked up live (the role is not in the JWT).
+func IsPlatformSuperAdmin(ctx context.Context, pool *pgxpool.Pool, userID string) bool {
+	var role string
+	if err := pool.QueryRow(ctx, `SELECT platform_role FROM users WHERE id = $1`, userID).Scan(&role); err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			slog.ErrorContext(ctx, "IsPlatformSuperAdmin: db query failed", "user_id", userID, "err", err)
+		}
+		return false
+	}
+	return role == PlatformRoleSuperAdmin
 }
 
 // RequirePlatformRole returns middleware that allows the request only if the

@@ -21,6 +21,7 @@ export async function createCourseAction(input: {
   is_free?:    boolean;
   disable_code_run?: boolean;
   disable_reflection?: boolean;
+  disable_knowledge_check?: boolean;
 }): Promise<ActionResult<{ id: string; slug: string }>> {
   const result = await apiAction<{ id: string; slug: string }>("POST", "/api/courses", input);
   if (result.ok) revalidatePath(ROUTES.COURSES);
@@ -60,10 +61,13 @@ export async function updateProgressAction(input: {
   moduleID: string;
   status: "not_started" | "in_progress" | "completed";
   last_position_seconds?: number;
+  /** Learner's hide-knowledge-checks preference — lifts the server's completion gate for them. */
+  skip_checks?: boolean;
 }): Promise<ActionResult<ProgressResult>> {
   return apiAction<ProgressResult>("PATCH", `/api/modules/${input.moduleID}/progress`, {
     status: input.status,
     last_position_seconds: input.last_position_seconds ?? 0,
+    skip_checks: input.skip_checks ?? false,
   });
 }
 
@@ -136,6 +140,7 @@ export async function updateCourseAction(
     is_free: boolean;
     disable_code_run: boolean;
     disable_reflection: boolean;
+    disable_knowledge_check: boolean;
   },
 ): Promise<ActionResult> {
   const body: Record<string, unknown> = {
@@ -145,6 +150,7 @@ export async function updateCourseAction(
     is_free: input.is_free,
     disable_code_run: input.disable_code_run,
     disable_reflection: input.disable_reflection,
+    disable_knowledge_check: input.disable_knowledge_check,
     price_cents: 0,
   };
   if (input.description !== undefined) body.description = input.description;

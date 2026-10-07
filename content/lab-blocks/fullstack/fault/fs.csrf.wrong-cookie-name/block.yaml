@@ -1,0 +1,101 @@
+kind: fault
+id: fs.csrf.wrong-cookie-name
+version: 1.0.0
+stack: fullstack
+title: Every save fails with "could not be verified" after the last release
+summary: The API client reads the CSRF token from a cookie that does not exist, so every PUT and POST carries an empty token and the API answers 403 csrf_failed while GET requests keep working.
+category: auth
+difficulty: intermediate
+skills:
+- csrf
+- cookies
+- http-headers
+requires:
+- slot:lib.api.csrf-header
+- cap:vitest
+- cap:fastapi-backend
+fault:
+  inject:
+    slots:
+    - slot: lib.api.csrf-header
+      value: |
+        headers['X-CSRF-Token'] = readCookie('csrftoken');
+  fix:
+    slots:
+    - slot: lib.api.csrf-header
+      value: |
+        headers['X-CSRF-Token'] = readCookie(CSRF_COOKIE);
+    files:
+    - path: tests/csrf-header.test.js
+      from: fix/tests/csrf-header.test.js
+  cheats:
+  - name: last-cookie-wins
+    slots:
+    - slot: lib.api.csrf-header
+      value: |
+        headers['X-CSRF-Token'] = document.cookie.split('; ').pop().split('=')[1] ?? '';
+  - name: revert-the-commit
+    slots:
+    - slot: lib.api.csrf-header
+      value: |
+        headers['X-CSRF-Token'] = readCookie(CSRF_COOKIE);
+    files:
+    - path: src/ext/order-total/index.js
+      from: cheats/empty-extension.js
+  carrier:
+    feature: order-total
+    files:
+    - path: src/ext/order-total/index.js
+      from: carrier/src/ext/order-total/index.js
+  commit:
+    message: 'api: send the CSRF token from the shared cookie helper and add a page total action'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_csrf_1/csrf-header.test.js
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_csrf_1/test_csrf_failed.py
+  symptom:
+    vars:
+      title: Saving the profile fails with "The request could not be verified"
+      report: |-
+        Since the last release no agent can save anything: the profile form, placing an order and signing out all show "The request
+        could not be verified. Reload the page and try again." Reloading and signing in again does not help. Browsing and searching
+        still work normally.
+      where: Every action that changes data - saving the profile, checkout, logout.
+      expected: A signed-in customer can save their profile and place orders.
+      support_tried: Cleared cookies, signed in again and tried another browser. Same message everywhere, so it is not one broken session.
+      observations: |-
+        ### Other observations from QA
+
+        - Pages that only read data (orders, catalog, profile view) load fine.
+        - In the network tab the failing requests are PUT and POST and answer 403 with `csrf_failed`.
+        - The `csrf_token` cookie is present in the browser after signing in.
+        - The page total action in the Orders tools came in the same release.
+    signature: PUT and POST requests answer 403 csrf_failed
+  hints:
+  - Open the network tab on a failing save. Compare the X-CSRF-Token request header with the csrf_token cookie in the Application tab.
+  - The API only accepts a state-changing request when the header echoes the csrf_token cookie. Find where the client fills the header and which cookie name it reads.
+  - Read the token from the one shared constant (CSRF_COOKIE) the client already defines for the cookie name. Add a test that sets cookies in a realistic order and asserts the header on a PUT and no failure for a GET.
+  rubric:
+    key_points:
+    - Compares the header with the cookie and sees that the client sent an empty token.
+    - Explains the double-submit check, which is why only state-changing requests fail and GET requests keep working.
+    - Fixes the cookie name at the single place the header is built, using the existing constant.
+    - Tests the header value on a state-changing request with several cookies present.
+    misconceptions:
+    - Disabling or loosening the CSRF check on the server fixes it (it removes the protection).
+    - Clearing cookies or signing in again fixes it (the cookie is set correctly).
+    - Reading the last cookie works (it depends on cookie order).
+  root_cause: |-
+    The API client's CSRF line read a cookie called `csrftoken` (a Django-style name) instead of `csrf_token`, the cookie this API sets
+    at login. `readCookie` returned an empty string, so every PUT and POST sent `X-CSRF-Token:` with no value. The server compares
+    the header with the session's token and answers 403 `csrf_failed`; safe methods are exempt, which is why reading kept working.
+
+    The fix reads the token through the `CSRF_COOKIE` constant, the same name the rest of the client uses.

@@ -154,6 +154,9 @@ func teardown() {
 // is still connected to the template it's cloning.
 func setup(ctx context.Context) error {
 	if testdbURL := os.Getenv(testdbURLEnv); testdbURL != "" {
+		if err := checkTestDBURL(testdbURL); err != nil {
+			return err
+		}
 		maintenanceDSN = testdbURL
 	} else {
 		c, err := tcpostgres.Run(ctx, postgresImage,
@@ -222,4 +225,28 @@ func withDatabase(dsn, name string) (string, error) {
 	}
 	u.Path = "/" + name
 	return u.String(), nil
+}
+
+// localTestHosts are the only hosts TESTDB_URL may point at. Tests create and
+// drop databases, so a TESTDB_URL aimed at a shared or production server (the
+// local backend/.env points DATABASE_URL at the production Neon database)
+// must be refused rather than trusted.
+var localTestHosts = map[string]bool{
+	"localhost": true, "127.0.0.1": true, "::1": true, "host.docker.internal": true,
+}
+
+// checkTestDBURL rejects a TESTDB_URL that is not a local server or that
+// shares a host with DATABASE_URL.
+func checkTestDBURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("%s is not a valid URL: %w", testdbURLEnv, err)
+	}
+	if !localTestHosts[u.Hostname()] {
+		return fmt.Errorf("%s host %q is not local; refusing to run destructive tests against it", testdbURLEnv, u.Hostname())
+	}
+	if app, err := url.Parse(os.Getenv("DATABASE_URL")); err == nil && app.Hostname() == u.Hostname() && u.Port() == app.Port() && u.Path == app.Path {
+		return fmt.Errorf("%s points at the same database as DATABASE_URL", testdbURLEnv)
+	}
+	return nil
 }

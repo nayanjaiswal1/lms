@@ -7,7 +7,7 @@ section_title: "Functions & Scope"
 section_position: 1
 section_group: Fundamentals
 title: "Walrus Operator (`:=`)"
-position: 6
+position: 4
 estimated_minutes: 10
 source: ["fifty-advanced-python-concepts/5.walrus_operator.py", "fifty-advanced-python-concepts/handbook/50_main_concepts_1_10.md"]
 ---

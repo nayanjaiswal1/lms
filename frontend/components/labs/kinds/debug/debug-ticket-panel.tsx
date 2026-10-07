@@ -11,13 +11,12 @@ interface DebugTicketPanelProps {
 /** The incident ticket the student starts from — reporter, severity, then the authored brief. */
 export function DebugTicketPanel({ title, brief }: DebugTicketPanelProps) {
   const { severity, reporter, body } = parseTicketMeta(brief)
+  // A brief that opens with its own "# Title" already names the incident.
+  const hasOwnTitle = /^#\s/.test(body)
 
   return (
-    <section
-      aria-label="Incident ticket"
-      className="card-base flex flex-col gap-3 border-l-4 border-l-destructive p-4"
-    >
-      <header className="flex flex-col gap-2">
+    <section aria-label="Incident ticket" className="flex flex-col gap-3">
+      <header className="flex flex-col gap-2 border-b border-border pb-3">
         <div className="flex flex-wrap items-center gap-2">
           <Badge className="gap-1" variant="outline">
             <Ticket aria-hidden className="h-3 w-3" />
@@ -25,12 +24,12 @@ export function DebugTicketPanel({ title, brief }: DebugTicketPanelProps) {
           </Badge>
           {severity && <Badge variant="destructive">{severity}</Badge>}
           {reporter && (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs leading-5 text-muted-foreground">
               Reported by <span className="font-medium text-foreground">{reporter}</span>
             </span>
           )}
         </div>
-        <h2 className="text-base font-semibold leading-snug">{title}</h2>
+        {!hasOwnTitle && <h2 className="text-base font-semibold leading-snug">{title}</h2>}
       </header>
       <LabMarkdown>{body}</LabMarkdown>
       <p className="border-t border-border pt-3 text-xs text-muted-foreground">

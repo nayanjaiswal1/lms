@@ -103,7 +103,7 @@ fault:
       from: carrier/ext/order_timeline/views.py
   commit:
     message: 'orders: add a timeline of payment and status events to each order'
-    persona: Priya Nair <priya@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.pytest-node
     role: symptom

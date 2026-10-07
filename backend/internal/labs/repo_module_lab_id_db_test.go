@@ -2,6 +2,7 @@ package labs
 
 import (
 	"context"
+	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -23,7 +24,7 @@ func seedLabFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool) (orgI
 		`INSERT INTO organizations (slug, name) VALUES ('acme-labs', 'Acme Labs') RETURNING id`,
 	).Scan(&orgID))
 	require.NoError(t, pool.QueryRow(ctx,
-		`INSERT INTO users (email, name) VALUES ('instructor@example.com', 'Instructor') RETURNING id`,
+		`INSERT INTO users (email, name) VALUES ('instructor@`+testdomain.Domain+`', 'Instructor') RETURNING id`,
 	).Scan(&userID))
 
 	var courseID, sectionID string
@@ -41,8 +42,8 @@ func seedLabFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool) (orgI
 	// INITIALLY DEFERRED specifically so either insert order works; here we
 	// have the lab row ready before the module needs to reference it.
 	require.NoError(t, pool.QueryRow(ctx,
-		`INSERT INTO lab_definitions (org_id, title, lab_type, environment, is_published, created_by, library_visibility)
-		 VALUES ($1,'Lab','terminal','mindforge/lab-terminal:1',true,$2,'org') RETURNING id`,
+		`INSERT INTO lab_definitions (org_id, title, lab_type, environment, is_published, created_by, library_visibility, scope)
+		 VALUES ($1,'Lab','terminal','mindforge/lab-terminal:1',true,$2,'org','standalone') RETURNING id`,
 		orgID, userID,
 	).Scan(&labID))
 	var versionID string

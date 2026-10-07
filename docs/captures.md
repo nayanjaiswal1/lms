@@ -126,3 +126,10 @@ See `backend/db/migrations/033_captures.sql`.
 - **Link fetch hits a private/internal address** → blocked at dial time by `netguard.GuardedTransport`, same defense as GitLab self-hosted URLs — a capture can't be used to probe internal infrastructure.
 - **Duplicate job run** (retry race, at-least-once delivery) → `Repo.MarkProcessing`'s `RowsAffected` guard makes a second concurrent run a no-op.
 - **Promote race** → `promote` requires `status = 'ready'`; a capture already `promoted`/`dismissed` returns a 409, not a second journal entry/card.
+
+
+---
+
+## Privacy: AI consent, retention, erasure
+
+Every capture is read by a vision or text model, so creating one (file upload, link, or re-processing) requires the user's AI consent (`PUT /api/privacy/ai-consent`); without it the API returns `403` before anything is stored. Extraction calls count against the per-user LLM cap (`LLM_USER_MAX_PER_HOUR` / `_PER_DAY`, `429`). Account erasure deletes the capture rows and removes the stored files from object storage in the same operation (a storage failure aborts the erasure so it can be retried); the export bundle includes capture metadata and extracted text.

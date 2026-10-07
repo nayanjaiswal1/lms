@@ -34,7 +34,7 @@ files:
         name: mysecret
       type: Opaque
       stringData:
-        db_server: db.example.com
+        db_server: db.mindforge.test
         db_username: admin
         db_password: P@ssw0rd!
   - path: secret-pods.yaml
@@ -96,7 +96,7 @@ files:
   - path: password.txt
     content: S3cure-Pa55
   - path: server.txt
-    content: db.example.com
+    content: db.mindforge.test
   - path: config.json
     content: |
       {
@@ -159,7 +159,7 @@ tasks:
     points: 15
     is_stateful: false
     description: |
-      Create a `docker-registry` Secret named `regcred` for the server `registry.example.com`, user `ci`, password `token123`. Then create a pod `private-pod` (image `registry.example.com/team/app:1.0`) that uses it through `imagePullSecrets`.
+      Create a `docker-registry` Secret named `regcred` for the server `registry.mindforge.test`, user `ci`, password `token123`. Then create a pod `private-pod` (image `registry.mindforge.test/team/app:1.0`) that uses it through `imagePullSecrets`.
     verification_script: |
       #!/bin/bash
       test "$(kubectl get secret regcred -o jsonpath='{.type}')" = "kubernetes.io/dockerconfigjson" || exit 1
@@ -167,7 +167,7 @@ tasks:
     hint_context: "`kubectl create secret docker-registry regcred --docker-server=... --docker-username=... --docker-password=...`. In the pod spec, `imagePullSecrets:` is a list of `- name:` entries at the same level as `containers`."
     explanation_context: The kubelet uses the credentials in regcred to pull the private image. Without it the pod would end up in ImagePullBackOff.
     solution_script: |
-      kubectl create secret docker-registry regcred --docker-server=registry.example.com --docker-username=ci --docker-password=token123
+      kubectl create secret docker-registry regcred --docker-server=registry.mindforge.test --docker-username=ci --docker-password=token123
       cat > private-pod.yaml <<'Y'
       apiVersion: v1
       kind: Pod
@@ -178,7 +178,7 @@ tasks:
         - name: regcred
         containers:
         - name: app
-          image: registry.example.com/team/app:1.0
+          image: registry.mindforge.test/team/app:1.0
       Y
       kubectl apply -f private-pod.yaml
 ---

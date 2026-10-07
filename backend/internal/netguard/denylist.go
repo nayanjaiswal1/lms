@@ -6,7 +6,26 @@
 // moments (TOCTOU / DNS rebinding), so both must consult the same function.
 package netguard
 
-import "net"
+import (
+	"net"
+)
+
+// extraDenied are ranges the stdlib helpers miss: CGNAT (cloud-internal and
+// Tailscale), benchmarking, "this network", and the IPv6 transition prefixes
+// that embed an arbitrary IPv4 target (NAT64, 6to4).
+var extraDenied = mustCIDRs("100.64.0.0/10", "198.18.0.0/15", "0.0.0.0/8", "64:ff9b::/96", "2002::/16")
+
+func mustCIDRs(cidrs ...string) []*net.IPNet {
+	nets := make([]*net.IPNet, 0, len(cidrs))
+	for _, c := range cidrs {
+		_, n, err := net.ParseCIDR(c)
+		if err != nil {
+			panic("netguard: bad CIDR " + c + ": " + err.Error())
+		}
+		nets = append(nets, n)
+	}
+	return nets
+}
 
 // awsIMDSv6 is AWS's IPv6 instance-metadata-service address. Other clouds'
 // IPv4 metadata endpoints (GCP, Azure, DigitalOcean, Oracle, etc. all use
@@ -40,6 +59,11 @@ func IsDenylisted(ip net.IP) bool {
 	}
 	if ip.IsUnspecified() || ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
 		return true
+	}
+	for _, n := range extraDenied {
+		if n.Contains(ip) {
+			return true
+		}
 	}
 	return ip.Equal(metadataV4) || ip.Equal(awsIMDSv6)
 }

@@ -61,10 +61,10 @@ class FakeTransport:
 report = ReportCalculator().compute([10_000, 25_000, 5_000])
 pdf = ReportPdfRenderer().render(report)
 transport = FakeTransport()
-ReportMailer(transport).send("cfo@example.com", pdf)
+ReportMailer(transport).send("cfo@mindforge.test", pdf)
 
 assert report.total_paise == 40_000
-assert transport.outbox[0][0] == "cfo@example.com"
+assert transport.outbox[0][0] == "cfo@mindforge.test"
 print("report pipeline ok:", pdf.decode())
 ```
 
@@ -332,10 +332,10 @@ class RecordingNotifier(Notifier):
 
 
 repo, notifier = InMemoryOrderRepository(), RecordingNotifier()
-order_id = OrderService(repo, notifier).place({"total_paise": 49_900, "email": "a@example.com"})
+order_id = OrderService(repo, notifier).place({"total_paise": 49_900, "email": "a@mindforge.test"})
 
 assert order_id == "ord_1" and repo.saved[order_id]["total_paise"] == 49_900
-assert notifier.messages == [("a@example.com", "Order ord_1 placed")]
+assert notifier.messages == [("a@mindforge.test", "Order ord_1 placed")]
 print("business logic tested with zero infrastructure:", order_id)
 ```
 

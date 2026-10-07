@@ -1,5 +1,6 @@
 "use client";
 
+import { PLACEHOLDER_DOMAIN } from "@/lib/constants";
 import * as React from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -77,7 +78,7 @@ export function BulkInviteForm({ orgId }: Props) {
         <Textarea
           className="min-h-32 font-mono text-sm"
           id="bulk-emails"
-          placeholder={"one@example.com\ntwo@example.com, three@example.com"}
+          placeholder={`one@${PLACEHOLDER_DOMAIN}\ntwo@${PLACEHOLDER_DOMAIN}, three@${PLACEHOLDER_DOMAIN}`}
           value={text}
           onChange={(e) => setText(e.target.value)}
         />

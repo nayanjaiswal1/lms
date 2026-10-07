@@ -17363,7 +17363,7 @@ Learn this sequence well enough to explain it out loud. Interviewers ask it dire
 6. Response         HTML → browser parses → more requests for CSS/JS/images
 ```
 
-DNS (Domain Name System) is the phone book of the internet: it turns a name like "example.com" into a numeric address. TCP is the connection-setup handshake computers use before sending data. TLS is the layer that encrypts the connection, so nobody in between can read it.
+DNS (Domain Name System) is the phone book of the internet: it turns a name like "mindforge.test" into a numeric address. TCP is the connection-setup handshake computers use before sending data. TLS is the layer that encrypts the connection, so nobody in between can read it.
 
 Three facts that pay off in interviews.
 
@@ -20270,7 +20270,7 @@ VALUES ('58424ed6-4690-5ef0-ab6a-65ab3cc84017', '57f5e0f7-67b7-55ab-a3e7-4699471
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('d8abdf4f-39a8-59aa-9c5f-5b25d6006161', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '58424ed6-4690-5ef0-ab6a-65ab3cc84017', 'Design a URL Shortener', 'system_design', 1, $md$A URL shortener turns a long link into a short one, like turning `https://example.com/blog/2026/09/a-very-long-post-title` into `sho.rt/aZ9kLm`. Visiting the short link redirects you to the long one.
+VALUES ('d8abdf4f-39a8-59aa-9c5f-5b25d6006161', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '58424ed6-4690-5ef0-ab6a-65ab3cc84017', 'Design a URL Shortener', 'system_design', 1, $md$A URL shortener turns a long link into a short one, like turning `https://mindforge.test/blog/2026/09/a-very-long-post-title` into `sho.rt/aZ9kLm`. Visiting the short link redirects you to the long one.
 
 Interviewers love this question because it is simple enough to finish in 40 minutes, but it still forces you to scope requirements, do real math, pick a key-generation strategy, and think about a read-heavy system. Treat it as your warm-up: the same framework (requirements, estimates, API, data model, high-level design, deep dive, trade-offs) repeats in every design in this course.
 
@@ -25123,9 +25123,9 @@ class SignupService:
 
 
 fake = FakeMailer()
-SignupService(fake).register("a@example.com")
-assert fake.sent == [("a@example.com", "Welcome!")]   # tested with no real mail server
-SignupService(SmtpMailer()).register("b@example.com")
+SignupService(fake).register("a@mindforge.test")
+assert fake.sent == [("a@mindforge.test", "Welcome!")]   # tested with no real mail server
+SignupService(SmtpMailer()).register("b@mindforge.test")
 print("sent:", fake.sent)
 ```
 
@@ -25232,10 +25232,10 @@ class FakeTransport:
 report = ReportCalculator().compute([10_000, 25_000, 5_000])
 pdf = ReportPdfRenderer().render(report)
 transport = FakeTransport()
-ReportMailer(transport).send("cfo@example.com", pdf)
+ReportMailer(transport).send("cfo@mindforge.test", pdf)
 
 assert report.total_paise == 40_000
-assert transport.outbox[0][0] == "cfo@example.com"
+assert transport.outbox[0][0] == "cfo@mindforge.test"
 print("report pipeline ok:", pdf.decode())
 ```
 
@@ -25503,10 +25503,10 @@ class RecordingNotifier(Notifier):
 
 
 repo, notifier = InMemoryOrderRepository(), RecordingNotifier()
-order_id = OrderService(repo, notifier).place({"total_paise": 49_900, "email": "a@example.com"})
+order_id = OrderService(repo, notifier).place({"total_paise": 49_900, "email": "a@mindforge.test"})
 
 assert order_id == "ord_1" and repo.saved[order_id]["total_paise"] == 49_900
-assert notifier.messages == [("a@example.com", "Order ord_1 placed")]
+assert notifier.messages == [("a@mindforge.test", "Order ord_1 placed")]
 print("business logic tested with zero infrastructure:", order_id)
 ```
 
@@ -25795,7 +25795,7 @@ class HttpRequestBuilder:
                            self._body, self._timeout)
 
 
-req = (HttpRequestBuilder("https://api.example.com/orders")
+req = (HttpRequestBuilder("https://api.mindforge.test/orders")
        .method("POST")
        .header("Content-Type", "application/json")
        .body('{"total":49900}')
@@ -29695,7 +29695,7 @@ service = NotificationService({Channel.EMAIL: email, Channel.SMS: sms}, pipeline
 prefs = UserPreferences(
     channels={Channel.EMAIL, Channel.SMS},
     muted_categories={"marketing"},
-    contact={Channel.EMAIL: "asha@example.com", Channel.SMS: "+91999"},
+    contact={Channel.EMAIL: "asha@mindforge.test", Channel.SMS: "+91999"},
 )
 
 order = Notification("u1", "transactional", "order_shipped", {"order_id": "ord_1"})
@@ -33257,9 +33257,9 @@ async def fetch_json(client: httpx.AsyncClient, url: str) -> dict:
 @app.get("/aggregate")
 async def aggregate_endpoint():
     urls = [
-        "https://api.example.com/users",
-        "https://api.example.com/orders",
-        "https://api.example.com/inventory",
+        "https://api.mindforge.test/users",
+        "https://api.mindforge.test/orders",
+        "https://api.mindforge.test/inventory",
     ]
     async with httpx.AsyncClient() as client:
         try:
@@ -37008,7 +37008,7 @@ A few practical details that come up: HTTP defaults to port 80, HTTPS to port 44
 
 Two small pieces of networking that get asked back-to-back in a "fundamentals" round, precisely because each one is quick to cover on its own.
 
-**DNS** turns a hostname like `api.example.com` into an IP address through a hierarchical lookup: root nameservers point to nameservers for the top-level domain (`.com`), which point to the authoritative nameserver for `example.com` itself, which finally answers with the actual IP. That result gets cached at the OS, the browser, and the resolver, according to a TTL (time to live) on the DNS record. This caching is exactly why a DNS change can take time to reach everyone even after the authoritative record has already been updated: every cache holding the old answer has to wait out its own TTL first.
+**DNS** turns a hostname like `api.mindforge.test` into an IP address through a hierarchical lookup: root nameservers point to nameservers for the top-level domain (`.com`), which point to the authoritative nameserver for `mindforge.test` itself, which finally answers with the actual IP. That result gets cached at the OS, the browser, and the resolver, according to a TTL (time to live) on the DNS record. This caching is exactly why a DNS change can take time to reach everyone even after the authoritative record has already been updated: every cache holding the old answer has to wait out its own TTL first.
 
 **A routing table** is what a router consults to decide where to send a packet next. It maps network destinations to a next-hop address, and a router only knows the next hop, not the full path. A packet crosses the network one hop at a time, each router forwarding it a little closer, until it reaches the network the destination lives on.
 
@@ -37811,7 +37811,7 @@ HTTP is request-response: the client asks, the server answers, and the connectio
 
 ```
 GET /ws/chat HTTP/1.1
-Host: example.com
+Host: mindforge.test
 Upgrade: websocket
 Connection: Upgrade
 Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
@@ -38226,7 +38226,7 @@ COPY requirements.txt .
 ADD app-bundle.tar.gz /app/
 
 # Prefer this over `ADD https://...` for remote files — visible, and you control error handling
-RUN curl -fsSL https://example.com/tool.tar.gz -o /tmp/tool.tar.gz \
+RUN curl -fsSL https://mindforge.test/tool.tar.gz -o /tmp/tool.tar.gz \
     && tar -xzf /tmp/tool.tar.gz -C /usr/local/bin \
     && rm /tmp/tool.tar.gz
 ```
@@ -38238,7 +38238,7 @@ The rule to state in an interview: use `COPY` unless you specifically need tar a
 ```knowledge-check
 { "questions": [
     { "id": "backend-apis-docker-copyadd-q1", "type": "mcq",
-      "prompt": "Why is ADD https://example.com/file.tar.gz /app/ generally discouraged compared to an explicit RUN curl command?",
+      "prompt": "Why is ADD https://mindforge.test/file.tar.gz /app/ generally discouraged compared to an explicit RUN curl command?",
       "options": [
         {"id":"a","text":"ADD cannot fetch files over HTTPS"},
         {"id":"b","text":"ADD's remote-fetch and auto-extract behavior is implicit and easy to miss when reading the Dockerfile, and it gives you no control over error handling the way an explicit RUN curl does"},
@@ -38721,7 +38721,7 @@ def db_session(engine):
 
 @pytest.fixture
 def sample_user(db_session):
-    user = User(username="alice", email="alice@example.com")
+    user = User(username="alice", email="alice@mindforge.test")
     db_session.add(user)
     db_session.commit()
     return user
@@ -38763,7 +38763,7 @@ def client(db_session):
 
 
 def test_create_user_endpoint(client):
-    response = client.post("/users", json={"username": "bob", "email": "bob@example.com"})
+    response = client.post("/users", json={"username": "bob", "email": "bob@mindforge.test"})
     assert response.status_code == 201
     assert response.json()["username"] == "bob"
 ```
@@ -38925,10 +38925,10 @@ def test_get_user_greeting_stub(mocker):
 def test_send_welcome_email_mock(mocker):
     mock_mailer = mocker.Mock()
 
-    send_welcome_email(mock_mailer, "alice@example.com")
+    send_welcome_email(mock_mailer, "alice@mindforge.test")
 
     mock_mailer.send.assert_called_once_with(
-        to="alice@example.com", subject="Welcome!"
+        to="alice@mindforge.test", subject="Welcome!"
     )
     # We DO care that send() was called with exactly these args:
     # that's the whole behavior being tested here.
@@ -44279,10 +44279,10 @@ describe("LoginForm", () => {
     const handleSubmit = vi.fn();
     const user = userEvent.setup();
     render(<LoginForm onSubmit={handleSubmit} />);
-    await user.type(screen.getByLabelText(/email/i), "jane@example.com");
+    await user.type(screen.getByLabelText(/email/i), "jane@mindforge.test");
     await user.type(screen.getByLabelText(/password/i), "hunter2");
     await user.click(screen.getByRole("button", { name: /log in/i }));
-    expect(handleSubmit).toHaveBeenCalledWith("jane@example.com", "hunter2");
+    expect(handleSubmit).toHaveBeenCalledWith("jane@mindforge.test", "hunter2");
   });
 
   test("shows a validation error for an invalid email", async () => {
@@ -45628,17 +45628,17 @@ The browser sends an `Origin` header; the server replies with `Access-Control-Al
 
 ```
 OPTIONS /api/users HTTP/1.1
-Origin: https://app.example.com
+Origin: https://app.mindforge.test
 Access-Control-Request-Method: POST
 
 HTTP/1.1 204 No Content
-Access-Control-Allow-Origin: https://app.example.com
+Access-Control-Allow-Origin: https://app.mindforge.test
 Access-Control-Allow-Methods: GET, POST, PUT, DELETE
 Access-Control-Allow-Credentials: true
 ```
 
 ```tsx
-fetch("https://api.example.com/me", { credentials: "include" }); // sends cookies cross-origin
+fetch("https://api.mindforge.test/me", { credentials: "include" }); // sends cookies cross-origin
 ```
 
 `Access-Control-Allow-Origin: *` can never be combined with `Access-Control-Allow-Credentials: true`. If cookies need to cross an origin, the server must echo back the exact requesting origin, never a wildcard.
@@ -45789,7 +45789,7 @@ function useWebSocket(url: string, { onMessage, maxReconnectDelayMs = 30_000 }: 
 function ChatRoom({ roomId }: { roomId: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
-  const { state, send } = useWebSocket(`wss://api.example.com/rooms/${roomId}`, {
+  const { state, send } = useWebSocket(`wss://api.mindforge.test/rooms/${roomId}`, {
     onMessage: (data) => setMessages((prev) => [...prev, data as ChatMessage]),
   });
 
@@ -45904,19 +45904,19 @@ Next.js's App Router picks a strategy per route or component, not for the whole 
 ```tsx
 // SSG — no dynamic data, revalidate: false means "never," pure static
 async function getPosts() {
-  const res = await fetch("https://api.example.com/posts", { next: { revalidate: false } });
+  const res = await fetch("https://api.mindforge.test/posts", { next: { revalidate: false } });
   return res.json();
 }
 
 // ISR — refresh every 60 seconds, regenerated in the background
 async function getProducts() {
-  const res = await fetch("https://api.example.com/products", { next: { revalidate: 60 } });
+  const res = await fetch("https://api.mindforge.test/products", { next: { revalidate: 60 } });
   return res.json();
 }
 
 // SSR — cache: "no-store" opts out of caching entirely, forcing a fresh fetch on every request
 async function getDashboard(userId: string) {
-  const res = await fetch(`https://api.example.com/dashboard/${userId}`, { cache: "no-store" });
+  const res = await fetch(`https://api.mindforge.test/dashboard/${userId}`, { cache: "no-store" });
   return res.json();
 }
 ```
@@ -46108,8 +46108,8 @@ module.exports = {
     new ModuleFederationPlugin({
       name: "shell",
       remotes: {
-        checkout: "checkout@https://checkout.example.com/remoteEntry.js",
-        catalog: "catalog@https://catalog.example.com/remoteEntry.js",
+        checkout: "checkout@https://checkout.mindforge.test/remoteEntry.js",
+        catalog: "catalog@https://catalog.mindforge.test/remoteEntry.js",
       },
       shared: { react: { singleton: true, requiredVersion: "^19.0.0" }, "react-dom": { singleton: true, requiredVersion: "^19.0.0" } },
     }),
@@ -46174,12 +46174,12 @@ Two real options for shipping it. An **npm package**: versioned, each team upgra
 
 ## Independent deployment: the whole point of doing this
 
-Team Checkout ships a fix to `checkout.example.com/remoteEntry.js`, and it's live in the shell on the very next page load, no shell rebuild, no coordinated release with other teams.
+Team Checkout ships a fix to `checkout.mindforge.test/remoteEntry.js`, and it's live in the shell on the very next page load, no shell rebuild, no coordinated release with other teams.
 
 ```
-shell.example.com/          → loads remoteEntry.js from each remote at runtime
-checkout.example.com/       → deployed independently by the checkout team
-catalog.example.com/        → deployed independently by the catalog team
+shell.mindforge.test/          → loads remoteEntry.js from each remote at runtime
+checkout.mindforge.test/       → deployed independently by the checkout team
+catalog.mindforge.test/        → deployed independently by the catalog team
 ```
 
 This requires the shell to treat each remote as a runtime contract, not a build-time dependency: it doesn't know or care what version of checkout is currently live, only that it exposes `./CheckoutFlow` with a compatible interface. That contract, the props shape and the exposed module names, is the thing that actually needs versioning discipline, not the whole bundle.

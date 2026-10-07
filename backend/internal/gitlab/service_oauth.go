@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/mindforge/backend/internal/netguard"
 )
 
 const oauthStateTTL = 10 * time.Minute
@@ -165,7 +167,7 @@ func (s *Service) CompleteCallback(ctx context.Context, state, code string) (pur
 		clientSecret = string(dec)
 	}
 
-	httpClient := &http.Client{Timeout: 15 * time.Second}
+	httpClient := netguard.NewHTTPClient(15 * time.Second)
 	tok, err := ExchangeCode(ctx, httpClient, *st.BaseURL, *st.OAuthClientID, clientSecret, code, st.CodeVerifier, s.callbackURL())
 	if err != nil {
 		return "", err
@@ -255,7 +257,7 @@ func randomState() (string, error) {
 // the settings page's status view.
 func (s *Service) RefreshExpiringTokens(ctx context.Context, window time.Duration) error {
 	before := time.Now().Add(window)
-	httpClient := &http.Client{Timeout: 15 * time.Second}
+	httpClient := netguard.NewHTTPClient(15 * time.Second)
 
 	installations, err := s.repo.ListExpiringOAuthInstallations(ctx, before)
 	if err != nil {

@@ -1,0 +1,102 @@
+kind: fault
+id: fs.api.search-query-not-encoded
+version: 1.0.0
+stack: fullstack
+title: Searching for "R&D Kit" finds the wrong products
+summary: The catalog search puts the typed text into the URL without encoding it, so an ampersand ends the q parameter and the API only receives the text before it.
+category: api
+difficulty: beginner
+skills:
+- url-encoding
+- query-strings
+- fetch
+requires:
+- slot:catalog.search.request
+- cap:vitest
+- cap:fastapi-backend
+fault:
+  inject:
+    slots:
+    - slot: catalog.search.request
+      value: |
+        return get(`/api/products?q=${query}`, { signal });
+  fix:
+    slots:
+    - slot: catalog.search.request
+      value: |
+        return get(`/api/products?q=${encodeURIComponent(query)}`, { signal });
+    files:
+    - path: tests/catalog-search-url.test.jsx
+      from: fix/tests/catalog-search-url.test.jsx
+    - path: backend/tests/test_search_api.py
+      from: fix/tests/test_search_api.py
+  cheats:
+  - name: encode-only-ampersands
+    slots:
+    - slot: catalog.search.request
+      value: |
+        return get(`/api/products?q=${query.replace(/&/g, '%26')}`, { signal });
+  - name: revert-the-commit
+    slots:
+    - slot: catalog.search.request
+      value: |
+        return get(`/api/products?q=${encodeURIComponent(query)}`, { signal });
+    files:
+    - path: backend/app/ext/low_stock.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: low-stock
+    files:
+    - path: backend/app/ext/low_stock.py
+      from: carrier/backend/app/ext/low_stock.py
+  commit:
+    message: 'catalog: build the search URL directly and add the low-stock report'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_api_1/search.test.jsx
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_api_1/test_search_api.py
+  symptom:
+    vars:
+      title: Searching for "R&D Kit" lists everything containing an R
+      report: |-
+        A buyer typed "R&D Kit" into the catalog search and got a list of every product containing the letter R instead of the one kit
+        they wanted. Searches that contain a plus sign behave strangely too.
+      where: The Catalog page, search box and Search button.
+      expected: The list contains exactly the products whose name or SKU contains the typed text.
+      support_tried: Searched for "R&D Kit" directly through the API with curl (encoded) and the single kit came back, so we thought the data was fine.
+      observations: |-
+        ### Other observations from QA
+
+        - Plain words such as "mouse" or "keyboard" are found correctly.
+        - The browser network tab shows the request as `/api/products?q=R&D Kit`.
+        - The low-stock report shipped in the same release as the catalog change.
+    signature: the search request URL contains the raw typed text
+  hints:
+  - Search for a plain word, then for "R&D Kit", and compare the request URL in the network tab with what you typed.
+  - A query string is `key=value&key=value`. Text that contains `&`, `+`, `#` or `%` means something else once it is inside a URL. Read how searchProducts builds its URL.
+  - Encode the value with encodeURIComponent at the one place that builds the URL (not with a replace for one character). Add a test that asserts the exact URL for `&`, `+`, `#` and `%`.
+  rubric:
+    key_points:
+    - Reads the request URL and sees that `&` split the typed text into a second parameter, so the API only got the text before it.
+    - Notes that the API is correct (an encoded query finds the exact product) and the defect is the client building the URL.
+    - Fixes it with encodeURIComponent at the single place the URL is built, not by replacing one character.
+    - Tests the exact URL for several reserved characters.
+    misconceptions:
+    - The backend search is wrong (it matches an encoded query correctly).
+    - Replacing `&` is enough (`+`, `#` and `%` break the same way).
+    - Encoding the whole URL instead of the value.
+  root_cause: |-
+    `searchProducts` interpolated the typed text straight into the URL (`/api/products?q=${query}`). An `&` therefore started a new
+    parameter and the API received `q=R`; `+` became a space and `#` cut the URL. The earlier code wrapped the value in
+    `encodeURIComponent`; a refactor to build the URL directly dropped it.
+
+    The API was never at fault: `q=R%26D%20Kit` returns exactly the "R&D Kit" product. The fix is `encodeURIComponent(query)` where
+    the URL is built, plus tests that assert the exact URL for the reserved characters.

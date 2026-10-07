@@ -22,7 +22,7 @@ kind: ConfigMap
 metadata:
   name: myconfigmap               
 data:
-  db_server: "db.example.com"        # configmap key-value parameters
+  db_server: "db.mindforge.test"        # configmap key-value parameters
   database: "mydatabase"
   site.settings: |
     color=blue

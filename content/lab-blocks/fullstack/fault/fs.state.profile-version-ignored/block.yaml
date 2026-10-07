@@ -1,0 +1,112 @@
+kind: fault
+id: fs.state.profile-version-ignored
+version: 1.0.0
+stack: fullstack
+title: An old tab overwrites a newer profile
+summary: The optimistic-concurrency check only rejects versions from the future, so a save made from a stale tab silently overwrites newer changes.
+category: state
+difficulty: intermediate
+skills:
+- optimistic-concurrency
+- http-status
+- state
+requires:
+- slot:profile.update.version-check
+- cap:fastapi-backend
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: profile.update.version-check
+      value: |
+        if body.version > user["version"]:
+            raise ApiError(409, "version_conflict", "The profile was changed elsewhere. Reload and try again.")
+  fix:
+    slots:
+    - slot: profile.update.version-check
+      value: |
+        if body.version != user["version"]:
+            raise ApiError(409, "version_conflict", "The profile was changed elsewhere. Reload and try again.")
+    files:
+    - path: backend/tests/test_version_check.py
+      from: fix/tests/test_version_check.py
+  cheats:
+  - name: only-the-first-version
+    slots:
+    - slot: profile.update.version-check
+      value: |
+        if body.version != user["version"] and (body.version == 1 or body.version > user["version"]):
+            raise ApiError(409, "version_conflict", "The profile was changed elsewhere. Reload and try again.")
+  - name: reject-after-first-save
+    slots:
+    - slot: profile.update.version-check
+      value: |
+        if user["version"] > 1 or body.version != user["version"]:
+            raise ApiError(409, "version_conflict", "The profile was changed elsewhere. Reload and try again.")
+  - name: revert-the-commit
+    slots:
+    - slot: profile.update.version-check
+      value: |
+        if body.version != user["version"]:
+            raise ApiError(409, "version_conflict", "The profile was changed elsewhere. Reload and try again.")
+    files:
+    - path: backend/app/ext/low_stock.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: low-stock
+    files:
+    - path: backend/app/ext/low_stock.py
+      from: carrier/backend/app/ext/low_stock.py
+  commit:
+    message: 'reports: add the low-stock report and allow profile saves from slightly older versions'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_state_profile_version/test_version_check.py
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_state_profile_version/profile_conflict.test.jsx
+  symptom:
+    vars:
+      title: Saving my profile on my laptop erased the phone number I just changed on my phone
+      report: |-
+        A customer updated their phone number from the mobile site, then went back to a laptop tab that had been open since the
+        morning, fixed a typo in the name and pressed Save. The page said "Profile saved" and the new phone number was gone, replaced
+        by the old one from the open tab. Two other customers described the same thing after using two devices.
+      where: The profile page, when it is open in more than one tab or device.
+      expected: A save based on an out-of-date profile is refused and the customer is told to reload, as before.
+      support_tried: Reproduced it with two browsers. The first save works; the save from the older tab also works and wins.
+      observations: |-
+        ### Other observations from QA
+
+        - The "changed in another tab or device" message used to appear in this situation.
+        - Saving twice in a row from one tab works as expected.
+        - The low-stock report came in the same release.
+    signature: a save with a stale profile version returns 200 instead of 409 version_conflict
+  hints:
+  - Open the profile in two tabs, save in one, then save in the other and look at the PUT request and its response status. What version does each request carry?
+  - Every save carries the version it was based on, and the server must refuse any save whose version is not the current one. Read the check at the top of the profile update and check git log -p for the change that touched it.
+  - Compare for equality (the request version must equal the stored version), not just for a larger number, in the one place that saves. Add a backend test with two saves from the same version and a frontend test that shows the conflict message.
+  rubric:
+    key_points:
+    - Identifies that the check only rejects versions greater than the stored one, so stale (lower) versions pass.
+    - Explains the lost update (a stale form overwrites newer data) and why 409 is the right response.
+    - Fixes the check to require equality in the server, not in the UI.
+    - Tests two saves from the same version and a version several saves behind.
+    misconceptions:
+    - Comparing in the frontend is enough (another client can still send a stale version).
+    - Rejecting every save after the first one fixes it (it breaks normal sequential saves).
+    - Only version 1 can be stale.
+  root_cause: |-
+    The version check in `update_profile` was loosened from `body.version != user["version"]` to `body.version > user["version"]` so that
+    "slightly older versions" could still save. A request based on an older profile has a smaller version, so it passed the check and
+    overwrote the newer name and phone: a lost update. Only a version from the future was refused.
+
+    Optimistic concurrency needs equality: the version the client saw must be the version in the store, otherwise the server answers
+    409 `version_conflict` and the client asks the customer to reload. The backend tests cover a repeated version and a version several
+    saves behind; the frontend test shows the conflict message for a stale tab.

@@ -56,3 +56,26 @@ func GuardedTransport(dialTimeout time.Duration) *http.Transport {
 	}
 	return transport
 }
+
+// maxRedirects bounds redirect chains for guarded clients.
+const maxRedirects = 5
+
+// NewHTTPClient returns the one client every caller of an admin-configured
+// outbound host must use: GuardedTransport re-checks every dial (which also
+// covers each redirect hop's resolved IP), and CheckRedirect caps the chain
+// and refuses https->http downgrades.
+func NewHTTPClient(timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout:   timeout,
+		Transport: GuardedTransport(timeout),
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= maxRedirects {
+				return fmt.Errorf("netguard: stopped after %d redirects", maxRedirects)
+			}
+			if via[0].URL.Scheme == "https" && req.URL.Scheme != "https" {
+				return fmt.Errorf("netguard: refusing https to %s redirect", req.URL.Scheme)
+			}
+			return nil
+		},
+	}
+}

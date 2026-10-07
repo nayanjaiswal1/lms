@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
@@ -76,9 +78,8 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 		limit = 100
 	}
 
-	key, ok2 := buildLBKey(scope, scopeID, featureType, claims.OrgID)
+	key, ok2 := h.resolveLBKey(w, r, scope, scopeID, featureType, claims.OrgID)
 	if !ok2 {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid leaderboard scope or missing scope_id.")
 		return
 	}
 
@@ -86,6 +87,9 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httputil.WriteError(w, http.StatusInternalServerError, "Could not load leaderboard.")
 		return
+	}
+	if scope == "global" {
+		entries = anonymiseGlobal(entries, claims.UserID)
 	}
 
 	// Include the caller's own rank.
@@ -112,9 +116,8 @@ func (h *Handler) GetMyRank(w http.ResponseWriter, r *http.Request) {
 	if scope == "" {
 		scope = "org"
 	}
-	key, ok2 := buildLBKey(scope, q.Get("scope_id"), q.Get("feature_type"), claims.OrgID)
+	key, ok2 := h.resolveLBKey(w, r, scope, q.Get("scope_id"), q.Get("feature_type"), claims.OrgID)
 	if !ok2 {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid scope.")
 		return
 	}
 	rank, xp, err := h.svc.GetUserRank(r.Context(), key, claims.UserID)
@@ -126,6 +129,54 @@ func (h *Handler) GetMyRank(w http.ResponseWriter, r *http.Request) {
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
+
+// resolveLBKey builds the Redis key and rejects any scope the caller's org does
+// not own. org/feature scopes are pinned to the caller's own org; batch, group
+// and course ids must belong to it.
+func (h *Handler) resolveLBKey(w http.ResponseWriter, r *http.Request, scope, scopeID, featureType, orgID string) (string, bool) {
+	if scope == "org" || scope == "feature" {
+		if scopeID != "" && scopeID != orgID {
+			httputil.WriteError(w, http.StatusForbidden, "You cannot view this leaderboard.")
+			return "", false
+		}
+		scopeID = orgID
+	}
+	key, ok := buildLBKey(scope, scopeID, featureType, orgID)
+	if !ok {
+		httputil.WriteError(w, http.StatusBadRequest, "Invalid leaderboard scope or missing scope_id.")
+		return "", false
+	}
+	if _, ok := scopeTables[scope]; ok {
+		if _, err := uuid.Parse(scopeID); err != nil {
+			httputil.WriteError(w, http.StatusBadRequest, "Invalid scope_id.")
+			return "", false
+		}
+	}
+	owned, err := h.svc.ScopeInOrg(r.Context(), scope, scopeID, orgID)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Could not load leaderboard.")
+		return "", false
+	}
+	if !owned {
+		httputil.WriteError(w, http.StatusForbidden, "You cannot view this leaderboard.")
+		return "", false
+	}
+	return key, true
+}
+
+// anonymiseGlobal hides identity of everyone but the caller on the
+// platform-wide board so it cannot be used as a cross-tenant user directory.
+func anonymiseGlobal(entries []LeaderboardEntry, callerID string) []LeaderboardEntry {
+	for i := range entries {
+		if entries[i].UserID == callerID {
+			continue
+		}
+		entries[i].UserID = "anon-" + strconv.Itoa(entries[i].Rank)
+		entries[i].Name = "Learner"
+		entries[i].AvatarURL = nil
+	}
+	return entries
+}
 
 func buildLBKey(scope, scopeID, featureType, defaultOrgID string) (string, bool) {
 	switch scope {

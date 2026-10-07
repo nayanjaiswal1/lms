@@ -7,7 +7,7 @@ section_title: "Memory Optimization"
 section_position: 6
 section_group: Advanced
 title: "memory_profiler"
-position: 3
+position: 2
 estimated_minutes: 12
 source: [fifty-advanced-python-concepts/43.memory_profiler.py, fifty-advanced-python-concepts/handbook/50_main_concepts_41_52.md]
 ---

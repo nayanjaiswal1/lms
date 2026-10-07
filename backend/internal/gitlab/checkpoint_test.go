@@ -3,6 +3,7 @@ package gitlab
 import (
 	"context"
 	"errors"
+	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 	"time"
 
@@ -48,7 +49,7 @@ func seedCheckpointTest(t *testing.T, pool *pgxpool.Pool, repo *Repo, requiredAp
 		t.Fatalf("create team: %v", err)
 	}
 	gitlabProjectID := time.Now().UnixNano() % 1_000_000_000
-	if err := repo.SetTeamForkResult(ctx, team.ID, gitlabProjectID, "merge-gate-test-group/merge-gate-test-team", "https://gitlab.example.com/merge-gate-test-group/merge-gate-test-team"); err != nil {
+	if err := repo.SetTeamForkResult(ctx, team.ID, gitlabProjectID, "merge-gate-test-group/merge-gate-test-team", "https://gitlab."+testdomain.Domain+"/merge-gate-test-group/merge-gate-test-team"); err != nil {
 		t.Fatalf("set team fork result: %v", err)
 	}
 
@@ -62,7 +63,7 @@ func seedCheckpointTest(t *testing.T, pool *pgxpool.Pool, repo *Repo, requiredAp
 
 	status := CheckpointStatusSubmitted
 	if _, err := repo.UpsertTeamCheckpointMR(ctx, orgID, team.ID, cp.ID, 1, 1001,
-		"https://gitlab.example.com/merge-gate-test-group/merge-gate-test-team/-/merge_requests/1",
+		"https://gitlab."+testdomain.Domain+"/merge-gate-test-group/merge-gate-test-team/-/merge_requests/1",
 		MRStateOpened, &status); err != nil {
 		t.Fatalf("upsert team checkpoint mr: %v", err)
 	}

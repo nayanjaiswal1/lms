@@ -1,5 +1,7 @@
 # Interview Board + Load Test
 
+> **Planned (not built).** The live interview board (shared coding pad, system design canvas, `WS /ws/interview/:id` Yjs relay and short-link candidate join) is not implemented. The sections below are design only; no backend route or frontend exists yet.
+
 Everything about the live technical interview environment and the HTTP load test tool: flows, real-time sync, API endpoints, and database schema.
 
 ---
@@ -92,7 +94,7 @@ The `join_code` is the candidate's credential for that session only. No account,
 Fires real HTTP traffic from the platform backend to a target API.
 
 ```
-Target URL:   https://my-api.example.com/api/users
+Target URL:   https://my-api.mindforge.test/api/users
 Method:       GET
 Headers:      Authorization: Bearer xxx
 RPS:          50

@@ -90,6 +90,16 @@ type CertificateView struct {
 	LearnerName string `json:"learner_name"`
 }
 
+// PublicCertificate is the minimal no-auth verification payload: no internal
+// user, course or attempt IDs.
+type PublicCertificate struct {
+	CertUUID    string    `json:"cert_uuid"`
+	CourseTitle string    `json:"course_title"`
+	LearnerName string    `json:"learner_name"`
+	IssuedAt    time.Time `json:"issued_at"`
+	IssueType   string    `json:"issue_type"`
+}
+
 // ─── Request / Response ───────────────────────────────────────────────────────
 
 // UpsertFinalTestRequest is the instructor authoring payload — PUT semantics,

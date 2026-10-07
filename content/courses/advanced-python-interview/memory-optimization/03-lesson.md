@@ -7,7 +7,7 @@ section_title: "Memory Optimization"
 section_position: 6
 section_group: Advanced
 title: "Optimizing Memory with __slots__"
-position: 2
+position: 1
 estimated_minutes: 12
 source: [fifty-advanced-python-concepts/_slots.py, fifty-advanced-python-concepts/handbook/50_main_concepts_41_52.md]
 ---
@@ -22,8 +22,8 @@ class UserProfile:
         self.email = email
 
 
-u = UserProfile("alice", "alice@example.com")
-print(u.__dict__)          # {'username': 'alice', 'email': 'alice@example.com'}
+u = UserProfile("alice", "alice@mindforge.test")
+print(u.__dict__)          # {'username': 'alice', 'email': 'alice@mindforge.test'}
 u.extra = "anything goes"  # works fine -- __dict__ accepts new keys freely
 print(u.__dict__)
 ```
@@ -41,8 +41,8 @@ class SlotsUserProfile:
         self.email = email
 
 
-s = SlotsUserProfile("bob", "bob@example.com")
-print(s.username, s.email)  # bob bob@example.com
+s = SlotsUserProfile("bob", "bob@mindforge.test")
+print(s.username, s.email)  # bob bob@mindforge.test
 print(hasattr(s, "__dict__"))  # False -- there is no per-instance dict at all
 
 try:
@@ -55,13 +55,13 @@ Declaring `__slots__ = ["username", "email"]` tells CPython to allocate fixed, f
 
 ## Measuring the difference
 
-`memory_profiler`'s `@profile` decorator (covered in the next lesson) is the tool the original notes use to show this at scale — but it needs the `mprof`/`python -m memory_profiler` runner, so it won't execute standalone here. The stdlib's own `sys.getsizeof` on a single instance already shows the shape of the difference, even though it only reports one object's shallow size, not the whole instance-plus-dict picture:
+`memory_profiler`'s `@profile` decorator (covered in the next lesson) is the tool for showing this at scale — but it needs the `mprof`/`python -m memory_profiler` runner, so it won't execute standalone here. The stdlib's own `sys.getsizeof` on a single instance already shows the shape of the difference, even though it only reports one object's shallow size, not the whole instance-plus-dict picture:
 
 ```python
 import sys
 
-regular = UserProfile("carol", "carol@example.com")
-slotted = SlotsUserProfile("carol", "carol@example.com")
+regular = UserProfile("carol", "carol@mindforge.test")
+slotted = SlotsUserProfile("carol", "carol@mindforge.test")
 
 print("regular instance:", sys.getsizeof(regular))          # the instance itself
 print("regular's __dict__:", sys.getsizeof(regular.__dict__))  # plus a whole dict

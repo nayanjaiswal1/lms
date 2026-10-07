@@ -22,7 +22,7 @@ ARG OPENVSCODE_VERSION=1.96.4
 ARG VSX_PYTHON=ms-python.python@2024.22.1
 ARG VSX_DEBUGPY=ms-python.debugpy@2024.14.0
 # Self-hosted webview origin template, deploy specific (docs/debug-labs.md §2
-# "Webview CDN"), e.g. https://{{uuid}}.webview.labs.example.com. Empty = leave
+# "Webview CDN"), e.g. https://{{uuid}}.webview.labs.mindforge.test. Empty = leave
 # VS Code's default (webviews then load from *.vscode-cdn.net).
 ARG WEBVIEW_BASE_URL_TEMPLATE=""
 
@@ -159,6 +159,11 @@ RUN chown -R root:root /opt/mindforge /usr/local/bin/entrypoint.sh \
     && find /opt/mindforge/mf-build -type d -exec chmod 755 {} + \
     && find /opt/mindforge/mf-build -type f -exec chmod 644 {} + \
     && python3 -m compileall -q /opt/mindforge/grader /opt/mindforge/mf-build
+
+# React labs: the vitest helpers in grader/js (setup.js, harness.js) import react
+# and @testing-library from the baked scaffold, reachable through this symlink
+# (same realpath as the app's own imports, so there is one React instance).
+RUN ln -s /opt/scaffold/react-app/node_modules /opt/mindforge/grader/js/node_modules
 
 # ttyd :7681 (authenticated), IDE :3000 (connection-token authenticated).
 EXPOSE 7681 3000

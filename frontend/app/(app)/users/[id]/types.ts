@@ -40,76 +40,9 @@ export interface ActivityEntry {
   ref_slug?: string;
 }
 
-export interface UserSheetSummary {
-  id: string;
-  name: string;
-  slug: string;
-  category: string | null;
-  is_system: boolean;
-  item_count: number;
-  role: string;
-  solved_count: number;
-}
-
-export interface MistakeEntry {
-  id: string;
-  user_id: string;
-  category: string;
-  original_text: string;
-  corrected_text?: string;
-  resolved_at: string | null;
-  created_at: string;
-  status: string;
-}
-
-export interface MistakeCategorySummary {
-  category: string;
-  total: number;
-  first_occurred_at: string;
-  last_occurred_at: string;
-  trend: "worsening" | "stable" | "improving";
-}
-
-export interface Habit {
-  id: string;
-  name: string;
-  cadence: string;
-  type: string;
-  color: string;
-  icon: string;
-  tags: string[];
-  target_count: number;
-  weekdays: number[];
-}
-
-export interface HabitCompletion {
-  habit_id: string;
-  period_start: string;
-  count: number;
-}
-
-export interface HabitMonth {
-  habits: Habit[];
-  completions: HabitCompletion[];
-}
-
-export interface JournalEntry {
-  id: string;
-  entry_date: string;
-  category: string;
-  subcategory: string;
-  title: string;
-  content: string;
-}
-
 export interface UserOverview {
   enrollments: Enrollment[];
   recent_activity: ActivityEntry[];
-  sheets: UserSheetSummary[];
-  mistakes: MistakeEntry[];
-  mistake_summary: MistakeCategorySummary[];
-  habit_month: HabitMonth;
-  journal_entries: JournalEntry[];
 }
 
 export interface RoleFull {

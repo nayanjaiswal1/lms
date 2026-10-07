@@ -8,6 +8,8 @@ export interface AuthorizeDecisionInput {
   scope: string;
   state: string;
   code_challenge: string;
+  granted_scopes?: string[];
+  confirm_new_scopes?: boolean;
 }
 
 interface RedirectResult {

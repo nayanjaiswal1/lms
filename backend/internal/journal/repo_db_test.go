@@ -3,6 +3,7 @@ package journal
 import (
 	"context"
 	"errors"
+	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -35,7 +36,7 @@ func TestMergeEntries(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepo(pool)
 
-	userID := seedUser(t, ctx, pool, "merge-user@example.com")
+	userID := seedUser(t, ctx, pool, "merge-user@"+testdomain.Domain)
 
 	keep, err := repo.CreateEntry(ctx, userID, CreateEntryRequest{
 		Category: "Backend", Subcategory: "Redis", Title: "Redis basics", Content: "Learned SET/GET.",
@@ -81,8 +82,8 @@ func TestMergeEntriesCrossUserRejected(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepo(pool)
 
-	ownerID := seedUser(t, ctx, pool, "owner@example.com")
-	attackerID := seedUser(t, ctx, pool, "attacker@example.com")
+	ownerID := seedUser(t, ctx, pool, "owner@"+testdomain.Domain)
+	attackerID := seedUser(t, ctx, pool, "attacker@"+testdomain.Domain)
 
 	victim, err := repo.CreateEntry(ctx, ownerID, CreateEntryRequest{
 		Category: "Backend", Subcategory: "Redis", Title: "Victim entry", Content: "Not yours.",

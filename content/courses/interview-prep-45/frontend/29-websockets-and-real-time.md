@@ -90,7 +90,7 @@ function useWebSocket(url: string, { onMessage, maxReconnectDelayMs = 30_000 }: 
 function ChatRoom({ roomId }: { roomId: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
-  const { state, send } = useWebSocket(`wss://api.example.com/rooms/${roomId}`, {
+  const { state, send } = useWebSocket(`wss://api.mindforge.test/rooms/${roomId}`, {
     onMessage: (data) => setMessages((prev) => [...prev, data as ChatMessage]),
   });
 

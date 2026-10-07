@@ -291,70 +291,70 @@ app:
     description: Insert the next migration of the reviews app (numbered and chained to the current head).
   history:
   - message: 'inventory: track stock per warehouse with atomic reserve and transfer'
-    persona: Marcus Webb <marcus@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: inventory
     paths:
     - inventory
   - message: 'cart: persistent per-customer cart with stock checks'
-    persona: Priya Nair <priya@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: cart
     paths:
     - cart
   - message: 'notifications: Celery tasks for order emails and the low-stock digest'
-    persona: Sam Okafor <sam@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: notifications
     paths:
     - notifications
   - message: 'checkout: place orders, charge through the payments API and issue invoices'
-    persona: Priya Nair <priya@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: checkout
     paths:
     - checkout
   - message: 'subscriptions: plans and one active subscription per plan'
-    persona: Elena Petrov <elena@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: subscriptions
     paths:
     - subscriptions
   - message: 'reviews: product reviews with denormalised rating counters'
-    persona: Marcus Webb <marcus@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: reviews
     paths:
     - reviews
   - message: 'reports: daily revenue, product stats and the staff dashboard'
-    persona: Elena Petrov <elena@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: reports
     paths:
     - reports
   - message: 'webhooks: signed payment events for confirmations and refunds'
-    persona: Sam Okafor <sam@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: webhooks
     paths:
     - webhooks
   - message: 'catalog: CSV product import with a per-row error report'
-    persona: Priya Nair <priya@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: catalog-import
     paths:
     - catalog-import
   - message: 'customers: cached account summary endpoint'
-    persona: Marcus Webb <marcus@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: account
     paths:
     - account
   noise:
   - message: 'docs: describe the project layout in the README'
-    persona: Elena Petrov <elena@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     paths:
     - docs-readme
   - message: 'static: give product cards more breathing room'
-    persona: Sam Okafor <sam@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     paths:
     - css-tweaks
   - message: 'deps: group requirements by purpose'
-    persona: Marcus Webb <marcus@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     paths:
     - deps-grouping
   - message: 'chore: ignore log files and virtualenvs'
-    persona: Priya Nair <priya@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     paths:
     - gitignore-logs
   services:

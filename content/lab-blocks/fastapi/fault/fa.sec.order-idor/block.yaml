@@ -1,0 +1,134 @@
+kind: fault
+id: fa.sec.order-idor
+version: 1.0.0
+stack: fastapi
+title: Any customer can read any order by guessing its number
+summary: The single-order lookup no longer filters by the signed-in customer, so changing the id in the URL returns somebody else's order.
+category: auth
+difficulty: beginner
+skills:
+- authorization
+- idor
+- api-security
+requires:
+- slot:orders.service.get_one
+- cap:postgres
+fault:
+  inject:
+    slots:
+    - slot: orders.service.get_one
+      value: |
+        query = (
+            select(Order)
+            .where(Order.id == order_id)
+            .options(selectinload(Order.items).joinedload(OrderItem.product))
+        )
+  fix:
+    slots:
+    - slot: orders.service.get_one
+      value: |
+        query = (
+            select(Order)
+            .where(Order.id == order_id, Order.customer_id == customer_id)
+            .options(selectinload(Order.items).joinedload(OrderItem.product))
+        )
+    files:
+    - path: tests/test_order_ownership.py
+      from: fix/tests/test_order_ownership.py
+  cheats:
+  - name: deny-every-lookup
+    slots:
+    - slot: orders.service.get_one
+      value: |
+        query = select(Order).where(Order.id == -1)
+  - name: revert-the-commit
+    slots:
+    - slot: orders.service.get_one
+      value: |
+        query = (
+            select(Order)
+            .where(Order.id == order_id, Order.customer_id == customer_id)
+            .options(selectinload(Order.items).joinedload(OrderItem.product))
+        )
+    files:
+    - path: app/ext/order_timeline.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: order-timeline
+    files:
+    - path: app/ext/order_timeline.py
+      from: carrier/app/ext/order_timeline.py
+  commit:
+    message: 'orders: add the order timeline endpoint and simplify the order lookup'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.http-behavior
+    role: symptom
+    params:
+      steps:
+      - method: POST
+        path: /api/v1/orders
+        headers:
+          Authorization: Bearer mf_tok_alice
+        body:
+          items:
+          - product_id: 2
+            quantity: 1
+          shipping_name: SEC1-private-order
+        expect_status: 201
+        save:
+          order_id: id
+      - method: GET
+        path: '/api/v1/orders/{{order_id}}'
+        headers:
+          Authorization: Bearer mf_tok_bob
+        expect_status: 404
+      - method: GET
+        path: '/api/v1/orders/{{order_id}}'
+        headers:
+          Authorization: Bearer mf_tok_alice
+        expect_status: 200
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fa_sec_1/test_order_ownership.py
+  symptom:
+    vars:
+      title: 'Security finding: customers can read other customers orders (IDOR)'
+      finding: |-
+        An authenticated customer can read any other customer's order, including the shipping name and the purchased items, by requesting its numeric id.
+      steps: |-
+        1. Sign in as customer A and place an order (for example order 9120).
+        2. Sign in as customer B (a different account) and call `GET /api/v1/orders/9120` with B's token.
+        3. The response is `200` with A's order. Walking the ids upwards returns every order in the system.
+      impact: |-
+        Exposure of personal data (names and purchase history) of all customers to any registered user. Order ids are sequential, so it can be scripted.
+        This is reportable under our data protection obligations.
+      support_tried: |-
+        Nothing has been changed yet. Logs show about 4,000 order lookups from one account within five minutes last night; the account has only two orders of its own.
+      observations: |-
+        ### Other observations from the reporter
+
+        - The orders list (`GET /api/v1/orders`) only returns the caller's orders. Only the single-order lookup is affected.
+        - The new timeline endpoint (shipped the same day) correctly returns 404 for other people's orders.
+        - The same code returned 404 for other people's orders in the previous release.
+    signature: GET /api/v1/orders/{id} returns an order that belongs to another customer
+  hints:
+  - Reproduce the finding with two accounts (`mf_tok_alice` and `mf_tok_bob`). Create an order as one and request it as the other, then compare the endpoint with its neighbours (the list and the timeline) that behave correctly.
+  - Authentication says who the caller is; authorization says what they may touch. Look at the query behind `GET /api/v1/orders/{id}` in `app/orders/service.py` and at what scopes it to the caller. Check `git log -p` for the change that touched it.
+  - Scope the query to the signed-in customer (`Order.customer_id == customer_id`) so a foreign id is indistinguishable from a missing one (404, not 403). Add a test with two customers that fails on the broken code.
+  rubric:
+    key_points:
+    - Names the vulnerability class (broken object-level authorization, IDOR) and explains why sequential ids make it exploitable.
+    - Fixes the data access, by scoping the query to the owner, rather than hiding the id or checking in only the one route.
+    - Returns 404 for foreign orders so the response does not confirm that the id exists.
+    - Adds a test with two users that fails on the vulnerable code and checks that the owner can still read their order.
+    misconceptions:
+    - Switching to random or UUID ids fixes the authorization problem (it only makes guessing harder).
+    - Checking the token is valid is enough authorization.
+    - Rate limiting the endpoint closes the hole.
+  root_cause: |-
+    A refactor of `get_order` dropped `Order.customer_id == customer_id` from the query, so the endpoint authenticated the caller but never checked that the order belonged to them (an insecure direct object reference). Because order ids are sequential, any registered user could read every order.
+
+    The fix restores the ownership filter in the query. A foreign id then simply finds no row and the router returns 404, which does not reveal that the order exists. The test covers both a stranger (404) and the owner (200).

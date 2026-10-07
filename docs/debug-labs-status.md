@@ -1,6 +1,6 @@
 # Debug Labs — Build Status
 
-Last updated: 2026-10-02 · Branch: `debug-labs` (not merged to `master`, not pushed)
+Last updated: 2026-10-06 · Branch: `debug-labs` (not merged to `master`, not pushed)
 Design: [debug-labs.md](debug-labs.md)
 
 ## Done (committed on `debug-labs`)
@@ -23,22 +23,62 @@ Design: [debug-labs.md](debug-labs.md)
 | 1d-ii | 11 Django fault blocks, ticket blocks, production-debugging course; `coursegen blocks verify`; probe stderr diagnostics. All 11 recipes verified in Docker | `069e1bb` |
 | 1e | Builder wizard UI, block library, candidates endpoint, "Create debug lab here" | `160a13c` |
 
+## Phase 3 — FastAPI (committed, Docker verification pending)
+
+`fa.orders` app block (11 slots, 9 history features, 6 carriers, 47 regression tests), `seed.fa-small`, 10 fault blocks
+(`fa.mig.divergent-heads`, `fa.mig.not-null-without-default`, `fa.perf.order-list-n-plus-one`, `fa.async.bcrypt-blocks-event-loop`,
+`fa.async.wallet-lost-update`, `fa.svc.payments-no-timeout`, `fa.err.payment-failure-returns-200`, `fa.data.patch-wipes-fields`,
+`fa.cfg.docs-ignore-root-path`, `fa.sec.order-idor`), 10 recipes (`content/courses/production-debugging/recipes/fa-*.yaml`) and a
+"FastAPI" section group in the `production-debugging` course (6 lessons, 10 labs). Checked without Docker: manifests and recipes validate
+(`coursegen blocks sync --dry-run`), `mf-build` renders all 10 recipes, rendered code lints, and the regression, hidden and fix tests
+and the two migration probes were run against a real PostgreSQL for the broken, fixed and cheat states. Not yet run: the Q, L, C and P
+probes against the live app, and `coursegen blocks verify` (needs Docker). Regenerate `lab-blocks.generated.sql` and
+`production-debugging.generated.sql` when shipping.
+
+## Phase 4 — React (committed, Docker verification pending)
+
+`re.dashboard` app block (12 slots, 5 history features, 5 carriers), `check.vitest-node` (probe J), `ticket.ui-bug-report`, 12 fault blocks
+(hooks x3, races x2, state x2, perf x2, api x2, config x1) and 12 recipes (`recipes/re-*.yaml`). Checked locally with real vitest + jsdom:
+broken fails hidden tests, fix passes, every cheat fails. Fixed `trackListeners()` in `grader/js/harness.js`. React course content: a "React" section group (13-17: 5 lessons, 12 labs, one per recipe) in `production-debugging`; `coursegen generate` validates it.
+Not done: error-boundary / SSR / StrictMode faults, prettier + Go-builder render path, `coursegen blocks verify` (Docker).
+
+## Phase 5 — Fullstack (committed, verified in Docker and in a browser)
+
+`fs.shop` app block (React storefront + FastAPI), 10 fault blocks in `content/lab-blocks/fullstack/fault/`, 10 recipes (`recipes/fs-*.yaml`) and a
+"Fullstack" section group (18-20: 3 lessons, 10 labs). `coursegen blocks verify` passes for every `fs-*` recipe in the real `lab-debug` image
+(broken fails symptom only, fix passes, every cheat fails). `fs.err.detail-shaped-errors` was redesigned after Docker verify showed its first
+design broke the regression suite: it now reshapes only 403/404 errors. The `@mf/fullstack` harness now honors jsdom's `AbortSignal` itself (Node fetch rejects it), so tests render `OrdersPage` against the real backend without stubbing fetch.
+
+## First browser E2E (2026-10-06, throwaway Postgres/Redis/MinIO + dev Caddy)
+
+Student flow run in Chrome as the seeded `jaiswal2062@gmail.com`: catalog (all stacks, 9 django / 9 fastapi / 9 react / 3 fullstack published by the
+platform job at the time) -> start lab -> IDE + app preview -> fix -> Check (symptom + regression passed, 70/100). Bugs found and fixed:
+`metrics` middleware hid `http.Flusher` (SSE `/events` returned 500, provisioning never finished); frontend CSP `frame-src` blocked the lab proxy;
+`NEXT_PUBLIC_LAB_PROXY_URL` defaults included `/ws` (it is a base URL); labproxy injected `tkn` on every IDE request so openvscode redirected
+forever; the `vscode-tkn` cookie was scrubbed so the web client could not authenticate its WebSocket; dev preview cookies were `SameSite=Lax` on a
+cross-site `*.localhost` origin; the IDE did not open the workspace folder. The remaining ~40 labs were not clicked through.
+Builder wizard UI (same day): created a draft on the fullstack base app, added `fs.api.search-query-not-encoded` (analysis panel went from "Not buildable
+yet" to "Ready to build" as the two suggested check blocks were added), added a ticket block, Build & verify (full matrix green), Preview as a student,
+Publish ("Published as version 1"), and the lab then appeared in the student catalog and ran as a session. Notes: Publish's course list only shows
+courses the user created (`role=instructor`), so a platform-seeded course is not offered to other authors; the first Publish click gave no
+feedback. Known cosmetic gap: the IDE opens in Restricted Mode with the Welcome tab (workspace trust prompt); server-side settings and
+`product.json` `configurationDefaults` did not change it, the web workbench keeps those in the browser.
+Local dev needs the Caddy front (`Caddyfile.dev`, port 80): labproxy redirects previews to `p<port>-<session>.localhost` and expects `X-Forwarded-Proto`.
+Caveat: under heavy parallel load the platform verify job produced false failures (builds failed while a local verify ran concurrently); the same
+recipes pass on a quiet re-run, so delete failed `lab_builds` rows to retry.
+
 ## Where things stand
 
 Phase 1 (Django end to end: runtime, authoring engine, build/verify pipeline, 11 labs, builder UI) is done and committed. Nothing has run against a database yet: migrations 044–048 are unapplied, and the student flow and builder UI have never run in a browser.
 
-**Next up:** the end-to-end check on a throwaway database (item 5 below) before starting Phase 2, so Phase 2 builds on a stack that has actually run.
+**Next up:** the builder UI click-through and the review/merge (items 5 and 7). The existing Go DB tests (`library`, `labs`) pass in Docker.
 
 ## Remaining after Phase 1
 
-1. **Phase 2 — Builder depth.** The backend is mostly built; this is UI plus the remaining pieces:
-   - multi-fault chains and fault pools
-   - AI ticket drafting in the UI
-   - org text blocks editor
-   - update-available and yank flows
-2. **Phase 3 — FastAPI:** `fa-orders` app block, ~10 faults, Alembic migration slots, latency harness.
-3. **Phase 4 — React:** `re-dashboard` app block, JSX/TS slots, vitest/Profiler/listener harnesses, ~10 faults.
-4. **Phase 5 — Fullstack:** `fs-shop` + cross-stack (XS) faults; `custom` block support in the build.
+1. ~~**Phase 2 — Builder depth**~~ done (landed in `e9b51b0`/`ddc36bf`; browser-untested): chains and fault pools in the block step (`fault-links.tsx`, `candidate-card.tsx`), AI ticket drafting (`ticket-draft-panel.tsx`, cached by recipe hash), org text-block editor (`teach/debug-labs/blocks/new|[id]/edit`), update-available list and yank flow with affected-labs preview.
+2. ~~**Phase 3 — FastAPI**~~ content done (see above); only the Docker verification remains (item 5).
+3. ~~**Phase 4 — React**~~ content done (see above); only the Docker verification remains (item 5).
+4. ~~**Phase 5 — Fullstack**~~ content done (see above); only the Docker verification remains (item 5).
 5. **Deferred verification.** Tests were deliberately not written until all phases are done:
    - Write the test suite: Go unit tests + DB tests for library, labs, labauthor, labbuild, credential, hints, semaphore.
    - Start Docker Desktop and run all DB tests (they use testcontainers).
@@ -46,8 +86,8 @@ Phase 1 (Django end to end: runtime, authoring engine, build/verify pipeline, 11
    - Apply migrations 044–048 on a **throwaway** database. Never on the shared Neon DB first — dev and prod share it.
    - End-to-end: sync blocks → build a recipe → verify → publish → run as a student, and click through the builder UI (never run in a browser yet).
 6. **Small known gaps to clean up:**
-   - `isLabAuthError` still matches on message text.
-   - Some rarer labs errors have no `code`.
+   - ~~`isLabAuthError` matched on message text~~ now checks HTTP 401 (`res.status`).
+   - ~~Some rarer labs errors have no `code`~~ every `writeDomainError` branch now emits a code (`labs/codes.go`, mirrored in `lib/labs.ts`).
    - The `debug-ide` 5 GB disk limit isn't enforced by either runtime.
    - Chained faults don't get separate "1a/1b" tasks.
 7. **Ship:** review the whole branch, merge `debug-labs` → `master`, push, deploy image + migrations.

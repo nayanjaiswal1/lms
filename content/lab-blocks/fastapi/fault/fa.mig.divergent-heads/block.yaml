@@ -1,0 +1,95 @@
+kind: fault
+id: fa.mig.divergent-heads
+version: 1.0.0
+stack: fastapi
+title: 'Deploy fails: Alembic reports multiple head revisions'
+summary: Two branches each added an Alembic revision on top of the same parent, so the revision graph has two heads and upgrade head refuses to run.
+category: migrations
+difficulty: beginner
+skills:
+- alembic
+- migration-graph
+- deployment
+requires:
+- cap:postgres
+- cap:alembic
+fault:
+  inject:
+    files:
+    - path: alembic/versions/7c2e9d41a0b6_backfill_shipping_names.py
+      from: inject/7c2e9d41a0b6_backfill_shipping_names.py
+    - path: alembic/versions/9b14f8e3d025_normalize_currency_codes.py
+      from: inject/9b14f8e3d025_normalize_currency_codes.py
+  fix:
+    files:
+    - path: alembic/versions/a3d7c1e90f48_merge_order_data_branches.py
+      from: fix/a3d7c1e90f48_merge_order_data_branches.py
+    - path: tests/test_migration_graph.py
+      from: fix/tests/test_migration_graph.py
+  cheats:
+  - name: merge-only-one-branch
+    files:
+    - path: alembic/versions/a3d7c1e90f48_merge_order_data_branches.py
+      from: cheats/a3d7c1e90f48_merge_one_branch.py
+  - name: revert-the-commit
+    files:
+    - path: alembic/versions/9b14f8e3d025_normalize_currency_codes.py
+      from: cheats/9b14f8e3d025_linear_currency_codes.py
+    - path: app/ext/stock_alerts.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: stock-alerts
+    files:
+    - path: app/ext/stock_alerts.py
+      from: carrier/app/ext/stock_alerts.py
+  commit:
+    message: 'stock: staff endpoint listing products under the low-stock threshold, plus two orders data fixes'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.migrate-from-snapshot
+    role: symptom
+    params:
+      steps:
+      - db: clean
+        timeout: 90
+        cmd: . scripts/dev-env.sh && python3 -m alembic upgrade head
+        expect_rc: 0
+        post_sql:
+        - sql: SELECT count(*) FROM alembic_version
+          equals: 1
+  symptom:
+    vars:
+      title: 'Release blocked: alembic upgrade head fails with multiple heads'
+      report: The release pipeline failed at the migration step. Two developers each merged an orders data fix the same day, branching from the same
+        revision. Each of them ran the migrations locally on their own branch and everything worked, but the merged main branch cannot be deployed.
+      output: |-
+        FAILED: Multiple head revisions are present for given argument 'head'; please specify a specific
+        target revision, '<branchname>@head' to narrow to a specific head, or 'heads' for all heads
+      impact: Nothing can be released until the migrations apply. The low-stock endpoint that the warehouse team is waiting for shipped in the same
+        change and is stuck behind this.
+      support_tried: Re-ran the pipeline twice (same error). A developer suggested deleting one of the two new files, but both fixes are needed in production.
+      observations: |-
+        ### Other observations from the reporter
+
+        - Both new revisions name the same parent in `down_revision`.
+        - `alembic heads` prints two revisions.
+        - The two migrations update different columns of the same table and do not depend on each other.
+    signature: Multiple head revisions are present for given argument 'head'
+  hints:
+  - Run `python3 -m alembic heads` and `python3 -m alembic history`. The file names and dates do not define the order, the `down_revision` of each file does. How many revisions name the same parent?
+  - Alembic refuses to pick an order between two revisions that share a parent. The usual fix is not to delete either of them (one may already be applied somewhere) but to add a merge revision whose `down_revision` is a tuple of both heads.
+  - Generate it with `python3 -m alembic merge -m "merge order data branches" 7c2e9d41a0b6 9b14f8e3d025` (or write the file by hand), check that `alembic heads` prints a single revision, and add a test that asserts a single head so the next fork is caught before a release.
+  rubric:
+    key_points:
+    - Explains that the revision graph is defined by down_revision, and that two revisions with the same parent are two heads.
+    - Fixes it with a merge revision that depends on both heads, without deleting or rewriting revisions that may already have run elsewhere.
+    - Verifies a single head and a clean upgrade from an empty database.
+    - Adds a check (a test or a CI step) that fails when the graph has more than one head.
+    misconceptions:
+    - Deleting one of the two migrations or re-parenting it is a safe fix (it hides history that production may already have applied, or reorders it).
+    - Upgrading each head separately is a deployment strategy.
+    - The database is out of sync and must be recreated.
+  root_cause: |-
+    Two revisions, `7c2e9d41a0b6` and `9b14f8e3d025`, were written on separate branches and both name `e4a6f27c0d81` as their `down_revision`. After the merge the revision graph has two heads, and `alembic upgrade head` refuses to choose between them.
+
+    The fix is a merge revision whose `down_revision` is the tuple of both heads (`alembic merge`). It has no operations of its own and restores a single head without discarding history that may already have been applied elsewhere. A test asserting a single head keeps the next fork from reaching a release.

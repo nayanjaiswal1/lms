@@ -1,0 +1,109 @@
+kind: fault
+id: fs.auth.cookie-path-narrow
+version: 1.0.0
+stack: fullstack
+title: Signed in, but every page says the session expired
+summary: The session cookie is scoped to the auth routes, so the browser stops sending it to the orders, profile and other API paths right after login.
+category: auth
+difficulty: intermediate
+skills:
+- cookies
+- sessions
+- http-headers
+requires:
+- slot:auth.cookie.attrs
+- cap:fastapi-backend
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: auth.cookie.attrs
+      value: |
+        response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", path="/api/auth")
+  fix:
+    slots:
+    - slot: auth.cookie.attrs
+      value: |
+        response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", path="/")
+    files:
+    - path: backend/tests/test_session_cookie.py
+      from: fix/tests/test_session_cookie.py
+    - path: tests/session-path.test.jsx
+      from: fix/tests/session-path.test.jsx
+  cheats:
+  - name: orders-path-only
+    slots:
+    - slot: auth.cookie.attrs
+      value: |
+        response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", path="/api/orders")
+  - name: drop-httponly
+    slots:
+    - slot: auth.cookie.attrs
+      value: |
+        response.set_cookie(SESSION_COOKIE, token, httponly=False, samesite="lax", path="/")
+  - name: revert-the-commit
+    slots:
+    - slot: auth.cookie.attrs
+      value: |
+        response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", path="/")
+    files:
+    - path: src/ext/order-total/index.js
+      from: cheats/empty-extension.js
+  carrier:
+    feature: order-total
+    files:
+    - path: src/ext/order-total/index.js
+      from: carrier/src/ext/order-total/index.js
+  commit:
+    message: 'auth: scope the session cookie and add a page total action to Orders'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_cookie_path/test_session_cookie.py
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_cookie_path/session.test.jsx
+  symptom:
+    vars:
+      title: Sign-in succeeds, then Orders and Profile say "Sign in to continue"
+      report: |-
+        After the last release a customer signs in, sees the welcome page, and the moment they open Orders or Profile the console
+        shows "Sign in to continue." Signing in again gives the same result. Support can sign in and see the account name in the
+        header, but nothing that loads data works. Before the release the same accounts worked fine.
+      where: Every screen that loads data after sign-in (orders, profile, checkout). Only the sign-in and the "who am I" call work.
+      expected: After a successful sign-in every API request is authenticated until the customer signs out.
+      support_tried: Cleared cookies, tried a private window and another browser. Same result, and the login request itself returns 200 with the user.
+      observations: |-
+        ### Other observations from QA
+
+        - In the browser's cookie view the session cookie exists after sign-in, but the network tab shows no Cookie header on the failing requests.
+        - The "who am I" call at the top of the page still works.
+        - The page total action in the Orders tools came in the same release as a change to the cookie settings.
+    signature: the session cookie is not sent to paths outside the auth routes
+  hints:
+  - Sign in with curl using a cookie jar (-c / -b) and request /api/orders with it. Then request /api/auth/me. One works and the other does not, which is a hint about what the cookie is scoped to.
+  - A cookie is only sent to URLs under its Path attribute. Read the Set-Cookie header of the login response and the `set_cookie` call in `backend/app/auth.py` (`git log -p` shows what the last release changed).
+  - Set the session cookie Path to / (or at least /api), keeping HttpOnly and SameSite. Add a test that signs in and then calls a non-auth endpoint through a client that honours cookie paths.
+  rubric:
+    key_points:
+    - Identifies that the cookie Path attribute limits which request URLs carry the cookie, and that /api/auth excluded the data endpoints.
+    - Explains why the login response and the auth routes still worked while everything else answered 401.
+    - Fixes the attribute at the set_cookie call (Path=/ or /api) and keeps HttpOnly and SameSite intact.
+    - Adds a test that exercises a non-auth endpoint after login with real cookie-path matching, not a hand-built Cookie header.
+    misconceptions:
+    - The session was not created or expired (the server created it and the browser simply did not send the cookie).
+    - Removing HttpOnly or sending the session in a header is a fix (it weakens the design and leaves the Path wrong).
+    - Setting a path that covers only the failing endpoint is enough (every other endpoint stays broken).
+  root_cause: |-
+    The login handler set the session cookie with `path="/api/auth"`. Browsers send a cookie only to URLs whose path falls under the
+    cookie's Path, so the session cookie reached `/api/auth/me` and `/api/auth/logout` but was left out of `/api/orders`,
+    `/api/profile` and every other data endpoint. Those endpoints saw no session and answered 401 not_authenticated, even though
+    login had just succeeded.
+
+    The fix scopes the cookie to `/` again. The test goes through a client that applies cookie path matching, so it fails when the
+    path excludes an endpoint (a hand-built Cookie header would hide the bug).

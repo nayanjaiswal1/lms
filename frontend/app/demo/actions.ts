@@ -5,6 +5,7 @@ import { forwardSetCookies } from "@/lib/server/set-cookie";
 import { resolveLegalGateRedirect } from "@/lib/server/legal";
 import ROUTES from "@/lib/routes";
 import { baseURL } from "@/lib/server/api";
+import { captchaBypassHeaders } from "@/lib/server/captcha";
 import { authFetchWithCookies } from "@/lib/server/auth-fetch";
 
 function getField(source: unknown, key: string): unknown {
@@ -36,7 +37,9 @@ export async function demoLoginAction(formData: FormData): Promise<void> {
   let response: Response;
   let body: unknown;
   try {
-    const result = await authFetchWithCookies("/api/auth/login", { email, password });
+    const result = await authFetchWithCookies("/api/auth/login", { email, password }, {
+      headers: captchaBypassHeaders(),
+    });
     response = result.response;
     body = result.body;
   } catch {

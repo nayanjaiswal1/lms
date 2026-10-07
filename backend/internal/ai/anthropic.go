@@ -25,7 +25,7 @@ func newAnthropicProvider(apiKey, model string) *AnthropicProvider {
 	return &AnthropicProvider{
 		apiKey: apiKey,
 		model:  model,
-		client: &http.Client{},
+		client: &http.Client{Timeout: llmHTTPTimeout},
 	}
 }
 

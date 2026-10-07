@@ -8,9 +8,15 @@ const ROUTES = {
   LEGAL_TERMS:         "/legal/terms",
   LEGAL_PRIVACY:       "/legal/privacy",
   LEGAL_REFUND_POLICY: "/legal/refund-policy",
+  LEGAL_GRIEVANCE:     "/legal/grievance",
+  LEGAL_SECURITY:      "/legal/security",
+  LEGAL_COOKIES:       "/legal/cookies",
+  LEGAL_ACCEPTABLE_USE: "/legal/acceptable-use",
+  LEGAL_DPA:           "/legal/dpa",
 
   // Auth
   LOGIN:               "/login",
+  LOGIN_MFA:           "/login/mfa",
   REGISTER:            "/register",
   FORGOT_PASSWORD:     "/forgot-password",
   RESET_PASSWORD:      "/reset-password",
@@ -23,6 +29,7 @@ const ROUTES = {
 
   // Student
   DASHBOARD:           "/dashboard",
+  LAST_VISITED:        "/last-visited",
   LEARN:               "/learn",
   TEACH:               "/teach",
   LIBRARY:             "/library",

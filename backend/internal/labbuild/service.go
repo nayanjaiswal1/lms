@@ -97,16 +97,7 @@ func (s *Service) resolveSnapshot(ctx context.Context, snap Snapshot) (*resolved
 	if len(missing) > 0 {
 		return &resolved{Recipe: recipe, Analysis: &labauthor.Analysis{Issues: missing}, Kind: kind}, nil
 	}
-	a := labauthor.Analyze(recipe)
-	if a.Valid {
-		for _, b := range recipe.Blocks {
-			if b.Manifest.Kind == "custom" {
-				a.Issues = append(a.Issues, labblock.Errf("custom_not_buildable", b.Key, "custom blocks cannot be built by the renderer yet"))
-				a.Valid = false
-			}
-		}
-	}
-	return &resolved{Recipe: recipe, Analysis: a, Kind: kind}, nil
+	return &resolved{Recipe: recipe, Analysis: labauthor.Analyze(recipe), Kind: kind}, nil
 }
 
 // variantSeed derives a stable positive int64 seed for a variant.

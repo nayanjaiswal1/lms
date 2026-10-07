@@ -10,8 +10,8 @@ import (
 
 // splitPreviewHost parses a preview subdomain of the form
 // "p<port>-<sessionID>.<suffix>" — e.g.
-// "p3000-9f1c2a44-3e7b-4a91-b0d2-8c5e17ad9f10.labs.example.com" with
-// suffix="labs.example.com" — into its port and session ID. suffix is
+// "p3000-9f1c2a44-3e7b-4a91-b0d2-8c5e17ad9f10.labs.domain" with
+// suffix="labs.domain" — into its port and session ID. suffix is
 // LABPROXY_PREVIEW_DOMAIN; the caller lowercases nothing for it, so pass it
 // as configured (this function lowercases both sides before comparing).
 //
