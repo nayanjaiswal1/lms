@@ -105,7 +105,7 @@ export function MfaEnrollment({ begin, finish, onComplete, startLabel, continueL
         </p>
         {qr && (
           // eslint-disable-next-line @next/next/no-img-element -- data URL, nothing to optimise
-          <img alt="QR code for your authenticator app" className="h-48 w-48 rounded-md border bg-white p-1" height={192} src={qr} width={192} />
+          <img alt="QR code for your authenticator app" className="h-48 w-48 rounded-md border qr-surface p-1" height={192} src={qr} width={192} />
         )}
         <p className="break-all rounded-md border bg-muted px-3 py-2.5 font-mono text-sm" translate="no">
           {setup.secret}

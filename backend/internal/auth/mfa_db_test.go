@@ -124,7 +124,7 @@ func TestApplyPasswordChange(t *testing.T) {
 		t.Fatalf("read version: %v", err)
 	}
 	if _, err := h.pool.Exec(ctx,
-		`INSERT INTO refresh_tokens (jti, family_id, user_id, expires_at) VALUES (gen_random_uuid(), gen_random_uuid(), $1, now() + interval '1 day')`, userID); err != nil {
+		`INSERT INTO refresh_tokens (token_hash, family_id, user_id, expires_at) VALUES (gen_random_uuid()::text, gen_random_uuid(), $1, now() + interval '1 day')`, userID); err != nil {
 		t.Fatalf("seed refresh token: %v", err)
 	}
 

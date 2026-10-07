@@ -46,8 +46,8 @@ export function IssueSteps({ steps }: IssueStepsProps) {
           const Icon = NOTE_ICON[s.note_icon];
           const isChecked = checked.has(s.id);
           return (
-            <label aria-label={s.label} className="flex cursor-pointer items-start gap-2 rounded-lg p-2 transition-colors hover:bg-muted" key={s.id}>
-              <Checkbox aria-label={s.label} checked={isChecked} className="mt-0.5 shrink-0" onCheckedChange={() => toggle(s.id)} />
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg p-2 transition-colors hover:bg-muted" htmlFor={`step-${s.id}`} key={s.id}>
+              <Checkbox checked={isChecked} className="mt-0.5 shrink-0" id={`step-${s.id}`} onCheckedChange={() => toggle(s.id)} />
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className={cn("m-body-sm", isChecked ? "text-muted-foreground line-through" : "text-foreground")}>{s.label}</span>
                 <span className="m-label-sm flex items-center gap-1 text-xs text-(--mc)" data-mtone={s.note_icon === "done" ? "tertiary" : s.note_icon === "progress" ? "primary" : "muted"}>

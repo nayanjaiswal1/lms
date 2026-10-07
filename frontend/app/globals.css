@@ -974,3 +974,8 @@
     transform: none !important;
   }
 }
+
+/* QR codes need a light quiet zone in every theme to stay scannable. */
+.qr-surface {
+  background-color: #fff;
+}

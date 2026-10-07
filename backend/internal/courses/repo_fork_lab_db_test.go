@@ -28,8 +28,8 @@ func TestForkCourse_KeepsLabLink(t *testing.T) {
 
 	var labID string
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO lab_definitions (org_id, title, lab_type, environment, is_published, created_by, library_visibility)
-		 VALUES ($1,'Lab','terminal','mindforge/lab-terminal:1',true,$2,'org') RETURNING id`,
+		`INSERT INTO lab_definitions (org_id, title, lab_type, environment, is_published, created_by, library_visibility, scope)
+		 VALUES ($1,'Lab','terminal','mindforge/lab-terminal:1',true,$2,'org','standalone') RETURNING id`,
 		orgID, userID,
 	).Scan(&labID); err != nil {
 		t.Fatalf("seed lab: %v", err)

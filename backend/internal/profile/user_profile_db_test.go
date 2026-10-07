@@ -19,7 +19,7 @@ func TestGetUserProfile_AdminScopedToOwnOrg(t *testing.T) {
 
 	seedUser := func(email string) string {
 		var id string
-		if err := pool.QueryRow(ctx, `INSERT INTO users (email, name) VALUES ($1, $1) RETURNING id`, email).Scan(&id); err != nil {
+		if err := pool.QueryRow(ctx, `INSERT INTO users (email, name) VALUES ($1::text, $1::text) RETURNING id`, email).Scan(&id); err != nil {
 			t.Fatalf("seed user: %v", err)
 		}
 		return id

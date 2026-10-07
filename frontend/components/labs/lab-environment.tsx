@@ -224,6 +224,7 @@ export function LabEnvironment({ session, lab, initialCompletions, kindBlock }: 
           router.push(ROUTES.LOGIN)
           return
         }
+        toast.error(msg)
         return
       }
       setResetCount(res.data.session.reset_count)
