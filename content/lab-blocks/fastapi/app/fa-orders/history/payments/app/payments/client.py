@@ -47,6 +47,8 @@ def build_http_client(settings: Settings, transport: httpx.AsyncBaseTransport | 
 
 class PaymentsClient:
     def __init__(self, settings: Settings, transport: httpx.AsyncBaseTransport | None = None):
+        self._settings = settings
+        self._transport = transport
         self._http = build_http_client(settings, transport)
         self._attempts = settings.payments_retries
         self._backoff = settings.payments_backoff_seconds
@@ -68,7 +70,9 @@ class PaymentsClient:
         try:
             async for attempt in retrying:
                 with attempt:
+                    # mf:slot payments.client.send
                     response = await self._http.post("/v1/charges", json=payload, headers=headers)
+                    # mf:endslot
                     if response.status_code == 402:
                         raise PaymentDeclined("card declined")
                     if response.status_code >= 500:

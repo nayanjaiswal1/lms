@@ -49,7 +49,7 @@ fault:
       from: carrier/app/ext/product_feed.py
   commit:
     message: 'feeds: public product feed for partner sites'
-    persona: Priya Nair <priya@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.latency-while
     role: symptom

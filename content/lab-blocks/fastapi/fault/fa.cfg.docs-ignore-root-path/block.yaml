@@ -61,7 +61,7 @@ fault:
       from: carrier/app/ext/product_feed.py
   commit:
     message: 'feeds: public product feed for partner sites, with docs under our own title'
-    persona: Priya Nair <priya@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.pytest-node
     role: symptom
@@ -79,7 +79,7 @@ fault:
       expected: |-
         The docs page should load the API definition under whatever prefix the gateway mounts the service at.
       support_tried: |-
-        Cleared the CDN cache and tried three browsers. Confirmed that `https://gateway.example.com/api/openapi.json` returns the schema, so the schema itself is fine.
+        Cleared the CDN cache and tried three browsers. Confirmed that `https://gateway.mindforge.test/api/openapi.json` returns the schema, so the schema itself is fine.
       observations: |-
         ### Other observations from the reporter
 

@@ -44,7 +44,7 @@ fault:
       from: carrier/app/ext/customs_export.py
   commit:
     message: 'catalog: store the HS code of every product and add the staff customs export'
-    persona: Elena Petrov <elena@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.migrate-from-snapshot
     role: symptom

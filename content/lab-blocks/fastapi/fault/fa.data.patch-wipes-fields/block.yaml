@@ -48,7 +48,7 @@ fault:
       from: carrier/app/ext/account_overview.py
   commit:
     message: 'customers: one-call account overview for the mobile app'
-    persona: Marcus Webb <marcus@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.http-behavior
     role: symptom

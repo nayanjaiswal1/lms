@@ -1,0 +1,126 @@
+kind: fault
+id: fa.async.blocking-call-in-async-handler
+version: 1.0.0
+stack: fastapi
+title: The whole API stalls while customers use product search
+summary: Product search calls the legacy synonym service synchronously inside an async handler, so every search freezes the event loop and every other request waits behind it.
+category: async
+difficulty: intermediate
+skills:
+- asyncio
+- event-loop
+- threadpool
+- profiling
+requires:
+- slot:search.router.synonyms
+- cap:postgres
+fault:
+  inject:
+    slots:
+    - slot: search.router.synonyms
+      value: |
+        synonyms = lookup_synonyms(q, latency)
+  fix:
+    slots:
+    - slot: search.router.synonyms
+      value: |
+        synonyms = await run_in_threadpool(lookup_synonyms, q, latency)
+    files:
+    - path: tests/test_search_does_not_block.py
+      from: fix/tests/test_search_does_not_block.py
+  cheats:
+  - name: process-wide-lock
+    slots:
+    - slot: search.router.synonyms
+      value: |
+        import threading
+
+        with threading.Lock():
+            synonyms = lookup_synonyms(q, latency)
+  - name: wait-for-wrapper
+    slots:
+    - slot: search.router.synonyms
+      value: |
+        import asyncio
+
+        synonyms = await asyncio.wait_for(asyncio.sleep(0, result=lookup_synonyms(q, latency)), timeout=5)
+  - name: skip-the-synonym-lookup
+    slots:
+    - slot: search.router.synonyms
+      value: |
+        synonyms = ()
+  - name: revert-the-commit
+    slots:
+    - slot: search.router.synonyms
+      value: |
+        synonyms = await run_in_threadpool(lookup_synonyms, q, latency)
+    files:
+    - path: app/ext/stock_alerts.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: stock-alerts
+    files:
+    - path: app/ext/stock_alerts.py
+      from: carrier/app/ext/stock_alerts.py
+  commit:
+    message: 'search: find products by synonym, plus the low-stock alerts endpoint'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.latency-while
+    role: symptom
+    params:
+      background:
+        method: GET
+        path: /api/v1/products/search?q=couch
+        count: 8
+        timeout: 30
+      probe:
+        method: GET
+        path: /healthz
+        samples: 30
+        p95_ms_max: 150
+      start_delay_ms: 100
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fa_async_blocking_call/test_search_does_not_block.py
+  symptom:
+    vars:
+      title: 'Everything gets slow in waves whenever shoppers search for products'
+      report: |-
+        Since the search release, the API answers in waves. While shoppers are typing in the search box, product pages, order lookups and even the
+        health check take a fraction of a second longer, and the load balancer flaps the instances during the evening peak. The search itself
+        always returns the right products.
+      where: |-
+        The whole service, not one endpoint. `GET /api/v1/products/search` is what the slow waves have in common.
+      expected: |-
+        A search may take a few hundred milliseconds (it asks the synonym service), but it must not make unrelated requests wait.
+      support_tried: |-
+        Added two more API instances (the waves moved to them). Raised the database pool (no change). CPU is low and the database is idle,
+        yet the API stalls.
+      observations: |-
+        ### Other observations from the reporter
+
+        - `/healthz` does not touch the database and is slow during the waves too.
+        - The waves line up with search traffic; with search disabled in the app the service is smooth.
+        - Synonyms were added to search in the last release; before that the search was fast.
+    signature: unrelated requests slow down while product searches run
+  hints:
+  - 'Measure instead of guessing: while a few searches run, call `/healthz` in a loop and time it (a small httpx script, or curl with a timing format). Does the health check slow down only while searches are in flight?'
+  - An `async def` handler runs on the event loop thread. A synchronous call that waits (a legacy client, `time.sleep`, `requests`, heavy CPU work) holds the loop until it returns, so no other request can run. Find the one call in the search handler that is not awaited and still takes hundreds of milliseconds. `await` in front of a synchronous function does not make it asynchronous.
+  - 'In `app/search/router.py` the synonym lookup must run off the loop: `await run_in_threadpool(lookup_synonyms, q, latency)` (or `asyncio.to_thread`). Keep the synonym behavior, and add a test that fires several searches at once and asserts they overlap instead of queueing.'
+  rubric:
+    key_points:
+    - Explains that a blocking call inside async def stalls the single event loop and every request on it, not just the search that made the call.
+    - Finds the synchronous synonym lookup as the blocking call and moves it to a worker thread (run_in_threadpool or asyncio.to_thread).
+    - Keeps search behavior intact (synonyms still applied) instead of removing the lookup.
+    - Adds a test that detects a blocked loop, for example concurrent searches that must overlap or a ticker that must keep running.
+    misconceptions:
+    - Scaling out or adding workers fixes the cause (each worker still freezes during a search).
+    - A lock around the call, or wrapping it in asyncio.wait_for, helps (neither makes a synchronous call yield to the loop).
+    - Removing the synonym lookup is the fix (it deletes the feature that was shipped).
+  root_cause: |-
+    The synonym lookup is a synchronous client that blocks its thread for a network round trip. `search_products` is an `async def` endpoint, so it runs on the event loop thread, and calling the lookup directly froze the loop for the whole round trip: every other request in the process, including the health check, waited behind each search.
+
+    The fix runs the blocking call in the thread pool (`await run_in_threadpool(lookup_synonyms, q, latency)`), so the loop stays free while a worker thread waits. A lock or `asyncio.wait_for` around the same call changes nothing, because the call never yields to the loop.
