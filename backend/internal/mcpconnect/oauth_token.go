@@ -2,11 +2,13 @@ package mcpconnect
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/mindforge/backend/internal/auth"
+	"github.com/mindforge/backend/internal/authevents"
 )
 
 // HandleToken handles POST /oauth/token (RFC 6749 §3.2). Real OAuth/MCP
@@ -62,7 +64,7 @@ func (rt *Router) exchangeAuthorizationCode(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	rt.issueTokens(w, r, ac.OrgID, ac.UserID, ac.ClientID, ac.Scopes, "")
+	rt.issueTokens(w, r, ac.OrgID, ac.UserID, ac.ClientID, ac.Scopes, "", "")
 }
 
 func (rt *Router) exchangeRefreshToken(w http.ResponseWriter, r *http.Request) {
@@ -72,8 +74,14 @@ func (rt *Router) exchangeRefreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := rt.repo.GetConnectionByRefreshHash(r.Context(), auth.HashToken(raw))
+	hash := auth.HashToken(raw)
+	conn, err := rt.repo.GetConnectionByRefreshHash(r.Context(), hash)
 	if err != nil {
+		if revoked, rerr := rt.repo.RevokeOnRefreshReuse(r.Context(), hash); rerr != nil {
+			slog.ErrorContext(r.Context(), "mcpconnect: refresh reuse check failed", "err", rerr)
+		} else if revoked {
+			slog.WarnContext(r.Context(), "mcpconnect: rotated refresh token reused; connection revoked")
+		}
 		writeOAuthError(w, http.StatusBadRequest, "invalid_grant", "Refresh token is invalid, expired, or revoked.")
 		return
 	}
@@ -82,15 +90,16 @@ func (rt *Router) exchangeRefreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rt.issueTokens(w, r, conn.OrgID, conn.UserID, conn.ClientID, conn.Scopes, conn.ID)
+	rt.issueTokens(w, r, conn.OrgID, conn.UserID, conn.ClientID, conn.Scopes, conn.ID, hash)
 }
 
 // issueTokens mints a fresh access token (always) and refresh token (always —
 // rotation-on-use for an existing connection, initial issuance for a new
 // one), persists the connection/token rows, and writes the token response.
 // existingConnectionID is "" on first-time authorization (UpsertConnection
-// creates the row); non-empty on a refresh (RotateRefreshToken updates it).
-func (rt *Router) issueTokens(w http.ResponseWriter, r *http.Request, orgID, userID, clientID string, scopes []string, existingConnectionID string) {
+// creates the row); non-empty on a refresh (RotateRefreshToken updates it,
+// compare-and-set against oldRefreshHash).
+func (rt *Router) issueTokens(w http.ResponseWriter, r *http.Request, orgID, userID, clientID string, scopes []string, existingConnectionID, oldRefreshHash string) {
 	rawAccess, accessHash, err := auth.CreateRefreshToken()
 	if err != nil {
 		writeOAuthError(w, http.StatusInternalServerError, "server_error", "Token issuance failed.")
@@ -104,7 +113,11 @@ func (rt *Router) issueTokens(w http.ResponseWriter, r *http.Request, orgID, use
 
 	var connectionID string
 	if existingConnectionID != "" {
-		if err := rt.repo.RotateRefreshToken(r.Context(), existingConnectionID, refreshHash, time.Now().Add(refreshTokenTTL)); err != nil {
+		if err := rt.repo.RotateRefreshToken(r.Context(), existingConnectionID, oldRefreshHash, refreshHash, time.Now().Add(refreshTokenTTL)); err != nil {
+			if errors.Is(err, ErrInvalidGrant) {
+				writeOAuthError(w, http.StatusBadRequest, "invalid_grant", "Refresh token is invalid, expired, or revoked.")
+				return
+			}
 			writeOAuthError(w, http.StatusInternalServerError, "server_error", "Token issuance failed.")
 			return
 		}
@@ -120,6 +133,10 @@ func (rt *Router) issueTokens(w http.ResponseWriter, r *http.Request, orgID, use
 	if err := rt.repo.InsertAccessToken(r.Context(), connectionID, accessHash, time.Now().Add(accessTokenTTL)); err != nil {
 		writeOAuthError(w, http.StatusInternalServerError, "server_error", "Token issuance failed.")
 		return
+	}
+
+	if existingConnectionID == "" {
+		authevents.Emit(r.Context(), rt.pool, r, userID, authevents.MCPConnected)
 	}
 
 	writeSpecJSON(w, http.StatusOK, map[string]any{

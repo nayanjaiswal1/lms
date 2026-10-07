@@ -7,7 +7,7 @@ section_title: "Memory Optimization"
 section_position: 6
 section_group: Advanced
 title: "Optimizing Memory with __slots__"
-position: 2
+position: 1
 estimated_minutes: 12
 source: [fifty-advanced-python-concepts/_slots.py, fifty-advanced-python-concepts/handbook/50_main_concepts_41_52.md]
 ---
@@ -55,7 +55,7 @@ Declaring `__slots__ = ["username", "email"]` tells CPython to allocate fixed, f
 
 ## Measuring the difference
 
-`memory_profiler`'s `@profile` decorator (covered in the next lesson) is the tool the original notes use to show this at scale — but it needs the `mprof`/`python -m memory_profiler` runner, so it won't execute standalone here. The stdlib's own `sys.getsizeof` on a single instance already shows the shape of the difference, even though it only reports one object's shallow size, not the whole instance-plus-dict picture:
+`memory_profiler`'s `@profile` decorator (covered in the next lesson) is the tool for showing this at scale — but it needs the `mprof`/`python -m memory_profiler` runner, so it won't execute standalone here. The stdlib's own `sys.getsizeof` on a single instance already shows the shape of the difference, even though it only reports one object's shallow size, not the whole instance-plus-dict picture:
 
 ```python
 import sys

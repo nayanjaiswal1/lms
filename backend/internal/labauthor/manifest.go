@@ -124,8 +124,8 @@ func validateSection(m *labblock.Manifest) []string {
 	switch m.Kind {
 	case "app":
 		a := m.App
-		if a.Language != "python" && a.Language != "js" {
-			add("app.language must be python or js")
+		if a.Language != "python" && a.Language != "js" && a.Language != "fullstack" {
+			add("app.language must be python, js or fullstack")
 		}
 		if len(a.Features) == 0 {
 			add("app.features must list the feature tags the regression suite covers")

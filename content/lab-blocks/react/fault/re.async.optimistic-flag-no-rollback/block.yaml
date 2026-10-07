@@ -1,0 +1,115 @@
+kind: fault
+id: re.async.optimistic-flag-no-rollback
+version: 1.0.0
+stack: react
+title: An order stays flagged after the server refused the flag
+summary: Flagging an order updates the UI at once and then calls the API; when the API fails the error message appears but the optimistic flag state is never rolled back.
+category: races
+difficulty: intermediate
+skills:
+- optimistic-ui
+- error-handling
+- react-state
+requires:
+- slot:orders.flag.toggle
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: orders.flag.toggle
+      value: |
+        setFlagged(next);
+        try {
+          await post(`/api/orders/${order.id}/flag`, { flagged: next });
+        } catch (failure) {
+          setError(failure);
+        }
+  fix:
+    slots:
+    - slot: orders.flag.toggle
+      value: |
+        setFlagged(next);
+        try {
+          await post(`/api/orders/${order.id}/flag`, { flagged: next });
+        } catch (failure) {
+          setFlagged(!next);
+          setError(failure);
+        }
+    files:
+    - path: tests/flag-rollback.test.jsx
+      from: fix/tests/flag-rollback.test.jsx
+  cheats:
+  - name: wait-for-the-server
+    slots:
+    - slot: orders.flag.toggle
+      value: |
+        try {
+          await post(`/api/orders/${order.id}/flag`, { flagged: next });
+          setFlagged(next);
+        } catch (failure) {
+          setError(failure);
+        }
+  - name: revert-the-commit
+    slots:
+    - slot: orders.flag.toggle
+      value: |
+        setFlagged(next);
+        try {
+          await post(`/api/orders/${order.id}/flag`, { flagged: next });
+        } catch (failure) {
+          setFlagged(!next);
+          setError(failure);
+        }
+    files:
+    - path: src/ext/flagged-count/index.js
+      from: cheats/empty-extension.js
+  carrier:
+    feature: flagged-count
+    files:
+    - path: src/ext/flagged-count/index.js
+      from: carrier/src/ext/flagged-count/index.js
+  commit:
+    message: 'orders: show how many orders on the page are flagged'
+    persona: Dana Whitfield <dana@opsconsole.example.com>
+  checks:
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/re_async_flag_rollback/flag.test.jsx
+  symptom:
+    vars:
+      title: Order shows as flagged but the flag was not saved
+      report: |-
+        When the API is having a bad day, clicking Flag on an order turns the button to "Flagged" and shows the red "Could not update
+        the flag." message at the same time. After reload the order is not flagged, so the team thought it was escalated when it was
+        not. Last week this hid a chargeback dispute for two days.
+      where: Orders page, the Flag button in the last column of each row.
+      expected: If the flag cannot be saved, the button goes back to its previous state together with the error message. When the save works the flag shows immediately, without waiting for the server.
+      support_tried: Retried the click (works when the API is healthy). The mock API rejects the request with a 500 when we simulate a failure.
+      observations: |-
+        ### Other observations from QA
+
+        - The error message is shown, so the failure is detected.
+        - Unflagging an already flagged order has the same problem in reverse.
+        - The flagged-count action in the Orders tools shipped with the same release.
+    signature: flag state differs from the server after a failed request
+  hints:
+  - Make the flag request fail in a test (a held or scripted POST that answers 500) and look at the button state before and after the answer arrives.
+  - The toggle changes the state first and talks to the server second. What has to happen to the first change when the second step fails?
+  - 'Restore the previous value in the failure branch next to the error state. Keep the immediate update: the test should still see the button pressed before the server answers.'
+  rubric:
+    key_points:
+    - Identifies that the optimistic update is never undone when the request fails, so UI state and server state diverge.
+    - 'Explains the optimistic-update contract: apply immediately, confirm on success, roll back on failure.'
+    - Fixes the failure branch without removing the optimistic behavior (the button must still flip before the server answers).
+    - Tests both the immediate flip and the rollback with a request that is held and then rejected.
+    misconceptions:
+    - Waiting for the server before updating the UI is the fix (it removes the optimistic behavior the page is designed around).
+    - Refetching the whole orders list after an error is enough (it hides the divergence but costs a request and loses other local state).
+  root_cause: |-
+    `useFlagToggle` applies the new flag locally before the request is sent (an optimistic update) and records the error if the
+    request fails, but the failure branch never restored the previous flag. The component therefore kept showing the flagged
+    state while the server still had the old one.
+
+    The failure branch must undo the optimistic change (`setFlagged(!next)`) in addition to recording the error.

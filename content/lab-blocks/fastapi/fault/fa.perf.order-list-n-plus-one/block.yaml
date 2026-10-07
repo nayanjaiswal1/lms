@@ -1,0 +1,171 @@
+kind: fault
+id: fa.perf.order-list-n-plus-one
+version: 1.0.0
+stack: fastapi
+title: The order list endpoint is slow for repeat customers
+summary: The orders endpoint loads the items of each order with its own query because the list query no longer eager-loads them.
+category: performance
+difficulty: beginner
+skills:
+- sqlalchemy-loading
+- query-optimization
+- debugging
+requires:
+- slot:orders.service.list_for_customer
+- cap:postgres
+fault:
+  inject:
+    slots:
+    - slot: orders.service.list_for_customer
+      value: |
+        query = select(Order).where(Order.customer_id == customer_id).order_by(Order.id.desc()).limit(limit)
+        orders = list((await session.execute(query)).scalars())
+        for order in orders:
+            from sqlalchemy.orm.attributes import set_committed_value
+
+            item_rows = await session.execute(
+                select(OrderItem).where(OrderItem.order_id == order.id).options(joinedload(OrderItem.product)).order_by(OrderItem.id)
+            )
+            set_committed_value(order, "items", list(item_rows.scalars()))
+  fix:
+    slots:
+    - slot: orders.service.list_for_customer
+      value: |
+        query = (
+            select(Order)
+            .where(Order.customer_id == customer_id)
+            .options(selectinload(Order.items).joinedload(OrderItem.product))
+            .order_by(Order.id.desc())
+            .limit(limit)
+        )
+        orders = list((await session.execute(query)).scalars())
+    files:
+    - path: tests/test_order_list_queries.py
+      from: fix/tests/test_order_list_queries.py
+  cheats:
+  - name: show-fewer-orders
+    slots:
+    - slot: orders.service.list_for_customer
+      value: |
+        query = (
+            select(Order)
+            .where(Order.customer_id == customer_id)
+            .options(selectinload(Order.items).joinedload(OrderItem.product))
+            .order_by(Order.id.desc())
+            .limit(min(limit, 3))
+        )
+        orders = list((await session.execute(query)).scalars())
+  - name: special-case-the-reporter
+    slots:
+    - slot: orders.service.list_for_customer
+      value: |
+        if customer_id == 2:
+            query = (
+                select(Order)
+                .where(Order.customer_id == customer_id)
+                .options(selectinload(Order.items).joinedload(OrderItem.product))
+                .order_by(Order.id.desc())
+                .limit(limit)
+            )
+            orders = list((await session.execute(query)).scalars())
+        else:
+            orders = list((await session.execute(select(Order).where(Order.customer_id == customer_id).order_by(Order.id.desc()).limit(limit))).scalars())
+            for order in orders:
+                from sqlalchemy.orm.attributes import set_committed_value
+
+                item_rows = await session.execute(
+                    select(OrderItem).where(OrderItem.order_id == order.id).options(joinedload(OrderItem.product)).order_by(OrderItem.id)
+                )
+                set_committed_value(order, "items", list(item_rows.scalars()))
+  - name: revert-the-commit
+    slots:
+    - slot: orders.service.list_for_customer
+      value: |
+        query = (
+            select(Order)
+            .where(Order.customer_id == customer_id)
+            .options(selectinload(Order.items).joinedload(OrderItem.product))
+            .order_by(Order.id.desc())
+            .limit(limit)
+        )
+        orders = list((await session.execute(query)).scalars())
+    files:
+    - path: app/ext/order_export.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: order-export
+    files:
+    - path: app/ext/order_export.py
+      from: carrier/app/ext/order_export.py
+  commit:
+    message: "orders: add a CSV export of a customer's orders for finance"
+    persona: Sam Okafor <sam@shop.example.com>
+  checks:
+  - ref: check.query-count
+    role: symptom
+    params:
+      request:
+        method: GET
+        path: /api/v1/orders
+        headers:
+          Authorization: Bearer mf_tok_alice
+      scales: [5, 40]
+      pre_sql:
+      - "INSERT INTO orders (customer_id, status, total_cents, currency, shipping_name, created_at, updated_at) SELECT (SELECT id FROM customers WHERE email = 'alice@shop.test'), 'paid', 1500, 'USD', 'Probe', now() - g * interval '1 minute', now() FROM generate_series(1, {{scale}}) g"
+      - "INSERT INTO order_items (order_id, product_id, quantity, unit_price_cents) SELECT o.id, 1 + o.id % 5, 1, 500 FROM orders o WHERE o.shipping_name = 'Probe' AND NOT EXISTS (SELECT 1 FROM order_items i WHERE i.order_id = o.id)"
+      - "INSERT INTO order_items (order_id, product_id, quantity, unit_price_cents) SELECT o.id, 6 + o.id % 5, 2, 500 FROM orders o WHERE o.shipping_name = 'Probe' AND (SELECT count(*) FROM order_items i WHERE i.order_id = o.id) = 1"
+      max_growth: 2
+      max_queries: 30
+  - ref: check.query-count
+    role: symptom
+    params:
+      request:
+        method: GET
+        path: /api/v1/orders
+        headers:
+          Authorization: Bearer mf_tok_bob
+      scales: [5, 40]
+      pre_sql:
+      - "INSERT INTO orders (customer_id, status, total_cents, currency, shipping_name, created_at, updated_at) SELECT (SELECT id FROM customers WHERE email = 'bob@shop.test'), 'paid', 1500, 'USD', 'Probe-bob', now() - g * interval '1 minute', now() FROM generate_series(1, {{scale}}) g"
+      - "INSERT INTO order_items (order_id, product_id, quantity, unit_price_cents) SELECT o.id, 1 + o.id % 5, 1, 500 FROM orders o WHERE o.shipping_name = 'Probe-bob' AND NOT EXISTS (SELECT 1 FROM order_items i WHERE i.order_id = o.id)"
+      - "INSERT INTO order_items (order_id, product_id, quantity, unit_price_cents) SELECT o.id, 6 + o.id % 5, 2, 500 FROM orders o WHERE o.shipping_name = 'Probe-bob' AND (SELECT count(*) FROM order_items i WHERE i.order_id = o.id) = 1"
+      max_growth: 2
+      max_queries: 30
+  symptom:
+    vars:
+      title: '"My orders" takes forever to load for repeat customers'
+      report: |-
+        Several loyal customers wrote in this week: the orders list in the app used to open instantly and now takes many seconds, and it gets worse
+        the more orders the customer has. Customers with two or three orders do not notice. One customer with a long history said the screen "just
+        spins" and then finally shows up.
+      where: |-
+        `GET /api/v1/orders` for a signed-in customer. The single-order endpoint `GET /api/v1/orders/{id}` is not affected.
+      expected: |-
+        The list should return in well under a second no matter how many orders the customer has placed.
+      support_tried: |-
+        Asked customers to restart the app (no change). Ops restarted the API: the endpoint was fast for a few minutes and then slow again.
+      observations: |-
+        ### Other observations from the reporter
+
+        - It started around the time the finance CSV export shipped.
+        - Database CPU looks normal and the database did not grow noticeably.
+        - The endpoint returns the right data, it is just slow.
+    signature: one SELECT on order_items per order returned
+  hints:
+  - Compare how many SQL statements the endpoint runs for a customer with three orders and for one with forty. Turn on SQLAlchemy statement logging (`echo=True` on the engine, or the `sqlalchemy.engine` logger at INFO) and read the log of a single request.
+  - The service loads the orders first and then runs a separate query for the items of each order. Every order adds a statement, so the cost grows linearly with the data. SQLAlchemy can load a collection for all returned rows at once with `selectinload`.
+  - Fix the list query in `app/orders/service.py` so the items and their products are loaded with the orders, using `selectinload(Order.items).joinedload(OrderItem.product)`, and add a test that asserts the statement count does not depend on the number of orders.
+  rubric:
+    key_points:
+    - Identifies an N+1 pattern in async SQLAlchemy - one extra statement per order for its items.
+    - Explains eager loading (selectinload or joinedload) and why relationships here are lazy="raise".
+    - Fixes the query, not the symptom, and verifies that the statement count no longer depends on the number of rows.
+    - Adds a regression test that fails on the original code because the statement count grows with the data.
+    misconceptions:
+    - Caching the response or paginating harder fixes the cause (it only hides it for some customers).
+    - Adding an index or a bigger database removes the problem.
+    - Switching the whole relationship to lazy="select" is the fix (it is not even allowed in async code).
+  root_cause: |-
+    The order list query selected the orders and then loaded the items of every order in a loop, one statement per order (plus the product join). The number of statements therefore grew linearly with the number of orders, and every statement is a network round trip to the database.
+
+    The fix loads the items and their products together with the orders: `selectinload(Order.items).joinedload(OrderItem.product)` issues one extra statement for all items regardless of how many orders were returned.

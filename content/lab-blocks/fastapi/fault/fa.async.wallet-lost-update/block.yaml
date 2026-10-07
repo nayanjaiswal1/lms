@@ -1,0 +1,138 @@
+kind: fault
+id: fa.async.wallet-lost-update
+version: 1.0.0
+stack: fastapi
+title: Wallet balances are wrong when several top-ups arrive at once
+summary: The balance is read, increased in Python and written back across an await, so concurrent credits overwrite each other and money disappears.
+category: async
+difficulty: advanced
+skills:
+- asyncio
+- transactions
+- row-locking
+- concurrency
+requires:
+- slot:wallet.service.apply_credit
+- cap:postgres
+fault:
+  inject:
+    slots:
+    - slot: wallet.service.apply_credit
+      value: |
+        current = (await session.execute(select(Customer.credit_cents).where(Customer.id == customer_id))).scalar_one()
+        balance = current + amount_cents
+        await session.execute(update(Customer).where(Customer.id == customer_id).values(credit_cents=balance))
+  fix:
+    slots:
+    - slot: wallet.service.apply_credit
+      value: |
+        result = await session.execute(
+            update(Customer)
+            .where(Customer.id == customer_id)
+            .values(credit_cents=Customer.credit_cents + amount_cents)
+            .returning(Customer.credit_cents)
+        )
+        balance = result.scalar_one()
+    files:
+    - path: tests/test_wallet_concurrency.py
+      from: fix/tests/test_wallet_concurrency.py
+  cheats:
+  - name: process-local-lock
+    slots:
+    - slot: wallet.service.apply_credit
+      value: |
+        import asyncio
+
+        lock = apply_credit.__dict__.setdefault("lock", asyncio.Lock())
+        async with lock:
+            current = (await session.execute(select(Customer.credit_cents).where(Customer.id == customer_id))).scalar_one()
+            balance = current + amount_cents
+            await session.execute(update(Customer).where(Customer.id == customer_id).values(credit_cents=balance))
+  - name: revert-the-commit
+    slots:
+    - slot: wallet.service.apply_credit
+      value: |
+        result = await session.execute(
+            update(Customer)
+            .where(Customer.id == customer_id)
+            .values(credit_cents=Customer.credit_cents + amount_cents)
+            .returning(Customer.credit_cents)
+        )
+        balance = result.scalar_one()
+    files:
+    - path: app/ext/account_overview.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: account-overview
+    files:
+    - path: app/ext/account_overview.py
+      from: carrier/app/ext/account_overview.py
+  commit:
+    message: 'wallet: show the store credit balance on the account overview'
+    persona: Marcus Webb <marcus@shop.example.com>
+  checks:
+  - ref: check.concurrent-invariant
+    role: symptom
+    params:
+      before_sql:
+      - UPDATE customers SET credit_cents = 0 WHERE email = 'alice@shop.test'
+      request:
+        method: POST
+        path: /api/v1/wallet/credit
+        headers:
+          Authorization: Bearer mf_tok_alice
+        body:
+          amount_cents: 100
+          reason: probe
+      count: 20
+      workers: 10
+      allowed_status:
+      - 200
+      invariant:
+        sql: SELECT credit_cents FROM customers WHERE email = 'alice@shop.test'
+        equals: 2000
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fa_async_7/test_wallet_concurrency.py
+  symptom:
+    vars:
+      title: 'Customers say their store credit is missing after a promotion'
+      report: |-
+        During Saturday's "double credit" promotion the app showed some customers a lower store credit than they were promised. Several customers
+        topped up or received promotional credit within the same second (from the app and from the promo job), and afterwards their balance was
+        short by one or more of the credits. The ledger lists every credit, but the balance does not add up to it.
+      where: |-
+        `POST /api/v1/wallet/credit` and the balance shown by `GET /api/v1/wallet`. It only happens when two or more credits for the same customer are
+        in flight at the same time, so it is hard to reproduce by hand.
+      expected: |-
+        The balance must always equal the sum of the credits in the ledger, however many arrive at once.
+      support_tried: |-
+        Compared balances with the ledger for 40 affected customers: every difference is an exact multiple of a credit that was applied "at the same time"
+        as another. Support credited the missing amounts manually.
+      observations: |-
+        ### Other observations from the reporter
+
+        - Single credits always work. The problem needs concurrency.
+        - The ledger rows are correct and record a `balance_after_cents` that is wrong for the later row.
+        - The account overview endpoint (shipped last week) reads the same balance and shows the wrong number, so it is not a display problem.
+    signature: wallet balance lower than the sum of its ledger credits
+  hints:
+  - Reproduce it with concurrency, not by hand. Fire several credits for the same customer at once (a thread pool of requests with httpx, or `asyncio.gather` in a script) and compare the balance with the sum of the ledger. Fewer or more workers change how often it happens.
+  - 'Read `apply_credit` as two steps with an `await` between them: read the current balance, then write `current + amount`. Two requests can both read the same balance before either writes. Each `await` is a point where another request runs, so "read then write" is not atomic.'
+  - Let the database do the arithmetic in one statement (`UPDATE ... SET credit_cents = credit_cents + :amount RETURNING credit_cents`), or lock the row first with `SELECT ... FOR UPDATE`. An in-process lock is not enough once there is more than one worker. Add a test that runs many credits concurrently.
+  rubric:
+    key_points:
+    - Identifies a lost update - a read-modify-write that spans awaits (and transactions), so concurrent requests overwrite each other.
+    - Explains why asyncio does not make this safe - every await is a scheduling point, and the race is in the database round trips.
+    - Fixes it in the database (atomic UPDATE ... RETURNING, or SELECT FOR UPDATE) rather than with a process-local lock.
+    - Adds a concurrent test that fails on the original code and checks the balance against the ledger.
+    misconceptions:
+    - Because asyncio is single-threaded there are no race conditions (the race is across awaits and database round trips).
+    - An asyncio.Lock fixes it (it does not protect a second worker or a second instance).
+    - Retrying or sleeping before the write fixes it.
+  root_cause: |-
+    `apply_credit` read the customer's balance, added the credit in Python and wrote the result back. Between the read and the write the coroutine awaits the database, and other requests run. Two credits that read the same balance both write `balance + amount`, so one of them is lost, while the ledger still records both.
+
+    The fix moves the arithmetic into a single `UPDATE ... SET credit_cents = credit_cents + :amount RETURNING credit_cents`. PostgreSQL takes the row lock for the update, so concurrent credits apply one after another and each sees the previous result. `SELECT ... FOR UPDATE` before the write is the other correct option; a process-local lock is not, because it does not protect several workers.

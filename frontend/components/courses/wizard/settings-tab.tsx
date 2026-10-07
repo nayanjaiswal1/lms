@@ -15,6 +15,8 @@ interface SettingsTabProps {
   onDisableCodeRunChange: (value: boolean) => void;
   disableReflection: boolean;
   onDisableReflectionChange: (value: boolean) => void;
+  disableKnowledgeCheck: boolean;
+  onDisableKnowledgeCheckChange: (value: boolean) => void;
 }
 
 export function SettingsTab({
@@ -25,6 +27,8 @@ export function SettingsTab({
   onDisableCodeRunChange,
   disableReflection,
   onDisableReflectionChange,
+  disableKnowledgeCheck,
+  onDisableKnowledgeCheckChange,
 }: SettingsTabProps) {
   return (
     <div className="flex flex-col gap-8 max-w-lg">
@@ -105,6 +109,28 @@ export function SettingsTab({
             <p className="text-xs text-muted-foreground">
               By default, students write a short reflection on every notes lesson and must save it
               before marking the lesson complete. Turn this on to skip reflection for this course.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Knowledge check */}
+      <div className="flex flex-col gap-3">
+        <Label className="text-base font-semibold">Knowledge check</Label>
+        <div className="flex items-start gap-3 rounded-lg border border-border p-4">
+          <Checkbox
+            checked={disableKnowledgeCheck}
+            className="mt-0.5"
+            id="disable-knowledge-check"
+            onCheckedChange={(v) => onDisableKnowledgeCheckChange(Boolean(v))}
+          />
+          <div className="flex flex-col gap-0.5">
+            <Label className="cursor-pointer font-normal" htmlFor="disable-knowledge-check">
+              Hide the Knowledge Check on notes lessons
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              By default, students must answer each lesson&apos;s knowledge check before marking it complete.
+              Turn this on to hide it and lift that requirement for this course.
             </p>
           </div>
         </div>

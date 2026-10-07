@@ -150,10 +150,53 @@ Spaced repetition (SM-2): pure math — no AI.
 **Current limits** (configured via env):
 - `AUTH_RATE_LIMIT_MAX` — max requests per window on `/api/auth/*` (default 10)
 - `AUTH_RATE_LIMIT_WINDOW` — window duration (default 1m)
+- `PUBLIC_RATE_LIMIT_MAX` / `PUBLIC_RATE_LIMIT_WINDOW` — per-IP budget on unauthenticated routes (`/oauth/*`, `/mcp`, `/api/p/`, `/api/public/`, `/api/certificates/`, `/api/invitations/`, the ICS feed) (default 120 / 1m)
+- `OAUTH_REGISTER_RATE_LIMIT_MAX` / `_WINDOW` — dynamic client registration `/oauth/register` (default 10 / 1h)
+- `USER_RATE_LIMIT_MAX` / `USER_RATE_LIMIT_WINDOW` — per-user budget on every authenticated route (default 600 / 1m)
+- `LLM_USER_MAX_PER_HOUR` / `LLM_USER_MAX_PER_DAY` — per-user LLM call caps, enforced by `ai.QuotaProvider` wrapping the provider so every AI feature shares one budget; exceeding it returns `429` (default 60 / 300)
 - `COUPON_RATE_LIMIT_MAX` / `COUPON_RATE_LIMIT_WINDOW` — coupon-code attempts on
   `/coupon/preview` and `/checkout` (default 10 / 1m). Keyed **per user**, not per IP:
   browser-facing calls all arrive from the Next.js server on one address, so an IP-keyed
   limit would let one attacker exhaust the budget for the entire user base.
+
+---
+
+## Data Retention
+
+The `retention.purge` job (`internal/jobs/handlers/retention_purge.go`, DPDP s.8(7)) deletes old rows, each class in its own transaction so one failure does not block the others. A window of `0` disables that class.
+
+| Class | Env | Default |
+|---|---|---|
+| Audit logs (non-MCP) | `RETENTION_AUDIT_DAYS` | 730 |
+| MCP action log | `RETENTION_MCP_ACTION_DAYS` | 180 |
+| `auth_events` | `RETENTION_AUTH_EVENTS_DAYS` | 365 |
+| Assessment `attempt_events` (proctoring) | `RETENTION_ATTEMPT_EVENTS_DAYS` | 730 |
+| `xp_events` | `RETENTION_XP_EVENTS_DAYS` | 730 |
+| Lab AI interactions | `RETENTION_LAB_AI_DAYS` | 180 |
+| Public-test candidate name/email/phone (nulled, attempt kept) | `RETENTION_PUBLIC_CANDIDATES_DAYS` | 180 |
+| Revoked / refresh-expired `mcp_connections` | `RETENTION_MCP_CONNECTION_DAYS` | 90 |
+| Expired MCP auth codes and access tokens | fixed: past `expires_at` | - |
+
+Audit trails default to at least the 180-day CERT-In log minimum.
+
+## Object storage lifecycle (Backblaze B2)
+
+Uploads use S3 POST policies (`/api/upload/*`), so abandoned or orphaned objects accumulate unless the bucket expires them. There is no IaC in this repo; apply once per bucket (B2 console > Bucket Settings > Lifecycle Settings, or `b2 bucket update --lifecycle-rules`):
+
+```json
+[
+  {"fileNamePrefix": "", "daysFromUploadingToHiding": null, "daysFromHidingToDeleting": 1},
+  {"fileNamePrefix": "tmp/", "daysFromUploadingToHiding": 2, "daysFromHidingToDeleting": 1}
+]
+```
+
+- Incomplete multipart/large-file uploads: B2 keeps unfinished large files (and bills for their parts) until they are cancelled; add a lifecycle rule that aborts them (S3 API: `AbortIncompleteMultipartUpload` with `DaysAfterInitiation: 2`) so half-finished uploads stop billing.
+- Hidden (deleted/overwritten) versions are purged 1 day after hiding (first rule), so deletes by the app actually free space.
+- Orphans: objects uploaded but never attached to a row (staging prefix `tmp/` if used) expire after 2 days. Durable prefixes (`courses/`, `captures/`, `certificates/`) must never get an upload-age expiry rule: only the hide-then-delete rule applies to them.
+
+## Payment reversals
+
+Gateway refund and dispute events (`charge.refunded`, `charge.dispute.created`, Razorpay `refund.processed` and `payment.dispute.created`) reverse a purchase. Course purchases revoke the enrollment and release the coupon redemption. Credit-pack purchases claw back unspent credits through a `purchase_reversal` ledger entry capped at the current balance (the ledger never goes negative); credits already spent are the shortfall, recorded in the ledger note and `purchases.granted.reversal_shortfall`. Both are idempotent (guarded status transition) and set `purchases.status='refunded'`. Admin refunds first persist `status='refunding'` before calling the gateway, so a crash mid-way leaves a retryable row instead of a refunded charge marked `completed`. Pack refund: `POST /api/session-booking/purchases/{purchaseID}/refund` (`payments.manage_refunds`). A webhook that fails internally answers non-2xx and keeps the event unprocessed so the gateway's redelivery re-runs it; `ReconcilePayments` alerts on anything still pending or unprocessed past `PAYMENT_RECONCILE_STALE_MINUTES`.
 
 ---
 
@@ -204,7 +247,7 @@ Structured logging is `log/slog` throughout (no separate setup — every package
 Metrics are Prometheus (`internal/metrics`):
 
 - `GET /metrics` on the backend — request counters/latency histograms (by method + chi route pattern, not raw path, so per-user IDs don't blow up cardinality) and job counters/latency histograms (by handler + final status), fed from `internal/jobs`' worker pool.
-- Not proxied by Caddy (only `/api/*` is — see `Caddyfile`), so it's reachable only inside the docker network.
+- Protected by `METRICS_TOKEN`: Prometheus must send it as `Authorization: Bearer <token>`. With the token unset, `/metrics` is open outside production and answers `404` in production, so a missing secret can never expose it. Not proxied by Caddy (only `/api/*` is — see `Caddyfile`).
 - `prometheus.yml` + the `prometheus` service in `docker-compose.dev.yml`/`docker-compose.prod.yml` scrape it on a 15s interval. No published port by default (same pattern as `adminer`) — use `docker compose port prometheus 9090` for a temporary local tunnel.
 
 Dashboards are Grafana (`grafana` service in both compose files), provisioned automatically from `grafana/provisioning/` (Prometheus datasource) and `grafana/dashboards/mindforge-overview.json` (request rate/latency/5xx, job run rate by handler+status, job duration p95) — no manual setup needed after `compose up`. Also no published port; tunnel the same way as Prometheus. Dev login is `admin`/`admin`; prod reads the password from `GRAFANA_ADMIN_PASSWORD` (see `ENV_VARS.md`).
@@ -240,3 +283,15 @@ access-control gap.
 See [courses.md](courses.md) for the `course_purchases`/`coupons`/
 `coupon_redemptions`/`payment_events` table schemas and the full
 checkout → webhook → enrollment flow.
+
+## Self-host host-root hardening (audit H-10)
+
+`docker-compose.prod.yml`:
+
+- The backend image runs as non-root (`USER 10001`) and no longer mounts `/var/run/docker.sock`. It reaches Docker through the `docker-proxy` service (tecnativa/docker-socket-proxy) over the internal-only `mindforge_dockerapi` network (`DOCKER_HOST=tcp://docker-proxy:2375`), with only the CONTAINERS, EXEC, NETWORKS, IMAGES and POST API groups enabled.
+- **Residual risk (not solved):** the proxy filters by API path/method, not request body. A compromised backend can still call `containers/create` with `Privileged` or host bind mounts, which is host root. This reduces the surface (no volumes/swarm/secrets/build/info APIs) but is not a boundary; the real fix is running labs on a separate runner host or the Kubernetes runtime (`LABS_RUNTIME=kubernetes`).
+- **Piston stays `privileged: true`.** Its isolate sandbox needs cgroup/namespace/mount privileges and cannot run unprivileged; there is no safe alternative short of a VM/gVisor runtime. Mitigation applied: Piston is on its own `mindforge_piston` network shared only with the backend, so it has no network path to Postgres, Redis or MinIO.
+- `docker-compose.dev.yml` still mounts the socket into the backend (dev only; not changed).
+- New env: `LABS_PIDS_LIMIT`, `LABS_NETWORK_PER_SESSION`, `LABS_NETWORK_INTERNAL`, `LABS_PROXY_CONTAINER`, `MAX_BODY_BYTES` (default 8 MiB cap on non-multipart bodies), `LABPROXY_ALLOWED_ORIGINS` (required by labproxy).
+- `POST /api/upload/course-asset` now returns `upload_url` plus `upload_fields` (S3 POST policy: pinned key, content type, 1..2 GiB); clients must POST multipart form with those fields then a `file` part last. No frontend code called it.
+

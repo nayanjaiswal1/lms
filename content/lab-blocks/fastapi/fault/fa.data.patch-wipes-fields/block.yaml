@@ -1,0 +1,123 @@
+kind: fault
+id: fa.data.patch-wipes-fields
+version: 1.0.0
+stack: fastapi
+title: Updating one profile field erases the others
+summary: The PATCH endpoint applies every field of the request model, including the ones the client never sent, so unsent fields are overwritten with null.
+category: data-model
+difficulty: intermediate
+skills:
+- pydantic
+- partial-updates
+- api-contracts
+requires:
+- slot:profile.service.changes
+- cap:postgres
+fault:
+  inject:
+    slots:
+    - slot: profile.service.changes
+      value: |
+        changes = payload.model_dump()
+  fix:
+    slots:
+    - slot: profile.service.changes
+      value: |
+        changes = payload.model_dump(exclude_unset=True)
+    files:
+    - path: tests/test_profile_patch.py
+      from: fix/tests/test_profile_patch.py
+  cheats:
+  - name: ignore-null-values
+    slots:
+    - slot: profile.service.changes
+      value: |
+        changes = payload.model_dump(exclude_none=True)
+  - name: revert-the-commit
+    slots:
+    - slot: profile.service.changes
+      value: |
+        changes = payload.model_dump(exclude_unset=True)
+    files:
+    - path: app/ext/account_overview.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: account-overview
+    files:
+    - path: app/ext/account_overview.py
+      from: carrier/app/ext/account_overview.py
+  commit:
+    message: 'customers: one-call account overview for the mobile app'
+    persona: Marcus Webb <marcus@shop.example.com>
+  checks:
+  - ref: check.http-behavior
+    role: symptom
+    params:
+      steps:
+      - method: PATCH
+        path: /api/v1/me
+        headers:
+          Authorization: Bearer mf_tok_carol
+        body:
+          company: Probe Industries
+          phone: '+15550123'
+        expect_status: 200
+      - method: PATCH
+        path: /api/v1/me
+        headers:
+          Authorization: Bearer mf_tok_carol
+        body:
+          notes: Prefers email
+        expect_status: 200
+      - method: GET
+        path: /api/v1/me
+        headers:
+          Authorization: Bearer mf_tok_carol
+        expect_status: 200
+        expect_json:
+        - path: company
+          equals: Probe Industries
+        - path: phone
+          equals: '+15550123'
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fa_data_2/test_profile_patch.py
+  symptom:
+    vars:
+      title: 'Saving the notes field wipes the phone number and company'
+      report: |-
+        Customers keep telling us that their phone number and company disappear from their profile. Support found a pattern: it happens right after the
+        customer edits a single field in the app, for example only the delivery notes. Then the phone number and the company are empty on the next visit.
+      where: |-
+        `PATCH /api/v1/me`, used by the profile screen of the app (each field saves on its own).
+      expected: |-
+        A PATCH changes only the fields in the request body. Fields that are not sent keep their value. Sending a field as null still clears it on purpose.
+      support_tried: |-
+        Restored the data of a few customers by hand from the nightly backup. Asked customers to re-enter their phone number (it vanished again after the next edit).
+      observations: |-
+        ### Other observations from the reporter
+
+        - A full-profile save from the website does not show the problem.
+        - The database column definitions did not change.
+        - Nobody changed the endpoint in the last release, but the mobile app moved to saving one field at a time.
+    signature: fields not present in the PATCH body are overwritten with null
+  hints:
+  - Reproduce it with `curl`. Send `PATCH /api/v1/me` with only one field, then `GET /api/v1/me`. Which fields changed? Compare with what you sent.
+  - The request model gives every field a default of None. Pydantic cannot tell "the client sent null" from "the client did not send it" unless you ask it which fields were actually set. Look at how `update_profile` builds the dict of changes.
+  - 'Use `payload.model_dump(exclude_unset=True)` so only the fields present in the body are applied (an explicit null still clears a field). Add tests for both: an unsent field stays, an explicit null clears.'
+  rubric:
+    key_points:
+    - Explains that an absent field and an explicit null are different things in a PATCH, and that the model default hides the difference.
+    - Fixes it with exclude_unset (or fields_set) so only the sent fields are applied.
+    - Keeps explicit nulls working as a way to clear a field, instead of filtering all None values.
+    - Adds tests for the unsent field and for the explicit null case.
+    misconceptions:
+    - exclude_none=True is the fix (it makes it impossible to clear a field).
+    - Making the model fields required fixes the partial update (it turns PATCH into PUT).
+    - The bug is in the database or in the mobile app.
+  root_cause: |-
+    `ProfileUpdate` declares every field with a default of `None`, and the service applied `payload.model_dump()`, which returns all fields including the ones the client did not send. Those were written back as null, wiping the customer's values.
+
+    `payload.model_dump(exclude_unset=True)` returns only the fields that were present in the request body, so a PATCH with just `notes` leaves `phone` and `company` alone, and `{"company": null}` still clears the company.

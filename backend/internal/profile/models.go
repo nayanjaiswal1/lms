@@ -27,7 +27,7 @@ const (
 // keep all three in sync. Restricted to routes with no feature/permission gate
 // (see frontend/lib/nav.ts's ALL_NAV_ITEMS) so the chosen page is always
 // reachable regardless of the user's org features or RBAC permissions.
-var ValidDefaultLandingPages = []string{"/dashboard", "/learn", "/calendar", "/mistakes"}
+var ValidDefaultLandingPages = []string{"/dashboard", "/learn", "/calendar", "/mistakes", "/last-visited"}
 
 // QuestionDifficultyLevels is the canonical ordering of question.difficulty
 // values (mirrors the questions table CHECK constraint). Used to zero-fill

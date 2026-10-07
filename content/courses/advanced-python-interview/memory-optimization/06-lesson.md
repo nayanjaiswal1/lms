@@ -7,7 +7,7 @@ section_title: "Memory Optimization"
 section_position: 6
 section_group: Advanced
 title: "Memory & Resource Anti-Patterns in Async Services"
-position: 5
+position: 4
 estimated_minutes: 12
 source: ["knowledge/backend/python/async-memory-patterns.md"]
 ---
@@ -231,40 +231,3 @@ CPython's allocator often keeps freed memory in its own pools, so the process fo
   ]
 }
 ```
-
-## Original notes
-
-Your original wording from the Notes vault, kept verbatim for reference.
-
-See also: python-internals (CPython memory model these patterns build on — pymalloc/arenas referenced below), celery-redis-batching, eigenalign-engineering-notes (worker recycling, memory measurement in production).
-
-##### ★ 2026-09-23 — Memory & resource anti-patterns (async services)
-Checklist of leaks/peak-RAM problems found in long-running async Python services.
-
-**Allocation & lifetime**
-1. **Copies multiplied by concurrency** — building expensive objects (large strings, deep dicts, rendered prompts) *before* a concurrency gate means N copies exist at once. Build inside the gate so at most `concurrency_limit` copies live.
-2. **Large objects held across `await`** — a variable assigned before an `await` stays alive until deleted or the scope exits, even if unused afterwards. `del` it right after last use.
-3. **Results accumulated before serialization** — collecting all results then serializing the list means objects + serialized bytes coexist at peak. Serialize incrementally, delete the source immediately.
-4. **Intermediate string copies during truncation** — `s = s[:n]; s = s[:m]; s += suffix` creates three objects. Use `rfind(pattern, 0, end)` on the original and slice once.
-5. **Buffer + copy coexist** — `buf.getvalue()` returns a copy while `buf` still holds the original; `del buf` right after halves peak RAM. Same for `StringIO`, `BytesIO`, `memoryview`.
-6. **Render intermediates not freed** — a document object (python-docx `Document`, reportlab story list) still alive while its bytes are extracted. Free it before reading the bytes out.
-
-**Caching**
-1. **Unbounded in-memory cache** — a dict cache with no max size/eviction grows forever.
-2. **`@lru_cache` without explicit `maxsize`** — default is 128; a zero-arg or constant-arg function only needs `maxsize=1`. The silent default wastes slots and hides intent.
-3. **Cache not cleared between requests/tasks** — a module-level cache filled per request but never flushed accumulates every request's data. Clear it or scope it to the task boundary.
-
-**Concurrency**
-1. **Coroutines created upfront, semaphore applied too late** — `asyncio.as_completed([f(x) for x in items])` starts every coroutine immediately; expensive setup before the semaphore runs N times in parallel. Move setup inside the semaphore block.
-2. **Fire-and-forget `asyncio.create_task`** — untracked tasks can be garbage-collected mid-flight and are dropped on shutdown. Await directly or keep a reference (e.g. a set + `add_done_callback(set.discard)`).
-3. **`asyncio.get_event_loop()`** — deprecated without a running loop (3.10+ warning, later versions error). Use `asyncio.get_running_loop()` inside async code.
-4. **New client/connection per request** — N HTTP clients / DB pools alive at peak concurrency. Share one pool: less RAM, fewer TCP connections.
-
-**I/O & loading**
-1. **Same file opened multiple times in one call** — open once at the call site, pass the handle down, close after last use.
-2. **Whole file read when only metadata is needed** — use lazy/streaming reads where the format allows (first page, header).
-3. **Class defined inside a frequently called function** — the class body (or import) re-executes every call. Move to module level or a lazy singleton.
-
-**Process lifetime**
-1. **Python heap doesn't shrink after peak** — pymalloc keeps freed arenas in its own pool (see python-internals); one huge task leaves the process bloated. Recycle workers after N tasks (Celery `--max-tasks-per-child`).
-2. **Per-task data on long-lived service objects** — attaching parsed results/rendered bytes to a process-lifetime service instance is a leak. Keep task data in locals.

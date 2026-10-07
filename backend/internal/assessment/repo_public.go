@@ -44,7 +44,10 @@ func (r *Repo) GetAssessmentByShortCode(ctx context.Context, code string) (Asses
 	return scanAssessment(row)
 }
 
-func (r *Repo) CreatePublicAttempt(ctx context.Context, assessmentID, name, email string, phone *string) (PublicAttempt, error) {
+// CreatePublicAttempt starts a candidate session, enforcing maxAttempts per
+// email for the assessment. A per-(assessment, email) advisory lock makes the
+// count-then-insert atomic so parallel requests cannot overshoot the cap.
+func (r *Repo) CreatePublicAttempt(ctx context.Context, assessmentID, name, email string, phone *string, maxAttempts int) (PublicAttempt, error) {
 	var att PublicAttempt
 	// Anonymous attempt: user_id is NULL, anonymous_identity holds name/email/phone as jsonb
 	anonIdentity := map[string]interface{}{
@@ -56,7 +59,28 @@ func (r *Repo) CreatePublicAttempt(ctx context.Context, assessmentID, name, emai
 	}
 	anonJSON, _ := json.Marshal(anonIdentity)
 
-	err := r.pool.QueryRow(ctx,
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return PublicAttempt{}, fmt.Errorf("assessment: create public attempt: begin: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1 || ':' || lower($2), 0))`, assessmentID, email); err != nil {
+		return PublicAttempt{}, fmt.Errorf("assessment: create public attempt: lock: %w", err)
+	}
+	var used int
+	if err := tx.QueryRow(ctx,
+		`SELECT count(*) FROM assessment_attempts
+		 WHERE assessment_id = $1 AND user_id IS NULL AND lower(anonymous_identity->>'email') = lower($2)`,
+		assessmentID, email,
+	).Scan(&used); err != nil {
+		return PublicAttempt{}, fmt.Errorf("assessment: create public attempt: count: %w", err)
+	}
+	if used >= maxAttempts {
+		return PublicAttempt{}, ErrNoAttemptsLeft
+	}
+
+	err = tx.QueryRow(ctx,
 		`INSERT INTO assessment_attempts (assessment_id, user_id, anonymous_identity, status, started_at, active_session_token)
 		 VALUES ($1, NULL, $2, 'in_progress', now(), gen_random_uuid()::text)
 		 RETURNING id, active_session_token, started_at`,
@@ -64,6 +88,9 @@ func (r *Repo) CreatePublicAttempt(ctx context.Context, assessmentID, name, emai
 	).Scan(&att.ID, &att.SessionToken, &att.StartedAt)
 	if err != nil {
 		return PublicAttempt{}, fmt.Errorf("assessment: create public attempt: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return PublicAttempt{}, fmt.Errorf("assessment: create public attempt: commit: %w", err)
 	}
 	att.AssessmentID = assessmentID
 	att.Name = name

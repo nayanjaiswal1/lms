@@ -10,6 +10,8 @@ import { loginAction, type LoginState } from "@/app/login/actions";
 import { AuthFormError } from "@/components/auth/auth-form-error";
 import { SocialLoginButtons } from "@/components/auth/social-login-buttons";
 import { PasskeyAutofill } from "@/components/auth/passkey-autofill";
+import { TurnstileWidget, takeCaptchaToken } from "@/components/auth/turnstile-widget";
+import { CAPTCHA_FORM_FIELD } from "@/lib/captcha";
 import { loginSchema, type LoginInput } from "@/lib/validation/auth";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
@@ -33,6 +35,8 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   network: "Network error during social login. Please try again.",
   server_error: "A server error occurred. Please try again.",
   missing_token: "Session token missing. Please try again.",
+  age_required: "To create an account with a provider, tick the box confirming you are 18 or older, then try again.",
+  mfa_expired: "Your sign-in expired. Please sign in again.",
   config: "Authentication is not configured. Contact support.",
 };
 
@@ -50,10 +54,11 @@ export function LoginForm({ oauthError, next }: LoginFormProps) {
     mode: "onTouched",
   });
 
-  const onSubmit = form.handleSubmit((values) => {
+  const onSubmit = form.handleSubmit((values, event) => {
     const data = new FormData();
     data.set("email", values.email);
     data.set("password", values.password);
+    data.set(CAPTCHA_FORM_FIELD, takeCaptchaToken(event?.target));
     if (next) data.set("next", next);
     startTransition(() => formAction(data));
   });
@@ -98,6 +103,8 @@ export function LoginForm({ oauthError, next }: LoginFormProps) {
             serverError={state.fieldErrors?.password}
             type="password"
           />
+
+          <TurnstileWidget />
 
           <Link
             className="-mt-2 self-end text-xs font-medium"

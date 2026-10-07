@@ -1,0 +1,100 @@
+kind: fault
+id: fs.page.offset-skips-first-page
+version: 1.0.0
+stack: fullstack
+title: The 10 newest orders never show up in the order history
+summary: The order list computes its offset as page * size although pages start at 1, so page 1 skips the newest orders and the last page comes back empty.
+category: api
+difficulty: beginner
+skills:
+- pagination
+- off-by-one
+- fastapi
+requires:
+- slot:orders.page.offset
+- cap:fastapi-backend
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: orders.page.offset
+      value: |
+        offset = page * size
+  fix:
+    slots:
+    - slot: orders.page.offset
+      value: |
+        offset = (page - 1) * size
+    files:
+    - path: backend/tests/test_order_pages.py
+      from: fix/tests/test_order_pages.py
+  cheats:
+  - name: first-page-special-case
+    slots:
+    - slot: orders.page.offset
+      value: |
+        offset = 0 if page == 1 else page * size
+  - name: revert-the-commit
+    slots:
+    - slot: orders.page.offset
+      value: |
+        offset = (page - 1) * size
+    files:
+    - path: backend/app/ext/order_summary.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: order-summary
+    files:
+    - path: backend/app/ext/order_summary.py
+      from: carrier/backend/app/ext/order_summary.py
+  commit:
+    message: 'orders: compute the page offset in one expression and add the order summary report'
+    persona: Marcus Webb <marcus@shop.example.com>
+  checks:
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_page_1/test_order_pages.py
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_page_1/orders-table.test.jsx
+  symptom:
+    vars:
+      title: Our newest orders are missing from the order history
+      report: |-
+        A customer with 23 orders sees only order #13 and older on the first page. The orders they placed this week are nowhere, and the
+        last page is empty. The Previous and Next buttons behave normally and the count says "Page 1 of 3".
+      where: The Orders page and its pagination.
+      expected: Page 1 lists the 10 newest orders, page 2 the next 10 and page 3 the remaining 3.
+      support_tried: Checked the customer's account in the admin, all 23 orders exist. Reloading and signing in again changed nothing.
+      observations: |-
+        ### Other observations from QA
+
+        - The total shown by the order summary report is 23, so the orders exist.
+        - A customer with 3 orders sees an empty Orders page.
+        - Order detail pages (`/api/orders/<id>`) open fine for the missing orders.
+        - The order summary report shipped in the same release as the paging change.
+    signature: page 1 of the order list does not start at the newest order
+  hints:
+  - Request `/api/orders?page=1` and `?page=3` for a customer with 23 orders and compare the order ids you get with the total.
+  - The UI counts pages from 1 (the first page is `page=1`), and the endpoint documents the same. Look at how the endpoint turns a page number into a position in the list.
+  - A 1-based page starts at `(page - 1) * size`. Fix the one expression, then add a test that asserts the exact ids on the first and last page and that a short list still fills page 1.
+  rubric:
+    key_points:
+    - Compares the ids of page 1 and the last page with the total and sees the first 10 are skipped and the last page is empty.
+    - Finds that pages are 1-based in the UI and the API contract but the offset was computed as if they were 0-based.
+    - Fixes the offset expression on the server, not by sending page-1 from the UI.
+    - Tests the exact contents of the first, a middle and the last page and a customer with fewer orders than one page.
+    misconceptions:
+    - The UI should request page 0 for the first page (the API contract is 1-based).
+    - The orders are missing from the database (the detail endpoint and the summary show them).
+    - Special-casing page 1 fixes it (page 2 still skips a page).
+  root_cause: |-
+    The list endpoint turned `page` into a slice start with `offset = page * size`. Pages start at 1, so page 1 began at index 10
+    and skipped the 10 newest orders, every page skipped one page, and the last page started past the end of the list (empty). A
+    customer with fewer orders than one page saw nothing at all.
+
+    The earlier code used `(page - 1) * size`. The fix restores it, and the tests assert exact ids on the first, middle and last page.

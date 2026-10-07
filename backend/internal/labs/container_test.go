@@ -1,9 +1,8 @@
 package labs
 
 import (
-	"context"
-	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,121 +26,119 @@ func nestedDockerTestProfile(mechanism string) ImageProfile {
 	}
 }
 
+// limitArgs is the H-12 block every container gets right after --memory.
+func limitArgs(memMB, pids int) []string {
+	mem := fmt.Sprintf("%dm", memMB)
+	return []string{"--memory", mem, "--memory-swap", mem,
+		"--pids-limit", fmt.Sprint(pids),
+		"--ulimit", fmt.Sprintf("nofile=%d:%d", ContainerNofileLimit, ContainerNofileLimit),
+		"--ulimit", "core=0"}
+}
+
+func concat(parts ...[]string) []string {
+	var out []string
+	for _, p := range parts {
+		out = append(out, p...)
+	}
+	return out
+}
+
 func TestBuildRunArgs_NonNestedImageUnchanged(t *testing.T) {
-	// A container for an image NOT mapped to any profile must get exactly
-	// the platform's normal args, regardless of whether nested-Docker is
-	// configured at all for other images — enabling the feature for one
-	// image must never change behavior for every other lab.
+	// An image NOT mapped to any profile gets the platform's normal args,
+	// regardless of nested-Docker being configured for other images.
 	svc := NewDockerContainerService(map[string]ImageProfile{
 		"mindforge/lab-docker:27": nestedDockerTestProfile("rootless-dind"),
 	})
-	args := svc.buildRunArgs("mindforge-lab-abc-0", "mindforge/lab-k8s:1.31", false)
+	args := svc.buildRunArgs("mindforge-lab-abc-0", "mindforge/lab-k8s:1.31")
 
-	require.Equal(t, []string{
-		"run", "-d", "--name", "mindforge-lab-abc-0",
-		"--cpus", ContainerCPU, "--memory", fmt.Sprintf("%dm", ContainerMemoryMB),
-		"--cap-drop", "ALL",
-		"--security-opt", "no-new-privileges",
-		"--network", "mindforge-labs",
-		"--restart", "no", "mindforge/lab-k8s:1.31",
-	}, args)
+	require.Equal(t, concat(
+		[]string{"run", "-d", "--name", "mindforge-lab-abc-0", "--cpus", ContainerCPU},
+		limitArgs(ContainerMemoryMB, DefaultContainerPidsLimit),
+		[]string{"--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+			"--network", "mindforge-labs", "--restart", "no", "mindforge/lab-k8s:1.31"},
+	), args)
 }
 
 func TestBuildRunArgs_FeatureOffByDefault(t *testing.T) {
-	// Zero-value construction (as if LABS_IMAGE_PROFILES were unset) must
-	// never elevate any image.
 	svc := NewDockerContainerService(nil)
-	args := svc.buildRunArgs("mindforge-lab-abc-0", "mindforge/lab-docker:27", false)
+	args := svc.buildRunArgs("mindforge-lab-abc-0", "mindforge/lab-docker:27")
 	assert.NotContains(t, args, "SYS_ADMIN")
 	assert.Contains(t, args, "no-new-privileges")
 	assert.Contains(t, args, "mindforge-labs")
 }
 
-func TestBuildRunArgs_NestedImageRootlessDind(t *testing.T) {
-	svc := NewDockerContainerService(map[string]ImageProfile{
-		"mindforge/lab-docker:27": nestedDockerTestProfile("rootless-dind"),
-	})
-	args := svc.buildRunArgs("mindforge-lab-abc-0", "mindforge/lab-docker:27", false)
-
-	require.Equal(t, []string{
-		"run", "-d", "--name", "mindforge-lab-abc-0",
-		"--cpus", NestedContainerCPU, "--memory", fmt.Sprintf("%dm", NestedContainerMemoryMB),
-		"--cap-drop", "ALL",
-		"--cap-add", "SYS_ADMIN",
-		"--cap-add", "SETUID",
-		"--cap-add", "SETGID",
-		"--cap-add", "NET_ADMIN",
-		"--device", "/dev/fuse",
-		"--device", "/dev/net/tun",
-		"--security-opt", "seccomp=unconfined",
-		"--security-opt", "apparmor=unconfined",
-		"--network", NestedLabNetwork,
-		"--restart", "no", "mindforge/lab-docker:27",
-	}, args)
-	assert.NotContains(t, args, "no-new-privileges", "no-new-privileges blocks rootless dind's newuidmap setuid")
-	assert.NotContains(t, args, "--privileged", "the scoped (non-fallback) attempt must never use bare --privileged")
+func TestBuildRunArgs_NeverPrivileged(t *testing.T) {
+	for _, mech := range []string{"rootless-dind", "sysbox-runc", ""} {
+		svc := NewDockerContainerService(map[string]ImageProfile{
+			"img": nestedDockerTestProfile(mech),
+		})
+		assert.NotContains(t, svc.buildRunArgs("n", "img"), "--privileged", mech)
+	}
 }
 
-func TestBuildRunArgs_NestedImagePrivilegedFallback(t *testing.T) {
-	// Only ever requested by startNamed's own retry, after the scoped
-	// attempt above has already failed to produce a running container — see
-	// startNamed's doc comment for when/why.
-	svc := NewDockerContainerService(map[string]ImageProfile{
-		"mindforge/lab-docker:27": nestedDockerTestProfile("rootless-dind"),
-	})
-	args := svc.buildRunArgs("mindforge-lab-abc-0", "mindforge/lab-docker:27", true)
+func TestBuildRunArgs_NestedImageRootlessDind(t *testing.T) {
+	p := nestedDockerTestProfile("rootless-dind")
+	p.PidsLimit = NestedContainerPidsLimit
+	svc := NewDockerContainerService(map[string]ImageProfile{"mindforge/lab-docker:27": p})
+	args := svc.buildRunArgs("mindforge-lab-abc-0", "mindforge/lab-docker:27")
 
-	require.Equal(t, []string{
-		"run", "-d", "--name", "mindforge-lab-abc-0",
-		"--cpus", NestedContainerCPU, "--memory", fmt.Sprintf("%dm", NestedContainerMemoryMB),
-		"--privileged",
-		"--network", NestedLabNetwork,
-		"--restart", "no", "mindforge/lab-docker:27",
-	}, args)
+	require.Equal(t, concat(
+		[]string{"run", "-d", "--name", "mindforge-lab-abc-0", "--cpus", NestedContainerCPU},
+		limitArgs(NestedContainerMemoryMB, NestedContainerPidsLimit),
+		[]string{
+			"--cap-drop", "ALL",
+			"--cap-add", "SYS_ADMIN",
+			"--cap-add", "SETUID",
+			"--cap-add", "SETGID",
+			"--cap-add", "NET_ADMIN",
+			"--device", "/dev/fuse",
+			"--device", "/dev/net/tun",
+			"--security-opt", "seccomp=unconfined",
+			"--security-opt", "apparmor=unconfined",
+			"--network", NestedLabNetwork,
+			"--restart", "no", "mindforge/lab-docker:27",
+		},
+	), args)
+	assert.NotContains(t, args, "no-new-privileges", "no-new-privileges blocks rootless dind's newuidmap setuid")
 }
 
 func TestBuildRunArgs_NestedImageSysboxRuntime(t *testing.T) {
 	svc := NewDockerContainerService(map[string]ImageProfile{
 		"mindforge/lab-docker:27": nestedDockerTestProfile("sysbox-runc"),
 	})
-	args := svc.buildRunArgs("mindforge-lab-abc-0", "mindforge/lab-docker:27", false)
+	args := svc.buildRunArgs("mindforge-lab-abc-0", "mindforge/lab-docker:27")
 
-	require.Equal(t, []string{
-		"run", "-d", "--name", "mindforge-lab-abc-0",
-		"--cpus", NestedContainerCPU, "--memory", fmt.Sprintf("%dm", NestedContainerMemoryMB),
-		"--cap-drop", "ALL",
-		"--runtime", "sysbox-runc",
-		"--network", NestedLabNetwork,
-		"--restart", "no", "mindforge/lab-docker:27",
-	}, args)
+	require.Equal(t, concat(
+		[]string{"run", "-d", "--name", "mindforge-lab-abc-0", "--cpus", NestedContainerCPU},
+		limitArgs(NestedContainerMemoryMB, DefaultContainerPidsLimit),
+		[]string{"--cap-drop", "ALL", "--runtime", "sysbox-runc",
+			"--network", NestedLabNetwork, "--restart", "no", "mindforge/lab-docker:27"},
+	), args)
 	assert.NotContains(t, args, "SYS_ADMIN", "sysbox-runc needs no added capabilities")
 }
 
-func TestBuildRunArgs_SysboxIgnoresPrivilegedFallback(t *testing.T) {
-	// sysbox-runc already avoids the whole scoped-capability problem cleanly
-	// and startNamed never requests a privileged retry for it (see
-	// startNamed) — but buildRunArgs itself should still be defensive: a
-	// sysbox host must never end up privileged even if asked.
-	svc := NewDockerContainerService(map[string]ImageProfile{
-		"mindforge/lab-docker:27": nestedDockerTestProfile("sysbox-runc"),
-	})
-	args := svc.buildRunArgs("mindforge-lab-abc-0", "mindforge/lab-docker:27", true)
-	assert.NotContains(t, args, "--privileged")
-	assert.Contains(t, args, "sysbox-runc")
+func TestBuildRunArgs_ConfiguredPidsLimit(t *testing.T) {
+	svc := NewDockerContainerService(nil)
+	svc.SetHardening(RuntimeLimits{PidsLimit: 99}, NetworkPolicy{})
+	assert.Contains(t, strings.Join(svc.buildRunArgs("n", "img"), " "), "--pids-limit 99")
 }
 
-func TestShouldRetryPrivileged(t *testing.T) {
-	live := context.Background()
-	dead, cancel := context.WithCancel(context.Background())
-	cancel()
-	boom := errors.New("scoped attempt failed")
+func TestBuildRunArgs_PerSessionNetwork(t *testing.T) {
+	svc := NewDockerContainerService(map[string]ImageProfile{
+		"dind": nestedDockerTestProfile("rootless-dind"),
+	})
+	svc.SetHardening(RuntimeLimits{}, NetworkPolicy{PerSession: true, Internal: true, ProxyContainer: "proxy"})
 
-	assert.True(t, shouldRetryPrivileged(live, boom, "rootless-dind"),
-		"a scoped failure on its own merits is exactly what the retry is for")
-	assert.False(t, shouldRetryPrivileged(dead, boom, "rootless-dind"),
-		"an expired budget must not be retried — the retry masks the real error")
-	assert.False(t, shouldRetryPrivileged(live, nil, "rootless-dind"),
-		"nothing to retry when the scoped attempt succeeded")
-	assert.False(t, shouldRetryPrivileged(live, boom, "sysbox-runc"))
-	assert.False(t, shouldRetryPrivileged(live, boom, ""), "standard profile never retries")
+	args := svc.buildRunArgs("mindforge-lab-x-0", "plain")
+	assert.Contains(t, strings.Join(args, " "), "--network mindforge-lab-x-0")
+	assert.True(t, svc.usesSessionNetwork("mindforge-lab-x-0", svc.Classify("plain")))
+	// Profile-networked (nested) images keep their own network.
+	assert.False(t, svc.usesSessionNetwork("mindforge-lab-x-0", svc.Classify("dind")))
+	assert.Contains(t, strings.Join(svc.buildRunArgs("n", "dind"), " "), "--network "+NestedLabNetwork)
+
+	assert.Equal(t, []string{"network", "create", "--label", SessionNetworkLabel, "--internal", "n"}, svc.sessionNetworkCreateArgs("n"))
+	assert.Equal(t, []string{"network", "connect", "n", "proxy"}, svc.sessionNetworkConnectArgs("n"))
+
+	svc.SetHardening(RuntimeLimits{}, NetworkPolicy{PerSession: true, ProxyContainer: "proxy"})
+	assert.NotContains(t, svc.sessionNetworkCreateArgs("n"), "--internal")
 }

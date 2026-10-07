@@ -1,0 +1,139 @@
+kind: fault
+id: fs.cors.credentials-disabled
+version: 1.0.0
+stack: fullstack
+title: Sign-in works in curl but the browser never keeps the session
+summary: The CORS middleware stopped allowing credentials, so the browser refuses cross-origin responses from the API and the session cookie is never stored or sent.
+category: cors
+difficulty: intermediate
+skills:
+- cors
+- cookies
+- http-headers
+requires:
+- slot:api.cors.config
+- cap:fastapi-backend
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: api.cors.config
+      value: |
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.allowed_origins,
+            allow_credentials=False,
+            allow_methods=["GET", "POST", "PUT", "DELETE"],
+            allow_headers=["Content-Type", "X-CSRF-Token"],
+        )
+  fix:
+    slots:
+    - slot: api.cors.config
+      value: |
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.allowed_origins,
+            allow_credentials=True,
+            allow_methods=["GET", "POST", "PUT", "DELETE"],
+            allow_headers=["Content-Type", "X-CSRF-Token"],
+        )
+    files:
+    - path: backend/tests/test_cors_credentials.py
+      from: fix/tests/test_cors_credentials.py
+  cheats:
+  - name: pinned-dev-origin
+    slots:
+    - slot: api.cors.config
+      value: |
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["http://localhost:5173"],
+            allow_credentials=True,
+            allow_methods=["GET", "POST", "PUT", "DELETE"],
+            allow_headers=["Content-Type", "X-CSRF-Token"],
+        )
+  - name: reflect-any-origin
+    slots:
+    - slot: api.cors.config
+      value: |
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origin_regex=".*",
+            allow_credentials=True,
+            allow_methods=["GET", "POST", "PUT", "DELETE"],
+            allow_headers=["Content-Type", "X-CSRF-Token"],
+        )
+  - name: revert-the-commit
+    slots:
+    - slot: api.cors.config
+      value: |
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.allowed_origins,
+            allow_credentials=True,
+            allow_methods=["GET", "POST", "PUT", "DELETE"],
+            allow_headers=["Content-Type", "X-CSRF-Token"],
+        )
+    files:
+    - path: backend/app/ext/low_stock.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: low-stock
+    files:
+    - path: backend/app/ext/low_stock.py
+      from: carrier/backend/app/ext/low_stock.py
+  commit:
+    message: 'reports: add the low-stock report and tidy the CORS setup'
+    persona: Sam Okafor <sam@shop.example.com>
+  checks:
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_cors/test_cors_credentials.py
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fs_cors/cors.test.jsx
+  symptom:
+    vars:
+      title: Staging console cannot sign in - the form just says "Failed to fetch"
+      report: |-
+        On the staging console (a different host than the API) nobody can sign in any more. The form shows "Failed to fetch" after
+        a second, and the browser console prints a CORS error about the credentials mode. The API itself is fine: curl and the
+        Swagger page log in without any problem. On a developer machine, where the page and the API share one origin through the
+        Vite proxy, it still works.
+      where: Any browser session where the console is served from another origin than the API (staging, preview deploys).
+      expected: Signing in works cross-origin and the session cookie is kept and sent on every later request.
+      support_tried: Checked that the staging origin is listed in SHOP_ALLOWED_ORIGINS and restarted the API. The list is correct and the error did not change.
+      observations: |-
+        ### Other observations from QA
+
+        - The response carries `access-control-allow-origin` with the staging origin, so the origin list itself is not the problem.
+        - The new low-stock report came in the same release as a clean-up of the middleware setup.
+        - The network tab shows the preflight succeeding and the actual request being blocked by the browser, not rejected by the server.
+    signature: a credentialed cross-origin request is refused by the browser
+  hints:
+  - Reproduce it like a browser would, with an Origin header (curl -i -H, then read the response headers of /api/health) and compare the response headers with a working setup. Which CORS header is missing?
+  - A fetch with credentials set to include is only accepted when the response says Access-Control-Allow-Credentials true and names the exact origin (a wildcard is not allowed). Read the CORS block in `backend/app/main.py` and `git log -p` for what the last release changed there.
+  - Set `allow_credentials=True` and keep the explicit origin list from the settings (do not hardcode one environment, and do not reflect every origin). Add a test that sends an Origin header and checks both the origin and the credentials header, plus one for an origin that must stay refused.
+  rubric:
+    key_points:
+    - Identifies that the browser requires Access-Control-Allow-Credentials true (and a non-wildcard origin) for a credentialed cross-origin request, and that the middleware dropped it.
+    - Explains why curl and same-origin dev (Vite proxy) were not affected.
+    - Restores allow_credentials=True while keeping the configured origin list, rather than hardcoding an origin or reflecting any origin.
+    - Tests the response headers for an allowed origin and that an unknown origin is still refused.
+    misconceptions:
+    - Adding the origin to the allowed list fixes it (it was already allowed; the credentials header was missing).
+    - A wildcard origin is a fine fix (browsers refuse a wildcard for credentialed requests, and it would open the API to every site).
+    - The cookie attributes are wrong (the cookie is fine; the browser never got to store it).
+  root_cause: |-
+    A clean-up of the CORS setup in `create_app` set `allow_credentials=False`. The API therefore answered cross-origin requests
+    without `Access-Control-Allow-Credentials: true`. A browser refuses to expose a response to a page that asked for credentials
+    unless that header is present, so the login response was dropped (the cookie was never stored) and `fetch` rejected with "Failed
+    to fetch". curl does not enforce CORS and the Vite dev proxy makes the console same-origin, which is why only deployed
+    environments broke.
+
+    The fix sets `allow_credentials=True` next to the explicit origins from `SHOP_ALLOWED_ORIGINS`. The test sends an Origin header
+    and checks the reflected origin, the credentials header and that an unlisted origin is not allowed.

@@ -73,7 +73,10 @@ export const getPublicTest = cache(async (code: string): Promise<PublicTestInfo>
 });
 
 export async function getPublicResult(code: string, token: string): Promise<PublicResult> {
-  return apiGetPublic<PublicResult>(`/api/p/${code}/result/${token}`, { revalidate: 60 });
+  return apiGetPublic<PublicResult>(`/api/p/${code}/result`, {
+    revalidate: 60,
+    headers: { "X-Attempt-Token": token },
+  });
 }
 
 export async function getPublicCandidates(assessmentId: string): Promise<PublicCandidate[]> {

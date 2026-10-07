@@ -31,12 +31,14 @@ func (r *Repo) GetEffectivePermissions(ctx context.Context, userID, orgID string
 		JOIN permissions p ON p.id = rp.permission_id AND p.is_active = true
 		WHERE ur.user_id = $1
 		  AND ur.org_id = $2
+		  AND EXISTS (SELECT 1 FROM org_members om WHERE om.org_id = $2 AND om.user_id = $1 AND om.status = 'active')
 		UNION
 		SELECT p.code
 		FROM user_permission_overrides upo
 		JOIN permissions p ON p.id = upo.permission_id AND p.is_active = true
 		WHERE upo.user_id = $1
-		  AND upo.org_id = $2`
+		  AND upo.org_id = $2
+		  AND EXISTS (SELECT 1 FROM org_members om WHERE om.org_id = $2 AND om.user_id = $1 AND om.status = 'active')`
 
 	rows, err := r.pool.Query(ctx, q, userID, orgID)
 	if err != nil {

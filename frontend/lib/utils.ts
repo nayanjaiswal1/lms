@@ -15,8 +15,17 @@ export function cn(...inputs: ClassValue[]) {
  * (single leading slash, no protocol-relative `//host` open-redirect trick).
  */
 export function safeNextPath(next: string | undefined | null): string | null {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
-  return next;
+  if (!next || !next.startsWith("/")) return null;
+  // Resolve against a fixed origin: backslash and tab/newline tricks such as
+  // "/\evil.com" parse as another host and fail the origin comparison.
+  const base = "http://internal.invalid";
+  try {
+    const url = new URL(next, base);
+    if (url.origin !== base) return null;
+    return url.pathname + url.search + url.hash;
+  } catch {
+    return null;
+  }
 }
 
 /**

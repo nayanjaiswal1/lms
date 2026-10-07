@@ -147,3 +147,9 @@ func (s *Service) GetUserRank(ctx context.Context, key, userID string) (rank int
 func (s *Service) ListDefinitions(ctx context.Context) ([]RewardDefinition, error) {
 	return s.repo.GetAllDefinitions(ctx)
 }
+
+// ScopeInOrg reports whether the batch/group/course scope id belongs to orgID.
+// Scopes keyed by org (org, feature, global) are always owned.
+func (s *Service) ScopeInOrg(ctx context.Context, scope, scopeID, orgID string) (bool, error) {
+	return s.repo.ScopeInOrg(ctx, scope, scopeID, orgID)
+}

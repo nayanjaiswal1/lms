@@ -7,6 +7,8 @@ import { Loader2, MailCheck } from "lucide-react";
 
 import { forgotPasswordAction, type ForgotPasswordState } from "@/app/forgot-password/actions";
 import { AuthFormError } from "@/components/auth/auth-form-error";
+import { TurnstileWidget, takeCaptchaToken } from "@/components/auth/turnstile-widget";
+import { CAPTCHA_FORM_FIELD } from "@/lib/captcha";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { FormInputField } from "@/components/ui/form-input-field";
@@ -23,9 +25,10 @@ export function ForgotPasswordForm() {
     mode: "onTouched",
   });
 
-  const onSubmit = form.handleSubmit((values) => {
+  const onSubmit = form.handleSubmit((values, event) => {
     const data = new FormData();
     data.set("email", values.email);
+    data.set(CAPTCHA_FORM_FIELD, takeCaptchaToken(event?.target));
     startTransition(() => formAction(data));
   });
 
@@ -57,6 +60,8 @@ export function ForgotPasswordForm() {
           serverError={state.fieldErrors?.email}
           type="email"
         />
+
+        <TurnstileWidget />
 
         <Button className="w-full" disabled={isPending} size="lg" type="submit">
           {isPending ? (

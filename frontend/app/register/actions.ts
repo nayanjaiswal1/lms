@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { AUTH_COPY, registerSchema } from "@/lib/validation/auth";
 import ROUTES from "@/lib/routes";
 import { baseURL } from "@/lib/server/api";
+import { captchaHeaders } from "@/lib/server/captcha";
 import { authFetchWithCookies } from "@/lib/server/auth-fetch";
 
 export interface RegisterState {
@@ -15,6 +16,7 @@ export interface RegisterState {
     password?: string;
     confirmPassword?: string;
     acceptTerms?: string;
+    ageDeclared?: string;
   };
 }
 
@@ -43,6 +45,7 @@ export async function registerAction(
     password: (formData.get("password") ?? "").toString(),
     confirmPassword: (formData.get("confirmPassword") ?? "").toString(),
     acceptTerms: formData.get("acceptTerms") === "true",
+    ageDeclared: formData.get("ageDeclared") === "true",
   });
 
   if (!parsed.success) {
@@ -54,6 +57,7 @@ export async function registerAction(
         password: fields.password?.[0],
         confirmPassword: fields.confirmPassword?.[0],
         acceptTerms: fields.acceptTerms?.[0],
+        ageDeclared: fields.ageDeclared?.[0],
       },
     };
   }
@@ -72,7 +76,8 @@ export async function registerAction(
       email: parsed.data.email,
       password: parsed.data.password,
       accept_terms: parsed.data.acceptTerms,
-    });
+      age_declared: parsed.data.ageDeclared,
+    }, { headers: captchaHeaders(formData) });
     response = result.response;
     body = result.body;
   } catch {
@@ -90,6 +95,7 @@ export async function registerAction(
           email: fields.email,
           password: fields.password,
           acceptTerms: fields.accept_terms,
+          ageDeclared: fields.age_declared,
         },
       };
     }

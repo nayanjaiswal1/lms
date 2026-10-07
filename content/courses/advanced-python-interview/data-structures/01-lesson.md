@@ -8,7 +8,7 @@ section_position: 2
 section_group: Fundamentals
 title: "Built-in Complexity & Comprehension Performance"
 position: 0
-estimated_minutes: 11
+estimated_minutes: 23
 source: ["knowledge/backend/python/python-collections-complexity.md"]
 ---
 Interviewers love "what is the cost of this line?" Knowing the Big-O of the built-in containers lets you spot an accidental O(n²) at a glance. This lesson covers the cost table and why comprehensions are the idiomatic, faster way to build collections. For how `defaultdict`, `Counter` and `deque` are actually used, see the collections lesson in the Collections & OOP section; here we only care about their costs.
@@ -150,106 +150,97 @@ Rule of thumb: need the whole thing more than once, use a list or set; streaming
 }
 ```
 
-## Original notes
+## Advanced List Comprehensions
 
-Your original wording from the Notes vault, kept verbatim for reference.
+A basic list comprehension — `[expr for x in iterable]` — is familiar to every Python developer. Senior-level fluency is knowing the extra clauses comprehensions support, and knowing when a comprehension stops being readable and a plain loop wins.
 
-#### Built-in complexity cheat sheet and the collections module
+### Nested loops inside a comprehension
 
-**Time complexity of built-in containers:**
+Multiple `for` clauses in one comprehension flatten nested structures, reading left to right exactly like nested `for` loops would:
 
-| Operation | List | Dict / Set | Deque |
-|---|---|---|---|
-| Access by index | O(1) | — | O(n) |
-| Search (`in`) | O(n) | O(1) avg | O(n) |
-| Insert at end | O(1) amortized | O(1) avg | O(1) |
-| Insert at start | O(n) | — | O(1) |
-| Delete | O(n) | O(1) avg | O(1) at ends |
-
-**`collections` module — the go-to extensions:**
-
-```text
-from collections import defaultdict, Counter, deque, OrderedDict
-
-# defaultdict — no KeyError on a missing key
-d = defaultdict(list)
-d['a'].append(1)
-
-# Counter — frequency map
-c = Counter("banana")   # Counter({'a': 3, 'n': 2, 'b': 1})
-c.most_common(2)         # [('a', 3), ('n', 2)]
-
-# deque — O(1) push/pop at both ends (unlike list's O(n) at the front)
-q = deque(maxlen=3)
-q.appendleft(0); q.append(4)
-
-# heapq — min-heap on a plain list
-import heapq
-h = [3, 1, 4, 1, 5]
-heapq.heapify(h)
-heapq.heappush(h, 2)
-smallest = heapq.heappop(h)  # 1
+```python
+matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+flattened = [num for row in matrix for num in row]
+print(flattened)  # [1, 2, 3, 4, 5, 6, 7, 8, 9]
 ```
 
+This is equivalent to:
 
-#### Comprehension performance
-
-Comprehension performance refers to why list, set, dict, and generator comprehensions execute faster and more efficiently than equivalent `for` loops in Python.
-
-**Why comprehensions are faster:**
-- Implemented with dedicated bytecode in CPython
-- Fewer Python bytecode instructions than an equivalent loop
-- Avoid repeated method calls like `.append()`
-- Reduced temporary object creation
-
-```text
-# List comprehension (faster)
-squares = [x*x for x in range(1000)]
-
-# For loop (slower)
-squares = []
-for x in range(1000):
-    squares.append(x*x)
+```python
+flattened = []
+for row in matrix:
+    for num in row:
+        flattened.append(num)
 ```
 
-**Types & performance characteristics:**
+### Conditional expressions vs. filtering clauses
 
-1. **List comprehension** — fastest way to build lists; eager evaluation (loads all data into memory).
+These look similar but do different things. An `if/else` *before* the `for` is a conditional expression — it runs for every item and picks between two output values:
 
-```text
-evens = [x for x in range(1_000_000) if x % 2 == 0]
+```python
+numbers = [1, 2, 3, 4, 5]
+labels = ["even" if n % 2 == 0 else "odd" for n in numbers]
+print(labels)  # ['odd', 'even', 'odd', 'even', 'odd']
 ```
 
-2. **Set comprehension** — slightly slower than list comprehension; ensures uniqueness.
+An `if` *after* the `for` (no `else`) is a filter — it decides whether the item appears in the output at all:
 
-```text
-unique = {x % 10 for x in range(1000)}
+```python
+numbers = [1, 2, 3, 4, 5, 6]
+evens_only = [n for n in numbers if n % 2 == 0]
+print(evens_only)  # [2, 4, 6]
 ```
 
-3. **Dict comprehension** — faster than manual dict construction; clean key-value mapping.
+The two combine: `[n for n in numbers if n % 2 == 0 if n > 2]` chains filters, and `["big" if n > 3 else "small" for n in numbers if n % 2 == 0]` filters first, then labels what survives.
 
-```text
-squares = {x: x*x for x in range(1000)}
+### Calling functions inline
+
+Any expression is valid as the output, including a function call:
+
+```python
+def celsius_to_fahrenheit(c):
+    return (c * 9 / 5) + 32
+
+temperatures_c = [0, 20, 30, 40]
+temperatures_f = [celsius_to_fahrenheit(t) for t in temperatures_c]
+print(temperatures_f)  # [32.0, 68.0, 86.0, 104.0]
 ```
 
-4. **Generator comprehension** — lazy evaluation, lowest memory usage, slightly slower per item.
+### Knowing when to stop
 
-```text
-gen = (x*x for x in range(10**9))
+A comprehension is the right call when it stays a single, readable transformation. Once it needs more than one `if`/`for` clause stacked together, or the body has real side effects, a plain loop is more debuggable — you can't put a breakpoint inside a comprehension expression as easily as inside a loop body, and a comprehension that needs a comment to explain what it's doing has already lost the readability it was supposed to buy.
+
+### Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "serialization-data-advanced-list-comprehensions-q1",
+      "type": "mcq",
+      "prompt": "What's the difference between [\"even\" if n % 2 == 0 else \"odd\" for n in numbers] and [n for n in numbers if n % 2 == 0]?",
+      "options": [
+        { "id": "a", "text": "They produce identical output" },
+        { "id": "b", "text": "The first labels every item (conditional expression); the second filters out odd items entirely (filter clause)" },
+        { "id": "c", "text": "The first is invalid syntax" },
+        { "id": "d", "text": "The second labels every item; the first filters" }
+      ],
+      "correct": "b",
+      "explanation": "An if/else before the for is a conditional expression that runs on every item and picks an output value; an if after the for with no else is a filter that decides whether the item is included at all."
+    },
+    {
+      "id": "serialization-data-advanced-list-comprehensions-q2",
+      "type": "mcq",
+      "prompt": "When should a senior engineer prefer a plain for loop over a list comprehension?",
+      "options": [
+        { "id": "a", "text": "Never — comprehensions are always strictly better" },
+        { "id": "b", "text": "When the comprehension would need multiple stacked if/for clauses or real side effects, hurting readability and debuggability" },
+        { "id": "c", "text": "Only when the list has more than 100 items" },
+        { "id": "d", "text": "Comprehensions can't be used with functions, so any function call requires a loop" }
+      ],
+      "correct": "b",
+      "explanation": "Comprehensions are a readability tool. Once one needs multiple conditions/loops stacked together or has side effects, a plain loop is easier to read, debug, and set breakpoints in."
+    }
+  ]
+}
 ```
-
-**Performance comparison:**
-
-| Method | Speed | Memory |
-|---|---|---|
-| List comprehension | High | High |
-| For loop | Medium | High |
-| Generator | Medium | Low |
-
-**When to use:** simple transformations, filtering collections, creating lists/sets/dicts efficiently, large datasets (use generators).
-
-**When to avoid:** complex business logic, deeply nested conditions, side effects (logging, DB writes).
-
-*Correction: the source database had a second page titled "Explain comprehension performance," but its content was about human reading comprehension (accuracy, retention, prior knowledge) — an unrelated topic, not Python comprehension syntax. That content was dropped rather than merged in, since it didn't belong under this question and would have been actively misleading here.*
-
-Further reading: [Python DS Interview Questions](https://interviewkickstart.com/blogs/interview-questions/python-data-structures-interview-questions)

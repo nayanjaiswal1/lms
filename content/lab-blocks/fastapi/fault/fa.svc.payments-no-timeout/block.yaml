@@ -1,0 +1,137 @@
+kind: fault
+id: fa.svc.payments-no-timeout
+version: 1.0.0
+stack: fastapi
+title: Paying hangs forever when the payments provider is slow
+summary: The shared httpx client was built with timeout=None, so a slow provider keeps pay requests (and their database sessions) waiting indefinitely.
+category: service-calls
+difficulty: beginner
+skills:
+- timeouts
+- httpx
+- resilience
+requires:
+- slot:payments.client.http_client
+- svc:payments-stub
+fault:
+  inject:
+    slots:
+    - slot: payments.client.http_client
+      value: |
+        return httpx.AsyncClient(
+            base_url=settings.payments_base_url,
+            timeout=None,
+            transport=transport,
+        )
+  fix:
+    slots:
+    - slot: payments.client.http_client
+      value: |
+        return httpx.AsyncClient(
+            base_url=settings.payments_base_url,
+            timeout=settings.payments_timeout_seconds,
+            transport=transport,
+        )
+    files:
+    - path: tests/test_payments_timeout.py
+      from: fix/tests/test_payments_timeout.py
+  cheats:
+  - name: huge-timeout
+    slots:
+    - slot: payments.client.http_client
+      value: |
+        return httpx.AsyncClient(
+            base_url=settings.payments_base_url,
+            timeout=300,
+            transport=transport,
+        )
+  - name: revert-the-commit
+    slots:
+    - slot: payments.client.http_client
+      value: |
+        return httpx.AsyncClient(
+            base_url=settings.payments_base_url,
+            timeout=settings.payments_timeout_seconds,
+            transport=transport,
+        )
+    files:
+    - path: app/ext/order_timeline.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: order-timeline
+    files:
+    - path: app/ext/order_timeline.py
+      from: carrier/app/ext/order_timeline.py
+  commit:
+    message: 'orders: add the order timeline (placed, paid, refunded) endpoint'
+    persona: Elena Petrov <elena@shop.example.com>
+  checks:
+  - ref: check.http-behavior
+    role: symptom
+    params:
+      steps:
+      - method: POST
+        path: /api/v1/orders
+        headers:
+          Authorization: Bearer mf_tok_alice
+        body:
+          items:
+          - product_id: 1
+            quantity: 1
+          shipping_name: SVC1-slow-provider
+        expect_status: 201
+        save:
+          order_id: id
+      - method: POST
+        path: '/api/v1/orders/{{order_id}}/pay'
+        timeout: 20
+        headers:
+          Authorization: Bearer mf_tok_alice
+        expect_status:
+        - 502
+        - 504
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fa_svc_1/test_payments_timeout.py
+  symptom:
+    vars:
+      title: 'Checkout hangs and the API runs out of connections when the payments provider is slow'
+      report: |-
+        This afternoon the payments provider had a slow period. Customers who pressed Pay saw the spinner forever, and after a few minutes the
+        whole API stopped answering, including pages that have nothing to do with payments. After the provider recovered, the API needed a restart.
+      where: |-
+        `POST /api/v1/orders/{id}/pay`. Later, every endpoint that needs a database connection.
+      expected: |-
+        When the provider does not answer in a reasonable time the customer should get a clear error (a gateway timeout), the order should stay
+        payable, and the API should keep serving other requests.
+      support_tried: |-
+        Customers retried (each retry hung as well). Ops confirmed the provider's status page showed degraded latency, no errors.
+      observations: |-
+        ### Other observations from the reporter
+
+        - The provider answers eventually (after about 30 seconds) during these incidents.
+        - Each stuck request holds a database connection and a row lock on the order while it waits.
+        - The order timeline endpoint shipped in the same release; it does not call the provider.
+    signature: pay requests never return while the provider is slow
+  hints:
+  - >-
+    Reproduce the slow provider. The payments stub has a fault switch (POST localhost:9101/__fault with the JSON body
+    {"latency_ms": 30000}; the lab may already have started it slow). Call the pay endpoint and watch how long it takes and what the app log says while it waits.
+  - A request that waits on another service needs a bound on how long it will wait. Look at how the shared httpx client is constructed in `app/payments/client.py`, and what `timeout=None` means in httpx. The service already maps `PaymentTimeout` to a 504 once a timeout fires.
+  - Give the client a finite timeout from settings (`payments_timeout_seconds`), keep the existing error mapping, and add a test that the client has no unbounded timeout.
+  rubric:
+    key_points:
+    - Identifies the missing timeout on the outbound call (timeout=None disables all httpx timeouts).
+    - Explains the cascade - stuck requests hold database connections, so a slow dependency exhausts the pool and takes down unrelated endpoints.
+    - Fixes it with a bounded connect and read timeout taken from configuration, mapped to a clear 504 for the customer.
+    - Adds a test that fails when the client has an unbounded timeout.
+    misconceptions:
+    - Retrying the call makes it reliable (it multiplies the waiting and the load on a struggling provider).
+    - Increasing the database pool size fixes the outage (it only delays it).
+    - A very large timeout is the same as a timeout.
+  root_cause: |-
+    The shared httpx client for the payments provider was built with `timeout=None`, which disables every timeout. When the provider slowed down, each pay request waited for it indefinitely while holding a database session (and the row lock on the order). The pool filled up with stuck requests and unrelated endpoints that needed a connection started to fail.
+
+    The fix passes a finite timeout from settings (`payments_timeout_seconds`) to the client. A slow provider now produces `PaymentTimeout`, which the router already turns into a 504, and the connection is released.

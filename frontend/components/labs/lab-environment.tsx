@@ -197,7 +197,7 @@ export function LabEnvironment({ session, lab, initialCompletions, kindBlock }: 
     const res = await endLabSessionAction(session.id)
     if (!res.ok && !isLabSessionAlreadyEnded(res.code)) {
       const msg = res.error ?? "Failed to end lab. Please try again."
-      if (isLabAuthError(msg)) {
+      if (isLabAuthError(res)) {
         router.push(ROUTES.LOGIN)
         return
       }
@@ -220,7 +220,7 @@ export function LabEnvironment({ session, lab, initialCompletions, kindBlock }: 
       const res = await resetLabSessionAction(session.id)
       if (!res.ok || !res.data) {
         const msg = res.error ?? "Failed to reset lab. Please try again."
-        if (isLabAuthError(msg)) {
+        if (isLabAuthError(res)) {
           router.push(ROUTES.LOGIN)
           return
         }

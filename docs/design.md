@@ -2,6 +2,8 @@
 
 > **Note:** `system_design_attempts` table remains for ungraded practice attempts. This is not connected to the assessment/grading system — system design work is always ungraded formative practice. The actual implementation (`backend/internal/systemdesign`) uses an Excalidraw whiteboard attached to a `course_modules` row of `type='system_design'` (attempts + AI feedback + clarifying-question chat, tables `system_design_attempts`/`system_design_chat_messages`). See `docs/ai-connector.md`'s `system_design:manage` section for the real data model.
 
+> **Planned (not built).** The React Flow design canvas with the `/design` wiki embed, `/api/designs/*` and embed endpoints is not implemented; the shipped feature is the Excalidraw attempt flow described in the note above. The sections below are design only; no backend route or frontend exists yet.
+
 Everything about the drag-and-drop system architecture diagram tool: canvas, palette, interactions, versioning, embed, and course integration.
 
 ---

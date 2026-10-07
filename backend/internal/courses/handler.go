@@ -150,18 +150,19 @@ func writeDomainError(w http.ResponseWriter, err error) {
 // ─── Course CRUD ──────────────────────────────────────────────────────────────
 
 type courseCreateReq struct {
-	Title             string     `json:"title"`
-	Description       *string    `json:"description"`
-	CoverURL          *string    `json:"cover_url"`
-	Difficulty        string     `json:"difficulty"`
-	Tags              []string   `json:"tags"`
-	EstimatedHours    *float64   `json:"estimated_hours"`
-	IsFree            bool       `json:"is_free"`
-	Status            string     `json:"status"`
-	StartsAt          *time.Time `json:"starts_at"`
-	EndsAt            *time.Time `json:"ends_at"`
-	DisableCodeRun    bool       `json:"disable_code_run"`
-	DisableReflection bool       `json:"disable_reflection"`
+	Title                 string     `json:"title"`
+	Description           *string    `json:"description"`
+	CoverURL              *string    `json:"cover_url"`
+	Difficulty            string     `json:"difficulty"`
+	Tags                  []string   `json:"tags"`
+	EstimatedHours        *float64   `json:"estimated_hours"`
+	IsFree                bool       `json:"is_free"`
+	Status                string     `json:"status"`
+	StartsAt              *time.Time `json:"starts_at"`
+	EndsAt                *time.Time `json:"ends_at"`
+	DisableCodeRun        bool       `json:"disable_code_run"`
+	DisableReflection     bool       `json:"disable_reflection"`
+	DisableKnowledgeCheck bool       `json:"disable_knowledge_check"`
 }
 
 func (h *Handler) CreateCourse(w http.ResponseWriter, r *http.Request) {
@@ -198,21 +199,22 @@ func (h *Handler) CreateCourse(w http.ResponseWriter, r *http.Request) {
 		status = StatusPublished
 	}
 	c := Course{
-		OrgID:             claims.OrgID,
-		CreatorID:         claims.UserID,
-		Title:             req.Title,
-		Slug:              Slugify(req.Title),
-		Description:       req.Description,
-		CoverURL:          req.CoverURL,
-		Difficulty:        diff,
-		Tags:              req.Tags,
-		Status:            status,
-		IsFree:            req.IsFree,
-		EstimatedHours:    req.EstimatedHours,
-		StartsAt:          req.StartsAt,
-		EndsAt:            req.EndsAt,
-		DisableCodeRun:    req.DisableCodeRun,
-		DisableReflection: req.DisableReflection,
+		OrgID:                 claims.OrgID,
+		CreatorID:             claims.UserID,
+		Title:                 req.Title,
+		Slug:                  Slugify(req.Title),
+		Description:           req.Description,
+		CoverURL:              req.CoverURL,
+		Difficulty:            diff,
+		Tags:                  req.Tags,
+		Status:                status,
+		IsFree:                req.IsFree,
+		EstimatedHours:        req.EstimatedHours,
+		StartsAt:              req.StartsAt,
+		EndsAt:                req.EndsAt,
+		DisableCodeRun:        req.DisableCodeRun,
+		DisableReflection:     req.DisableReflection,
+		DisableKnowledgeCheck: req.DisableKnowledgeCheck,
 	}
 	created, err := h.repo.CreateCourse(r.Context(), c)
 	if err != nil {
@@ -227,7 +229,7 @@ func (h *Handler) GetCourse(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	tree, err := h.repo.GetCourseTree(r.Context(), claims.OrgID, claims.UserID, httputil.URLParam(r, "courseID"))
+	tree, err := h.service.GetCourseTree(r.Context(), claims.OrgID, claims.UserID, httputil.URLParam(r, "courseID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -308,19 +310,20 @@ func (h *Handler) GetPublicCourseTree(w http.ResponseWriter, r *http.Request) {
 }
 
 type courseUpdateReq struct {
-	Title             string     `json:"title"`
-	Description       *string    `json:"description"`
-	CoverURL          *string    `json:"cover_url"`
-	Difficulty        string     `json:"difficulty"`
-	Tags              []string   `json:"tags"`
-	EstimatedHours    *float64   `json:"estimated_hours"`
-	PriceCents        int        `json:"price_cents"`
-	IsFree            bool       `json:"is_free"`
-	IsPublic          bool       `json:"is_public"`
-	StartsAt          *time.Time `json:"starts_at"`
-	EndsAt            *time.Time `json:"ends_at"`
-	DisableCodeRun    bool       `json:"disable_code_run"`
-	DisableReflection bool       `json:"disable_reflection"`
+	Title                 string     `json:"title"`
+	Description           *string    `json:"description"`
+	CoverURL              *string    `json:"cover_url"`
+	Difficulty            string     `json:"difficulty"`
+	Tags                  []string   `json:"tags"`
+	EstimatedHours        *float64   `json:"estimated_hours"`
+	PriceCents            int        `json:"price_cents"`
+	IsFree                bool       `json:"is_free"`
+	IsPublic              bool       `json:"is_public"`
+	StartsAt              *time.Time `json:"starts_at"`
+	EndsAt                *time.Time `json:"ends_at"`
+	DisableCodeRun        bool       `json:"disable_code_run"`
+	DisableReflection     bool       `json:"disable_reflection"`
+	DisableKnowledgeCheck bool       `json:"disable_knowledge_check"`
 }
 
 func (h *Handler) UpdateCourse(w http.ResponseWriter, r *http.Request) {
@@ -339,20 +342,21 @@ func (h *Handler) UpdateCourse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c := Course{
-		ID:                httputil.URLParam(r, "courseID"),
-		Title:             req.Title,
-		Description:       req.Description,
-		CoverURL:          req.CoverURL,
-		Difficulty:        req.Difficulty,
-		Tags:              req.Tags,
-		EstimatedHours:    req.EstimatedHours,
-		PriceCents:        req.PriceCents,
-		IsFree:            req.IsFree,
-		IsPublic:          req.IsPublic,
-		StartsAt:          req.StartsAt,
-		EndsAt:            req.EndsAt,
-		DisableCodeRun:    req.DisableCodeRun,
-		DisableReflection: req.DisableReflection,
+		ID:                    httputil.URLParam(r, "courseID"),
+		Title:                 req.Title,
+		Description:           req.Description,
+		CoverURL:              req.CoverURL,
+		Difficulty:            req.Difficulty,
+		Tags:                  req.Tags,
+		EstimatedHours:        req.EstimatedHours,
+		PriceCents:            req.PriceCents,
+		IsFree:                req.IsFree,
+		IsPublic:              req.IsPublic,
+		StartsAt:              req.StartsAt,
+		EndsAt:                req.EndsAt,
+		DisableCodeRun:        req.DisableCodeRun,
+		DisableReflection:     req.DisableReflection,
+		DisableKnowledgeCheck: req.DisableKnowledgeCheck,
 	}
 	if c.Tags == nil {
 		c.Tags = []string{}
@@ -677,12 +681,12 @@ func (h *Handler) GetUploadURL(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"mime_type": "MIME type required."})
 		return
 	}
-	uploadURL, key, err := h.service.PresignedUploadURL(r.Context(), claims.OrgID, req.CourseID, req.ModuleID, req.MimeType)
+	uploadURL, fields, key, err := h.service.PresignedUploadURL(r.Context(), claims.OrgID, req.CourseID, req.ModuleID, req.MimeType)
 	if err != nil {
 		httputil.WriteError(w, http.StatusServiceUnavailable, "Storage unavailable.")
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"upload_url": uploadURL, "storage_key": key})
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"upload_url": uploadURL, "upload_fields": fields, "storage_key": key})
 }
 
 // UploadAsset accepts a multipart/form-data upload ("file" field), stores it, and

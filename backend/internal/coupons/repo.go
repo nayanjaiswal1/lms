@@ -257,6 +257,28 @@ func (r *Repo) ConsumeTx(ctx context.Context, tx pgx.Tx, couponID, userID, purch
 	return nil
 }
 
+// ReleaseTx undoes ConsumeTx for a purchase that was refunded or disputed:
+// deletes the redemption (so the user may reuse the coupon) and returns the
+// slot to the cap. Idempotent — no redemption row means nothing to release.
+func ReleaseTx(ctx context.Context, tx pgx.Tx, purchaseID string) error {
+	var couponID string
+	err := tx.QueryRow(ctx,
+		`DELETE FROM coupon_redemptions WHERE purchase_id = $1 RETURNING coupon_id`, purchaseID,
+	).Scan(&couponID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("coupons: release: delete redemption: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE coupons SET redeemed_count = GREATEST(redeemed_count - 1, 0), updated_at = now() WHERE id = $1`, couponID,
+	); err != nil {
+		return fmt.Errorf("coupons: release: decrement count: %w", err)
+	}
+	return nil
+}
+
 // Create inserts a new coupon plus its course scope (if any), atomically.
 // Callers (service.go) have already normalized Code and validated
 // DiscountType/DiscountValue.

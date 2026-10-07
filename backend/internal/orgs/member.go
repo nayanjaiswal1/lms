@@ -17,6 +17,10 @@ import (
 type MemberService struct {
 	pool  *pgxpool.Pool
 	cache *session.Cache
+	// invalidatePerms drops the cached RBAC permission set for (user, org).
+	// Wired from authz.Service.InvalidateUser when routes are registered; nil
+	// in tests that don't exercise RBAC.
+	invalidatePerms func(ctx context.Context, userID, orgID string) error
 }
 
 func NewMemberService(pool *pgxpool.Pool, cache *session.Cache) *MemberService {
@@ -31,6 +35,28 @@ func (s *MemberService) invalidateSession(ctx context.Context, userID string) {
 		return
 	}
 	s.cache.InvalidateVersionCache(ctx, userID)
+}
+
+// invalidatePermissions flushes the user's cached permissions in orgID so a
+// role/status change or removal is enforced immediately, not after the 5-minute
+// RBAC cache TTL.
+func (s *MemberService) invalidatePermissions(ctx context.Context, userID, orgID string) {
+	if s.invalidatePerms == nil {
+		return
+	}
+	if err := s.invalidatePerms(ctx, userID, orgID); err != nil {
+		slog.Warn("orgs: invalidate permission cache", "user_id", userID, "org_id", orgID, "error", err)
+	}
+}
+
+// outranks reports whether the actor may manage a member of targetRole: owners
+// manage anyone, everyone else only strictly lower ranks, so an admin cannot
+// demote, suspend or remove a peer admin. Acting on oneself is always allowed.
+func outranks(actorRole, targetRole, actorUserID, targetUserID string) bool {
+	if actorUserID == targetUserID || actorRole == RoleOwner {
+		return true
+	}
+	return roleRank[actorRole] > roleRank[targetRole]
 }
 
 // List returns cursor-paginated members with user info joined.
@@ -110,8 +136,11 @@ func (s *MemberService) Update(ctx context.Context, orgID, actorUserID, actorRol
 		return nil, fmt.Errorf("orgs: update member: fetch target: %w", err)
 	}
 
-	// Owners can only be managed by other owners.
+	// Owners can only be managed by other owners; peers cannot manage each other.
 	if target.Role == RoleOwner && actorRole != RoleOwner {
+		return nil, ErrForbidden
+	}
+	if !outranks(actorRole, target.Role, actorUserID, target.UserID) {
 		return nil, ErrForbidden
 	}
 
@@ -193,6 +222,7 @@ func (s *MemberService) Update(ctx context.Context, orgID, actorUserID, actorRol
 			return nil, fmt.Errorf("orgs: update member: bump session_version: %w", err)
 		}
 		s.invalidateSession(ctx, updated.UserID)
+		s.invalidatePermissions(ctx, updated.UserID, orgID)
 	}
 
 	// Re-fetch with user info for full response.
@@ -230,6 +260,9 @@ func (s *MemberService) Remove(ctx context.Context, orgID, actorUserID, actorRol
 	if target.Role == RoleOwner && actorRole != RoleOwner {
 		return ErrForbidden
 	}
+	if !outranks(actorRole, target.Role, actorUserID, target.UserID) {
+		return ErrForbidden
+	}
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -259,13 +292,16 @@ func (s *MemberService) Remove(ctx context.Context, orgID, actorUserID, actorRol
 		return fmt.Errorf("orgs: remove member: commit: %w", err)
 	}
 
-	// Revoke tenant_admin so a future re-add (e.g. as a plain learner) doesn't
-	// silently inherit admin.* permissions from a role grant that predates it.
-	if target.Role == RoleOwner || target.Role == RoleAdmin {
-		if err := syncTenantAdminRole(ctx, s.pool, orgID, target.UserID, "removed"); err != nil {
-			return fmt.Errorf("orgs: remove member: sync tenant_admin role: %w", err)
-		}
+	// Revoke every RBAC role and direct permission grant in this org, not just
+	// tenant_admin: a future re-add (e.g. as a plain learner) must not silently
+	// inherit custom-role or override permissions that predate the removal.
+	if _, err := s.pool.Exec(ctx, `DELETE FROM user_roles WHERE user_id = $1 AND org_id = $2`, target.UserID, orgID); err != nil {
+		return fmt.Errorf("orgs: remove member: revoke roles: %w", err)
 	}
+	if _, err := s.pool.Exec(ctx, `DELETE FROM user_permission_overrides WHERE user_id = $1 AND org_id = $2`, target.UserID, orgID); err != nil {
+		return fmt.Errorf("orgs: remove member: revoke permission overrides: %w", err)
+	}
+	s.invalidatePermissions(ctx, target.UserID, orgID)
 
 	// Retire the removed member's outstanding access tokens rather than letting
 	// them keep a working session until expiry. RequireOrgMember rejects them on

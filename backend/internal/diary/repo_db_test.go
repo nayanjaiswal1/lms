@@ -9,6 +9,7 @@ import (
 
 	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/habit"
+	"github.com/mindforge/backend/internal/privacy"
 	"github.com/mindforge/backend/internal/testdb"
 )
 
@@ -263,5 +264,31 @@ func TestServiceApplyHighlights_GoalCreatesHabit(t *testing.T) {
 	}
 	if len(again) != 1 || again[0].RefID != created.ID {
 		t.Fatalf("expected the near-duplicate goal to resolve to the EXISTING habit id %s, got %+v", created.ID, again)
+	}
+}
+
+// availableProvider is an LLMProvider that reports available but must never be
+// called: the consent gate has to refuse before any text reaches a model.
+type availableProvider struct{ t *testing.T }
+
+func (availableProvider) Available() bool { return true }
+func (p availableProvider) Complete(context.Context, ai.CompletionRequest) (ai.CompletionResponse, error) {
+	p.t.Error("provider called without AI consent")
+	return ai.CompletionResponse{}, nil
+}
+
+// Without per-user AI consent, Preview and FixEnglish refuse and send nothing
+// to the provider.
+func TestServiceAI_RefusesWithoutConsent(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+	userID := seedUser(t, ctx, pool, "diary-noconsent@example.com")
+
+	svc := NewService(NewRepo(pool), availableProvider{t}, habit.NewService(habit.NewRepo(pool)))
+	if _, err := svc.Preview(ctx, userID, "2026-08-11", "went to the gym"); !errors.Is(err, privacy.ErrAIConsentRequired) {
+		t.Fatalf("Preview: expected ErrAIConsentRequired, got %v", err)
+	}
+	if _, err := svc.FixEnglish(ctx, userID, "i goed to gym"); !errors.Is(err, privacy.ErrAIConsentRequired) {
+		t.Fatalf("FixEnglish: expected ErrAIConsentRequired, got %v", err)
 	}
 }

@@ -2,6 +2,7 @@ package payments
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -106,5 +107,54 @@ func TestStripeParseWebhook_WrongSecretFailsSignature(t *testing.T) {
 
 	if _, err := p.ParseWebhook(signed.Payload, h); !errors.Is(err, ErrInvalidSignature) {
 		t.Fatalf("expected ErrInvalidSignature, got %v", err)
+	}
+}
+
+func signedStripeEvent(t *testing.T, body string) (*StripeProvider, []byte, http.Header) {
+	t.Helper()
+	secret := "whsec_test_secret"
+	signed := webhook.GenerateTestSignedPayload(&webhook.UnsignedPayload{Payload: []byte(body), Secret: secret, Timestamp: time.Now()})
+	h := http.Header{}
+	h.Set("Stripe-Signature", signed.Header)
+	return NewStripeProvider("sk_test_dummy", secret), signed.Payload, h
+}
+
+func TestStripeParseWebhook_ChargeRefunded(t *testing.T) {
+	cases := []struct {
+		name       string
+		refunded   bool
+		wantStatus EventStatus
+	}{
+		{"full refund", true, StatusRefunded},
+		{"partial refund is ignored", false, StatusIgnored},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			body := fmt.Sprintf(`{"id":"evt_r1","type":"charge.refunded","data":{"object":{"id":"ch_1","object":"charge","refunded":%t,"amount_refunded":999,"currency":"usd","payment_intent":"pi_123"}}}`, c.refunded)
+			p, payload, h := signedStripeEvent(t, body)
+			ev, err := p.ParseWebhook(payload, h)
+			if err != nil {
+				t.Fatalf("ParseWebhook: %v", err)
+			}
+			if ev.Status != c.wantStatus {
+				t.Fatalf("status = %v, want %v", ev.Status, c.wantStatus)
+			}
+			if c.wantStatus == StatusRefunded && (ev.PaymentRef != "pi_123" || ev.AmountCents != 999) {
+				t.Errorf("payment ref/amount = %q/%d, want pi_123/999", ev.PaymentRef, ev.AmountCents)
+			}
+		})
+	}
+}
+
+func TestStripeParseWebhook_DisputeIsFullReversal(t *testing.T) {
+	body := `{"id":"evt_d1","type":"charge.dispute.created","data":{"object":{"id":"dp_1","object":"dispute","amount":999,"payment_intent":"pi_456"}}}`
+	p, payload, h := signedStripeEvent(t, body)
+	ev, err := p.ParseWebhook(payload, h)
+	if err != nil {
+		t.Fatalf("ParseWebhook: %v", err)
+	}
+	// AmountCents 0 is the contract for "dispute, always a full reversal".
+	if ev.Status != StatusRefunded || ev.PaymentRef != "pi_456" || ev.AmountCents != 0 {
+		t.Errorf("got status=%v ref=%q amount=%d, want refunded/pi_456/0", ev.Status, ev.PaymentRef, ev.AmountCents)
 	}
 }

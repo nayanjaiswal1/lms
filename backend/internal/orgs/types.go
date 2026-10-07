@@ -263,7 +263,6 @@ type AddDomainRequest struct {
 
 type VerifyDomainRequest struct {
 	DomainID string `json:"domain_id"`
-	Token    string `json:"token"`
 }
 
 type SaveOnboardingRequest struct {

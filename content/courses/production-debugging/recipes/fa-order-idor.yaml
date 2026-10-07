@@ -1,0 +1,11 @@
+lab_kind: debug
+app_range: "^1"
+seed: 3009
+blocks:
+  - block: fa.orders@1.0.0
+  - block: fa.sec.order-idor@1.0.0
+  - block: seed.fa-small@1.0.0
+  - block: stub.payments@1.0.0
+  - block: check.http-behavior@1.0.0
+  - block: check.pytest-node@1.0.0
+  - block: ticket.security-report@1.0.0

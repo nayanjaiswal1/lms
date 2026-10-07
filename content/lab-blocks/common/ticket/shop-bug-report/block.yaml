@@ -1,0 +1,15 @@
+kind: ticket
+id: ticket.shop-bug-report
+version: 1.0.0
+stack: fullstack
+title: Shop bug report
+summary: A support escalation for the Shop Console, written from the customer's side of the screen, with what support already tried and what QA noticed.
+category: ticket
+skills:
+  - debugging
+  - react
+  - fastapi
+ticket:
+  template_file: template.md
+  severity: Medium
+  persona: Maya Ortiz, QA

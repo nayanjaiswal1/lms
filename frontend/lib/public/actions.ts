@@ -22,7 +22,8 @@ export async function submitPublicAttemptAction(
   }
   return apiActionPublic<{ percentage: number; passed: boolean; score: number; max_score: number }>(
     "POST",
-    `/api/p/${code}/submit/${token}`,
+    `/api/p/${code}/submit`,
     { answers: payload },
+    { "X-Attempt-Token": token },
   );
 }

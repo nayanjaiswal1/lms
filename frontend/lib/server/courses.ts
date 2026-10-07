@@ -24,6 +24,7 @@ export interface Course {
   review_count: number;
   disable_code_run: boolean;
   disable_reflection: boolean;
+  disable_knowledge_check: boolean;
   created_at: string;
   updated_at: string;
 }

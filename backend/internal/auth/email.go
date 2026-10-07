@@ -82,6 +82,21 @@ func SendPasskeyCloneAlert(cfg *config.Config, to string) error {
 	return sendSMTP(cfg, to, subject, body)
 }
 
+// SendSecurityNotice tells the account owner that a credential changed, so a
+// takeover is noticed. In development it logs instead of using SMTP.
+func SendSecurityNotice(cfg *config.Config, to, change string) error {
+	if !cfg.ShouldSendRealEmail(to) {
+		slog.Info("DEV EMAIL: Security notice", "to", to, "change", change)
+		return nil
+	}
+	subject := "Security change on your MindForge account"
+	body := "Your MindForge account changed: " + change + ".\n\n" +
+		"If this was you, no action is needed. If it was not, reset your password at " +
+		cfg.FrontendURL + "/forgot-password and review your passkeys at " +
+		cfg.FrontendURL + "/settings/security."
+	return sendSMTP(cfg, to, subject, body)
+}
+
 // ─── internal ─────────────────────────────────────────────────────────────────
 
 // sendSMTP delivers the email via cfg.BrevoAPIKey's HTTPS API when set

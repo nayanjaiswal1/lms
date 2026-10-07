@@ -41,12 +41,10 @@ func (h *Handler) Webhook(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, payments.ErrInvalidSignature):
 			httputil.WriteError(w, http.StatusUnauthorized, "Invalid webhook signature.")
 		default:
-			// Unlike most public webhook handlers in this codebase, a
-			// genuine internal failure here is answered non-2xx on purpose:
-			// there is no reconciliation sweep behind this endpoint, so the
-			// gateway's own retry (Stripe retries for up to 72h) is what
-			// recovers a transient DB hiccup instead of the purchase
-			// silently staying 'pending' forever.
+			// A genuine internal failure is answered non-2xx on purpose: the
+			// event row stays unprocessed, so the gateway's redelivery (Stripe
+			// retries for up to 72h) re-runs it; Service.ReconcilePayments
+			// alerts on whatever still isn't resolved.
 			httputil.WriteError(w, http.StatusInternalServerError, "Webhook processing failed.")
 		}
 		return

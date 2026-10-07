@@ -44,7 +44,7 @@ func (rt *Router) resolveAuthRequest(ctx context.Context, clientID, redirectURI,
 		scopes = append(scopes, s)
 	}
 	if len(scopes) == 0 {
-		scopes = AllScopes
+		scopes = DefaultScopes
 	}
 	return client, scopes, nil
 }
@@ -88,7 +88,8 @@ func (rt *Router) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 // own consent page (authenticated, same-origin fetch) to render the client
 // name and a human-readable scope list before the user approves.
 func (rt *Router) HandleAuthorizeDetails(w http.ResponseWriter, r *http.Request) {
-	if _, ok := auth.RequireClaims(w, r); !ok {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
 		return
 	}
 	q := r.URL.Query()
@@ -101,8 +102,23 @@ func (rt *Router) HandleAuthorizeDetails(w http.ResponseWriter, r *http.Request)
 	for _, s := range scopes {
 		descriptions = append(descriptions, ScopeDescriptions[s])
 	}
+	// Scopes the user has not already granted this client; the consent page
+	// must make the user explicitly re-confirm these.
+	existing, err := rt.repo.ActiveConnectionScopes(r.Context(), claims.UserID, client.ClientID)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
+		return
+	}
+	added := []string{}
+	if existing != nil {
+		added = addedScopes(scopes, existing)
+	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{
 		"client_name":        client.ClientName,
+		"scope_keys":         scopes,
+		"new_scopes":         added,
+		"reapproval":         existing != nil,
+		"redirect_host":      redirectHost(q.Get("redirect_uri")),
 		"scopes":             scopes,
 		"scope_descriptions": descriptions,
 	})
@@ -114,6 +130,43 @@ type authorizeDecisionRequest struct {
 	Scope         string `json:"scope"`
 	State         string `json:"state"`
 	CodeChallenge string `json:"code_challenge"`
+	// GrantedScopes is the subset of Scope the user left enabled on the
+	// consent page (per-scope opt-out). Omitted means every requested scope.
+	GrantedScopes []string `json:"granted_scopes"`
+	// ConfirmNewScopes must be true when a re-approval adds scopes the
+	// existing connection does not hold.
+	ConfirmNewScopes bool `json:"confirm_new_scopes"`
+}
+
+// addedScopes returns the entries of requested absent from existing.
+func addedScopes(requested, existing []string) []string {
+	have := make(map[string]bool, len(existing))
+	for _, s := range existing {
+		have[s] = true
+	}
+	added := []string{}
+	for _, s := range requested {
+		if !have[s] {
+			added = append(added, s)
+		}
+	}
+	return added
+}
+
+// grantedSubset narrows requested to the user's selection. A nil selection
+// keeps everything; a selection naming a scope outside requested, or empty,
+// is rejected.
+func grantedSubset(requested, selected []string) ([]string, error) {
+	if selected == nil {
+		return requested, nil
+	}
+	if len(selected) == 0 {
+		return nil, errors.New("mcpconnect: no scopes granted")
+	}
+	if extra := addedScopes(selected, requested); len(extra) > 0 {
+		return nil, fmt.Errorf("mcpconnect: scope %q was not requested", extra[0])
+	}
+	return selected, nil
 }
 
 // HandleAuthorizeApprove handles POST /oauth/authorize/approve — the user
@@ -145,6 +198,20 @@ func (rt *Router) HandleAuthorizeApprove(w http.ResponseWriter, r *http.Request)
 	}
 	if req.CodeChallenge == "" {
 		httputil.WriteError(w, http.StatusBadRequest, "Missing code_challenge.")
+		return
+	}
+	scopes, err = grantedSubset(scopes, req.GrantedScopes)
+	if err != nil {
+		httputil.WriteError(w, http.StatusBadRequest, "Select at least one valid permission to grant.")
+		return
+	}
+	existing, err := rt.repo.ActiveConnectionScopes(r.Context(), claims.UserID, req.ClientID)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to approve connection.")
+		return
+	}
+	if added := addedScopes(scopes, existing); existing != nil && len(added) > 0 && !req.ConfirmNewScopes {
+		httputil.WriteError(w, http.StatusConflict, "This client is asking for permissions it does not have yet. Confirm the new permissions to continue.")
 		return
 	}
 

@@ -41,8 +41,8 @@ func seedLabFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool) (orgI
 	// INITIALLY DEFERRED specifically so either insert order works; here we
 	// have the lab row ready before the module needs to reference it.
 	require.NoError(t, pool.QueryRow(ctx,
-		`INSERT INTO lab_definitions (org_id, title, lab_type, environment, is_published, created_by, library_visibility)
-		 VALUES ($1,'Lab','terminal','mindforge/lab-terminal:1',true,$2,'org') RETURNING id`,
+		`INSERT INTO lab_definitions (org_id, title, lab_type, environment, is_published, created_by, library_visibility, scope)
+		 VALUES ($1,'Lab','terminal','mindforge/lab-terminal:1',true,$2,'org','standalone') RETURNING id`,
 		orgID, userID,
 	).Scan(&labID))
 	var versionID string

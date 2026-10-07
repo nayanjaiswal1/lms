@@ -16,8 +16,11 @@ type StorageClient interface {
 	Download(ctx context.Context, key string) ([]byte, error)
 	// Delete removes key. Returns nil if the key does not exist.
 	Delete(ctx context.Context, key string) error
-	// PresignedPutURL returns a time-limited URL for a client to PUT an object directly.
-	PresignedPutURL(ctx context.Context, key, mimeType string, maxBytes int64) (string, error)
+	// PresignedPost returns a time-limited POST-policy upload target: the
+	// client must submit the returned form fields plus a "file" part to url.
+	// The policy pins the key, the exact content type and a 1..maxBytes size
+	// range, which a presigned PUT cannot enforce.
+	PresignedPost(ctx context.Context, key, mimeType string, maxBytes int64) (url string, fields map[string]string, err error)
 	// PresignedGetURL returns a time-limited URL for a client to GET an object.
 	PresignedGetURL(ctx context.Context, key string, ttl time.Duration) (string, error)
 }

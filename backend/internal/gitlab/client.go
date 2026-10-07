@@ -39,10 +39,7 @@ func NewClient(baseURL, token string) *Client {
 	return &Client{
 		baseURL: strings.TrimRight(baseURL, "/"),
 		token:   token,
-		http: &http.Client{
-			Timeout:   15 * time.Second,
-			Transport: netguard.GuardedTransport(15 * time.Second),
-		},
+		http:    netguard.NewHTTPClient(15 * time.Second),
 	}
 }
 

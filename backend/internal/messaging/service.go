@@ -37,9 +37,13 @@ func (s *Service) DeleteMessage(ctx context.Context, orgID, msgID, userID, orgRo
 	return s.repo.SoftDeleteMessage(ctx, orgID, msgID, userID, orgRole)
 }
 
-func (s *Service) React(ctx context.Context, msgID, userID string, reaction Reaction) (bool, error) {
+func (s *Service) React(ctx context.Context, orgID, msgID, userID string, reaction Reaction) (bool, error) {
 	if reaction != ReactionUpvote && reaction != ReactionHelpful {
 		return false, fmt.Errorf("%w: invalid reaction", ErrForbidden)
+	}
+	// Org-scoped lookup: reacting to another tenant's message is a not-found.
+	if _, err := s.repo.GetMessage(ctx, orgID, msgID); err != nil {
+		return false, err
 	}
 	return s.repo.ToggleReaction(ctx, msgID, userID, reaction)
 }

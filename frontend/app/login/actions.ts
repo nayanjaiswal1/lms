@@ -2,12 +2,12 @@
 
 import { redirect } from "next/navigation";
 import { AUTH_COPY, loginSchema } from "@/lib/validation/auth";
-import { forwardSetCookies } from "@/lib/server/set-cookie";
-import { resolveLegalGateRedirect } from "@/lib/server/legal";
+import { asString, getField, resolveLoginDestination } from "@/lib/server/login-destination";
+import { startMfaStep } from "@/lib/server/mfa-challenge";
 import { apiAction, type ActionResult, baseURL } from "@/lib/server/api";
+import { captchaHeaders } from "@/lib/server/captcha";
 import { authFetchWithCookies } from "@/lib/server/auth-fetch";
 import type { WebAuthnRequestOptions } from "@/lib/webauthn";
-import ROUTES from "@/lib/routes";
 import { safeNextPath } from "@/lib/utils";
 
 // Result surfaced back to the form via useActionState.
@@ -16,17 +16,6 @@ import { safeNextPath } from "@/lib/utils";
 export interface LoginState {
   error?: string;
   fieldErrors?: { email?: string; password?: string };
-}
-
-// ── Narrowing helpers for the untyped JSON body ──────────────────────────────
-function getField(source: unknown, key: string): unknown {
-  return source && typeof source === "object"
-    ? (source as Record<string, unknown>)[key]
-    : undefined;
-}
-
-function asString(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 function resolveError(status: number, body: unknown): string {
@@ -42,12 +31,6 @@ function resolveError(status: number, body: unknown): string {
     default:
       return apiMessage ?? AUTH_COPY.unexpected;
   }
-}
-
-// A user belonging to more than one org picks one before landing in the app.
-function orgCount(body: unknown): number {
-  const orgs = getField(getField(body, "data"), "orgs");
-  return Array.isArray(orgs) ? orgs.length : 0;
 }
 
 export async function loginAction(
@@ -81,7 +64,9 @@ export async function loginAction(
   let response: Response;
   let body: unknown;
   try {
-    const result = await authFetchWithCookies("/api/auth/login", parsed.data);
+    const result = await authFetchWithCookies("/api/auth/login", parsed.data, {
+      headers: captchaHeaders(formData),
+    });
     response = result.response;
     body = result.body;
   } catch {
@@ -95,6 +80,10 @@ export async function loginAction(
   // 3. Re-emit the auth cookies the API set, then route into the app.
   //    redirect() throws NEXT_REDIRECT, so it must run outside any try/catch.
   const next = safeNextPath(formData.get("next")?.toString());
+  // Accounts with MFA (and privileged roles, which must have it) get a
+  // challenge instead of a session — no cookies were minted yet.
+  const mfaStep = await startMfaStep(body, next);
+  if (mfaStep) redirect(mfaStep);
   const dest = await resolveLoginDestination(apiUrl, response, body, next);
   redirect(dest);
 }
@@ -166,54 +155,3 @@ export async function loginPasskeyFinishAction(
   return { redirectTo };
 }
 
-// Shared cookie-mint + destination logic for every flow that ends in a fresh
-// session (password login, passkey login). Forwards the Set-Cookie headers
-// from the login response, auto-switches into a user's only org, and returns
-// where the caller should navigate next.
-async function resolveLoginDestination(
-  apiUrl: string,
-  response: Response,
-  body: unknown,
-  next: string | null,
-): Promise<string> {
-  await forwardSetCookies(response.headers);
-
-  const legalRedirect = await resolveLegalGateRedirect(apiUrl, response.headers, next);
-  if (legalRedirect) return legalRedirect;
-
-  const onboardingCompleted = getField(getField(body, "data"), "onboarding_completed");
-  if (onboardingCompleted === false) {
-    return ROUTES.ONBOARDING;
-  }
-
-  const count = orgCount(body);
-  if (count > 1) {
-    return ROUTES.ORG_SELECT;
-  }
-
-  // Single org: auto-switch so the access token carries an org_id and
-  // permission queries work immediately without a manual org-select step.
-  if (count === 1) {
-    const orgs = getField(getField(body, "data"), "orgs");
-    const orgId = asString(getField(Array.isArray(orgs) ? orgs[0] : undefined, "id"));
-    if (orgId) {
-      // Forward the new access token the login response just set.
-      // Can't use authHeaders()/apiAction here — the token being forwarded
-      // isn't in the cookie store yet (this response set it, next/headers
-      // cookies() hasn't seen it).
-      const accessCookie =
-        response.headers.getSetCookie?.()
-          .filter((c) => c.startsWith("access_token="))
-          .join("; ") ?? "";
-      const switchRes = await authFetchWithCookies(
-        "/api/orgs/switch",
-        { org_id: orgId },
-        // eslint-disable-next-line no-restricted-syntax -- see comment above; raw token forward required for forwardSetCookies.
-        { headers: accessCookie ? { Cookie: accessCookie } : {} },
-      ).catch(() => null);
-      void switchRes;
-    }
-  }
-
-  return next ?? ROUTES.DASHBOARD;
-}

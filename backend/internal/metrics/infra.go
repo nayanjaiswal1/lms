@@ -3,6 +3,8 @@ package metrics
 import (
 	"context"
 	"net"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -65,22 +67,41 @@ func (DBTracer) TraceConnectEnd(ctx context.Context, _ pgx.TraceConnectEndData) 
 	}
 }
 
+var (
+	// currentPool is the pool the collectors below report on; the latest
+	// RegisterPool call wins, so a second Connect in one process (tests,
+	// a reconnect) swaps the source instead of registering twice and panicking.
+	currentPool      atomic.Pointer[pgxpool.Pool]
+	registerPoolOnce sync.Once
+)
+
 // RegisterPool exposes pgxpool's own counters. A climbing new_conns or
 // acquire_duration total means requests are paying to reconnect or queue for
 // a connection rather than for the query itself.
 func RegisterPool(pool *pgxpool.Pool) {
-	counter := func(name, help string, f func(*pgxpool.Stat) float64) {
-		promauto.NewCounterFunc(prometheus.CounterOpts{Name: name, Help: help}, func() float64 { return f(pool.Stat()) })
-	}
-	gauge := func(name, help string, f func(*pgxpool.Stat) float64) {
-		promauto.NewGaugeFunc(prometheus.GaugeOpts{Name: name, Help: help}, func() float64 { return f(pool.Stat()) })
-	}
-	counter("mindforge_db_pool_acquire_total", "Pool connection acquires.", func(s *pgxpool.Stat) float64 { return float64(s.AcquireCount()) })
-	counter("mindforge_db_pool_acquire_seconds_total", "Total time spent waiting to acquire a pool connection.", func(s *pgxpool.Stat) float64 { return s.AcquireDuration().Seconds() })
-	counter("mindforge_db_pool_empty_acquire_total", "Acquires that had to wait because no idle connection existed.", func(s *pgxpool.Stat) float64 { return float64(s.EmptyAcquireCount()) })
-	counter("mindforge_db_pool_new_conns_total", "Connections opened over the pool's lifetime.", func(s *pgxpool.Stat) float64 { return float64(s.NewConnsCount()) })
-	gauge("mindforge_db_pool_idle_conns", "Idle pool connections.", func(s *pgxpool.Stat) float64 { return float64(s.IdleConns()) })
-	gauge("mindforge_db_pool_acquired_conns", "Pool connections currently in use.", func(s *pgxpool.Stat) float64 { return float64(s.AcquiredConns()) })
+	currentPool.Store(pool)
+	registerPoolOnce.Do(func() {
+		stat := func(f func(*pgxpool.Stat) float64) func() float64 {
+			return func() float64 {
+				if p := currentPool.Load(); p != nil {
+					return f(p.Stat())
+				}
+				return 0
+			}
+		}
+		counter := func(name, help string, f func(*pgxpool.Stat) float64) {
+			promauto.NewCounterFunc(prometheus.CounterOpts{Name: name, Help: help}, stat(f))
+		}
+		gauge := func(name, help string, f func(*pgxpool.Stat) float64) {
+			promauto.NewGaugeFunc(prometheus.GaugeOpts{Name: name, Help: help}, stat(f))
+		}
+		counter("mindforge_db_pool_acquire_total", "Pool connection acquires.", func(s *pgxpool.Stat) float64 { return float64(s.AcquireCount()) })
+		counter("mindforge_db_pool_acquire_seconds_total", "Total time spent waiting to acquire a pool connection.", func(s *pgxpool.Stat) float64 { return s.AcquireDuration().Seconds() })
+		counter("mindforge_db_pool_empty_acquire_total", "Acquires that had to wait because no idle connection existed.", func(s *pgxpool.Stat) float64 { return float64(s.EmptyAcquireCount()) })
+		counter("mindforge_db_pool_new_conns_total", "Connections opened over the pool's lifetime.", func(s *pgxpool.Stat) float64 { return float64(s.NewConnsCount()) })
+		gauge("mindforge_db_pool_idle_conns", "Idle pool connections.", func(s *pgxpool.Stat) float64 { return float64(s.IdleConns()) })
+		gauge("mindforge_db_pool_acquired_conns", "Pool connections currently in use.", func(s *pgxpool.Stat) float64 { return float64(s.AcquiredConns()) })
+	})
 }
 
 // RedisHook records per-command, per-pipeline, and per-dial latency.

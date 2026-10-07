@@ -109,6 +109,26 @@ type Config struct {
 	Workspace           WorkspaceLimits
 	AuthRateLimitMax    int
 	AuthRateLimitWindow time.Duration
+
+	// Public (unauthenticated) per-IP budgets, authenticated per-user budget
+	// and per-user LLM call caps. See api.NewRouter and ai.QuotaProvider.
+	PublicRateLimitMax           int
+	PublicRateLimitWindow        time.Duration
+	OAuthRegisterRateLimitMax    int
+	OAuthRegisterRateLimitWindow time.Duration
+	UserRateLimitMax             int
+	UserRateLimitWindow          time.Duration
+	LLMUserMaxPerHour            int
+	LLMUserMaxPerDay             int
+
+	// MetricsToken is the bearer token Prometheus presents to /metrics. When
+	// empty, /metrics is closed in production (it is reachable from the public
+	// internet on hosts that expose the container directly, e.g. Render).
+	MetricsToken string
+
+	// PaymentReconcileStaleMinutes is how long a purchase/payment event may stay
+	// unresolved before the reconcile job alerts on it.
+	PaymentReconcileStaleMinutes int
 	// Coupon-code attempts per user per window. A coupon code is a
 	// guessable secret worth money ("LAUNCH25"), and both the preview and
 	// checkout endpoints tell the caller whether one exists, so an
@@ -213,6 +233,17 @@ type Config struct {
 	// runtime never uses this: it shares the same image store `docker build`
 	// writes to, so a registry is never needed there.
 	LabsImageRegistry string
+	// LabsPidsLimit caps processes per lab container (LABS_PIDS_LIMIT).
+	LabsPidsLimit int
+	// MaxBodyBytes caps non-multipart request bodies (MAX_BODY_BYTES).
+	MaxBodyBytes int64
+	// LabsNetworkPerSession gives each lab container its own Docker network
+	// (LABS_NETWORK_PER_SESSION); LabsNetworkInternal makes those networks
+	// egress-less (LABS_NETWORK_INTERNAL); LabsProxyContainer is the labproxy
+	// container joined to each (LABS_PROXY_CONTAINER).
+	LabsNetworkPerSession bool
+	LabsNetworkInternal   bool
+	LabsProxyContainer    string
 
 	// Object storage (MinIO / S3-compatible).
 	// When MinioAccessKey is empty, avatar upload returns 503; other features unaffected.
@@ -275,12 +306,30 @@ type Config struct {
 	// reminder email fires. No per-event/per-user override yet.
 	CalendarReminderLeadMinutes int
 
+	// Retention windows in days for the retention.purge job (DPDP s.8(7)).
+	// 0 disables purging that class. Sensitive classes default short; audit
+	// trails default to at least the 180-day CERT-In log minimum.
+	RetentionAuditDays            int
+	RetentionAuthEventsDays       int
+	RetentionAttemptEventsDays    int
+	RetentionXPEventsDays         int
+	RetentionLabAIDays            int
+	RetentionMCPActionDays        int
+	RetentionMCPConnectionDays    int
+	RetentionPublicCandidatesDays int
+
 	// Payments (course purchases). Each gateway is independently optional —
 	// payments.Registry.FromConfig registers only the ones with a secret
 	// key set, falling back to payments.StubProvider in non-production when
 	// neither is configured. A gateway's webhook secret is required the
 	// moment its secret key is set (enforced below) since a checkout that
 	// can charge but never confirm is worse than one that's simply absent.
+	// TurnstileSecretKey enables the Cloudflare Turnstile CAPTCHA on signup,
+	// login and forgot-password. Required outside development (Load enforces it).
+	// CaptchaBypassSecret is the optional shared secret the Next.js server sends
+	// for its own server-to-server calls (demo login, admin password reset).
+	TurnstileSecretKey    string
+	CaptchaBypassSecret   string
 	StripeSecretKey       string
 	StripePublishableKey  string
 	StripeWebhookSecret   string
@@ -385,6 +434,16 @@ func Load() *Config {
 		ExportPerUserHour:        getEnvInt("WORKSPACE_EXPORT_PER_USER_HOUR", 10),
 	}
 	cfg.AuthRateLimitWindow = parseDuration("AUTH_RATE_LIMIT_WINDOW", "1m")
+	cfg.PublicRateLimitMax = getEnvInt("PUBLIC_RATE_LIMIT_MAX", 120)
+	cfg.PublicRateLimitWindow = parseDuration("PUBLIC_RATE_LIMIT_WINDOW", "1m")
+	cfg.OAuthRegisterRateLimitMax = getEnvInt("OAUTH_REGISTER_RATE_LIMIT_MAX", 10)
+	cfg.OAuthRegisterRateLimitWindow = parseDuration("OAUTH_REGISTER_RATE_LIMIT_WINDOW", "1h")
+	cfg.UserRateLimitMax = getEnvInt("USER_RATE_LIMIT_MAX", 600)
+	cfg.UserRateLimitWindow = parseDuration("USER_RATE_LIMIT_WINDOW", "1m")
+	cfg.MetricsToken = os.Getenv("METRICS_TOKEN")
+	cfg.PaymentReconcileStaleMinutes = getEnvInt("PAYMENT_RECONCILE_STALE_MINUTES", 30)
+	cfg.LLMUserMaxPerHour = getEnvInt("LLM_USER_MAX_PER_HOUR", 60)
+	cfg.LLMUserMaxPerDay = getEnvInt("LLM_USER_MAX_PER_DAY", 300)
 	cfg.CouponRateLimitMax = getEnvInt("COUPON_RATE_LIMIT_MAX", 10)
 	cfg.CouponRateLimitWindow = parseDuration("COUPON_RATE_LIMIT_WINDOW", "1m")
 	cfg.LabAuthorDraftRateMax = getEnvInt("LABAUTHOR_DRAFT_RATE_MAX", 10)
@@ -413,6 +472,11 @@ func Load() *Config {
 	cfg.LabsNestedDockerRuntime = os.Getenv("LABS_NESTED_DOCKER_RUNTIME")
 	cfg.LabsNestedDockerRuntimeClass = os.Getenv("LABS_NESTED_DOCKER_RUNTIME_CLASS")
 	cfg.LabsImageRegistry = os.Getenv("LABS_IMAGE_REGISTRY")
+	cfg.LabsPidsLimit = getEnvInt("LABS_PIDS_LIMIT", 512)
+	cfg.MaxBodyBytes = int64(getEnvInt("MAX_BODY_BYTES", 8<<20))
+	cfg.LabsNetworkPerSession = getEnvBool("LABS_NETWORK_PER_SESSION", false)
+	cfg.LabsNetworkInternal = getEnvBool("LABS_NETWORK_INTERNAL", false)
+	cfg.LabsProxyContainer = os.Getenv("LABS_PROXY_CONTAINER")
 
 	applyMinioEnv(cfg)
 
@@ -447,7 +511,23 @@ func Load() *Config {
 
 	cfg.CalendarReminderLeadMinutes = getEnvInt("CALENDAR_REMINDER_LEAD_MINUTES", 30)
 
+	cfg.RetentionAuditDays = getEnvInt("RETENTION_AUDIT_DAYS", 730)
+	cfg.RetentionAuthEventsDays = getEnvInt("RETENTION_AUTH_EVENTS_DAYS", 365)
+	cfg.RetentionAttemptEventsDays = getEnvInt("RETENTION_ATTEMPT_EVENTS_DAYS", 730)
+	cfg.RetentionXPEventsDays = getEnvInt("RETENTION_XP_EVENTS_DAYS", 730)
+	cfg.RetentionLabAIDays = getEnvInt("RETENTION_LAB_AI_DAYS", 180)
+	cfg.RetentionMCPActionDays = getEnvInt("RETENTION_MCP_ACTION_DAYS", 180)
+	cfg.RetentionMCPConnectionDays = getEnvInt("RETENTION_MCP_CONNECTION_DAYS", 90)
+	cfg.RetentionPublicCandidatesDays = getEnvInt("RETENTION_PUBLIC_CANDIDATES_DAYS", 180)
+
 	cfg.MCPPublicURL = getEnvDefault("MCP_PUBLIC_URL", cfg.BackendURL)
+
+	cfg.TurnstileSecretKey = os.Getenv("TURNSTILE_SECRET_KEY")
+	cfg.CaptchaBypassSecret = os.Getenv("CAPTCHA_BYPASS_SECRET")
+	if cfg.IsProd() && cfg.TurnstileSecretKey == "" {
+		slog.Error("TURNSTILE_SECRET_KEY is required outside development (signup/login/forgot-password CAPTCHA)")
+		os.Exit(1)
+	}
 
 	cfg.StripeSecretKey = os.Getenv("STRIPE_SECRET_KEY")
 	cfg.StripePublishableKey = os.Getenv("STRIPE_PUBLISHABLE_KEY")

@@ -5,11 +5,6 @@ interface Props {
   roleCount: number;
 }
 
-function habitStreakDays(overview: UserOverview): number {
-  const activePeriods = new Set(overview.habit_month.completions.filter((c) => c.count > 0).map((c) => c.period_start));
-  return activePeriods.size;
-}
-
 function StatTile({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="card-base p-4">
@@ -34,16 +29,10 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
 }
 
 export function OverviewTab({ overview, roleCount }: Props) {
-  const mistakesOpen = overview.mistakes.filter((m) => m.resolved_at === null).length;
-
   return (
     <div className="space-y-6">
       <div className="grid-stats">
         <StatTile label="Courses enrolled" value={overview.enrollments.length} />
-        <StatTile label="Sheets tracked" value={overview.sheets.length} />
-        <StatTile label="Open mistakes" value={mistakesOpen} />
-        <StatTile label="Active habit days" value={habitStreakDays(overview)} />
-        <StatTile label="Journal entries" value={overview.journal_entries.length} />
         <StatTile label="RBAC roles" value={roleCount} />
       </div>
 

@@ -772,6 +772,75 @@ func (r *AdminRepo) SetUserStatus(ctx context.Context, userID, orgID, status, re
 	})
 }
 
+// orgRoleRank orders org_members.role for the "may the actor manage the
+// target" check. Mirrors orgs.roleRank (authz cannot import orgs).
+var orgRoleRank = map[string]int{"owner": 5, "admin": 4, "mentor": 3, "instructor": 2, "learner": 1}
+
+// ErrOutranked is returned when a tenant admin tries to act on a member who is
+// at or above their own org role.
+var ErrOutranked = errors.New("forbidden: you cannot manage a member at or above your own role")
+
+// IsSuperAdmin reports whether userID is a platform super_admin.
+func (r *AdminRepo) IsSuperAdmin(ctx context.Context, userID string) (bool, error) {
+	var ok bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM users WHERE id = $1 AND platform_role = 'super_admin')`, userID,
+	).Scan(&ok)
+	if err != nil {
+		return false, fmt.Errorf("admin: check super admin: %w", err)
+	}
+	return ok, nil
+}
+
+// SetMemberStatus suspends or restores userID's membership of orgID only: the
+// account itself, and every other org the user belongs to, are untouched. A
+// tenant admin may act only on members strictly below their own org role. The
+// user's session_version is bumped on a real change so live tokens re-check
+// membership on their next request. Returns the previous membership status
+// ("active" or "suspended").
+func (r *AdminRepo) SetMemberStatus(ctx context.Context, actorID, userID, orgID, status string) (string, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return "", fmt.Errorf("admin: set member status: begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	var actorRole, targetRole, previous string
+	if err := tx.QueryRow(ctx,
+		`SELECT role FROM org_members WHERE org_id = $1 AND user_id = $2 AND status = 'active'`, orgID, actorID,
+	).Scan(&actorRole); err != nil {
+		return "", fmt.Errorf("admin: set member status: actor is not an active member: %w", err)
+	}
+	if err := tx.QueryRow(ctx,
+		`SELECT role, status FROM org_members WHERE org_id = $1 AND user_id = $2 AND status IN ('active','suspended') FOR UPDATE`,
+		orgID, userID,
+	).Scan(&targetRole, &previous); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", fmt.Errorf("admin: set member status: user not found in this organization")
+		}
+		return "", fmt.Errorf("admin: set member status: lookup: %w", err)
+	}
+	if actorRole != "owner" && orgRoleRank[actorRole] <= orgRoleRank[targetRole] {
+		return "", ErrOutranked
+	}
+
+	if previous != status {
+		if _, err := tx.Exec(ctx,
+			`UPDATE org_members SET status = $3, updated_at = now() WHERE org_id = $1 AND user_id = $2`,
+			orgID, userID, status,
+		); err != nil {
+			return "", fmt.Errorf("admin: set member status: update: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `UPDATE users SET session_version = session_version + 1 WHERE id = $1`, userID); err != nil {
+			return "", fmt.Errorf("admin: set member status: bump session_version: %w", err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return "", fmt.Errorf("admin: set member status: commit: %w", err)
+	}
+	return previous, nil
+}
+
 // SetUserStatusUnscoped locks or restores a platform account with no
 // org-membership check. Only for genuinely tenant-less callers acting on
 // their own account — currently self-service account deletion

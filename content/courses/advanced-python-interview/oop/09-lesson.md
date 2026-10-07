@@ -7,7 +7,7 @@ section_title: "Object-Oriented Python"
 section_position: 3
 section_group: Fundamentals
 title: "`@staticmethod` and `@classmethod`"
-position: 8
+position: 7
 estimated_minutes: 12
 source: [fifty-advanced-python-concepts/23.staticmethods_and_classmethods.py, fifty-advanced-python-concepts/handbook/50_main_concepts_11_25.md]
 ---

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { captchaBypassHeaders } from "@/lib/server/captcha";
 import { apiAction, type ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 import type { BatchInviteResult } from "@/lib/orgs/types";
@@ -75,7 +76,7 @@ export async function setAccountStatusAction(
 // Re-triggers the same self-service "forgot password" email flow on the
 // user's behalf — the admin never sees or sets the password itself.
 export async function resetUserPasswordAction(email: string): Promise<ActionResult> {
-  return apiAction("POST", "/api/auth/forgot-password", { email });
+  return apiAction("POST", "/api/auth/forgot-password", { email }, captchaBypassHeaders());
 }
 
 // ─── Org role / invites (MANAGE_ORG) ───────────────────────────────────────

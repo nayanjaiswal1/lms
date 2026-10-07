@@ -106,6 +106,12 @@ func (s *Service) StartPackCheckout(ctx context.Context, orgID, userID, packID, 
 	}, nil
 }
 
+// permanentErr marks a confirmation failure retrying cannot fix; the webhook
+// owner (mentoring) acks it instead of asking the gateway to redeliver.
+type permanentErr struct{ error }
+
+func (permanentErr) Permanent() bool { return true }
+
 // ConfirmPackPurchase implements mentoring.PackConfirmer — the pack half of
 // payment-webhook handling. The mentoring package owns the single webhook
 // endpoint (one gateway, one URL) and calls this when a delivery's
@@ -132,7 +138,7 @@ func (s *Service) ConfirmPackPurchase(ctx context.Context, providerName, provide
 		slog.Error("sessions: pack webhook amount/currency mismatch, purchase left pending",
 			"purchase_id", purchase.ID, "expected_cents", purchase.AmountCents,
 			"expected_currency", purchase.Currency, "got_cents", amountCents, "got_currency", currency)
-		return true, fmt.Errorf("sessions: pack purchase %s: amount/currency mismatch", purchase.ID)
+		return true, permanentErr{fmt.Errorf("sessions: pack purchase %s: amount/currency mismatch", purchase.ID)}
 	}
 
 	transitioned, err := s.repo.CompletePurchase(ctx, purchase.ID, paymentRef)
@@ -144,6 +150,68 @@ func (s *Service) ConfirmPackPurchase(ctx context.Context, providerName, provide
 		slog.Info("sessions: pack purchase already completed, webhook ignored", "purchase_id", purchase.ID)
 	}
 	return true, nil
+}
+
+// ReversePackPurchase implements mentoring.PackConfirmer for refund/dispute
+// events: a full reversal claws the pack's unspent credits back. A partial
+// refund (0 < amountCents < price) is left alone; 0 means a dispute (full).
+func (s *Service) ReversePackPurchase(ctx context.Context, providerName, paymentRef string, amountCents int) (bool, error) {
+	purchase, err := s.repo.GetPurchaseByPaymentRef(ctx, providerName, paymentRef)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	if amountCents > 0 && amountCents < purchase.AmountCents {
+		return true, nil
+	}
+	return true, s.reverse(ctx, purchase)
+}
+
+func (s *Service) reverse(ctx context.Context, p PackPurchase) error {
+	out, err := s.repo.ReversePurchase(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+	if out.Shortfall > 0 {
+		slog.Warn("sessions: pack reversal could not claw back spent credits",
+			"purchase_id", p.ID, "user_id", p.UserID, "clawed_back", out.ClawedBack, "shortfall", out.Shortfall)
+	}
+	return nil
+}
+
+// RefundPack is the admin refund of a completed credit pack: persist the
+// 'refunding' intent, call the gateway, then reverse the credits. Retryable:
+// a 'refunding' purchase (crash or gateway error mid-way) can be re-run.
+func (s *Service) RefundPack(ctx context.Context, orgID, purchaseID string) error {
+	p, err := s.repo.GetOrgPurchase(ctx, orgID, purchaseID)
+	if err != nil {
+		return err
+	}
+	if p.Status != PurchaseStatusCompleted && p.Status != PurchaseStatusRefunding {
+		return fmt.Errorf("%w: only a completed purchase can be refunded", ErrInvalid)
+	}
+	provider, err := s.providers.Get(p.Provider)
+	if err != nil {
+		return err
+	}
+	if p.PaymentRef == "" && p.AmountCents > 0 {
+		return fmt.Errorf("%w: purchase has no payment reference to refund", ErrInvalid)
+	}
+	ok, err := s.repo.MarkPurchaseRefunding(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("%w: only a completed purchase can be refunded", ErrInvalid)
+	}
+	if p.AmountCents > 0 {
+		if err := provider.Refund(ctx, p.PaymentRef, p.AmountCents); err != nil {
+			return err
+		}
+	}
+	return s.reverse(ctx, p)
 }
 
 // ListPacks returns the org's credit packs.

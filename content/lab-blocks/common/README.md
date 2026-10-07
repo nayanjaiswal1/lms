@@ -18,6 +18,7 @@ the kind; probes never leak expected values.
 | `check.latency-while` | L | `background{}`, `probe{path,samples,p95_ms_max}`, `start_delay_ms` |
 | `check.http-contract` | H | `path`, `expect_status`, `expect_headers{}`, `forbid_headers{}`, `expect_cookies{}`, `json_schema{}` |
 | `check.pytest-node` | T | `paths[]`, `args[]`, `timeout` |
+| `check.vitest-node` | J | `paths[]`, `args[]`, `env{}` (e.g. `TZ`), `timeout`; React labs, run by a grader-owned vitest config (`@/` = workspace src, `@mf/harness`) |
 
 Probe tips for dj-shop: users authenticate with `Authorization: Token mf_tok_<name>` (`staff`, `alice`, `bob`, `carol`, `dan`,
 `erin`, `frank`); CSRF flows use `GET /api/csrf/` + `save`; `pg_stat_statements` counts include the payments stub's INSERT into

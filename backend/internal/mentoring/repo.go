@@ -345,9 +345,9 @@ func (r *Repo) GetPurchase(ctx context.Context, orgID, id string) (Purchase, err
 func (r *Repo) MarkPurchaseRefundedTx(ctx context.Context, tx pgx.Tx, id string) (Purchase, bool, error) {
 	p, err := scanPurchase(tx.QueryRow(ctx,
 		`UPDATE purchases SET status = $2, updated_at = now()
-		 WHERE id = $1 AND status = $3
+		 WHERE id = $1 AND status IN ($3, $4)
 		 RETURNING `+purchaseColumns,
-		id, PurchaseStatusRefunded, PurchaseStatusCompleted,
+		id, PurchaseStatusRefunded, PurchaseStatusCompleted, PurchaseStatusRefunding,
 	))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -358,26 +358,40 @@ func (r *Repo) MarkPurchaseRefundedTx(ctx context.Context, tx pgx.Tx, id string)
 	return p, true, nil
 }
 
-// InsertPaymentEvent records a webhook delivery for dedup + audit.
-// UNIQUE(provider, event_id) makes this the actual replay guard: inserted
-// reports false when a gateway redelivers an event we've already seen
-// (Stripe retries for up to 72h; both gateways may redeliver), which the
-// caller treats as a no-op, not an error.
-func (r *Repo) InsertPaymentEvent(ctx context.Context, provider, eventID, eventType, providerRef string, purchaseID *string, payload []byte) (id string, inserted bool, err error) {
+// MarkPurchaseRefunding persists the intent to refund before the gateway call
+// (completed or already refunding -> refunding), so a crash between the
+// gateway call and the DB write leaves a visible 'refunding' row to resolve
+// instead of a refunded charge on a still-'completed' purchase. Returns false
+// when the purchase is in neither state.
+func (r *Repo) MarkPurchaseRefunding(ctx context.Context, id string) (bool, error) {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE purchases SET status = $2, updated_at = now() WHERE id = $1 AND status IN ($3, $2)`,
+		id, PurchaseStatusRefunding, PurchaseStatusCompleted)
+	if err != nil {
+		return false, fmt.Errorf("mentoring: mark purchase refunding: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
+// InsertPaymentEvent records a webhook delivery for audit and replay
+// protection. UNIQUE(provider, event_id) keys the row; shouldProcess is false
+// only when that event was already fully processed (processed_at set). A
+// redelivery of an event whose earlier attempt failed (row exists, still
+// unprocessed) returns shouldProcess=true so the gateway's retry actually
+// re-runs the work instead of being swallowed as a duplicate.
+func (r *Repo) InsertPaymentEvent(ctx context.Context, provider, eventID, eventType, providerRef string, purchaseID *string, payload []byte) (id string, shouldProcess bool, err error) {
+	var processed bool
 	err = r.pool.QueryRow(ctx,
 		`INSERT INTO payment_events (provider, event_id, event_type, provider_ref, purchase_id, payload)
 		 VALUES ($1,$2,$3,$4,$5,$6)
-		 ON CONFLICT (provider, event_id) DO NOTHING
-		 RETURNING id`,
+		 ON CONFLICT (provider, event_id) DO UPDATE SET event_id = payment_events.event_id
+		 RETURNING id, processed_at IS NOT NULL`,
 		provider, eventID, eventType, providerRef, purchaseID, payload,
-	).Scan(&id)
+	).Scan(&id, &processed)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return "", false, nil
-		}
 		return "", false, fmt.Errorf("mentoring: insert payment event: %w", err)
 	}
-	return id, true, nil
+	return id, !processed, nil
 }
 
 // MarkPaymentEventProcessedTx marks a payment_events row processed within
@@ -403,6 +417,89 @@ func (r *Repo) MarkPaymentEventError(ctx context.Context, eventRowID, msg string
 		return fmt.Errorf("mentoring: mark payment event error: %w", err)
 	}
 	return nil
+}
+
+// RecordPaymentEventFailure stores why processing failed but leaves
+// processed_at NULL, so the gateway's redelivery (or the reconciliation
+// sweep's alert) still sees the event as outstanding.
+func (r *Repo) RecordPaymentEventFailure(ctx context.Context, eventRowID, msg string) error {
+	_, err := r.pool.Exec(ctx, `UPDATE payment_events SET error = $2 WHERE id = $1`, eventRowID, msg)
+	if err != nil {
+		return fmt.Errorf("mentoring: record payment event failure: %w", err)
+	}
+	return nil
+}
+
+// GetPurchaseByPaymentRef finds the course purchase a charge/payment id
+// (refund handle) belongs to — how refund and dispute events are matched.
+func (r *Repo) GetPurchaseByPaymentRef(ctx context.Context, provider, paymentRef string) (Purchase, error) {
+	p, err := scanPurchase(r.pool.QueryRow(ctx,
+		`SELECT `+purchaseColumns+` FROM purchases WHERE provider = $1 AND payment_ref = $2 AND product_type = 'course'`,
+		provider, paymentRef,
+	))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Purchase{}, ErrNotFound
+		}
+		return Purchase{}, fmt.Errorf("mentoring: get purchase by payment ref: %w", err)
+	}
+	return p, nil
+}
+
+// StalePendingPurchase and StuckPaymentEvent are what the reconciliation
+// sweep reports on.
+type StalePendingPurchase struct {
+	ID, Provider, ProviderRef string
+	PurchasedAt               time.Time
+}
+type StuckPaymentEvent struct {
+	ID, Provider, EventID, EventType string
+	Error                            *string
+	ReceivedAt                       time.Time
+}
+
+// ListStalePendingPurchases returns purchases still pending after olderThan
+// (course and pack products both live in purchases).
+func (r *Repo) ListStalePendingPurchases(ctx context.Context, olderThan time.Duration) ([]StalePendingPurchase, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, provider, provider_ref, purchased_at FROM purchases
+		 WHERE status = 'pending' AND purchased_at < now() - make_interval(secs => $1)
+		 ORDER BY purchased_at LIMIT 500`, olderThan.Seconds())
+	if err != nil {
+		return nil, fmt.Errorf("mentoring: list stale pending purchases: %w", err)
+	}
+	defer rows.Close()
+	var out []StalePendingPurchase
+	for rows.Next() {
+		var p StalePendingPurchase
+		if err := rows.Scan(&p.ID, &p.Provider, &p.ProviderRef, &p.PurchasedAt); err != nil {
+			return nil, fmt.Errorf("mentoring: scan stale purchase: %w", err)
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// ListStuckPaymentEvents returns events received more than olderThan ago that
+// never reached processed_at — a failed confirm no redelivery fixed.
+func (r *Repo) ListStuckPaymentEvents(ctx context.Context, olderThan time.Duration) ([]StuckPaymentEvent, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, provider, event_id, event_type, error, received_at FROM payment_events
+		 WHERE processed_at IS NULL AND received_at < now() - make_interval(secs => $1)
+		 ORDER BY received_at LIMIT 500`, olderThan.Seconds())
+	if err != nil {
+		return nil, fmt.Errorf("mentoring: list stuck payment events: %w", err)
+	}
+	defer rows.Close()
+	var out []StuckPaymentEvent
+	for rows.Next() {
+		var e StuckPaymentEvent
+		if err := rows.Scan(&e.ID, &e.Provider, &e.EventID, &e.EventType, &e.Error, &e.ReceivedAt); err != nil {
+			return nil, fmt.Errorf("mentoring: scan stuck event: %w", err)
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
 }
 
 // MarkPaymentEventProcessed marks a payment_events row processed with no

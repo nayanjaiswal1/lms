@@ -82,6 +82,23 @@ func (s *Service) GetMyProfile(ctx context.Context, userID string) (*Profile, er
 	return prof, nil
 }
 
+// ─── SetLastPage ──────────────────────────────────────────────────────────────
+
+// ErrInvalidLastPage is returned for a path that is not a same-origin app path.
+var ErrInvalidLastPage = errors.New("profile: last page must be a relative path of at most 512 characters")
+
+// SetLastPage records the last app page the user viewed. Mirrors the
+// user_profiles_last_page_check DB constraint.
+func (s *Service) SetLastPage(ctx context.Context, userID, path string) error {
+	if !strings.HasPrefix(path, "/") || strings.HasPrefix(path, "//") || len(path) > 512 || strings.ContainsAny(path, "\\\r\n") {
+		return ErrInvalidLastPage
+	}
+	if err := s.repo.SetLastPage(ctx, userID, path); err != nil {
+		return fmt.Errorf("profile: set last page: %w", err)
+	}
+	return nil
+}
+
 // ─── UpdateProfile ────────────────────────────────────────────────────────────
 
 // UpdateProfile validates input, writes the profile (and optionally social
@@ -424,13 +441,22 @@ func (s *Service) GetPublicProfile(ctx context.Context, slug string) (*PublicPro
 // ─── GetUserProfile ───────────────────────────────────────────────────────────
 
 // GetUserProfile returns the full profile for targetUserID. The requester must
-// be the target themselves, a super_admin, or an org admin.
-func (s *Service) GetUserProfile(ctx context.Context, requesterUserID, requesterPlatformRole, requesterOrgRole, targetUserID string) (*Profile, error) {
-	if requesterUserID == targetUserID {
+// be the target themselves, a super_admin, or an admin of an org the target is
+// an active member of (orgID is the requester's org).
+func (s *Service) GetUserProfile(ctx context.Context, requesterUserID, requesterPlatformRole, requesterOrgRole, orgID, targetUserID string) (*Profile, error) {
+	if requesterUserID == targetUserID || requesterPlatformRole == "super_admin" {
 		return s.GetMyProfile(ctx, targetUserID)
 	}
-	if requesterPlatformRole == "super_admin" || requesterOrgRole == "admin" {
-		return s.GetMyProfile(ctx, targetUserID)
+	if requesterOrgRole == "admin" {
+		member, err := s.repo.IsActiveOrgMember(ctx, orgID, targetUserID)
+		if err != nil {
+			return nil, fmt.Errorf("profile: check target membership: %w", err)
+		}
+		if member {
+			return s.GetMyProfile(ctx, targetUserID)
+		}
+		// Same answer as a missing user so org admins cannot probe other tenants.
+		return nil, ErrNotFound
 	}
 	return nil, ErrForbidden
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
+	"github.com/mindforge/backend/internal/authevents"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -293,6 +294,8 @@ func (h *Handler) HandleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	authevents.Emit(r.Context(), h.pool, r, claims.UserID, authevents.PasskeyAdded)
+	h.notifyUserSecurityChange(r.Context(), claims.UserID, "a passkey was added")
 	httputil.WriteJSON(w, http.StatusCreated, map[string]any{
 		"credential": map[string]any{
 			"id":       credID,
@@ -468,6 +471,8 @@ func (h *Handler) HandleWebAuthnCredentialDelete(w http.ResponseWriter, r *http.
 		return
 	}
 
+	authevents.Emit(r.Context(), h.pool, r, claims.UserID, authevents.PasskeyRemoved)
+	h.notifyUserSecurityChange(r.Context(), claims.UserID, "a passkey was removed")
 	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Passkey removed."})
 }
 
@@ -662,4 +667,15 @@ func (h *Handler) HandleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Reque
 	}
 
 	httputil.WriteJSON(w, http.StatusOK, body)
+}
+
+// notifyUserSecurityChange looks up the user's email and sends a security
+// notice in the background.
+func (h *Handler) notifyUserSecurityChange(ctx context.Context, userID, change string) {
+	var email string
+	if err := h.pool.QueryRow(ctx, `SELECT email FROM users WHERE id = $1`, userID).Scan(&email); err != nil {
+		slog.Error("auth: security notice lookup", "error", err)
+		return
+	}
+	h.notifySecurityChange(email, change)
 }

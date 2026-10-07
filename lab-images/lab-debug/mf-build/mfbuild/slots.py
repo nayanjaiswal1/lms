@@ -3,7 +3,7 @@
 Region slots are comment-delimited blocks that stay valid source before
 rendering:
 
-    # mf:slot orders.list.queryset          (also // and <!-- --> comment styles)
+    # mf:slot orders.list.queryset          (also //, <!-- --> and, inside JSX, {/* ... */})
     orders = Order.objects.select_related("customer")
     # mf:endslot
 
@@ -23,8 +23,8 @@ import textwrap
 from .errors import BuildError
 
 REGION_START = re.compile(
-    r"^(?P<indent>[ \t]*)(?:#|//|<!--|/\*)\s*mf:slot\s+(?P<name>[\w.\-]+)\s*(?:-->|\*/)?\s*$")
-REGION_END = re.compile(r"^[ \t]*(?:#|//|<!--|/\*)\s*mf:endslot\s*(?:-->|\*/)?\s*$")
+    r"^(?P<indent>[ \t]*)\{?\s*(?:#|//|<!--|/\*)\s*mf:slot\s+(?P<name>[\w.\-]+)\s*(?:-->|\*/)?\s*\}?\s*$")
+REGION_END = re.compile(r"^[ \t]*\{?\s*(?:#|//|<!--|/\*)\s*mf:endslot\s*(?:-->|\*/)?\s*\}?\s*$")
 VALUE = re.compile(r"@@mf:value\s+(?P<name>[\w.\-]+)=(?P<default>.*?)@@")
 LEFTOVER = re.compile(r"mf:(?:slot|endslot|value)\b|@@mf:")
 

@@ -2,8 +2,11 @@ package assessment
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
+	"net/mail"
 	"strings"
+	"time"
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
@@ -39,6 +42,40 @@ func (h *Handler) GetPublicTest(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+const (
+	maxPublicStartBytes  = 4 << 10
+	maxPublicSubmitBytes = 1 << 20
+	maxPublicNameLen     = 120
+	maxPublicEmailLen    = 254
+	maxPublicPhoneLen    = 32
+	// publicSubmitGrace absorbs network latency and clock skew between the
+	// candidate's last click and the server deadline.
+	publicSubmitGrace = 2 * time.Minute
+	// publicTokenTTLAfterEnd is how long after the attempt's time limit the
+	// token still opens the result page.
+	publicTokenTTLAfterEnd = 24 * time.Hour
+	attemptTokenHeader     = "X-Attempt-Token"
+)
+
+// attemptToken reads the candidate token from the X-Attempt-Token header. The
+// legacy URL-path form is still accepted for one release and logged.
+func attemptToken(r *http.Request) string {
+	if t := strings.TrimSpace(r.Header.Get(attemptTokenHeader)); t != "" {
+		return t
+	}
+	if t := httputil.URLParam(r, "token"); t != "" {
+		slog.Warn("deprecated public attempt token in URL path; send X-Attempt-Token", "path_prefix", "/api/p/")
+		return t
+	}
+	return ""
+}
+
+// tokenExpired reports whether the attempt token has outlived started_at +
+// duration + 24h.
+func tokenExpired(att PublicAttempt, a Assessment) bool {
+	return time.Now().After(att.StartedAt.Add(time.Duration(a.DurationMinutes)*time.Minute + publicTokenTTLAfterEnd))
+}
+
 type startPublicAttemptRequest struct {
 	Name  string  `json:"name"`
 	Email string  `json:"email"`
@@ -49,17 +86,14 @@ type startPublicAttemptRequest struct {
 // POST /api/p/{code}/start
 func (h *Handler) StartPublicAttempt(w http.ResponseWriter, r *http.Request) {
 	code := httputil.URLParam(r, "code")
+	r.Body = http.MaxBytesReader(w, r.Body, maxPublicStartBytes)
 	var req startPublicAttemptRequest
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	fields := map[string]string{}
-	if strings.TrimSpace(req.Name) == "" {
-		fields["name"] = "Name is required."
-	}
-	if strings.TrimSpace(req.Email) == "" {
-		fields["email"] = "Email is required."
-	}
+	req.Name = strings.TrimSpace(req.Name)
+	req.Email = strings.TrimSpace(req.Email)
+	fields := validatePublicCandidate(req)
 	if len(fields) > 0 {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
@@ -71,7 +105,12 @@ func (h *Handler) StartPublicAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	att, err := h.repo.CreatePublicAttempt(r.Context(), a.ID, req.Name, req.Email, req.Phone)
+	if err := assertOpen(a); err != nil {
+		writeDomainError(w, err)
+		return
+	}
+
+	att, err := h.repo.CreatePublicAttempt(r.Context(), a.ID, req.Name, req.Email, req.Phone, a.MaxAttempts)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -109,11 +148,12 @@ type submitPublicAttemptRequest struct {
 }
 
 // SubmitPublicAttempt grades MCQ answers and marks the session complete.
-// POST /api/p/{code}/submit/{token}
+// POST /api/p/{code}/submit with X-Attempt-Token (legacy: /submit/{token})
 func (h *Handler) SubmitPublicAttempt(w http.ResponseWriter, r *http.Request) {
 	code := httputil.URLParam(r, "code")
-	token := httputil.URLParam(r, "token")
+	token := attemptToken(r)
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxPublicSubmitBytes)
 	var req submitPublicAttemptRequest
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
@@ -122,6 +162,21 @@ func (h *Handler) SubmitPublicAttempt(w http.ResponseWriter, r *http.Request) {
 	a, err := h.repo.GetAssessmentByShortCode(r.Context(), code)
 	if err != nil {
 		writeDomainError(w, err)
+		return
+	}
+	pending, err := h.repo.GetPublicAttemptByToken(r.Context(), token)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	// The token must belong to this test (it is otherwise valid for any code),
+	// and the server enforces the time limit the client only displays.
+	if pending.AssessmentID != a.ID || tokenExpired(pending, a) {
+		writeDomainError(w, ErrNotFound)
+		return
+	}
+	if pending.Status != "submitted" && time.Now().After(pending.StartedAt.Add(time.Duration(a.DurationMinutes)*time.Minute+publicSubmitGrace)) {
+		writeDomainError(w, ErrAttemptExpired)
 		return
 	}
 	questions, err := h.repo.ListAssessmentQuestions(r.Context(), a.ID, AssessmentQuestionFilter{})
@@ -145,12 +200,20 @@ func (h *Handler) SubmitPublicAttempt(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetPublicResult returns the scored result for a candidate session.
-// GET /api/p/{code}/result/{token}
+// GET /api/p/{code}/result with X-Attempt-Token (legacy: /result/{token})
 func (h *Handler) GetPublicResult(w http.ResponseWriter, r *http.Request) {
-	token := httputil.URLParam(r, "token")
-	att, err := h.repo.GetPublicAttemptByToken(r.Context(), token)
+	a, err := h.repo.GetAssessmentByShortCode(r.Context(), httputil.URLParam(r, "code"))
 	if err != nil {
 		writeDomainError(w, err)
+		return
+	}
+	att, err := h.repo.GetPublicAttemptByToken(r.Context(), attemptToken(r))
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	if att.AssessmentID != a.ID || tokenExpired(att, a) {
+		writeDomainError(w, ErrNotFound)
 		return
 	}
 	if att.Status != "submitted" {
@@ -166,6 +229,26 @@ func (h *Handler) GetPublicResult(w http.ResponseWriter, r *http.Request) {
 		"duration_sec": att.DurationSec,
 		"submitted_at": att.SubmittedAt,
 	})
+}
+
+// validatePublicCandidate bounds and checks the candidate's self-reported
+// identity before it is stored as PII.
+func validatePublicCandidate(req startPublicAttemptRequest) map[string]string {
+	fields := map[string]string{}
+	if req.Name == "" {
+		fields["name"] = "Name is required."
+	} else if len(req.Name) > maxPublicNameLen {
+		fields["name"] = "Name is too long."
+	}
+	if req.Email == "" {
+		fields["email"] = "Email is required."
+	} else if addr, err := mail.ParseAddress(req.Email); err != nil || addr.Address != req.Email || len(req.Email) > maxPublicEmailLen {
+		fields["email"] = "Enter a valid email address."
+	}
+	if req.Phone != nil && len(*req.Phone) > maxPublicPhoneLen {
+		fields["phone"] = "Phone number is too long."
+	}
+	return fields
 }
 
 type overridePublicAttemptRequest struct {

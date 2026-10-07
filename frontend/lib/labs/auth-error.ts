@@ -1,10 +1,4 @@
-/** Shared auth-error sniffing for lab server-action failures. */
-export function isLabAuthError(msg: string): boolean {
-  const lower = msg.toLowerCase()
-  return (
-    lower.includes("invalid or expired") ||
-    lower.includes("unauthorized") ||
-    lower.includes("not authenticated") ||
-    lower.includes("session expired")
-  )
+/** A lab server action failed because the session is gone (HTTP 401), not because of the lab. */
+export function isLabAuthError(res: { status?: number }): boolean {
+  return res.status === 401
 }

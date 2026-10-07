@@ -107,6 +107,7 @@ Select 2+ pinned tabs → "Combine" → name prompt → new sheet that is the un
 **Not yet implemented:** visibility levels, subscriber count, and per-sheet sharing controls. Current implementation:
 - All system-seeded sheets are discoverable in the browser
 - Custom sheets are personal (owner-only access until sharing implemented)
+- Visibility (TEN-17): system sheets are public. A custom sheet is previewable/subscribable only by its owner/subscribers or users sharing an active org with its creator (`canViewSQL` in `sheets/repo.go`, used by `GetSheetPreview` and `Subscribe`, so HTTP and MCP share it). Anyone else gets 404, so a leaked slug/UUID grants nothing cross-org.
 
 ---
 

@@ -8,7 +8,7 @@ section_position: 1
 section_group: Fundamentals
 title: "Lambdas, Return Values, Type Hints & Pure Functions"
 position: 2
-estimated_minutes: 11
+estimated_minutes: 23
 source: ["knowledge/backend/python/python-functions.md"]
 ---
 The last pieces of function fundamentals: when a lambda is enough, what a function actually hands back, what type hints do and do not do, and how to write functions that are easy to test.
@@ -214,129 +214,75 @@ print(double_in_place(a), a)
 }
 ```
 
-## Original notes
+## Not Returning Dicts & Lists from Functions
 
-Your original wording from the Notes vault, kept verbatim for reference.
+Python passes arguments by **object reference** — a variable never holds a copy of a list or dict, it holds a reference to the same object everyone else who has that variable also points at. That has a direct, easy-to-miss consequence: a function that mutates a list or dict argument doesn't need to `return` it for the caller to see the change.
 
-##### Return statement
+### The pattern
 
-```text
-def add(a, b):
-    return a + b
+```python
+def add_n_copies(items, n):
+    for i in range(n):
+        items.append(n)
+    # no return statement at all
 
-def min_max(numbers):
-    return min(numbers), max(numbers)  # multiple return values as tuple
-
-def divide(a, b):
-    if b == 0:
-        return None  # early return
-    return a / b
-
-def greet(name):
-    print(f"Hello, {name}")
-    # no return statement -> implicitly returns None
-
-def make_multiplier(n):
-    def multiply(x):
-        return x * n
-    return multiply  # returning a function
-
-double = make_multiplier(2)
-print(double(5))  # 10
+my_list = []
+add_n_copies(my_list, 5)
+print(my_list)  # [5, 5, 5, 5, 5] — mutated in place, no return needed
 ```
 
+`items` inside the function and `my_list` outside it are the same object — `id(items) == id(my_list)` is `True` for the whole call. `.append()` mutates that shared object, so the caller's variable reflects the change the instant the function returns (or even before, if another piece of code peeked at `my_list` mid-call from another thread).
 
-##### Lambda functions
+### Where this bites people
 
-```text
-square = lambda x: x ** 2
-print(square(5))  # 25
+The mirror image of this rule is the actual interview trap: relying on mutation when you *meant* to return a new value.
 
-# with sorted()
-sorted_students = sorted(students, key=lambda s: s["grade"])
-
-# with map()
-squared = list(map(lambda x: x**2, numbers))
-
-# with filter()
-evens = list(filter(lambda x: x % 2 == 0, numbers))
-```
-
-Limitations: single expression only, no statements (no `if`/`while`/`for` as statements), less readable for complex logic, can't contain an explicit `return`.
-
-
-##### Type hints and docstrings
-
-```text
-def calculate_area(length: float, width: float) -> float:
-    """Calculate the area of a rectangle.
-
-    Args:
-        length: The length of the rectangle.
-        width: The width of the rectangle.
-
-    Returns:
-        The area of the rectangle.
-
-    Raises:
-        ValueError: If length or width is negative.
-    """
-    if length < 0 or width < 0:
-        raise ValueError("Dimensions must be positive")
-    return length * width
-```
-
-Python does **not** enforce type hints at runtime — they're for IDEs, static checkers (mypy, pyright), and documentation only:
-
-```text
-def add(a: int, b: int) -> int:
-    return a + b
-
-result = add("hello", "world")  # "helloworld" — runs fine, no TypeError
-# mypy would flag: Argument 1 to "add" has incompatible type "str"; expected "int"
-```
-
-
-##### Common patterns
-
-**Guard clauses (early returns)** instead of deeply nested `if`s:
-
-```text
-def process_user(user):
-    if user is None:
-        return None
-    if not user.is_active:
-        return None
-    if not user.has_permission:
-        return None
-    return do_something()
-```
-
-**Factory pattern:**
-
-```text
-def create_validator(min_val, max_val):
-    def validate(value):
-        return min_val <= value <= max_val
-    return validate
-
-validate_age = create_validator(0, 120)
-```
-
-**Pure functions vs side effects:**
-
-```text
-# BAD - mutates the input
-def double_list(numbers):
-    for i in range(len(numbers)):
-        numbers[i] *= 2
+```python
+def broken_scale(numbers, factor):
+    numbers = [n * factor for n in numbers]  # rebinds the LOCAL name only
     return numbers
 
-# GOOD - returns a new list, leaves input untouched
-def double_list(numbers):
-    return [n * 2 for n in numbers]
+original = [1, 2, 3]
+result = broken_scale(original, 10)
+print(original)  # [1, 2, 3] — untouched, because the function rebound `numbers`
+print(result)     # [30, 20 ,10]... [10, 20, 30] — the new list, via the return value
 ```
 
-**Argument order checklist:** positional-only (before `/`) → regular positional/keyword → `*args` → keyword-only → `**kwargs`.
+`numbers = [...]` inside the function rebinds the local name `numbers` to a brand-new list — it does not touch the object `original` still points to. This is the same reference semantics as the mutation example above, just applied to reassignment instead of `.append()`. The rule that falls out of both examples: if a function **mutates** its argument in place (`.append`, `.update`, `[:] = `, `del items[i]`), the caller sees it with no `return` needed; if a function **rebinds** the parameter name to a new object, the caller sees nothing unless the function returns it.
 
-**Common mistakes to avoid:** forgetting the parentheses when calling; mutable default arguments; too many parameters (more than ~5 usually means refactor); mixing side effects with return values; positional arguments after keyword arguments; undocumented complex functions; functions doing multiple unrelated things.
+Being explicit about which one you're doing — and returning a new object rather than silently mutating an argument the caller didn't expect to change — is usually the more maintainable choice, even though Python allows either.
+
+### Knowledge check
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "internals-no-return-mutable-q1",
+      "type": "mcq",
+      "prompt": "A function does `items.append(n)` on its list argument with no return statement. Does the caller see the change?",
+      "options": [
+        { "id": "a", "text": "No, lists are always copied into functions" },
+        { "id": "b", "text": "Yes — the parameter and the caller's variable reference the same list object, so mutating it in place is visible without returning anything" },
+        { "id": "c", "text": "Only if the function is decorated with @mutates" },
+        { "id": "d", "text": "Only in Python 2, not Python 3" }
+      ],
+      "correct": "b",
+      "explanation": "Python passes object references. items and the caller's list are the same object, so in-place mutation (append, update, etc.) is visible to the caller immediately, with no return needed."
+    },
+    {
+      "id": "internals-no-return-mutable-q2",
+      "type": "mcq",
+      "prompt": "Inside a function, `numbers = [n * 2 for n in numbers]` reassigns the parameter. Why doesn't the caller's original list change?",
+      "options": [
+        { "id": "a", "text": "List comprehensions are read-only and can't reassign" },
+        { "id": "b", "text": "Reassignment rebinds the local name to a new object — it doesn't mutate the object the caller's variable still points to" },
+        { "id": "c", "text": "Python silently copies lists on reassignment" },
+        { "id": "d", "text": "It does change, unless the function returns None" }
+      ],
+      "correct": "b",
+      "explanation": "`numbers = [...]` makes the local name point at a new list; the caller's variable still points at the original object, unaffected. Only in-place mutation (not reassignment) is visible without a return."
+    }
+  ]
+}
+```

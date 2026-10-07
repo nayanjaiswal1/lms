@@ -1,0 +1,35 @@
+kind: check
+id: check.vitest-node
+version: 1.0.0
+stack: any
+title: Hidden component tests
+summary: 'Hidden-test probe for React labs: runs vitest files shipped in the grader bundle with a grader-owned config (jsdom, shared setup, @/ alias for the workspace src, @mf/harness).'
+category: check
+skills:
+- debugging
+- verification
+- react
+params:
+  type: object
+  properties:
+    paths:
+      type: array
+      description: Test files or folders relative to the grader bundle, e.g. tests/hook_stale/timer.test.jsx.
+      items:
+        type: string
+    args:
+      type: array
+      description: Extra vitest args, e.g. [-t, countdown].
+      items:
+        type: string
+    env:
+      type: object
+      description: Extra environment for the run, e.g. {TZ} to reproduce a time zone.
+    timeout:
+      type: integer
+      description: Seconds (default 60).
+      minimum: 5
+      maximum: 85
+check:
+  probe: J
+  failure_message: A hidden test for this behavior fails.

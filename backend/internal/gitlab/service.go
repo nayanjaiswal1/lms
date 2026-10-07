@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/jobs"
+	"github.com/mindforge/backend/internal/netguard"
 	"github.com/mindforge/backend/internal/notifications"
 	"github.com/mindforge/backend/internal/secrets"
 )
@@ -289,7 +289,7 @@ func (s *Service) Disconnect(ctx context.Context, orgID, userID string) error {
 					secret = string(dec)
 				}
 			}
-			httpClient := &http.Client{Timeout: 10 * time.Second}
+			httpClient := netguard.NewHTTPClient(10 * time.Second)
 			if revokeErr := RevokeToken(ctx, httpClient, inst.BaseURL, *inst.OAuthClientID, secret, string(token)); revokeErr != nil {
 				slog.WarnContext(ctx, "gitlab: revoke token on disconnect failed (continuing with local disconnect)",
 					"org_id", orgID, "user_id", userID, "error", revokeErr)

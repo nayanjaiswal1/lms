@@ -8,6 +8,8 @@ import { Loader2 } from "lucide-react";
 
 import { registerAction, type RegisterState } from "@/app/register/actions";
 import { AuthFormError } from "@/components/auth/auth-form-error";
+import { TurnstileWidget, takeCaptchaToken } from "@/components/auth/turnstile-widget";
+import { CAPTCHA_FORM_FIELD } from "@/lib/captcha";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { FormInputField } from "@/components/ui/form-input-field";
@@ -31,17 +33,20 @@ export function RegisterForm() {
       password: "",
       confirmPassword: "",
       acceptTerms: false,
+      ageDeclared: false,
     },
     mode: "onTouched",
   });
 
-  const onSubmit = form.handleSubmit((values) => {
+  const onSubmit = form.handleSubmit((values, event) => {
     const data = new FormData();
     data.set("name", values.name);
     data.set("email", values.email);
     data.set("password", values.password);
     data.set("confirmPassword", values.confirmPassword);
     data.set("acceptTerms", String(values.acceptTerms));
+    data.set("ageDeclared", String(values.ageDeclared));
+    data.set(CAPTCHA_FORM_FIELD, takeCaptchaToken(event?.target));
     startTransition(() => formAction(data));
   });
 
@@ -114,6 +119,16 @@ export function RegisterForm() {
           name="acceptTerms"
           serverError={state.fieldErrors?.acceptTerms}
         />
+
+        <FormCheckboxField
+          control={form.control}
+          disabled={isPending}
+          label="I confirm that I am 18 years of age or older."
+          name="ageDeclared"
+          serverError={state.fieldErrors?.ageDeclared}
+        />
+
+        <TurnstileWidget />
 
         <Button className="w-full" disabled={isPending} size="lg" type="submit">
           {isPending ? (

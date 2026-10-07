@@ -673,24 +673,46 @@ func (r *Repo) GetFeedTokenHash(ctx context.Context, userID, orgID string) (stri
 	return hash, true, nil
 }
 
-// UpsertFeedTokenHash stores (replacing any existing) the feed token hash for
-// (userID, orgID).
+// feedTokenTTL bounds how long a minted feed URL stays valid; the user rotates
+// it from settings to get a fresh one.
+const feedTokenTTL = 365 * 24 * time.Hour
+
+// UpsertFeedTokenHash replaces any existing feed token for (userID, orgID)
+// with tokenHash, so a rotation revokes the previous URL.
 func (r *Repo) UpsertFeedTokenHash(ctx context.Context, userID, orgID, tokenHash string) error {
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO auth_tokens (purpose, token_hash, user_id, org_id, payload, expires_at)
-		 VALUES ('calendar_feed', $1, $2, $3, '{}'::jsonb, 'infinity'::timestamptz)
-		 ON CONFLICT (token_hash) DO UPDATE SET expires_at = 'infinity'::timestamptz`,
-		tokenHash, userID, orgID)
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("calendar: upsert feed token: %w", err)
+		return fmt.Errorf("calendar: begin feed token tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM auth_tokens WHERE purpose = 'calendar_feed' AND user_id = $1 AND org_id = $2`,
+		userID, orgID); err != nil {
+		return fmt.Errorf("calendar: revoke old feed token: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO auth_tokens (purpose, token_hash, user_id, org_id, payload, expires_at)
+		 VALUES ('calendar_feed', $1, $2, $3, '{}'::jsonb, now() + make_interval(secs => $4))`,
+		tokenHash, userID, orgID, feedTokenTTL.Seconds()); err != nil {
+		return fmt.Errorf("calendar: insert feed token: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("calendar: commit feed token: %w", err)
 	}
 	return nil
 }
 
-// ResolveFeedTokenHash returns the (userID, orgID) that own tokenHash.
+// ResolveFeedTokenHash returns the (userID, orgID) that own tokenHash. The
+// token must be unexpired and its owner must still be an active user and an
+// active member of an active org; otherwise it resolves as not found.
 func (r *Repo) ResolveFeedTokenHash(ctx context.Context, tokenHash string) (userID, orgID string, err error) {
 	err = r.pool.QueryRow(ctx,
-		`SELECT user_id, org_id FROM auth_tokens WHERE purpose = 'calendar_feed' AND token_hash = $1`,
+		`SELECT t.user_id, t.org_id
+		 FROM auth_tokens t
+		 JOIN users u ON u.id = t.user_id AND u.status = 'active'
+		 JOIN org_members om ON om.org_id = t.org_id AND om.user_id = t.user_id AND om.status = 'active'
+		 JOIN organizations o ON o.id = t.org_id AND o.status = 'active'
+		 WHERE t.purpose = 'calendar_feed' AND t.token_hash = $1 AND t.expires_at > now()`,
 		tokenHash,
 	).Scan(&userID, &orgID)
 	if errors.Is(err, pgx.ErrNoRows) {

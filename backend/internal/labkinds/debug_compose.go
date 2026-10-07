@@ -293,6 +293,9 @@ func literalAccepts(slotLit, paramType, paramLit string) bool {
 // DeriveDifficulty implements Kind (rule 8): the hardest fault, +1 for a
 // `masks` chain, +1 for two or more red herrings, clamped to the top level.
 func (DebugKind) DeriveDifficulty(r *labblock.Recipe) string {
+	if customs := r.ByKind("custom"); len(customs) > 0 {
+		return customs[0].Manifest.Difficulty
+	}
 	faults := r.ByKind("fault")
 	if len(faults) == 0 {
 		return ""

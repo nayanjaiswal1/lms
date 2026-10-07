@@ -7,10 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export const TAB_VALUES = [
   "overview",
   "courses",
-  "sheets",
-  "mistakes",
-  "habits",
-  "journal",
   "access",
   "audit",
 ] as const;

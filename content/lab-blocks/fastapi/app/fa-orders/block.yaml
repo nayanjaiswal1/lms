@@ -1,0 +1,152 @@
+kind: app
+id: fa.orders
+version: 1.0.0
+stack: fastapi
+title: Orders service (FastAPI)
+summary: Catalog, orders, a customer wallet, payments through an external provider, feature flags, staff reports, search and webhooks on FastAPI + async SQLAlchemy 2 + Alembic + PostgreSQL.
+category: app
+skills:
+- fastapi
+- sqlalchemy
+- alembic
+- postgres
+requires:
+- svc:payments-stub
+provides:
+- cap:postgres
+- cap:alembic
+- cap:async-sqlalchemy
+budget:
+  setup_seconds: 5
+  workspace_bytes: 200000
+  grader_bytes: 120000
+app:
+  language: python
+  slots:
+  - name: customers.security.verify
+    type: region
+    description: Password verification (bcrypt is CPU-bound and runs in the thread pool).
+  - name: db.session.dependency
+    type: region
+    description: The per-request session dependency body (open, yield, close).
+  - name: flags.service.lookup
+    type: region
+    description: Reading one feature flag from the database.
+  - name: main.app.factory
+    type: region
+    description: Construction of the FastAPI application object (docs and OpenAPI settings).
+  - name: orders.service.get_one
+    type: region
+    description: Fetching one order for the signed-in customer (ownership filter and eager loading).
+  - name: orders.service.list_for_customer
+    type: region
+    description: The signed-in customer's order list query with its eager loading of items and products.
+  - name: payments.client.headers
+    type: region
+    description: Request headers of a charge call (idempotency key).
+  - name: payments.client.http_client
+    type: region
+    description: Construction of the shared httpx client for the payments provider (base URL, timeouts).
+  - name: payments.router.errors
+    type: region
+    description: Mapping of payment errors to HTTP responses in the pay endpoint.
+  - name: profile.service.changes
+    type: region
+    description: The set of fields a profile update applies (partial-update semantics).
+  - name: wallet.service.apply_credit
+    type: region
+    description: Adding store credit to the balance (the read-modify-write of the balance).
+  history:
+  - message: 'orders: place orders with atomic stock reservation and an order history endpoint'
+    persona: Priya Nair <priya@shop.example.com>
+    feature: orders
+    paths:
+    - orders
+  - message: 'wallet: store credit with a transaction ledger'
+    persona: Marcus Webb <marcus@shop.example.com>
+    feature: wallet
+    paths:
+    - wallet
+  - message: 'payments: charge orders through the payments provider with retries and idempotency keys'
+    persona: Priya Nair <priya@shop.example.com>
+    feature: payments
+    paths:
+    - payments
+  - message: 'flags: staff-managed feature flags'
+    persona: Sam Okafor <sam@shop.example.com>
+    feature: flags
+    paths:
+    - flags
+  - message: 'profile: partial profile updates'
+    persona: Elena Petrov <elena@shop.example.com>
+    feature: profile
+    paths:
+    - profile
+  - message: 'search: product search by name and SKU'
+    persona: Marcus Webb <marcus@shop.example.com>
+    feature: search
+    paths:
+    - search
+  - message: 'stock: staff stock adjustments that never go negative'
+    persona: Sam Okafor <sam@shop.example.com>
+    feature: stock
+    paths:
+    - stock
+  - message: 'reports: paid orders and revenue per day for staff'
+    persona: Elena Petrov <elena@shop.example.com>
+    feature: reports
+    paths:
+    - reports
+  - message: 'webhooks: signed payment events from the provider'
+    persona: Sam Okafor <sam@shop.example.com>
+    feature: webhooks
+    paths:
+    - webhooks
+  noise:
+  - message: 'docs: describe the project layout in the README'
+    persona: Elena Petrov <elena@shop.example.com>
+    paths:
+    - docs-readme
+  - message: 'docs: add an operations runbook'
+    persona: Sam Okafor <sam@shop.example.com>
+    paths:
+    - docs-runbook
+  - message: 'deps: group requirements by purpose'
+    persona: Marcus Webb <marcus@shop.example.com>
+    paths:
+    - deps-grouping
+  - message: 'chore: ignore log files and virtualenvs'
+    persona: Priya Nair <priya@shop.example.com>
+    paths:
+    - gitignore-logs
+  services:
+  - postgres
+  ports:
+  - 8000
+  protected:
+  - pytest.ini
+  - app/testing.py
+  - tests/test_smoke.py
+  features:
+  - orders
+  - wallet
+  - payments
+  - flags
+  - profile
+  - search
+  - stock
+  - reports
+  - webhooks
+  - order-export
+  - stock-alerts
+  - customs-export
+  - order-timeline
+  - product-feed
+  - account-overview
+  setup:
+  - bash scripts/bootstrap.sh
+  readiness_path: /healthz
+  test_globs:
+  - tests/*
+  - '*/test_*.py'
+  - test_*.py

@@ -15,6 +15,7 @@ import (
 	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/journal"
+	"github.com/mindforge/backend/internal/privacy"
 	"github.com/mindforge/backend/internal/storage"
 )
 
@@ -73,6 +74,18 @@ func (pr *Processor) Process(ctx context.Context, captureID, userID string) erro
 	}
 	if !claimed {
 		slog.InfoContext(ctx, "captures.Process: already claimed by another run, skipping", "capture_id", captureID)
+		return nil
+	}
+
+	// Consent may have been withdrawn after the capture was queued; re-check
+	// before any text or image reaches the model.
+	if err := privacy.RequireAIConsent(ctx, pr.repo.pool, userID); err != nil {
+		if !errors.Is(err, privacy.ErrAIConsentRequired) {
+			return fmt.Errorf("captures.Process: consent check (capture %s): %w", captureID, err)
+		}
+		if markErr := pr.repo.MarkFailed(ctx, captureID, aiConsentMessage); markErr != nil {
+			return fmt.Errorf("captures.Process: mark failed (capture %s): %w", captureID, markErr)
+		}
 		return nil
 	}
 

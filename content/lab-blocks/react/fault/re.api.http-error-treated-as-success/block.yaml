@@ -1,0 +1,104 @@
+kind: fault
+id: re.api.http-error-treated-as-success
+version: 1.0.0
+stack: react
+title: The UI says Saved while the server was down
+summary: The API client only rejects on client errors (4xx), so a 5xx response resolves with its error body and screens show success for a request that failed.
+category: api
+difficulty: intermediate
+skills:
+- fetch
+- error-handling
+- http-status
+requires:
+- slot:lib.api.check-status
+- cap:vitest
+fault:
+  inject:
+    slots:
+    - slot: lib.api.check-status
+      value: |
+        // Server errors are retried by the gateway, so only client errors are treated as failures here.
+        if (response.status >= 400 && response.status < 500) {
+          throw new ApiError(response.status, `${method} ${path} failed with ${response.status}`);
+        }
+  fix:
+    slots:
+    - slot: lib.api.check-status
+      value: |
+        if (!response.ok) {
+          throw new ApiError(response.status, `${method} ${path} failed with ${response.status}`);
+        }
+    files:
+    - path: tests/api-server-errors.test.jsx
+      from: fix/tests/api-server-errors.test.jsx
+  cheats:
+  - name: only-http-500
+    slots:
+    - slot: lib.api.check-status
+      value: |
+        if (response.status === 500) {
+          throw new ApiError(response.status, `${method} ${path} failed with ${response.status}`);
+        }
+  - name: revert-the-commit
+    slots:
+    - slot: lib.api.check-status
+      value: |
+        if (!response.ok) {
+          throw new ApiError(response.status, `${method} ${path} failed with ${response.status}`);
+        }
+    files:
+    - path: src/ext/status-breakdown/index.js
+      from: cheats/empty-extension.js
+  carrier:
+    feature: status-breakdown
+    files:
+    - path: src/ext/status-breakdown/index.js
+      from: carrier/src/ext/status-breakdown/index.js
+  commit:
+    message: 'orders: add a status breakdown action to the Tools menu'
+    persona: Rahul Mehta <rahul@opsconsole.example.com>
+  checks:
+  - ref: check.vitest-node
+    role: symptom
+    params:
+      paths:
+      - tests/re_api_http_errors/errors.test.jsx
+  symptom:
+    vars:
+      title: Customer edit says "Saved" but the change is lost
+      report: |-
+        During yesterday's brief outage of the customer service the edit form kept showing the green "Saved" confirmation, but when
+        we reopened the customers the old email was back. Agents were telling customers their address was updated. Another agent saw
+        an Orders page full of "undefined" rows at the same time instead of the error banner.
+      where: 'Any request that fails with a server error (5xx): saving a customer, loading orders, notes and reports.'
+      expected: A failed request shows the error message of that screen instead of success or empty data.
+      support_tried: Retried the save after the outage and it worked, so we assumed a one-time glitch. The browser console shows the request answered with 503.
+      observations: |-
+        ### Other observations from QA
+
+        - Client errors such as a validation failure (422) are reported correctly.
+        - The network tab shows the failed request with a JSON body `{"error": ...}`.
+        - The status breakdown action in the Orders tools came in the same release.
+    signature: a 5xx response resolves instead of rejecting
+  hints:
+  - Script a PUT that answers 503 and watch what the save promise does. Does it reject? Compare with a 404 or 422.
+  - fetch resolves for every HTTP status; only network failures reject. The API client is the one place that turns a bad status into an error. Read its status check carefully.
+  - Treat every non-2xx response as an error with response.ok (do not enumerate codes). Add a test that covers several status codes, including 5xx, and one screen that must show its error state.
+  rubric:
+    key_points:
+    - Identifies that fetch does not reject on HTTP errors and that the client's status check let 5xx responses through as data.
+    - 'Explains the consequence: error bodies were parsed and treated as successful results (Saved, undefined rows).'
+    - Fixes the check at the single client boundary using response.ok (or all non-2xx) rather than patching individual screens or listing codes.
+    - Tests several status codes and the user-visible error state.
+    misconceptions:
+    - fetch rejects on 4xx/5xx (it only rejects on network failures).
+    - Checking only for status 500 is enough (502, 503 and 504 are common server errors).
+    - Fixing it in the customer form alone is enough (every screen goes through the same client).
+  root_cause: |-
+    `request()` in the API client turned a response into an error only for client errors (`400 <= status < 500`), based on the
+    assumption that the gateway retries server errors. `fetch` itself never rejects for HTTP statuses, so a 5xx response was parsed
+    as JSON and returned as if it were a successful result; the customer form showed "Saved", and the orders hook received an
+    error body instead of the list.
+
+    The client is the one boundary that must classify responses: `if (!response.ok) throw new ApiError(...)` for every non-2xx status.

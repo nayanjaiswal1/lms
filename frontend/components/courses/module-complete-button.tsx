@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { updateProgressAction } from "@/lib/courses/actions";
 import { showRewardToasts } from "@/components/shared/reward-toast";
 import { useModuleGate } from "@/components/courses/module-gate-provider";
+import { useHideKnowledgeChecks } from "@/lib/courses/knowledge-check-settings";
 import { cn } from "@/lib/utils";
 
 interface ModuleCompleteButtonProps {
@@ -18,7 +19,8 @@ export function ModuleCompleteButton({ moduleId, initialCompleted, className }: 
   const [completed, setCompleted] = useState(initialCompleted);
   const [pending, setPending] = useState(false);
   const { requiredIds, passedIds, labRequired, labCompleted, reflectionRequired, reflectionCompleted } = useModuleGate();
-  const checkPending = requiredIds.some((id) => !passedIds.has(id));
+  const hideChecks = useHideKnowledgeChecks();
+  const checkPending = !hideChecks && requiredIds.some((id) => !passedIds.has(id));
   const labPending = labRequired && !labCompleted;
   const reflectionPending = reflectionRequired && !reflectionCompleted;
   const locked = !completed && (checkPending || labPending || reflectionPending);
@@ -32,7 +34,7 @@ export function ModuleCompleteButton({ moduleId, initialCompleted, className }: 
   async function handleToggle() {
     const nextStatus = completed ? "in_progress" : "completed";
     setPending(true);
-    const result = await updateProgressAction({ moduleID: moduleId, status: nextStatus });
+    const result = await updateProgressAction({ moduleID: moduleId, status: nextStatus, skip_checks: hideChecks });
     setPending(false);
     if (!result.ok) return;
     setCompleted(!completed);

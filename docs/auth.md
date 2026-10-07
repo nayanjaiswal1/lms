@@ -22,8 +22,8 @@ All cookies: `httpOnly=true · SameSite=Lax · Secure=true (prod) · Path=/`
 | Google OAuth | `org_auth_config.allow_google` |
 | GitHub OAuth | `org_auth_config.allow_github` |
 | Microsoft OAuth | `org_auth_config.allow_microsoft` |
-| Magic link | `org_auth_config.allow_magic_link` |
-| OIDC / SAML (SSO) | `org_auth_config.oidc_*` / `saml_metadata_xml` |
+| Magic link | **planned (not built)** — no endpoint exists; `org_auth_config.allow_magic_link` is an unused column |
+| OIDC / SAML (SSO) | **planned (not built)** — the columns exist, no login flow does; `require_sso` therefore cannot be satisfied by any session |
 | Passkey (WebAuthn) | Additive — always available once a password/OAuth account exists; enrolled from Settings → Security, never a standalone signup path |
 
 ---
@@ -62,11 +62,11 @@ POST /api/auth/logout-all           → sets revoked_at on ALL refresh_tokens fo
 
 GET  /api/auth/me                   → current user + org memberships
 
-GET  /api/auth/sessions             → list active devices (distinct family_ids: device_hint, ip, created_at)
+GET  /api/auth/sessions             → [planned (not built)] list active devices (distinct family_ids: device_hint, ip, created_at)
 
-DELETE /api/auth/sessions/:id       → revoke specific session family (adds its JTIs to blocklist)
+DELETE /api/auth/sessions/:id       → [planned (not built)] revoke specific session family (adds its JTIs to blocklist)
 
-POST /api/auth/switch-org           body: {org_id}
+POST /api/auth/switch-org           [planned (not built)] body: {org_id}
                                     → user must be member of org
                                     → if target org has require_sso=true and current session auth_method
                                       is not "saml" or "oidc" → 403 "SSO required"
@@ -81,6 +81,10 @@ POST /api/auth/resend-verification  body: {email}   → rate limited: 3 per emai
 ```
 
 Unverified users can log in but are held on a "/verify-email" holding page. They cannot enroll in paid courses, create content, or hold instructor/mentor roles until verified.
+
+### CAPTCHA (Cloudflare Turnstile)
+
+`/api/auth/register`, `/login` and `/forgot-password` sit behind `middleware.RequireCaptcha`: the browser widget's token is sent as `X-Captcha-Token` and verified against Turnstile siteverify (SSRF-guarded client, 5s timeout, remote IP included). Missing/rejected token -> 400; verifier unreachable -> 503 (fails closed). `TURNSTILE_SECRET_KEY` is mandatory when `ENV` is not `development`; unset in dev disables the check. The Next.js server's own calls (demo login, admin password reset) send `X-Captcha-Bypass` = `CAPTCHA_BYPASS_SECRET`. MFA verify is not gated: it requires a prior password success and is already rate limited.
 
 ### Password Reset
 
@@ -118,6 +122,8 @@ GET  /api/auth/microsoft/callback
 ```
 
 ### Magic Link
+
+> **Planned (not built).** None of the endpoints below are registered; the section is the intended design only.
 
 ```
 POST /api/auth/magic-link           body: {email, org_slug?}
@@ -161,6 +167,15 @@ DELETE /api/auth/webauthn/credentials/:id     (authenticated)
                                         → 409 if this is the account's last sign-in method
                                           (no password_hash, no social_accounts, no other passkey)
 ```
+
+### MFA (TOTP)
+
+Authenticated (session) endpoints: `GET /api/auth/mfa` (status), `POST /api/auth/mfa/setup` (returns `secret` + `otpauth://` `uri`), `POST /api/auth/mfa/enable` (`{code}` -> `recovery_codes`), `POST /api/auth/mfa/disable` (`{code}`; refused for privileged roles), `POST /api/auth/mfa/recovery-codes` (`{code}` -> new `recovery_codes`).
+
+- Setup UI renders the `uri` as a QR code client-side (`qrcode` package, data URL); the secret is never sent to a third party.
+- Recovery-code regeneration requires a current TOTP code (a recovery code is not accepted), shares the per-account `rl:mfa:<user>` limit (5 per 5 min) with every other code-checking MFA endpoint, deletes all old codes (used or not) and inserts the new set in one transaction, emits `mfa_recovery_regenerated` (failed attempts emit `mfa_failed`) and sends a security notice email. Codes are stored hashed and shown once.
+- TOTP codes are single-use (`last_step` replay guard).
+- DB tests: `internal/auth/mfa_db_test.go` (enrol/verify/replay, recovery regen, change-password transaction).
 
 ### Org Auth Config
 
@@ -355,7 +370,7 @@ WEBAUTHN_RP_DISPLAY_NAME=MindForge      # optional, defaults to "MindForge"
 - Session cap: count distinct `family_id` (not individual rows). On login, if `COUNT(DISTINCT family_id) >= max_sessions` → revoke the oldest family.
 - Refresh rotation grace: accept a "rotated" token up to 30 seconds after it was rotated (`rotated_at` within 30s). Reuse outside that window → revoke entire family.
 - Impossible travel (`>1000km in 2h` between refresh IPs): send email alert + require step-up auth on next sensitive action. Do NOT auto-revoke the family (high false-positive rate with VPNs/mobile).
-- `switch-org`: if target org has `require_sso=true`, only accept sessions where `auth_method` in JWT is `"saml"` or `"oidc"`.
+- `switch-org` [planned (not built)]: if target org has `require_sso=true`, only accept sessions where `auth_method` in JWT is `"saml"` or `"oidc"`.
 - Invite acceptance: verify `accepted_at IS NULL` (single-use) + `expires_at > now()` + logged-in user email matches `org_invites.email` (case-insensitive). Set `accepted_at` and insert `org_members` in one transaction.
 - `org_members`: `UNIQUE(org_id, user_id)` to prevent duplicate memberships.
 - Cookie forwarding (`forwardSetCookies`): strip the `Domain` attribute from backend `Set-Cookie` headers before re-emitting. Assert `access_token` cookie was set before redirecting.
@@ -363,3 +378,39 @@ WEBAUTHN_RP_DISPLAY_NAME=MindForge      # optional, defaults to "MindForge"
 - Passkey in-flight challenges (`SessionData`) live in Redis only, keyed by a random handle, 5-minute TTL, consumed exactly once (`GETDEL`) — never persisted to Postgres, never trusted from the client.
 - Passkey sign-counter regression (`clone_warning`) is advisory, not a block: the login is allowed to complete, the credential is flagged, and an alert email is sent — mirrors the impossible-travel posture, since synced/cloud-backed passkeys often report a static or zero counter and would otherwise false-positive constantly.
 - Deleting a passkey is blocked with `409` when it is the account's last remaining sign-in method (`password_hash IS NULL` and no `social_accounts` and no other `webauthn_credentials` row) — prevents an irrecoverable lockout.
+
+---
+
+## Registration: age declaration and legal acceptance
+
+`POST /api/auth/register` requires `accept_terms: true` and `age_declared: true` (DPDP s.9: users must be 18+). A missing declaration is a `422` field error on `age_declared`. The moment of declaration is stored in `users.age_declared_at` (migration 057); the terms/privacy acceptance (version + truncated IP) goes to `legal_acceptances`, which erasure retains as proof of consent.
+
+## Security event trail (`auth_events`)
+
+Append-only table (migration 056) written only through `authevents.Emit`, which truncates the IP (IPv4 to /24, IPv6 to /48) and stores a hash of the User-Agent, never the raw value. A DB trigger rejects every UPDATE and DELETE; only the retention job may delete, by setting `mindforge.purge_auth_events=on` for its own transaction. `user_id` has no foreign key on purpose, so the trail survives account erasure.
+
+Events: `login`, `login_failed`, `password_reset`, `password_changed`, `passkey_added`, `passkey_removed`, `logout_all`, `mcp_connected`, `mcp_revoked`, `data_export`, `account_deletion`, `mfa_enabled`, `mfa_disabled`, `mfa_verified`, `mfa_failed`, `mfa_recovery_used`, `mfa_recovery_regenerated`. Retention: `RETENTION_AUTH_EVENTS_DAYS` (default 365).
+
+## Privacy settings (AI consent and nominee)
+
+Per-user row in `user_privacy_settings` (migration 055), served by `internal/privacy`:
+
+```
+GET /api/privacy/settings      -> {ai_consent, ai_consent_at, nominee}
+PUT /api/privacy/ai-consent    body: {consent: bool}   opt in / withdraw AI processing of your own content
+PUT /api/privacy/nominee       body: {nominee: {name, relationship, contact} | null} (all three or none; null clears; <=200 chars each)
+GET /api/privacy/export        full data bundle (JSON); emits auth event data_export
+POST /api/privacy/delete-account  body: {password} (verified when the account has a password); emits account_deletion
+```
+
+AI consent is default off. Features that send the user's own text or files to a third-party model (captures, diary AI analysis and Fix English) return `403` with an explanatory message until consent exists; withdrawing consent takes effect on the next request. The nominee is the person who may exercise the user's rights on their behalf (DPDP s.14); it is stored but exercised through the grievance officer, there is no nominee login.
+
+## Erasure and export semantics
+
+- **Export** returns the curated sections plus every table with an `ON DELETE CASCADE` foreign key to `users`, read from the live catalog so new tables are included automatically. Credential material (token hashes, passkeys, social links, MCP connections, GitLab connections, idempotency keys) is deliberately left out.
+- **Erasure** (`privacy.AnonymizeAndDeletePII`, one transaction): deletes every cascade child of `users` except the allowlist `retainedUserTables`, deletes MCP action logs, removes stored capture blobs from object storage before commit (a storage failure rolls everything back and the request can be retried), anonymizes the `users` row (never hard-deleted because content it authored is `ON DELETE RESTRICT` elsewhere), then deactivates the account and revokes all sessions.
+- **Retained, disassociated from identity:** payment and ledger records, coupon redemptions, consent records, certificates, assessment and enrolment records, org rosters, other people's conversations, moderation records, shared interview content. A new user-FK table is erased by default; it must be added to `retainedUserTables` with a reason to be kept.
+
+## Domain verification
+
+An org proves an email domain by publishing a DNS TXT record `_mindforge-verification.<domain>` with value `mindforge-verification=<token>`; `Verify` does the lookup (5 s timeout) and never trusts the caller. A verified domain belongs to exactly one org (partial unique index, migration 054); auto-join is only possible on verified domains. Rows self-attested before the fix were reset to unverified.

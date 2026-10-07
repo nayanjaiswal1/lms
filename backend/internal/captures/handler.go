@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -17,6 +18,7 @@ import (
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/journal"
+	"github.com/mindforge/backend/internal/privacy"
 	"github.com/mindforge/backend/internal/srs"
 	"github.com/mindforge/backend/internal/storage"
 )
@@ -32,6 +34,10 @@ const (
 	// handlers back). MUST stay in sync with handlers.HandlerCapturesProcess
 	// in internal/jobs/handlers/constants.go.
 	jobCapturesProcess = "captures.process"
+
+	// aiConsentMessage is the user-facing refusal for AI-backed captures when
+	// the user has not opted in under Settings > Privacy.
+	aiConsentMessage = "Turn on AI processing under Settings > Privacy to use captures."
 )
 
 // Handler exposes the captures domain over HTTP.
@@ -100,13 +106,29 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	h.createFromJSON(w, r)
 }
 
+// requireAIConsent writes a 403 and returns false when the caller has not
+// opted in to AI processing: every capture is read by a vision/text model, so
+// nothing may be stored for processing without consent (DPDP s.6).
+func (h *Handler) requireAIConsent(w http.ResponseWriter, r *http.Request, userID string) bool {
+	err := privacy.RequireAIConsent(r.Context(), h.pool, userID)
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, privacy.ErrAIConsentRequired) {
+		httputil.WriteError(w, http.StatusForbidden, aiConsentMessage)
+	} else {
+		httputil.WriteError(w, http.StatusInternalServerError, "Could not verify your AI consent.")
+	}
+	return false
+}
+
 // createUpload handles one or many files in a single request — the browser
 // sends repeated "file" fields (<input type="file" multiple>), each becomes
 // its own Capture row and its own job, so one bad file in the batch never
 // blocks the rest.
 func (h *Handler) createUpload(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
+	if !ok || !h.requireAIConsent(w, r, claims.UserID) {
 		return
 	}
 
@@ -204,7 +226,7 @@ func readAndValidateUpload(fh *multipart.FileHeader) (data []byte, mime, capture
 // blocks the rest" reasoning as createUpload.
 func (h *Handler) createFromJSON(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
+	if !ok || !h.requireAIConsent(w, r, claims.UserID) {
 		return
 	}
 	var req CreateJSONRequest
@@ -361,7 +383,7 @@ func (h *Handler) similarMatches(r *http.Request, userID string, capture Capture
 // Retry handles POST /api/captures/:id/retry — re-queues a failed capture.
 func (h *Handler) Retry(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
+	if !ok || !h.requireAIConsent(w, r, claims.UserID) {
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -387,7 +409,22 @@ func (h *Handler) Dismiss(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := h.repo.Dismiss(r.Context(), claims.UserID, chi.URLParam(r, "id")); err != nil {
+	id := chi.URLParam(r, "id")
+	capture, err := h.repo.GetCapture(r.Context(), claims.UserID, id)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	// Blob first: if the delete fails the capture stays as-is and the user
+	// can retry; if the row update fails afterwards, the retry re-deletes the
+	// (idempotent) missing key. Either way no blob outlives a dismissed row.
+	if capture.StorageKey != nil {
+		if err := h.storage.Delete(r.Context(), *capture.StorageKey); err != nil {
+			httputil.WriteError(w, http.StatusInternalServerError, "Failed to remove the stored file.")
+			return
+		}
+	}
+	if err := h.repo.Dismiss(r.Context(), claims.UserID, id); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -441,6 +478,11 @@ func (h *Handler) Promote(w http.ResponseWriter, r *http.Request) {
 	switch kind {
 	case KindQuestion:
 		if req.MergeIntoID != "" {
+			// The card must belong to the caller before it can be linked.
+			if _, err := h.srs.GetCard(r.Context(), req.MergeIntoID, claims.UserID); err != nil {
+				writeDomainError(w, err)
+				return
+			}
 			if err := h.repo.LinkPromoted(r.Context(), claims.UserID, id, "", req.MergeIntoID); err != nil {
 				writeDomainError(w, err)
 				return

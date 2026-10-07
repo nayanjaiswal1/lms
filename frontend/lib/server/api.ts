@@ -2,6 +2,7 @@ import "server-only";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
+import { forwardSetCookies } from "@/lib/server/set-cookie";
 
 export interface ActionResult<T = undefined> {
   ok?: boolean;
@@ -137,9 +138,13 @@ export function actionErrorMessage(json: { error?: string; fields?: Record<strin
 // payments config, public profiles). Same throw-on-error contract as apiGet so
 // callers that must never crash can wrap in try/catch and fall back to []/null.
 // Responses ride the Data Cache via `next.revalidate` instead of no-store.
-export async function apiGetPublic<T>(path: string, opts?: { revalidate?: number }): Promise<T> {
+export async function apiGetPublic<T>(
+  path: string,
+  opts?: { revalidate?: number; headers?: Record<string, string> },
+): Promise<T> {
   const revalidate = opts?.revalidate ?? 60;
   const res = await fetch(`${baseURL()}${path}`, {
+    headers: opts?.headers,
     next: { revalidate },
   });
   if (res.status === 429) {
@@ -206,6 +211,7 @@ export async function apiActionPublic<T = undefined>(
   method: string,
   path: string,
   payload?: unknown,
+  extraHeaders?: Record<string, string>,
 ): Promise<ActionResult<T>> {
   let url: string;
   try {
@@ -216,7 +222,7 @@ export async function apiActionPublic<T = undefined>(
   try {
     const res = await fetch(`${url}${path}`, {
       method,
-      headers: { "Content-Type": "application/json", ...(await clientIpHeaders()) },
+      headers: { "Content-Type": "application/json", ...extraHeaders, ...(await clientIpHeaders()) },
       body: payload !== undefined ? JSON.stringify(payload) : undefined,
       cache: "no-store",
     });
@@ -283,6 +289,9 @@ export async function apiAction<T = undefined>(
         retryAfter: parseRetryAfter(res),
       };
     }
+    // Actions that rotate the session (change password) answer with fresh
+    // auth cookies; a no-op for every other response.
+    await forwardSetCookies(res.headers).catch(() => undefined);
     return { ok: true, data: json.data };
   } catch {
     return { error: "Network error. Please try again." };

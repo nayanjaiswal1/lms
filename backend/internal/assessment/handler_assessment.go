@@ -511,7 +511,15 @@ func (h *Handler) ListBatches(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	items, err := h.repo.ListBatches(r.Context(), claims.OrgID)
+	ids, scoped, err := mentorScopeIDs(r.Context(), h.pool, claims)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Could not verify access.")
+		return
+	}
+	if !scoped {
+		ids = nil
+	}
+	items, err := h.repo.ListBatches(r.Context(), claims.OrgID, ids)
 	if err != nil {
 		writeDomainError(w, err)
 		return

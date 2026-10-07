@@ -122,10 +122,9 @@ export function useLabTerminal({
  }
 
         const proxyUrl =
-          process.env.NEXT_PUBLIC_LAB_PROXY_URL ?? "ws://localhost:18081/ws"
- const ws = new WebSocket(
- `${proxyUrl}/ws?session_token=${res.data.session_token}`,
- )
+          process.env.NEXT_PUBLIC_LAB_PROXY_URL ?? "ws://localhost:18081"
+ // Token rides the Sec-WebSocket-Protocol header, not the URL (audit M-20).
+ const ws = new WebSocket(`${proxyUrl}/ws`, ["mf-lab", res.data.session_token])
  wsRef.current = ws
  ws.binaryType = "arraybuffer"
  attachWSHandlers(ws)

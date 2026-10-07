@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DNS_VERIFICATION_LABEL, DNS_VERIFICATION_VALUE_PREFIX } from "@/lib/constants";
 import type { Domain } from "@/lib/orgs/types";
 import {
   verifyDomainAction,
@@ -89,12 +90,15 @@ function DomainCard({ domain, orgId }: DomainCardProps) {
       {!domain.verified && (
         <div className="rounded-md bg-muted p-3 space-y-1">
           <p className="text-xs font-medium text-muted-foreground">
-            {domain.verification_method === "email"
-              ? "Check your domain admin email for the verification link."
-              : "Add this DNS TXT record to verify domain ownership:"}
+            Add this DNS TXT record, then click Verify Now:
           </p>
+          <p className="text-xs text-muted-foreground">Name</p>
           <p className="font-mono text-xs text-foreground break-all select-all">
-            {domain.verification_token}
+            {DNS_VERIFICATION_LABEL}.{domain.domain}
+          </p>
+          <p className="text-xs text-muted-foreground">Value</p>
+          <p className="font-mono text-xs text-foreground break-all select-all">
+            {DNS_VERIFICATION_VALUE_PREFIX}{domain.verification_token}
           </p>
         </div>
       )}

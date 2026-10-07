@@ -10,6 +10,7 @@ import (
 
 	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/habit"
+	"github.com/mindforge/backend/internal/privacy"
 )
 
 // Service holds the diary domain's AI-backed behavior: the on-demand Fix
@@ -37,9 +38,12 @@ var ErrAIUnavailable = errors.New("diary: AI provider not available")
 // ordered same/del/add segment list the caller reviews and accepts/rejects
 // span by span. Synchronous and unpersisted — nothing is saved here; the
 // caller PATCHes the resolved content back through the normal entry update.
-func (s *Service) FixEnglish(ctx context.Context, content string) ([]FixEnglishSegment, error) {
+func (s *Service) FixEnglish(ctx context.Context, userID, content string) ([]FixEnglishSegment, error) {
 	if !s.provider.Available() {
 		return nil, ErrAIUnavailable
+	}
+	if err := privacy.RequireAIConsent(ctx, s.repo.pool, userID); err != nil {
+		return nil, err
 	}
 	resp, err := s.provider.Complete(ctx, ai.CompletionRequest{
 		SystemPrompt: ai.DiaryFixEnglishSystemPrompt,
@@ -66,6 +70,9 @@ func (s *Service) FixEnglish(ctx context.Context, content string) ([]FixEnglishS
 func (s *Service) Preview(ctx context.Context, userID, entryDate, content string) ([]Highlight, error) {
 	if !s.provider.Available() {
 		return nil, ErrAIUnavailable
+	}
+	if err := privacy.RequireAIConsent(ctx, s.repo.pool, userID); err != nil {
+		return nil, err
 	}
 	habits, openTasks, err := s.vocabulary(ctx, userID, entryDate)
 	if err != nil {

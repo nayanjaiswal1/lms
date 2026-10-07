@@ -118,3 +118,10 @@ Re-analysis dedup is text-equality only: a kept span whose text case-insensitive
 ## Fix English
 
 `POST /api/diary/{date}/fix-english` calls the AI provider synchronously (`JSONMode`) with the given content and returns `FixEnglishResponse{segments}` — no DB write. The frontend owns all review state (per-pair accept/reject) and calls `PATCH` itself once the user confirms, exactly like any other content edit.
+
+
+---
+
+## Privacy: AI consent and erasure
+
+AI analysis (preview/apply) and Fix English send diary text to the AI provider, so both require the user's AI consent and return `403` until `PUT /api/privacy/ai-consent` is set; plain diary writing never needs it. Both count against the per-user LLM cap (`429` when exceeded). Entries and the tasks they created are deleted on account erasure and included in the data export.

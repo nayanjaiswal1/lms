@@ -53,6 +53,7 @@ func NewHandler(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, va
 // RequireAuth and RequireCSRF on the parent router.
 func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 	h.authzSvc = authzSvc
+	h.memSvc.invalidatePerms = authzSvc.InvalidateUser
 	idem := apimiddleware.Idempotency(h.pool)
 
 	r.With(idem).Post("/api/orgs", h.handleCreate)
@@ -570,7 +571,7 @@ func (h *Handler) handleAddDomain(w http.ResponseWriter, r *http.Request) {
 		case "public_email_domain":
 			httputil.WriteError(w, http.StatusUnprocessableEntity, "Public email domains cannot be used for org verification.")
 		case "invalid_verification_method":
-			httputil.WriteError(w, http.StatusUnprocessableEntity, "Verification method is required.")
+			httputil.WriteError(w, http.StatusUnprocessableEntity, "Verification method must be dns_txt.")
 		default:
 			httputil.WriteError(w, http.StatusInternalServerError, "Failed to add domain.")
 		}
@@ -590,16 +591,18 @@ func (h *Handler) handleVerifyDomain(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	if req.DomainID == "" || req.Token == "" {
-		httputil.WriteError(w, http.StatusBadRequest, "domain_id and token are required.")
+	if req.DomainID == "" {
+		httputil.WriteError(w, http.StatusBadRequest, "domain_id is required.")
 		return
 	}
 
-	domain, err := h.domSvc.Verify(r.Context(), orgCtx.OrgID, req.DomainID, req.Token)
+	domain, err := h.domSvc.Verify(r.Context(), orgCtx.OrgID, req.DomainID)
 	if err != nil {
 		switch err.Error() {
-		case "invalid_token":
-			httputil.WriteError(w, http.StatusBadRequest, "Verification token does not match.")
+		case "dns_record_not_found":
+			httputil.WriteError(w, http.StatusUnprocessableEntity, "The DNS TXT record was not found yet. It can take a few minutes to propagate.")
+		case "domain_already_verified":
+			httputil.WriteError(w, http.StatusConflict, "This domain is already verified by another organization.")
 		default:
 			h.mapOrgError(w, err)
 		}

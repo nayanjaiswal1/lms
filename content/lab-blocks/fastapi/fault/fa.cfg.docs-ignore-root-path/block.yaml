@@ -1,0 +1,107 @@
+kind: fault
+id: fa.cfg.docs-ignore-root-path
+version: 1.0.0
+stack: fastapi
+title: The API docs are blank behind the /api prefix
+summary: A custom docs page hard-codes /openapi.json, so behind a reverse proxy that mounts the service under a prefix the browser asks for the wrong URL.
+category: config
+difficulty: intermediate
+skills:
+- reverse-proxy
+- root-path
+- openapi
+requires:
+- slot:main.app.factory
+fault:
+  inject:
+    slots:
+    - slot: main.app.factory
+      value: |
+        from fastapi.openapi.docs import get_swagger_ui_html
+        from fastapi.responses import HTMLResponse
+
+        app = FastAPI(title="Orders API", version="1.0.0", lifespan=lifespan, docs_url=None)
+
+        @app.get("/docs", include_in_schema=False)
+        async def swagger_ui() -> HTMLResponse:
+            return get_swagger_ui_html(openapi_url="/openapi.json", title="Orders API - Swagger UI")
+  fix:
+    slots:
+    - slot: main.app.factory
+      value: |
+        app = FastAPI(title="Orders API", version="1.0.0", lifespan=lifespan)
+    files:
+    - path: tests/test_docs_behind_prefix.py
+      from: fix/tests/test_docs_behind_prefix.py
+  cheats:
+  - name: hard-code-the-api-prefix
+    slots:
+    - slot: main.app.factory
+      value: |
+        from fastapi.openapi.docs import get_swagger_ui_html
+        from fastapi.responses import HTMLResponse
+
+        app = FastAPI(title="Orders API", version="1.0.0", lifespan=lifespan, docs_url=None)
+
+        @app.get("/docs", include_in_schema=False)
+        async def swagger_ui() -> HTMLResponse:
+            return get_swagger_ui_html(openapi_url="/api/openapi.json", title="Orders API - Swagger UI")
+  - name: revert-the-commit
+    slots:
+    - slot: main.app.factory
+      value: |
+        app = FastAPI(title="Orders API", version="1.0.0", lifespan=lifespan)
+    files:
+    - path: app/ext/product_feed.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: product-feed
+    files:
+    - path: app/ext/product_feed.py
+      from: carrier/app/ext/product_feed.py
+  commit:
+    message: 'feeds: public product feed for partner sites, with docs under our own title'
+    persona: Priya Nair <priya@shop.example.com>
+  checks:
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fa_cfg_2/test_docs_behind_prefix.py
+  symptom:
+    vars:
+      title: 'The interactive API docs are blank in staging and production'
+      report: |-
+        Partner developers say the API documentation page is empty in staging and production: the Swagger UI shell loads but it says "Failed to load API
+        definition". It works for everybody on their laptops and in the sandbox.
+      where: |-
+        `/docs` of the service when it is reached through the company gateway, which publishes it under `/api` (so the docs live at `/api/docs`).
+      expected: |-
+        The docs page should load the API definition under whatever prefix the gateway mounts the service at.
+      support_tried: |-
+        Cleared the CDN cache and tried three browsers. Confirmed that `https://gateway.example.com/api/openapi.json` returns the schema, so the schema itself is fine.
+      observations: |-
+        ### Other observations from the reporter
+
+        - The browser's network tab shows a 404 for `/openapi.json` (without the `/api` prefix) when the docs page loads.
+        - The gateway strips `/api` before forwarding and passes the prefix to uvicorn as `--root-path /api`.
+        - The docs were customised to use the company title in the same release as the partner product feed.
+    signature: browser requests /openapi.json instead of /api/openapi.json
+  hints:
+  - Open the page source of `/docs` (or the browser network tab) and find the URL the page fetches the API definition from. Compare it with the URL the gateway serves it under.
+  - FastAPI builds the built-in docs page from the request's `root_path` (set by uvicorn's `--root-path`, or by the proxy) so the schema URL gets the prefix automatically. Check what the service does differently from the default in `create_app`.
+  - 'Remove the custom docs route (the title can be set on `FastAPI(...)`), or build the schema URL from `request.scope.get("root_path", "")`. Add a test with `TestClient(app, root_path="/api")` and a second, different prefix so a hard-coded prefix would not pass.'
+  rubric:
+    key_points:
+    - Explains root_path - the proxy strips a prefix before forwarding, and the application needs it only to generate URLs it hands to the browser.
+    - Identifies the hard-coded /openapi.json in the custom docs route as the bug, in a service otherwise correct behind the proxy.
+    - Fixes it generically (drop the custom route, or derive the URL from the request root_path), not by hard-coding /api.
+    - Adds a test with at least two prefixes, including the empty one.
+    misconceptions:
+    - Hard-coding /api in the docs URL is the fix (it breaks everywhere else the service is mounted).
+    - The gateway or the CDN is broken, since the schema URL itself works.
+    - Setting servers or CORS settings in the app fixes how the docs page finds the schema.
+  root_cause: |-
+    The service replaced the built-in docs page with a custom `/docs` route that passed `openapi_url="/openapi.json"` to `get_swagger_ui_html`. Behind the gateway the service is mounted under `/api`; uvicorn knows the prefix through `--root-path` and FastAPI's built-in docs route adds it to the schema URL, but the hard-coded path does not. The browser asked the gateway for `/openapi.json`, which does not exist.
+
+    The fix is to use the built-in docs route (the title is a `FastAPI(...)` argument), or to prefix the schema URL with `request.scope.get("root_path", "")`. Hard-coding `/api` only moves the problem to the next deployment prefix.

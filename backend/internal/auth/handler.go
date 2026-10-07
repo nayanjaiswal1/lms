@@ -15,9 +15,11 @@ import (
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/authevents"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/ratelimit"
+	"github.com/mindforge/backend/internal/secrets"
 	"github.com/mindforge/backend/internal/session"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
@@ -53,12 +55,13 @@ type Handler struct {
 	rdb     *redis.Client
 	wa      *webauthn.WebAuthn
 	limiter *ratelimit.Limiter
+	vault   *secrets.Vault
 }
 
 // NewHandler constructs a Handler with the given config, DB pool, session cache,
 // and Redis client (used for passkey in-flight challenge storage and for the
 // account-scoped rate limiter).
-func NewHandler(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb *redis.Client) *Handler {
+func NewHandler(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb *redis.Client, vault *secrets.Vault) *Handler {
 	wa, err := webauthn.New(&webauthn.Config{
 		RPID:          cfg.WebAuthnRPID,
 		RPDisplayName: cfg.WebAuthnRPDisplayName,
@@ -70,7 +73,7 @@ func NewHandler(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rd
 		// endpoints degrade to a clear 503 rather than panicking the server.
 		slog.Error("auth: webauthn config invalid — passkey endpoints will 503", "error", err)
 	}
-	return &Handler{cfg: cfg, pool: pool, cache: cache, rdb: rdb, wa: wa, limiter: ratelimit.New(rdb)}
+	return &Handler{cfg: cfg, pool: pool, cache: cache, rdb: rdb, wa: wa, limiter: ratelimit.New(rdb), vault: vault}
 }
 
 // enqueueAuthEmail queues an "auth_verify" or "password_reset" email as an
@@ -134,6 +137,109 @@ func (h *Handler) limitByAccount(w http.ResponseWriter, r *http.Request, action,
 	return true
 }
 
+// Failed-login throttling (M-04). Locks are keyed by (email, client IP), so a
+// remote attacker who fails against a victim's address only locks their own
+// address out, never the victim. Only failures count; a success never spends
+// budget. A separate per-email counter across all IPs can only add delay, so a
+// distributed attack is slowed without ever denying the real owner.
+const (
+	maxLoginBackoff = 24 * time.Hour
+	// emailFailWindow is how long failures across all IPs are remembered.
+	emailFailWindow = 15 * time.Minute
+	// emailDelayFactor scales AuthRateLimitMax into the per-email failure count
+	// beyond which responses start to be delayed.
+	emailDelayFactor = 5
+	emailDelayStep   = 500 * time.Millisecond
+	emailDelayMax    = 3 * time.Second
+)
+
+// remoteHost is the client address RealIP middleware resolved, without port.
+func remoteHost(r *http.Request) string {
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
+	}
+	return r.RemoteAddr
+}
+
+// loginFailKey is the Redis counter of failed logins for one (email, IP).
+func loginFailKey(email, ip string) string {
+	return "rl:loginfail:" + HashToken(email+"|"+ip)
+}
+
+func loginEmailFailKey(email string) string {
+	return "rl:loginfail:email:" + HashToken(email)
+}
+
+// loginBackoff returns how long login for (email, ip) is locked, or zero.
+func (h *Handler) loginBackoff(ctx context.Context, email, ip string) time.Duration {
+	key := loginFailKey(email, ip)
+	n, err := h.rdb.Get(ctx, key).Int()
+	if err != nil || n < h.cfg.AuthRateLimitMax {
+		return 0
+	}
+	ttl, err := h.rdb.TTL(ctx, key).Result()
+	if err != nil || ttl <= 0 {
+		return 0
+	}
+	return ttl
+}
+
+// recordLoginFailure counts a failed login against the (email, IP) lock, whose
+// window doubles per failure past the limit, and against the per-email delay
+// counter.
+func (h *Handler) recordLoginFailure(ctx context.Context, email, ip string) {
+	key := loginFailKey(email, ip)
+	n, err := h.rdb.Incr(ctx, key).Result()
+	if err != nil {
+		slog.WarnContext(ctx, "auth: record login failure", "err", err)
+		return
+	}
+	h.rdb.Expire(ctx, key, loginLockWindow(h.cfg.AuthRateLimitWindow, int(n), h.cfg.AuthRateLimitMax))
+	ekey := loginEmailFailKey(email)
+	if h.rdb.Incr(ctx, ekey).Err() == nil {
+		h.rdb.Expire(ctx, ekey, emailFailWindow)
+	}
+}
+
+// loginDelayFor is the response delay once failures across all IPs for one
+// email pass the delay threshold.
+func loginDelayFor(failures, max int) time.Duration {
+	over := failures - max*emailDelayFactor
+	if over <= 0 {
+		return 0
+	}
+	return min(time.Duration(over)*emailDelayStep, emailDelayMax)
+}
+
+// delayForEmail sleeps (honouring cancellation) when the email is under a
+// distributed guessing attack.
+func (h *Handler) delayForEmail(ctx context.Context, email string) {
+	n, err := h.rdb.Get(ctx, loginEmailFailKey(email)).Int()
+	if err != nil {
+		return
+	}
+	if d := loginDelayFor(n, h.cfg.AuthRateLimitMax); d > 0 {
+		select {
+		case <-time.After(d):
+		case <-ctx.Done():
+		}
+	}
+}
+
+// loginLockWindow is the counter lifetime after the failures-th failure: the
+// base window until max is reached, then doubling per extra failure, capped.
+func loginLockWindow(base time.Duration, failures, max int) time.Duration {
+	over := failures - max
+	if over <= 0 {
+		return base
+	}
+	return min(base<<min(over, 16), maxLoginBackoff)
+}
+
+func (h *Handler) clearLoginFailures(ctx context.Context, email, ip string) {
+	h.rdb.Del(ctx, loginFailKey(email, ip))
+}
+
 // Account statuses, mirrored from the users.status CHECK constraint.
 const (
 	StatusActive      = "active"
@@ -168,6 +274,7 @@ type registerRequest struct {
 	Email       string `json:"email"`
 	Password    string `json:"password"`
 	AcceptTerms bool   `json:"accept_terms"`
+	AgeDeclared bool   `json:"age_declared"`
 }
 
 type loginRequest struct {
@@ -199,6 +306,7 @@ type userResponse struct {
 	AvatarURL          *string `json:"avatar_url"`
 	PlatformRole       string  `json:"platform_role"`
 	DefaultLandingPage *string `json:"default_landing_page"`
+	LastPage           *string `json:"last_page"`
 }
 
 type orgResponse struct {
@@ -231,6 +339,9 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	if !req.AcceptTerms {
 		fields["accept_terms"] = "You must agree to the Terms of Service and Privacy Policy."
+	}
+	if !req.AgeDeclared {
+		fields["age_declared"] = "You must confirm that you are 18 years of age or older."
 	}
 	if len(fields) > 0 {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
@@ -298,8 +409,8 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	var userID string
 	if err := tx.QueryRow(r.Context(),
-		`INSERT INTO users (email, name, password_hash, email_verified)
-		 VALUES ($1, $2, $3, false)
+		`INSERT INTO users (email, name, password_hash, email_verified, age_declared_at)
+		 VALUES ($1, $2, $3, false, now())
 		 RETURNING id`,
 		req.Email, req.Name, string(hash),
 	).Scan(&userID); err != nil {
@@ -326,7 +437,7 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	if _, err := tx.Exec(r.Context(),
 		`INSERT INTO legal_acceptances (user_id, doc_type, version, ip)
 		 VALUES ($1, 'terms', $2, $3), ($1, 'privacy', $2, $3)`,
-		userID, registrationLegalVersion, firstThreeOctets(r.RemoteAddr),
+		userID, registrationLegalVersion, authevents.TruncateIP(r.RemoteAddr),
 	); err != nil {
 		slog.Error("auth: register insert legal_acceptances", "error", err)
 		httputil.WriteError(w, http.StatusInternalServerError, "Registration failed.")
@@ -376,9 +487,13 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 
-	if h.limitByAccount(w, r, "login", req.Email) {
+	ip := remoteHost(r)
+	if wait := h.loginBackoff(r.Context(), req.Email, ip); wait > 0 {
+		w.Header().Set("Retry-After", fmt.Sprintf("%d", ratelimit.RetryAfterSeconds(wait)))
+		httputil.WriteError(w, http.StatusTooManyRequests, "Too many failed attempts. Please try again later.")
 		return
 	}
+	h.delayForEmail(r.Context(), req.Email)
 
 	type userRow struct {
 		ID             string
@@ -400,20 +515,28 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		_ = bcrypt.CompareHashAndPassword([]byte(dummyBcryptHash), []byte(req.Password))
+		h.recordLoginFailure(r.Context(), req.Email, ip)
+		authevents.Emit(r.Context(), h.pool, r, "", authevents.LoginFailed)
 		httputil.WriteError(w, http.StatusUnauthorized, "Invalid email or password.")
 		return
 	}
 
 	if u.PasswordHash == nil {
 		_ = bcrypt.CompareHashAndPassword([]byte(dummyBcryptHash), []byte(req.Password))
+		h.recordLoginFailure(r.Context(), req.Email, ip)
+		authevents.Emit(r.Context(), h.pool, r, u.ID, authevents.LoginFailed)
 		httputil.WriteError(w, http.StatusUnauthorized, "Invalid email or password.")
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(*u.PasswordHash), []byte(req.Password)); err != nil {
+		h.recordLoginFailure(r.Context(), req.Email, ip)
+		authevents.Emit(r.Context(), h.pool, r, u.ID, authevents.LoginFailed)
 		httputil.WriteError(w, http.StatusUnauthorized, "Invalid email or password.")
 		return
 	}
+
+	h.clearLoginFailures(r.Context(), req.Email, ip)
 
 	// Checked only after the password matched: an unauthenticated caller must
 	// not be able to probe which addresses are locked.
@@ -424,6 +547,10 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	if !u.EmailVerified {
 		httputil.WriteError(w, http.StatusForbidden, "Please verify your email before signing in.")
+		return
+	}
+
+	if !h.mfaGate(w, r, u.ID, "password", nil) {
 		return
 	}
 
@@ -718,6 +845,7 @@ func (h *Handler) HandleLogoutAll(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.cache.InvalidateVersionCache(r.Context(), claims.UserID)
+	authevents.Emit(r.Context(), h.pool, r, claims.UserID, authevents.LogoutAll)
 	clearCookies(w, h.cfg)
 	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "All sessions revoked."})
 }
@@ -910,6 +1038,16 @@ func (h *Handler) HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": msg})
 }
 
+// notifySecurityChange emails the account owner about a credential change in
+// the background; delivery failure is logged, never surfaced to the request.
+func (h *Handler) notifySecurityChange(email, change string) {
+	go func() {
+		if err := SendSecurityNotice(h.cfg, email, change); err != nil {
+			slog.Error("auth: security notice email", "error", err)
+		}
+	}()
+}
+
 // ─── HandleResetPassword ─────────────────────────────────────────────────────
 
 func (h *Handler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
@@ -1013,6 +1151,8 @@ func (h *Handler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.cache.InvalidateVersionCache(r.Context(), userID)
+	authevents.Emit(r.Context(), h.pool, r, userID, authevents.PasswordReset)
+	h.notifySecurityChange(userEmail, "your password was reset")
 
 	httputil.WriteJSON(w, http.StatusOK, map[string]string{
 		"message": "Password updated. Please sign in.",
@@ -1035,15 +1175,16 @@ func (h *Handler) HandleMe(w http.ResponseWriter, r *http.Request) {
 		AvatarURL          *string
 		PlatformRole       string
 		DefaultLandingPage *string
+		LastPage           *string
 	}
 	var u userRow
 	if err := h.pool.QueryRow(r.Context(),
-		`SELECT u.id, u.name, u.email, u.avatar_url, u.platform_role, p.default_landing_page
+		`SELECT u.id, u.name, u.email, u.avatar_url, u.platform_role, p.default_landing_page, p.last_page
 		 FROM users u
 		 LEFT JOIN user_profiles p ON p.user_id = u.id
 		 WHERE u.id = $1`,
 		claims.UserID,
-	).Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.PlatformRole, &u.DefaultLandingPage); err != nil {
+	).Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.PlatformRole, &u.DefaultLandingPage, &u.LastPage); err != nil {
 		httputil.WriteError(w, http.StatusUnauthorized, "User not found.")
 		return
 	}
@@ -1070,6 +1211,7 @@ func (h *Handler) HandleMe(w http.ResponseWriter, r *http.Request) {
 			AvatarURL:          u.AvatarURL,
 			PlatformRole:       u.PlatformRole,
 			DefaultLandingPage: u.DefaultLandingPage,
+			LastPage:           u.LastPage,
 		},
 		"orgs":                 orgs,
 		"onboarding_completed": onboardingCompleted,
@@ -1220,7 +1362,7 @@ func (h *Handler) mintSession(w http.ResponseWriter, r *http.Request, sub sessio
 
 	var orgRole string
 	if err := h.pool.QueryRow(r.Context(),
-		`SELECT role FROM org_members WHERE org_id = $1 AND user_id = $2`,
+		`SELECT role FROM org_members WHERE org_id = $1 AND user_id = $2 AND status = 'active'`,
 		h.cfg.DefaultOrgID, sub.ID,
 	).Scan(&orgRole); err != nil {
 		orgRole = "learner"
@@ -1255,7 +1397,7 @@ func (h *Handler) mintSession(w http.ResponseWriter, r *http.Request, sub sessio
 		 VALUES ($1, $2, $3, $4, $5, $6)`,
 		sub.ID, refreshHash,
 		time.Now().Add(h.cfg.RefreshTokenTTL),
-		familyID, truncate(r.Header.Get("User-Agent"), 200), firstThreeOctets(r.RemoteAddr),
+		familyID, truncate(r.Header.Get("User-Agent"), 200), authevents.TruncateIP(r.RemoteAddr),
 	); err != nil {
 		slog.Error("auth: "+op+" insert refresh token", "error", err)
 		return fail()
@@ -1287,6 +1429,8 @@ func (h *Handler) mintSession(w http.ResponseWriter, r *http.Request, sub sessio
 			return fail()
 		}
 	}
+
+	authevents.Emit(r.Context(), h.pool, r, sub.ID, authevents.Login)
 
 	return sessionBody{
 		User: userResponse{
@@ -1381,26 +1525,4 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n]
-}
-
-// firstThreeOctets returns a coarse, privacy-preserving network prefix from a
-// remote address for use as a device hint: the first three octets of an IPv4
-// address, or the /48 routing prefix of an IPv6 address. The final host bits are
-// dropped so the stored hint cannot pinpoint an individual device.
-func firstThreeOctets(remoteAddr string) string {
-	host := remoteAddr
-	if h, _, err := net.SplitHostPort(remoteAddr); err == nil {
-		host = h
-	}
-
-	ip := net.ParseIP(host)
-	if ip == nil {
-		return host
-	}
-
-	if v4 := ip.To4(); v4 != nil {
-		return fmt.Sprintf("%d.%d.%d", v4[0], v4[1], v4[2])
-	}
-
-	return ip.Mask(net.CIDRMask(48, 128)).String()
 }
