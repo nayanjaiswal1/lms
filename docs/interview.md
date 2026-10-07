@@ -94,7 +94,7 @@ The `join_code` is the candidate's credential for that session only. No account,
 Fires real HTTP traffic from the platform backend to a target API.
 
 ```
-Target URL:   https://my-api.example.com/api/users
+Target URL:   https://my-api.mindforge.test/api/users
 Method:       GET
 Headers:      Authorization: Bearer xxx
 RPS:          50
