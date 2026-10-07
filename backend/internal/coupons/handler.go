@@ -19,9 +19,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrInvalid:  {Status: http.StatusUnprocessableEntity},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.")
 
 type couponResponse struct {
 	ID               string     `json:"id"`

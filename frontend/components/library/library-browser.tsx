@@ -187,8 +187,8 @@ export function LibraryBrowser({ initialPage }: LibraryBrowserProps) {
                 <Badge className="shrink-0 capitalize" variant="outline">{item.kind}</Badge>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                <Badge className="text-[10px] capitalize" variant="secondary">{item.mode}</Badge>
-                {item.platform && <Badge className="text-[10px]" variant="secondary">Platform</Badge>}
+                <Badge className="text-xs capitalize" variant="secondary">{item.mode}</Badge>
+                {item.platform && <Badge className="text-xs" variant="secondary">Platform</Badge>}
               </div>
             </button>
           ))}
@@ -206,7 +206,7 @@ export function LibraryBrowser({ initialPage }: LibraryBrowserProps) {
 
             {isPreviewing && <Loader2 aria-hidden className="h-4 w-4 animate-spin text-muted-foreground" />}
             {!isPreviewing && selection.preview !== null && (
-              <pre className="max-h-56 overflow-y-auto rounded-md bg-muted p-2 text-[11px] whitespace-pre-wrap">
+              <pre className="max-h-56 overflow-y-auto rounded-md bg-muted p-2 text-xs whitespace-pre-wrap">
                 {JSON.stringify(selection.preview, null, 2)}
               </pre>
             )}

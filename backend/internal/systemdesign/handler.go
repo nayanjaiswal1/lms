@@ -29,9 +29,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrEmptyScene:     {Status: http.StatusUnprocessableEntity, Message: "Add something to the canvas before requesting feedback."},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.")
 
 // ─── Attempts ─────────────────────────────────────────────────────────────────
 

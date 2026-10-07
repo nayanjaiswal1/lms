@@ -28,9 +28,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrEditWindowClosed: {Status: http.StatusConflict, Message: "Messages can only be edited within 15 minutes of posting."},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.")
 
 func (h *Handler) ListMessages(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)

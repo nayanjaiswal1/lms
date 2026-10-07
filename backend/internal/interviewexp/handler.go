@@ -27,9 +27,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrValidation: {Status: http.StatusUnprocessableEntity, Message: "Invalid request."},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.")
 
 func optionalQueryParam(r *http.Request, key string) *string {
 	v := r.URL.Query().Get(key)

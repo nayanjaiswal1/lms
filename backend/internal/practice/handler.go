@@ -19,9 +19,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrNotFound: {Status: http.StatusNotFound, Message: "Not found."},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.")
 
 var suggestedTechnologies = []string{
 	"Go", "Python", "JavaScript", "TypeScript", "Java", "Rust", "C++",

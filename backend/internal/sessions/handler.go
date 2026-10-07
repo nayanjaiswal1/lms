@@ -26,9 +26,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrInvalid:             {Status: http.StatusUnprocessableEntity},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.")
 
 // parseRange reads ?from=&to= as RFC3339, defaulting to the next 14 days —
 // the window the booking grid opens on.

@@ -39,9 +39,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrTagTooLong:           {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"tags": "each tag must not exceed 24 characters"}},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.")
 
 // Create handles POST /api/habits
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {

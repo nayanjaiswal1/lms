@@ -42,9 +42,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	privacy.ErrAIConsentRequired: {Status: http.StatusForbidden, Message: "Turn on AI processing under Settings > Privacy to use this feature."},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.")
 
 const entryDateFormat = "2006-01-02"
 const maxContentLength = 20000

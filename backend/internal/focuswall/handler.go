@@ -30,9 +30,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrCategoryNotFound:  {Status: http.StatusNotFound, Message: "Category not found."},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.")
 
 // Create handles POST /api/focus-wall/notes
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {

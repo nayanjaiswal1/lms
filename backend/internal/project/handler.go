@@ -19,9 +19,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrNameEmpty: {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"name": "is required."}},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.")
 
 // CreateProject handles POST /api/projects.
 func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {

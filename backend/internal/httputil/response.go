@@ -77,6 +77,14 @@ type ErrSpec struct {
 	Fields  map[string]string
 }
 
+// DomainErrorWriter binds specs and fallbackMessage into a per-package
+// writeDomainError(w, err) function.
+func DomainErrorWriter(specs map[error]ErrSpec, fallbackMessage string) func(http.ResponseWriter, error) {
+	return func(w http.ResponseWriter, err error) {
+		WriteDomainError(w, err, specs, fallbackMessage)
+	}
+}
+
 // WriteDomainError looks up err against specs (via errors.Is on each key) and
 // writes the matching response, or a generic 500 with fallbackMessage on no match.
 func WriteDomainError(w http.ResponseWriter, err error, specs map[error]ErrSpec, fallbackMessage string) {

@@ -21,9 +21,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrInvalid:   {Status: http.StatusUnprocessableEntity},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.")
 
 // SubmitFeedback creates or updates the authenticated user's feedback
 // (rating/comment, or an explicit skip) for a course, assessment, lab, or mentor.

@@ -33,9 +33,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrInvalidGoal:       {Status: http.StatusBadRequest, Message: "goal_description is required."},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.")
 
 func (h *Handler) CreateRoadmap(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
