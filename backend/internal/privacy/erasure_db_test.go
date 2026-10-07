@@ -2,6 +2,7 @@ package privacy
 
 import (
 	"context"
+	"github.com/mindforge/backend/internal/testdomain"
 	"io"
 	"testing"
 	"time"
@@ -37,7 +38,7 @@ func TestErasure_RemovesPersonalContentKeepsRetained(t *testing.T) {
 	repo := NewRepo(pool, store)
 
 	var userID, orgID string
-	if err := pool.QueryRow(ctx, `INSERT INTO users (email, name) VALUES ('erase@example.com', 'Erase Me') RETURNING id`).Scan(&userID); err != nil {
+	if err := pool.QueryRow(ctx, `INSERT INTO users (email, name) VALUES ('erase@`+testdomain.Domain+`', 'Erase Me') RETURNING id`).Scan(&userID); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
 	if err := pool.QueryRow(ctx, `INSERT INTO organizations (slug, name) VALUES ('erase-org', 'Erase Org') RETURNING id`).Scan(&orgID); err != nil {

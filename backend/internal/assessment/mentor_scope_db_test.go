@@ -3,6 +3,7 @@ package assessment
 import (
 	"context"
 	"fmt"
+	"github.com/mindforge/backend/internal/testdomain"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -26,7 +27,7 @@ func mentorSeedUser(t *testing.T, pool *pgxpool.Pool, orgID, role, tag string) s
 	ctx := context.Background()
 	var id string
 	if err := pool.QueryRow(ctx, `INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`,
-		fmt.Sprintf("mentor-scope-%s@example.com", tag), tag).Scan(&id); err != nil {
+		fmt.Sprintf("mentor-scope-%s@"+testdomain.Domain, tag), tag).Scan(&id); err != nil {
 		t.Fatalf("seed user %s: %v", tag, err)
 	}
 	if _, err := pool.Exec(ctx, `INSERT INTO org_members (org_id, user_id, role) VALUES ($1, $2, $3)`, orgID, id, role); err != nil {

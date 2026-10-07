@@ -2,6 +2,7 @@ package authz
 
 import (
 	"context"
+	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 
 	"github.com/mindforge/backend/internal/testdb"
@@ -33,7 +34,7 @@ func TestUserRoleTrigger_OrgScopeEnforced(t *testing.T) {
 		t.Fatalf("seed other org: %v", err)
 	}
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO users (email, name) VALUES ('trigger-user@example.com', 'Trigger User') RETURNING id`,
+		`INSERT INTO users (email, name) VALUES ('trigger-user@`+testdomain.Domain+`', 'Trigger User') RETURNING id`,
 	).Scan(&userID); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}

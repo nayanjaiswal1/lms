@@ -3,6 +3,7 @@ package roadmap
 import (
 	"context"
 	"errors"
+	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,7 +18,7 @@ func seedUser(t *testing.T, ctx context.Context, pool *pgxpool.Pool) string {
 	t.Helper()
 	var userID string
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO users (email, name) VALUES ('roadmapper@example.com', 'Roadmapper') RETURNING id`,
+		`INSERT INTO users (email, name) VALUES ('roadmapper@`+testdomain.Domain+`', 'Roadmapper') RETURNING id`,
 	).Scan(&userID); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}

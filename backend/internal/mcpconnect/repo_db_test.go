@@ -3,6 +3,7 @@ package mcpconnect
 import (
 	"context"
 	"errors"
+	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 	"time"
 
@@ -20,7 +21,7 @@ func TestRegisterAndGetClient(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepo(pool)
 
-	redirectURIs := []string{"https://client.example.com/callback"}
+	redirectURIs := []string{"https://client." + testdomain.Domain + "/callback"}
 	created, err := repo.RegisterClient(ctx, "client-abc123", "Example MCP Client", redirectURIs)
 	if err != nil {
 		t.Fatalf("RegisterClient: %v", err)
@@ -59,13 +60,13 @@ func TestRefreshRotationCASAndReuse(t *testing.T) {
 	if err := pool.QueryRow(ctx, `INSERT INTO organizations (name, slug) VALUES ('MCP Org', 'mcp-org') RETURNING id`).Scan(&orgID); err != nil {
 		t.Fatalf("insert org: %v", err)
 	}
-	if err := pool.QueryRow(ctx, `INSERT INTO users (email, name) VALUES ('mcp@example.com', 'MCP User') RETURNING id`).Scan(&userID); err != nil {
+	if err := pool.QueryRow(ctx, `INSERT INTO users (email, name) VALUES ('mcp@`+testdomain.Domain+`', 'MCP User') RETURNING id`).Scan(&userID); err != nil {
 		t.Fatalf("insert user: %v", err)
 	}
 	if _, err := pool.Exec(ctx, `INSERT INTO org_members (org_id, user_id, role, status) VALUES ($1, $2, 'student', 'active')`, orgID, userID); err != nil {
 		t.Fatalf("insert member: %v", err)
 	}
-	if _, err := repo.RegisterClient(ctx, "cid", "Client", []string{"https://client.example.com/cb"}); err != nil {
+	if _, err := repo.RegisterClient(ctx, "cid", "Client", []string{"https://client." + testdomain.Domain + "/cb"}); err != nil {
 		t.Fatalf("RegisterClient: %v", err)
 	}
 	exp := time.Now().Add(time.Hour)

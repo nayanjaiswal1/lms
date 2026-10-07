@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/mindforge/backend/internal/testdomain"
 	"net/http"
 	"os"
 	"testing"
@@ -65,7 +66,7 @@ func seedWebhookUser(t *testing.T, pool *pgxpool.Pool) string {
 	var userID string
 	err := pool.QueryRow(context.Background(),
 		`INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`,
-		fmt.Sprintf("webhook-test-%d@example.com", suffix), "Webhook Test User",
+		fmt.Sprintf("webhook-test-%d@"+testdomain.Domain, suffix), "Webhook Test User",
 	).Scan(&userID)
 	if err != nil {
 		t.Fatalf("create user: %v", err)

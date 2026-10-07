@@ -2,6 +2,7 @@ package authevents
 
 import (
 	"context"
+	"github.com/mindforge/backend/internal/testdomain"
 	"net/http/httptest"
 	"testing"
 
@@ -29,7 +30,7 @@ func TestEmitIsAppendOnly(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
 	var userID string
-	if err := pool.QueryRow(ctx, `INSERT INTO users (email, name) VALUES ('ev@example.com', 'Ev') RETURNING id`).Scan(&userID); err != nil {
+	if err := pool.QueryRow(ctx, `INSERT INTO users (email, name) VALUES ('ev@`+testdomain.Domain+`', 'Ev') RETURNING id`).Scan(&userID); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
 	req := httptest.NewRequest("POST", "/", nil)

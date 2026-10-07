@@ -2,6 +2,7 @@ package wiki
 
 import (
 	"encoding/json"
+	"github.com/mindforge/backend/internal/testdomain"
 	"strings"
 	"testing"
 	"time"
@@ -12,7 +13,7 @@ import (
 // bulleted list, a code block, and a link. Markdown -> TipTap -> Markdown
 // should be stable (semantically, not necessarily byte-identical).
 func TestOKFRoundTrip(t *testing.T) {
-	const md = "# Title\n\nSome **bold** and *italic* and `code` text with a [link](https://example.com).\n\n- item one\n- item two\n\n```go\nfmt.Println(\"hi\")\n```\n"
+	const md = "# Title\n\nSome **bold** and *italic* and `code` text with a [link](https://" + testdomain.Domain + ").\n\n- item one\n- item two\n\n```go\nfmt.Println(\"hi\")\n```\n"
 
 	content, err := markdownToTiptap(md)
 	if err != nil {
@@ -24,7 +25,7 @@ func TestOKFRoundTrip(t *testing.T) {
 		t.Fatalf("tiptapToMarkdown: %v", err)
 	}
 
-	for _, want := range []string{"# Title", "**bold**", "*italic*", "`code`", "[link](https://example.com)", "- item one", "- item two", "```go", "fmt.Println"} {
+	for _, want := range []string{"# Title", "**bold**", "*italic*", "`code`", "[link](https://" + testdomain.Domain + ")", "- item one", "- item two", "```go", "fmt.Println"} {
 		if !strings.Contains(rendered, want) {
 			t.Errorf("round-tripped markdown missing %q, got:\n%s", want, rendered)
 		}

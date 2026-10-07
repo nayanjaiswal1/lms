@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/mindforge/backend/internal/testdb"
+	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 )
 
@@ -13,7 +14,7 @@ func TestAIConsentGateAndNomineeExport(t *testing.T) {
 	repo := NewRepo(pool, &fakeStore{})
 
 	var userID string
-	if err := pool.QueryRow(ctx, `INSERT INTO users (email, name) VALUES ('consent@example.com', 'C') RETURNING id`).Scan(&userID); err != nil {
+	if err := pool.QueryRow(ctx, `INSERT INTO users (email, name) VALUES ('consent@`+testdomain.Domain+`', 'C') RETURNING id`).Scan(&userID); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
 	if err := RequireAIConsent(ctx, pool, userID); !errors.Is(err, ErrAIConsentRequired) {

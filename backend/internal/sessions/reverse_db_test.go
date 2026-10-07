@@ -2,6 +2,7 @@ package sessions
 
 import (
 	"context"
+	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 
 	"github.com/mindforge/backend/internal/testdb"
@@ -16,7 +17,7 @@ func seedPackPurchase(t *testing.T, repo *Repo, sessions int) (orgID, userID, pu
 	if err := pool.QueryRow(ctx, `INSERT INTO organizations (slug, name) VALUES ('rev-org', 'Rev Org') RETURNING id`).Scan(&orgID); err != nil {
 		t.Fatalf("seed org: %v", err)
 	}
-	if err := pool.QueryRow(ctx, `INSERT INTO users (email, name) VALUES ('rev@example.com', 'Rev') RETURNING id`).Scan(&userID); err != nil {
+	if err := pool.QueryRow(ctx, `INSERT INTO users (email, name) VALUES ('rev@`+testdomain.Domain+`', 'Rev') RETURNING id`).Scan(&userID); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
 	var packID string

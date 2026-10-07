@@ -2,6 +2,7 @@ package courses
 
 import (
 	"context"
+	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -24,7 +25,7 @@ func seedCourseFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool) (o
 		t.Fatalf("seed org: %v", err)
 	}
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO users (email, name) VALUES ('proposer@example.com', 'Proposer') RETURNING id`,
+		`INSERT INTO users (email, name) VALUES ('proposer@`+testdomain.Domain+`', 'Proposer') RETURNING id`,
 	).Scan(&userID); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}

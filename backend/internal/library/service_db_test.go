@@ -2,6 +2,7 @@ package library
 
 import (
 	"context"
+	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -29,7 +30,7 @@ func seedLibraryFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool) l
 		`INSERT INTO organizations (slug, name) VALUES ('acme-library', 'Acme Library') RETURNING id`,
 	).Scan(&f.orgID))
 	require.NoError(t, pool.QueryRow(ctx,
-		`INSERT INTO users (email, name) VALUES ('builder@example.com', 'Builder') RETURNING id`,
+		`INSERT INTO users (email, name) VALUES ('builder@`+testdomain.Domain+`', 'Builder') RETURNING id`,
 	).Scan(&f.userID))
 	require.NoError(t, pool.QueryRow(ctx,
 		`INSERT INTO courses (org_id, creator_id, title, slug) VALUES ($1,$2,'Course','course') RETURNING id`,
@@ -163,7 +164,7 @@ func TestAttach_CrossOrgLabRejected(t *testing.T) {
 		`INSERT INTO organizations (slug, name) VALUES ('other-lab-org', 'Other Lab Org') RETURNING id`,
 	).Scan(&otherOrgID))
 	require.NoError(t, pool.QueryRow(ctx,
-		`INSERT INTO users (email, name) VALUES ('other@example.com', 'Other') RETURNING id`,
+		`INSERT INTO users (email, name) VALUES ('other@`+testdomain.Domain+`', 'Other') RETURNING id`,
 	).Scan(&otherUserID))
 	require.NoError(t, pool.QueryRow(ctx,
 		`INSERT INTO lab_definitions (org_id, title, lab_type, environment, is_published, created_by, library_visibility, scope)
