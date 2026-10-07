@@ -63,7 +63,7 @@ func TestRefreshRotationCASAndReuse(t *testing.T) {
 	if err := pool.QueryRow(ctx, `INSERT INTO users (email, name) VALUES ('mcp@`+testdomain.Domain+`', 'MCP User') RETURNING id`).Scan(&userID); err != nil {
 		t.Fatalf("insert user: %v", err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO org_members (org_id, user_id, role, status) VALUES ($1, $2, 'student', 'active')`, orgID, userID); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO org_members (org_id, user_id, role, status) VALUES ($1, $2, 'learner', 'active')`, orgID, userID); err != nil {
 		t.Fatalf("insert member: %v", err)
 	}
 	if _, err := repo.RegisterClient(ctx, "cid", "Client", []string{"https://client." + testdomain.Domain + "/cb"}); err != nil {
