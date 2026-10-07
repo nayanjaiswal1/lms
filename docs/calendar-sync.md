@@ -1,5 +1,7 @@
 # Calendar Account Sync
 
+> **Planned (not built).** Google Calendar account sync (`/api/calendar/google/*`, OAuth connect, push/pull) is not implemented; only the in-app calendar and its ICS feed exist. The sections below are design only; no backend route or frontend exists yet.
+
 Opt-in, two-way sync between a user's MindForge calendar and their personal
 Google Calendar account. Off by default for every user; nothing about a
 user's Google account is touched until they explicitly connect it from

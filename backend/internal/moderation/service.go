@@ -22,7 +22,7 @@ func NewService(repo *Repo) *Service {
 // report's org is derived from the content itself (not the caller's claim),
 // so a report always lands in the same tenant the content actually belongs
 // to.
-func (s *Service) CreateReport(ctx context.Context, reporterID, contentType, contentID, reason, description string) (Report, error) {
+func (s *Service) CreateReport(ctx context.Context, callerOrgID, reporterID, contentType, contentID, reason, description string) (Report, error) {
 	if !IsValidContentType(contentType) {
 		return Report{}, fmt.Errorf("%w: content_type must be one of wiki_page, course_module", ErrInvalid)
 	}
@@ -33,6 +33,12 @@ func (s *Service) CreateReport(ctx context.Context, reporterID, contentType, con
 	orgID, err := s.repo.ContentOrgID(ctx, contentType, contentID)
 	if err != nil {
 		return Report{}, err
+	}
+
+	// A caller may only report content in their own tenant; anything else is
+	// indistinguishable from a missing id (no cross-tenant existence oracle).
+	if orgID != callerOrgID {
+		return Report{}, ErrNotFound
 	}
 
 	var desc *string

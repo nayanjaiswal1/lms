@@ -45,6 +45,10 @@ type Service struct {
 // import the other's error values to interpret the answer.
 type PackConfirmer interface {
 	ConfirmPackPurchase(ctx context.Context, providerName, providerRef, paymentRef string, amountCents int, currency string, succeeded bool) (matched bool, err error)
+	// ReversePackPurchase applies a gateway refund/dispute for paymentRef:
+	// matched=false when no credit pack carries that payment ref.
+	// amountCents is the refunded amount (0 for a dispute = full reversal).
+	ReversePackPurchase(ctx context.Context, providerName, paymentRef string, amountCents int) (matched bool, err error)
 }
 
 // NewService wires a Service. coursesRepo is used only for its

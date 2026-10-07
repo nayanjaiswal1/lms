@@ -81,6 +81,19 @@ const (
 	ContainerCPU      = "1.0"
 	ContainerMemoryMB = 512
 	ContainerDiskGB   = 3
+	// DefaultContainerPidsLimit caps processes per standard lab container
+	// (fork-bomb guard, audit H-12); LABS_PIDS_LIMIT overrides it.
+	// NestedContainerPidsLimit is higher: a nested dockerd plus its own
+	// containers legitimately runs many processes.
+	DefaultContainerPidsLimit = 512
+	NestedContainerPidsLimit  = 2048
+	// ContainerNofileLimit is the soft=hard open-file ulimit per container.
+	ContainerNofileLimit = 65536
+	// SharedLabNetwork is the legacy shared bridge used when per-session
+	// networks are off. SessionNetworkLabel tags per-session networks so an
+	// operator can prune strays: docker network prune --filter label=...
+	SharedLabNetwork    = "mindforge-labs"
+	SessionNetworkLabel = "mindforge.lab-session=1"
 	// NestedContainerCPU/NestedContainerMemoryMB size the "nested-docker"
 	// ImageProfile (see profile.go) — a nested dockerd plus a student
 	// `docker build` cannot fit in the default 1 CPU / 512MB; without this

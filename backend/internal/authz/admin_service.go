@@ -3,6 +3,7 @@ package authz
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/mindforge/backend/internal/session"
 )
@@ -26,6 +27,15 @@ func NewAdminService(adminRepo *AdminRepo, auditRepo *AuditRepo, svc *Service, s
 
 // ─── Role management ──────────────────────────────────────────────────────────
 
+// audit appends an audit row. The mutation it describes has already been
+// applied, so a failure is logged (never silently dropped) rather than failing
+// the request.
+func (s *AdminService) audit(ctx context.Context, orgID, actorID, action, entityType, entityID string, diff *AuditDiff) {
+	if err := s.auditRepo.Write(ctx, orgID, actorID, action, entityType, entityID, diff); err != nil {
+		slog.ErrorContext(ctx, "authz: audit write failed", "action", action, "actor_id", actorID, "error", err)
+	}
+}
+
 // CreateRole creates a tenant-scoped role, writes an audit entry, and returns
 // the new role.
 func (s *AdminService) CreateRole(ctx context.Context, actorID, tenantID string, req CreateRoleRequest) (*Role, error) {
@@ -38,7 +48,7 @@ func (s *AdminService) CreateRole(ctx context.Context, actorID, tenantID string,
 		return nil, fmt.Errorf("admin svc: create role: %w", err)
 	}
 
-	_ = s.auditRepo.Write(ctx, tenantID, actorID, "role.create", "role", role.ID, &AuditDiff{After: role})
+	s.audit(ctx, tenantID, actorID, "role.create", "role", role.ID, &AuditDiff{After: role})
 	return role, nil
 }
 
@@ -64,7 +74,7 @@ func (s *AdminService) UpdateRole(ctx context.Context, actorID, tenantID, roleID
 		return nil, fmt.Errorf("admin svc: update role: %w", err)
 	}
 
-	_ = s.auditRepo.Write(ctx, tenantID, actorID, "role.update", "role", roleID, &AuditDiff{Before: before, After: after})
+	s.audit(ctx, tenantID, actorID, "role.update", "role", roleID, &AuditDiff{Before: before, After: after})
 	_ = s.svc.InvalidateForRoleChange(ctx, roleID)
 	return after, nil
 }
@@ -90,7 +100,7 @@ func (s *AdminService) DisableRole(ctx context.Context, actorID, tenantID, roleI
 		return fmt.Errorf("admin svc: disable role: %w", err)
 	}
 
-	_ = s.auditRepo.Write(ctx, tenantID, actorID, "role.disable", "role", roleID, &AuditDiff{Before: before})
+	s.audit(ctx, tenantID, actorID, "role.disable", "role", roleID, &AuditDiff{Before: before})
 	_ = s.svc.InvalidateForRoleChange(ctx, roleID)
 	return nil
 }
@@ -116,7 +126,7 @@ func (s *AdminService) EnableRole(ctx context.Context, actorID, tenantID, roleID
 		return fmt.Errorf("admin svc: enable role: %w", err)
 	}
 
-	_ = s.auditRepo.Write(ctx, tenantID, actorID, "role.enable", "role", roleID, &AuditDiff{Before: before})
+	s.audit(ctx, tenantID, actorID, "role.enable", "role", roleID, &AuditDiff{Before: before})
 	_ = s.svc.InvalidateForRoleChange(ctx, roleID)
 	return nil
 }
@@ -152,7 +162,7 @@ func (s *AdminService) SetRolePermissions(ctx context.Context, actorID, tenantID
 		return nil, fmt.Errorf("admin svc: set role permissions: get after: %w", err)
 	}
 
-	_ = s.auditRepo.Write(ctx, tenantID, actorID, "role.permissions.set", "role", roleID,
+	s.audit(ctx, tenantID, actorID, "role.permissions.set", "role", roleID,
 		&AuditDiff{Before: before, After: after})
 	_ = s.svc.InvalidateForRoleChange(ctx, roleID)
 	return after, nil
@@ -167,7 +177,7 @@ func (s *AdminService) AssignRole(ctx context.Context, actorID, tenantID, target
 		return fmt.Errorf("admin svc: assign role: %w", err)
 	}
 
-	_ = s.auditRepo.Write(ctx, tenantID, actorID, "user.role.assign", "user_role",
+	s.audit(ctx, tenantID, actorID, "user.role.assign", "user_role",
 		targetUserID+"/"+roleID, &AuditDiff{After: map[string]string{
 			"user_id": targetUserID,
 			"role_id": roleID,
@@ -184,7 +194,7 @@ func (s *AdminService) RevokeRole(ctx context.Context, actorID, tenantID, target
 		return fmt.Errorf("admin svc: revoke role: %w", err)
 	}
 
-	_ = s.auditRepo.Write(ctx, tenantID, actorID, "user.role.revoke", "user_role",
+	s.audit(ctx, tenantID, actorID, "user.role.revoke", "user_role",
 		targetUserID+"/"+roleID, &AuditDiff{Before: map[string]string{
 			"user_id": targetUserID,
 			"role_id": roleID,
@@ -204,7 +214,7 @@ func (s *AdminService) GrantUserPermission(ctx context.Context, actorID, tenantI
 		return fmt.Errorf("admin svc: grant user permission: %w", err)
 	}
 
-	_ = s.auditRepo.Write(ctx, tenantID, actorID, "user.permission.grant", "user_permission",
+	s.audit(ctx, tenantID, actorID, "user.permission.grant", "user_permission",
 		targetUserID+"/"+permissionID, &AuditDiff{After: map[string]string{
 			"user_id":       targetUserID,
 			"permission_id": permissionID,
@@ -221,7 +231,7 @@ func (s *AdminService) RevokeUserPermission(ctx context.Context, actorID, tenant
 		return fmt.Errorf("admin svc: revoke user permission: %w", err)
 	}
 
-	_ = s.auditRepo.Write(ctx, tenantID, actorID, "user.permission.revoke", "user_permission",
+	s.audit(ctx, tenantID, actorID, "user.permission.revoke", "user_permission",
 		targetUserID+"/"+permissionID, &AuditDiff{Before: map[string]string{
 			"user_id":       targetUserID,
 			"permission_id": permissionID,
@@ -238,9 +248,12 @@ func ValidUserStatus(s string) bool {
 	return s == "active" || s == "suspended" || s == "deactivated"
 }
 
-// SetUserStatus locks or restores a platform account, audits the change, and
-// drops the caller's cached session_version so live tokens are rejected on the
-// next request rather than at the end of the cache TTL.
+// SetUserStatus changes a user's status, audits the change, and drops the
+// target's cached session_version so live tokens are rejected on the next
+// request rather than at the end of the cache TTL. A platform super_admin
+// locks or restores the global account; a tenant admin suspends or restores
+// only the user's membership of their own org, and only for members ranked
+// below them.
 //
 // Refuses to act on the actor's own account: an admin locking themselves out
 // mid-session is never the intent, and undoing it needs another admin.
@@ -252,18 +265,35 @@ func (s *AdminService) SetUserStatus(ctx context.Context, actorID, tenantID, tar
 		return fmt.Errorf("forbidden: you cannot change your own account status")
 	}
 
-	previous, err := s.adminRepo.SetUserStatus(ctx, targetUserID, tenantID, status, reason)
+	// Only a platform super_admin may change the global account status; a
+	// tenant admin's suspension is scoped to their own org's membership so it
+	// cannot lock a user out of other orgs.
+	superAdmin, err := s.adminRepo.IsSuperAdmin(ctx, actorID)
 	if err != nil {
 		return fmt.Errorf("admin svc: set user status: %w", err)
 	}
-	if previous == status {
+	var previous string
+	applied := status
+	if superAdmin {
+		previous, err = s.adminRepo.SetUserStatus(ctx, targetUserID, tenantID, status, reason)
+	} else {
+		applied = "active"
+		if status != "active" {
+			applied = "suspended"
+		}
+		previous, err = s.adminRepo.SetMemberStatus(ctx, actorID, targetUserID, tenantID, applied)
+	}
+	if err != nil {
+		return fmt.Errorf("admin svc: set user status: %w", err)
+	}
+	if previous == applied {
 		return nil // no-op; nothing to audit or invalidate
 	}
 
-	_ = s.auditRepo.Write(ctx, tenantID, actorID, "user.status.set", "user",
+	s.audit(ctx, tenantID, actorID, "user.status.set", "user",
 		targetUserID, &AuditDiff{
 			Before: map[string]string{"status": previous},
-			After:  map[string]string{"status": status, "reason": reason},
+			After:  map[string]string{"status": applied, "reason": reason},
 		})
 
 	if s.sessions != nil {

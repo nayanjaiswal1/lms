@@ -494,3 +494,17 @@ func (h *Handler) GrantCredits(w http.ResponseWriter, r *http.Request) {
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"balance": balance})
 }
+
+// RefundPack refunds a completed credit-pack purchase and claws back its
+// unspent credits. Route-gated by payments.manage_refunds.
+func (h *Handler) RefundPack(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	if err := h.service.RefundPack(r.Context(), claims.OrgID, chi.URLParam(r, "purchaseID")); err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"status": PurchaseStatusRefunded})
+}

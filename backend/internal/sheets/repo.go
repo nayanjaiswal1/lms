@@ -79,6 +79,16 @@ func (r *Repo) GetSheetBySlug(ctx context.Context, slug string) (Sheet, error) {
 	return s, nil
 }
 
+// canViewSQL is the single visibility rule for a sheet aliased s, with the
+// viewer's user id at placeholder $%d: system sheets are public; otherwise the
+// viewer must already own/subscribe, or share an active org with the sheet's
+// creator (org-scoped sharing). Everything else is treated as not found.
+const canViewSQL = `(s.is_system = true
+	OR EXISTS(SELECT 1 FROM user_sheets us WHERE us.user_id = $%[1]d AND us.sheet_id = s.id)
+	OR EXISTS(SELECT 1 FROM org_members a JOIN org_members b ON b.org_id = a.org_id
+	          WHERE a.user_id = $%[1]d AND a.status = 'active'
+	            AND b.user_id = s.created_by AND b.status = 'active'))`
+
 // GetSheetPreview returns a sheet's shareable metadata by slug, plus whether
 // userID already has a user_sheets row for it — visible regardless of
 // ownership so a recipient of a share link can see what they're about to
@@ -91,7 +101,7 @@ func (r *Repo) GetSheetPreview(ctx context.Context, userID, slug string) (SheetP
 		        EXISTS(SELECT 1 FROM user_sheets WHERE user_id = $2 AND sheet_id = s.id)
 		 FROM sheets s
 		 LEFT JOIN sheet_items si ON si.sheet_id = s.id
-		 WHERE s.slug = $1
+		 WHERE s.slug = $1 AND `+fmt.Sprintf(canViewSQL, 2)+`
 		 GROUP BY s.id`, slug, userID)
 
 	var p SheetPreview
@@ -491,12 +501,27 @@ func (r *Repo) ListUserSheets(ctx context.Context, userID string) ([]UserSheetSu
 }
 
 // Subscribe pins a sheet (typically a system sheet) as one the user tracks.
+// Returns ErrNotFound when the sheet does not exist or is not visible to the
+// user (see canViewSQL), so a leaked id/slug grants nothing across orgs.
 func (r *Repo) Subscribe(ctx context.Context, userID, sheetID string) error {
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO user_sheets (user_id, sheet_id, role) VALUES ($1, $2, 'subscriber')
+	tag, err := r.pool.Exec(ctx,
+		`INSERT INTO user_sheets (user_id, sheet_id, role)
+		 SELECT $1, s.id, 'subscriber' FROM sheets s
+		 WHERE s.id = $2 AND `+fmt.Sprintf(canViewSQL, 1)+`
 		 ON CONFLICT (user_id, sheet_id) DO NOTHING`, userID, sheetID)
 	if err != nil {
 		return fmt.Errorf("sheets: subscribe: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		var exists bool
+		if err := r.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM user_sheets WHERE user_id = $1 AND sheet_id = $2)`,
+			userID, sheetID).Scan(&exists); err != nil {
+			return fmt.Errorf("sheets: subscribe recheck: %w", err)
+		}
+		if !exists {
+			return ErrNotFound
+		}
 	}
 	return nil
 }

@@ -37,6 +37,9 @@ type ImageProfile struct {
 	// something other than the default.
 	CPU      string
 	MemoryMB int
+	// PidsLimit caps processes (docker --pids-limit). Zero falls back to
+	// the runtime-wide limit (DefaultContainerPidsLimit).
+	PidsLimit int
 	// Network is the Docker network the container joins. Empty falls back to
 	// the shared "mindforge-labs" network. Ignored by the Kubernetes
 	// runtime, which has no equivalent per-container network selection.

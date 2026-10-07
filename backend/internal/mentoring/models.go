@@ -26,6 +26,7 @@ const (
 	PurchaseStatusPending   = "pending"
 	PurchaseStatusCompleted = "completed"
 	PurchaseStatusFailed    = "failed"
+	PurchaseStatusRefunding = "refunding"
 	PurchaseStatusRefunded  = "refunded"
 )
 

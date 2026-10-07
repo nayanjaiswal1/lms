@@ -161,17 +161,25 @@ type OrgAnalytics struct {
 	ActiveBatches    int     `json:"active_batches"`
 }
 
-func (r *Repo) OrgAnalytics(ctx context.Context, orgID string) (OrgAnalytics, error) {
+// mentorBatchIDs, when non-nil, scopes every figure to those batches: their
+// assigned assessments, their members' attempts and the batches themselves.
+func (r *Repo) OrgAnalytics(ctx context.Context, orgID string, mentorBatchIDs []string) (OrgAnalytics, error) {
 	var out OrgAnalytics
+	const memberAttempts = `at.org_id = $1 AND ($2::text[] IS NULL OR EXISTS (
+		   SELECT 1 FROM batch_members bm WHERE bm.user_id = at.user_id AND bm.batch_id::text = ANY($2)))`
 	err := r.pool.QueryRow(ctx,
 		`SELECT
-		   (SELECT count(*) FROM assessments WHERE org_id = $1 AND status != 'archived'),
-		   (SELECT count(*) FROM questions WHERE org_id = $1 AND status = 'active'),
-		   (SELECT count(*) FROM assessment_attempts WHERE org_id = $1 AND status IN ('submitted','evaluated','expired')),
-		   (SELECT COALESCE(avg(CASE WHEN passed THEN 1.0 ELSE 0.0 END) * 100, 0)
-		      FROM assessment_attempts WHERE org_id = $1 AND status = 'evaluated'),
-		   (SELECT count(*) FROM batches WHERE org_id = $1 AND status = 'active')`,
-		orgID).Scan(&out.TotalAssessments, &out.TotalQuestions, &out.TotalAttempts,
+		   (SELECT count(*) FROM assessments a WHERE a.org_id = $1 AND a.status != 'archived'
+		      AND ($2::text[] IS NULL OR EXISTS (SELECT 1 FROM content_assignments ca
+		        WHERE ca.content_type = 'assessment' AND ca.content_id = a.id
+		          AND ca.assignee_type = 'batch' AND ca.assignee_id::text = ANY($2)))),
+		   (SELECT count(*) FROM questions WHERE org_id = $1 AND status = 'active' AND $2::text[] IS NULL),
+		   (SELECT count(*) FROM assessment_attempts at WHERE `+memberAttempts+` AND at.status IN ('submitted','evaluated','expired')),
+		   (SELECT COALESCE(avg(CASE WHEN at.passed THEN 1.0 ELSE 0.0 END) * 100, 0)
+		      FROM assessment_attempts at WHERE `+memberAttempts+` AND at.status = 'evaluated'),
+		   (SELECT count(*) FROM batches b WHERE b.org_id = $1 AND b.status = 'active'
+		      AND ($2::text[] IS NULL OR b.id::text = ANY($2)))`,
+		orgID, mentorBatchIDs).Scan(&out.TotalAssessments, &out.TotalQuestions, &out.TotalAttempts,
 		&out.AvgPassRate, &out.ActiveBatches)
 	if err != nil {
 		return out, fmt.Errorf("assessment: org analytics: %w", err)

@@ -129,7 +129,7 @@ func (r *Repo) GetForUser(ctx context.Context, id, userID string) (Roadmap, erro
 		return Roadmap{}, fmt.Errorf("roadmap: get: %w", err)
 	}
 
-	phases, err := r.getTree(ctx, id)
+	phases, err := r.getTree(ctx, id, false)
 	if err != nil {
 		return Roadmap{}, err
 	}
@@ -162,7 +162,7 @@ func (r *Repo) GetPublicWithTree(ctx context.Context, id string) (Roadmap, error
 		}
 		return Roadmap{}, fmt.Errorf("roadmap: get public: %w", err)
 	}
-	phases, err := r.getTree(ctx, id)
+	phases, err := r.getTree(ctx, id, true)
 	if err != nil {
 		return Roadmap{}, err
 	}
@@ -172,7 +172,10 @@ func (r *Repo) GetPublicWithTree(ctx context.Context, id string) (Roadmap, error
 
 // getTree loads the nested phase/milestone/module tree from the structure JSONB,
 // then resolves resource titles/slugs via LEFT JOINs against the catalog tables.
-func (r *Repo) getTree(ctx context.Context, roadmapID string) ([]Phase, error) {
+//
+// publicOnly restricts title/slug resolution to published, public catalog items
+// so a public roadmap never reveals private or draft course and lab titles.
+func (r *Repo) getTree(ctx context.Context, roadmapID string, publicOnly bool) ([]Phase, error) {
 	var structureRaw []byte
 	err := r.pool.QueryRow(ctx,
 		`SELECT structure FROM roadmaps WHERE id = $1`, roadmapID,
@@ -289,7 +292,8 @@ func (r *Repo) getTree(ctx context.Context, roadmapID string) ([]Phase, error) {
 			}
 			if len(courseIDs) > 0 {
 				courseRows, err := r.pool.Query(ctx,
-					`SELECT id, title, slug FROM courses WHERE id = ANY($1)`, courseIDs)
+					`SELECT id, title, slug FROM courses WHERE id = ANY($1)
+					 AND (NOT $2 OR (status = 'published' AND is_public))`, courseIDs, publicOnly)
 				if err != nil {
 					return nil, fmt.Errorf("roadmap: get courses: %w", err)
 				}
@@ -318,7 +322,8 @@ func (r *Repo) getTree(ctx context.Context, roadmapID string) ([]Phase, error) {
 			}
 			if len(labIDs) > 0 {
 				labRows, err := r.pool.Query(ctx,
-					`SELECT id, title FROM lab_definitions WHERE id = ANY($1)`, labIDs)
+					`SELECT id, title FROM lab_definitions WHERE id = ANY($1)
+					 AND (NOT $2 OR is_published)`, labIDs, publicOnly)
 				if err != nil {
 					return nil, fmt.Errorf("roadmap: get labs: %w", err)
 				}
@@ -457,7 +462,7 @@ func (r *Repo) listWithCounts(ctx context.Context, whereOrderLimit string, args 
 
 	// For each roadmap, compute module counts from structure JSONB
 	for i := range out {
-		phases, err := r.getTree(ctx, out[i].ID)
+		phases, err := r.getTree(ctx, out[i].ID, false)
 		if err != nil {
 			return nil, err
 		}

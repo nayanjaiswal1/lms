@@ -157,9 +157,9 @@ func (h *Handler) UpdateQna(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	// Live-looked-up org role, not claims.OrgRole — see middleware.LiveOrgRole.
-	liveRole, _ := middleware.LiveOrgRole(r.Context(), h.pool, claims.UserID, claims.OrgID)
-	q, err := h.service.UpdateQna(r.Context(), claims.UserID, liveRole, chi.URLParam(r, "id"), req)
+	// Cross-org content: only platform super_admins may moderate others' posts.
+	moderator := middleware.IsPlatformSuperAdmin(r.Context(), h.pool, claims.UserID)
+	q, err := h.service.UpdateQna(r.Context(), claims.UserID, moderator, chi.URLParam(r, "id"), req)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -172,9 +172,9 @@ func (h *Handler) DeleteQna(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// Live-looked-up org role, not claims.OrgRole — see middleware.LiveOrgRole.
-	liveRole, _ := middleware.LiveOrgRole(r.Context(), h.pool, claims.UserID, claims.OrgID)
-	if err := h.service.DeleteQna(r.Context(), claims.UserID, liveRole, chi.URLParam(r, "id")); err != nil {
+	// Cross-org content: only platform super_admins may moderate others' posts.
+	moderator := middleware.IsPlatformSuperAdmin(r.Context(), h.pool, claims.UserID)
+	if err := h.service.DeleteQna(r.Context(), claims.UserID, moderator, chi.URLParam(r, "id")); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -222,9 +222,9 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// Live-looked-up org role, not claims.OrgRole — see middleware.LiveOrgRole.
-	liveRole, _ := middleware.LiveOrgRole(r.Context(), h.pool, claims.UserID, claims.OrgID)
-	if err := h.service.DeleteComment(r.Context(), claims.UserID, liveRole, chi.URLParam(r, "id")); err != nil {
+	// Cross-org content: only platform super_admins may moderate others' posts.
+	moderator := middleware.IsPlatformSuperAdmin(r.Context(), h.pool, claims.UserID)
+	if err := h.service.DeleteComment(r.Context(), claims.UserID, moderator, chi.URLParam(r, "id")); err != nil {
 		writeDomainError(w, err)
 		return
 	}

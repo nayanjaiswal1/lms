@@ -52,6 +52,10 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
+	if course.Status != StatusPublished {
+		httputil.WriteError(w, http.StatusNotFound, "Course not found.")
+		return
+	}
 	if !course.IsFree {
 		httputil.WriteError(w, http.StatusPaymentRequired, "This course requires payment.")
 		return

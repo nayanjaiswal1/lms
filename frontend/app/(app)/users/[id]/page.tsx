@@ -13,10 +13,6 @@ import { ManageFeaturesDialog } from "@/app/(app)/users/manage-features-dialog"
 import { UserDetailTabs } from "@/app/(app)/users/[id]/user-detail-tabs"
 import { OverviewTab } from "@/app/(app)/users/[id]/overview-tab"
 import { CoursesTab } from "@/app/(app)/users/[id]/courses-tab"
-import { SheetsTab } from "@/app/(app)/users/[id]/sheets-tab"
-import { MistakesTab } from "@/app/(app)/users/[id]/mistakes-tab"
-import { HabitsTab } from "@/app/(app)/users/[id]/habits-tab"
-import { JournalTab } from "@/app/(app)/users/[id]/journal-tab"
 import { AccessTab } from "@/app/(app)/users/[id]/access-tab"
 import { AuditTab } from "@/app/(app)/users/[id]/audit-tab"
 import type { AuditEntry, PermissionMeta, RoleFull, UserOverview } from "@/app/(app)/users/[id]/types"
@@ -72,10 +68,6 @@ export default async function UserDetailPage({ params }: PageProps) {
   const tabs = [
     { value: "overview" as const, label: "Overview", content: <OverviewTab overview={overview} roleCount={roles.length} /> },
     { value: "courses" as const, label: "Courses", content: <CoursesTab enrollments={overview.enrollments} /> },
-    { value: "sheets" as const, label: "Sheets", content: <SheetsTab sheets={overview.sheets} /> },
-    { value: "mistakes" as const, label: "Mistakes", content: <MistakesTab entries={overview.mistakes} summary={overview.mistake_summary} /> },
-    { value: "habits" as const, label: "Habits", content: <HabitsTab habitMonth={overview.habit_month} /> },
-    { value: "journal" as const, label: "Journal", content: <JournalTab entries={overview.journal_entries} /> },
     {
       value: "access" as const,
       label: "Access",

@@ -20,8 +20,8 @@ func (n *NoopClient) Delete(_ context.Context, _ string) error {
 	return nil
 }
 
-func (n *NoopClient) PresignedPutURL(_ context.Context, key, _ string, _ int64) (string, error) {
-	return "", ErrStorageUnavailable
+func (n *NoopClient) PresignedPost(_ context.Context, _, _ string, _ int64) (string, map[string]string, error) {
+	return "", nil, ErrStorageUnavailable
 }
 
 func (n *NoopClient) PresignedGetURL(_ context.Context, key string, _ time.Duration) (string, error) {

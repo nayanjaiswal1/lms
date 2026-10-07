@@ -143,27 +143,29 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	// mentoring.manage_batches (roster), mentoring.view_students, admin.view_members.
 	r.Group(func(r chi.Router) {
 		r.Use(staffAll)
+		mentorScope := mentorBatchScope(h.pool)
 
 		// Batches — viewing, and roster membership (mentor's "manage batches"
 		// permission is about the student roster of batches they mentor).
 		r.Get("/api/batches", h.ListBatches)
-		r.Get("/api/batches/{batchID}", h.GetBatch)
-		r.Post("/api/batches/{batchID}/members", h.AddBatchMembers)
-		r.Delete("/api/batches/{batchID}/members/{userID}", h.RemoveBatchMember)
+		r.With(mentorScope).Get("/api/batches/{batchID}", h.GetBatch)
+		r.With(mentorScope).Post("/api/batches/{batchID}/members", h.AddBatchMembers)
+		r.With(mentorScope).Delete("/api/batches/{batchID}/members/{userID}", h.RemoveBatchMember)
 
 		// Batch progress + analytics
-		r.Get("/api/batches/{batchID}/progress", h.GetBatchProgress)
-		r.Get("/api/batches/{batchID}/analytics", h.GetBatchAnalytics)
+		r.With(mentorScope).Get("/api/batches/{batchID}/progress", h.GetBatchProgress)
+		r.With(mentorScope).Get("/api/batches/{batchID}/analytics", h.GetBatchAnalytics)
 
 		// Classroom Test Assessment Engine — viewing offline/manual test results
-		r.Get("/api/batches/{batchID}/offline-tests", h.ListOfflineTests)
-		r.Get("/api/batches/{batchID}/offline-tests/{testID}", h.GetOfflineTest)
+		r.With(mentorScope).Get("/api/batches/{batchID}/offline-tests", h.ListOfflineTests)
+		r.With(mentorScope).Get("/api/batches/{batchID}/offline-tests/{testID}", h.GetOfflineTest)
 
 		// Analytics + results review (view-only)
-		r.Get("/api/assessments/{assessmentID}/analytics", h.AssessmentAnalytics)
-		r.Get("/api/assessments/{assessmentID}/attempts", h.ListAssessmentAttempts)
-		r.Get("/api/assessments/{assessmentID}/candidates", h.GetPublicCandidates)
-		r.Get("/api/attempts/{attemptID}/proctoring", h.AttemptProctoringLog)
+		assessmentScope := mentorAssessmentScope(h.pool)
+		r.With(assessmentScope).Get("/api/assessments/{assessmentID}/analytics", h.AssessmentAnalytics)
+		r.With(assessmentScope).Get("/api/assessments/{assessmentID}/attempts", h.ListAssessmentAttempts)
+		r.With(assessmentScope).Get("/api/assessments/{assessmentID}/candidates", h.GetPublicCandidates)
+		r.With(mentorAttemptScope(h.pool)).Get("/api/attempts/{attemptID}/proctoring", h.AttemptProctoringLog)
 		r.Get("/api/analytics/overview", h.OrgAnalytics)
 
 		// Interview evaluation — staff review queue (read) and queue health
@@ -206,6 +208,9 @@ func (h *Handler) RegisterPublicRoutes(r chi.Router) {
 	// Hiring / public assessment routes — no auth, keyed by short_code.
 	r.Get("/api/p/{code}", h.GetPublicTest)
 	r.Post("/api/p/{code}/start", h.StartPublicAttempt)
+	r.Post("/api/p/{code}/submit", h.SubmitPublicAttempt)
+	r.Get("/api/p/{code}/result", h.GetPublicResult)
+	// Deprecated token-in-path forms, kept for one release.
 	r.Post("/api/p/{code}/submit/{token}", h.SubmitPublicAttempt)
 	r.Get("/api/p/{code}/result/{token}", h.GetPublicResult)
 }

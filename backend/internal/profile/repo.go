@@ -636,3 +636,15 @@ func (r *Repo) txUpdateWithLinks(ctx context.Context, userID string, input Updat
 		return nil
 	})
 }
+
+// IsActiveOrgMember reports whether userID is an active member of orgID.
+func (r *Repo) IsActiveOrgMember(ctx context.Context, orgID, userID string) (bool, error) {
+	var ok bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM org_members WHERE org_id = $1::uuid AND user_id = $2::uuid AND status = 'active')`,
+		orgID, userID).Scan(&ok)
+	if err != nil {
+		return false, fmt.Errorf("profile: org membership lookup: %w", err)
+	}
+	return ok, nil
+}

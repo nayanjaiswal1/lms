@@ -229,7 +229,7 @@ func (h *Handler) GetCourse(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	tree, err := h.repo.GetCourseTree(r.Context(), claims.OrgID, claims.UserID, httputil.URLParam(r, "courseID"))
+	tree, err := h.service.GetCourseTree(r.Context(), claims.OrgID, claims.UserID, httputil.URLParam(r, "courseID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -681,12 +681,12 @@ func (h *Handler) GetUploadURL(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"mime_type": "MIME type required."})
 		return
 	}
-	uploadURL, key, err := h.service.PresignedUploadURL(r.Context(), claims.OrgID, req.CourseID, req.ModuleID, req.MimeType)
+	uploadURL, fields, key, err := h.service.PresignedUploadURL(r.Context(), claims.OrgID, req.CourseID, req.ModuleID, req.MimeType)
 	if err != nil {
 		httputil.WriteError(w, http.StatusServiceUnavailable, "Storage unavailable.")
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"upload_url": uploadURL, "storage_key": key})
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"upload_url": uploadURL, "upload_fields": fields, "storage_key": key})
 }
 
 // UploadAsset accepts a multipart/form-data upload ("file" field), stores it, and

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import type { NextFetchEvent, NextRequest } from "next/server"
 import { LAST_PAGE_COOKIE, LAST_PAGE_SYNC_COOKIE, LAST_PAGE_SYNC_INTERVAL_MS } from "@/lib/constants"
 import ROUTES from "@/lib/routes"
+import { buildCsp, generateNonce } from "@/lib/csp"
 
 // Pages that are a step in a flow, not somewhere to resume.
 const UNTRACKED_PATHS = new Set<string>([ROUTES.LAST_VISITED, ROUTES.ONBOARDING, ROUTES.ORG_SELECT])
@@ -21,6 +22,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   "/org", // org marketing landing — distinct from the authenticated /org/create, /org/settings, /org/setup routes below
   "/roadmaps", // (public) route group — anonymous roadmap Discover gallery
   "/login",
+  "/login/mfa", // second sign-in step — the session does not exist yet
   "/register",
   "/forgot-password",
   "/reset-password",
@@ -30,6 +32,11 @@ const PUBLIC_EXACT_PATHS = new Set([
   "/legal/terms",
   "/legal/privacy",
   "/legal/refund-policy",
+  "/legal/grievance",
+  "/legal/security",
+  "/legal/cookies",
+  "/legal/acceptable-use",
+  "/legal/dpa",
 ])
 
 // Prefix matches — for route segments with dynamic children ([token], [uuid],
@@ -141,18 +148,18 @@ function trackLastPage(request: NextRequest, response: NextResponse, event: Next
   return response
 }
 
-export async function proxy(request: NextRequest, event: NextFetchEvent): Promise<NextResponse> {
+async function authProxy(request: NextRequest, event: NextFetchEvent): Promise<NextResponse> {
   const { pathname } = request.nextUrl
 
   const accessToken  = request.cookies.get("access_token")?.value
   const refreshToken = request.cookies.get("refresh_token")?.value
   const csrfToken    = request.cookies.get("csrf_token")?.value
 
-  if (COURSE_LEARN_PATH.test(pathname) && !accessToken && !refreshToken) return NextResponse.next()
-  if (isPublicPath(pathname)) return NextResponse.next()
+  if (COURSE_LEARN_PATH.test(pathname) && !accessToken && !refreshToken) return NextResponse.next({ request })
+  if (isPublicPath(pathname)) return NextResponse.next({ request })
 
   // Token present and not expired — let through immediately.
-  if (accessToken && !jwtExpired(accessToken)) return trackLastPage(request, NextResponse.next(), event)
+  if (accessToken && !jwtExpired(accessToken)) return trackLastPage(request, NextResponse.next({ request }), event)
 
   // No refresh token — redirect to login.
   if (!refreshToken) {
@@ -221,6 +228,16 @@ export async function proxy(request: NextRequest, event: NextFetchEvent): Promis
     // is not a gate.
     return loginRedirect(request)
   }
+}
+
+// Per-request nonce CSP: the policy goes on the request (Next.js reads the nonce
+// from it and stamps its own scripts) and on the response (the browser enforces it).
+export async function proxy(request: NextRequest, event: NextFetchEvent): Promise<NextResponse> {
+  const csp = buildCsp(generateNonce())
+  request.headers.set("Content-Security-Policy", csp)
+  const response = await authProxy(request, event)
+  response.headers.set("Content-Security-Policy", csp)
+  return response
 }
 
 export const config = {

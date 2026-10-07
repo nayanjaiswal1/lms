@@ -45,7 +45,7 @@ func (h *Handler) CreateReport(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	report, err := h.service.CreateReport(r.Context(), claims.UserID, req.ContentType, req.ContentID, req.Reason, req.Description)
+	report, err := h.service.CreateReport(r.Context(), claims.OrgID, claims.UserID, req.ContentType, req.ContentID, req.Reason, req.Description)
 	if err != nil {
 		writeDomainError(w, err)
 		return

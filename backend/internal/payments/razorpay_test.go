@@ -127,3 +127,34 @@ func TestRazorpayParseWebhook_EventIDFallsBackToCompositeKey(t *testing.T) {
 		t.Error("expected a non-empty fallback event id")
 	}
 }
+
+func TestRazorpayParseWebhook_RefundAndDisputeReverse(t *testing.T) {
+	secret := "razorpay_test_secret"
+	p := NewRazorpayProvider("rzp_test_key", "rzp_test_secret", secret)
+	cases := []struct {
+		event, key string
+		amount     int
+	}{
+		{"refund.processed", "refund", 999},
+		{"payment.dispute.created", "dispute", 0},
+	}
+	for _, c := range cases {
+		body, err := json.Marshal(map[string]any{
+			"event":      c.event,
+			"created_at": time.Now().Unix(),
+			"payload":    map[string]any{c.key: map[string]any{"entity": map[string]any{"payment_id": "pay_test123", "amount": c.amount}}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		h := http.Header{}
+		h.Set("X-Razorpay-Signature", signRazorpay(body, secret))
+		ev, err := p.ParseWebhook(body, h)
+		if err != nil {
+			t.Fatalf("%s: %v", c.event, err)
+		}
+		if ev.Status != StatusRefunded || ev.PaymentRef != "pay_test123" || ev.AmountCents != c.amount {
+			t.Errorf("%s: got %+v", c.event, ev)
+		}
+	}
+}

@@ -311,3 +311,44 @@ fails with the duplicate-slug `IntegrityError` the ticket describes.
 **Rule:** an "expected to fail" check proves nothing unless the failure is the
 intended one. Make failing checks say why (to a channel the end user can't
 see), and read that reason when authoring, not just the pass/fail bit.
+
+
+## Money paths written for the happy path only
+
+**Found in:** `sessions` credit packs and `mentoring` webhooks (compliance audit, 2026-10-07).
+
+Three instances of one pattern. (1) `CreatePackPurchase` never wrote the `granted` JSON that `CompletePurchase` later read, so a pack payment could not credit the ledger; no test ran the two calls together. (2) Refund and dispute events were parsed but nothing acted on credit packs, and the admin refund called the gateway before recording any intent, so a crash left a refunded charge marked `completed`. (3) The webhook swallowed internal failures with a 2xx and deduped redeliveries by event id alone, so a failed confirm could never be retried.
+
+**Fix:** persist a `refunding` status before the gateway call; reverse through a guarded status transition plus a capped ledger entry (never negative, shortfall recorded); dedupe only events with `processed_at` set; return non-2xx on retryable failures; add a reconcile sweep that alerts on stuck rows.
+
+**Rule:** for every write whose result another function reads, add one test that runs both. Any external side effect (gateway refund) is preceded by a persisted intent. A dedupe key must mean "fully handled", not "seen".
+
+## Docs claiming features the code does not have
+
+**Found in:** `auth.md`, `interview.md`, `calendar-sync.md`, `design.md` (2026-10-07): magic link, OIDC/SAML, device list, `switch-org`, the Yjs relay, Google Calendar sync, the `/design` embed.
+
+Design docs written before the build read as if the feature shipped, and a schema column (`allow_magic_link`, `oidc_*`) made the claim look real. A reader (or an agent) then trusts a route that returns 404.
+
+**Fix:** each unbuilt claim is marked "planned (not built)" at the top of its section.
+
+**Rule:** a design doc gets a status line the day it is written, and the line is removed only by the change that builds it. A column without a route is not a feature.
+
+## Personal data reachable through an org-scoped door
+
+**Found in:** admin user overview, leaderboards, public-test tokens (2026-10-07).
+
+The admin overview joined tables that have no `org_id` (journal, mistakes, habits), so any org admin could read a user's private history from before they joined. Leaderboards built their Redis key from a client-supplied `scope_id`. Public-test tokens were valid for any test code and never expired.
+
+**Fix:** drop the personal tabs; pin scopes to the caller's org and verify ownership of batch/group/course ids; anonymise the global board; bind tokens to their test and expire them.
+
+**Rule:** a query that crosses a tenant boundary needs the tenant id in the query itself. A table without `org_id` never appears in an org-admin view. An id from the request is a claim to verify, not a key to use.
+
+## Consent and retention bolted on after the data flow
+
+**Found in:** captures, diary AI, `auth_events`, public candidates (2026-10-07).
+
+AI features shipped sending user text to a third party with no opt-in, security events had no append-only guarantee or purge, and candidate PII was kept forever.
+
+**Fix:** a shared `privacy.RequireAIConsent` check at every AI entry point, an append-only trigger with a purge-only escape hatch, and a single `retention.purge` job with per-class windows.
+
+**Rule:** a new feature that sends user content to a model, or stores identifying data, names its consent check and its retention window in the same change.

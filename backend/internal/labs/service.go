@@ -155,18 +155,21 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 	// idempotency cache exists to dedupe an in-flight start, not to resurrect
 	// one that already ran its course. A terminal hit clears the stale key
 	// and falls through to provisioning a genuinely new session instead.
+	// Namespaced by org and user so a guessed key can never resolve to another
+	// user's session.
+	idemKey := "lab:idem:" + orgID + ":" + userID + ":" + idempotencyKey
 	if idempotencyKey != "" {
-		if val, redisErr := s.rdb.Get(ctx, "lab:idem:"+idempotencyKey).Result(); redisErr == nil && val != "" {
+		if val, redisErr := s.rdb.Get(ctx, idemKey).Result(); redisErr == nil && val != "" {
 			existing, err := s.repo.GetSessionByID(ctx, val)
 			if err != nil && !errors.Is(err, ErrNotFound) {
 				return nil, fmt.Errorf("labs.Service.StartSession: resolve idempotency: %w", err)
 			}
-			if err == nil && isNonTerminalStatus(existing.Status) {
+			if err == nil && existing.UserID == userID && isNonTerminalStatus(existing.Status) {
 				return existing, nil
 			}
 			// Session is terminal, or the row is simply gone — either way the
 			// cached ID no longer points at anything worth returning.
-			if delErr := s.rdb.Del(ctx, "lab:idem:"+idempotencyKey).Err(); delErr != nil {
+			if delErr := s.rdb.Del(ctx, idemKey).Err(); delErr != nil {
 				slog.Warn("labs.Service.StartSession: clear stale idempotency key", "error", delErr)
 			}
 		}
@@ -351,7 +354,7 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 
 	// 6. Persist idempotency key for 10 minutes.
 	if idempotencyKey != "" {
-		if err := s.rdb.Set(ctx, "lab:idem:"+idempotencyKey, session.ID, 10*time.Minute).Err(); err != nil {
+		if err := s.rdb.Set(ctx, idemKey, session.ID, 10*time.Minute).Err(); err != nil {
 			slog.Error("labs.Service.StartSession: store idempotency key", "error", err)
 		}
 	}
@@ -1171,12 +1174,13 @@ func (s *Service) verifyContainerTask(ctx context.Context, session *LabSession, 
 
 // acquireCooldown is the single SetNX rate limit every labs endpoint uses: it
 // claims key for window, or returns a *RateLimitedError carrying the key's
-// remaining TTL. Fails open on Redis errors (same policy everywhere).
+// remaining TTL. Fails CLOSED on Redis errors (audit M-13): the cooldown is
+// the abuse brake for exec-backed endpoints, so an outage must not remove it.
 func (s *Service) acquireCooldown(ctx context.Context, key string, window time.Duration, op string) error {
 	set, err := s.rdb.SetNX(ctx, key, 1, window).Result()
 	if err != nil {
 		slog.Error(op+": rate limit check", "error", err)
-		return nil
+		return fmt.Errorf("%s: rate limit check: %w", op, err)
 	}
 	if set {
 		return nil

@@ -9,6 +9,12 @@ const FOOTER_LINKS = [
   { label: "For organizations", href: ROUTES.ORG_CREATE },
   { label: "Privacy Policy", href: ROUTES.LEGAL_PRIVACY },
   { label: "Terms of Service", href: ROUTES.LEGAL_TERMS },
+  { label: "Refund Policy", href: ROUTES.LEGAL_REFUND_POLICY },
+  { label: "Cookies", href: ROUTES.LEGAL_COOKIES },
+  { label: "Acceptable Use", href: ROUTES.LEGAL_ACCEPTABLE_USE },
+  { label: "Security", href: ROUTES.LEGAL_SECURITY },
+  { label: "Data Processing", href: ROUTES.LEGAL_DPA },
+  { label: "Grievance", href: ROUTES.LEGAL_GRIEVANCE },
 ] as const;
 
 // Phones: centred stack with the links in an even 2-col grid (44px tap targets,

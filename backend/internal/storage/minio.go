@@ -2,9 +2,9 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
-	"net/url"
 	"time"
 
 	"github.com/mindforge/backend/internal/config"
@@ -109,14 +109,25 @@ func (m *MinioClient) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-func (m *MinioClient) PresignedPutURL(ctx context.Context, key, mimeType string, maxBytes int64) (string, error) {
-	params := url.Values{}
-	params.Set("Content-Type", mimeType)
-	u, err := m.publicClient.PresignedPutObject(ctx, m.bucket, key, 30*time.Minute)
-	if err != nil {
-		return "", fmt.Errorf("storage: presigned put %q: %w", key, err)
+// presignedPostTTL bounds how long an upload policy stays valid.
+const presignedPostTTL = 30 * time.Minute
+
+func (m *MinioClient) PresignedPost(ctx context.Context, key, mimeType string, maxBytes int64) (string, map[string]string, error) {
+	policy := minio.NewPostPolicy()
+	if err := errors.Join(
+		policy.SetBucket(m.bucket),
+		policy.SetKey(key),
+		policy.SetExpires(time.Now().UTC().Add(presignedPostTTL)),
+		policy.SetContentType(mimeType),
+		policy.SetContentLengthRange(1, maxBytes),
+	); err != nil {
+		return "", nil, fmt.Errorf("storage: post policy %q: %w", key, err)
 	}
-	return u.String(), nil
+	u, fields, err := m.publicClient.PresignedPostPolicy(ctx, policy)
+	if err != nil {
+		return "", nil, fmt.Errorf("storage: presigned post %q: %w", key, err)
+	}
+	return u.String(), fields, nil
 }
 
 func (m *MinioClient) PresignedGetURL(ctx context.Context, key string, ttl time.Duration) (string, error) {

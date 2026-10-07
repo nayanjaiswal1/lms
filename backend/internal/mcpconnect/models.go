@@ -43,6 +43,10 @@ const (
 // cross-sheet problem progress.
 var AllScopes = []string{ScopeCoursesRead, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign, ScopeSheets, ScopeJournal, ScopeHabits, ScopeWikiRead, ScopeWikiWrite}
 
+// DefaultScopes is what a client gets when it omits the scope parameter: the
+// least-privilege, read-only scope. Anything wider must be requested explicitly.
+var DefaultScopes = []string{ScopeCoursesRead}
+
 // ScopeDescriptions is shown on the consent screen, keyed by scope.
 var ScopeDescriptions = map[string]string{
 	ScopeCoursesRead:    "Read your enrolled courses and lesson content",

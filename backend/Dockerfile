@@ -29,6 +29,11 @@ WORKDIR /app
 
 COPY --from=builder /bin/server /app/server
 
+# Run unprivileged (audit H-10). The docker CLI reaches the daemon over TCP
+# via DOCKER_HOST (socket proxy), so no docker group membership is needed.
+RUN adduser -S -D -H -u 10001 app
+USER 10001
+
 EXPOSE 8080
 
 ENTRYPOINT ["/app/server"]

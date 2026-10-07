@@ -1022,3 +1022,27 @@ func parseLBKey(key string) (scope, scopeID, featureType string) {
 	}
 	return "", "", ""
 }
+
+// scopeTables maps a leaderboard scope to the table whose rows carry org_id.
+var scopeTables = map[string]string{
+	"batch":  "batches",
+	"group":  "cohort_groups",
+	"course": "courses",
+}
+
+// ScopeInOrg reports whether a batch/group/course id belongs to orgID.
+// Other scopes are keyed by the caller's own org and need no lookup.
+func (r *Repo) ScopeInOrg(ctx context.Context, scope, scopeID, orgID string) (bool, error) {
+	table, ok := scopeTables[scope]
+	if !ok {
+		return true, nil
+	}
+	var owned bool
+	err := r.pool.QueryRow(ctx,
+		"SELECT EXISTS (SELECT 1 FROM "+table+" WHERE id = $1::uuid AND org_id = $2::uuid)",
+		scopeID, orgID).Scan(&owned)
+	if err != nil {
+		return false, fmt.Errorf("rewards: scope owner check: %w", err)
+	}
+	return owned, nil
+}

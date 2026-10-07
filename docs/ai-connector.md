@@ -214,3 +214,14 @@ reversible, since nothing ever needs to recover the raw token server-side.
 - Protocol-facing responses (discovery, register, authorize, token, `/mcp`)
   return bare JSON — never MindForge's usual `{"data": ...}` app envelope,
   which a real OAuth/MCP client would not know to unwrap.
+
+
+---
+
+## Privacy, retention and token hygiene
+
+- Connecting and revoking a connection write `mcp_connected` / `mcp_revoked` to the `auth_events` trail.
+- The MCP action log (full tool arguments and before/after text) is purged after `RETENTION_MCP_ACTION_DAYS` (default 180); expired auth codes and access tokens are purged once past `expires_at`.
+- Refresh tokens rotate on every use; presenting a rotated-out token again means it leaked and revokes the connection (migration 058, `previous_refresh_token_hash`).
+- `/oauth/register` is rate-limited per IP (`OAUTH_REGISTER_RATE_LIMIT_*`, default 10/h); `/oauth/*` and `/mcp` share the public per-IP budget (`PUBLIC_RATE_LIMIT_*`).
+- Account erasure deletes the user's connections and action history. MCP connection rows are excluded from the data export because they hold token hashes.

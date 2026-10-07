@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mindforge/backend/internal/coupons"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -529,10 +530,10 @@ func (r *Repo) UpsertPack(ctx context.Context, p CreditPack, actorID string) (Cr
 func (r *Repo) CreatePackPurchase(ctx context.Context, p PackPurchase) (PackPurchase, error) {
 	err := r.pool.QueryRow(ctx,
 		`INSERT INTO purchases
-		   (org_id, user_id, product_type, pack_id, amount_cents, currency, provider, provider_ref, status)
-		 VALUES ($1, $2, 'session_pack', $3, $4, $5, $6, $7, 'pending')
+		   (org_id, user_id, product_type, pack_id, amount_cents, currency, provider, provider_ref, status, granted)
+		 VALUES ($1, $2, 'session_pack', $3, $4, $5, $6, $7, 'pending', jsonb_build_object('sessions', $8::int))
 		 RETURNING id, status`,
-		p.OrgID, p.UserID, p.PackID, p.AmountCents, p.Currency, p.Provider, p.ProviderRef,
+		p.OrgID, p.UserID, p.PackID, p.AmountCents, p.Currency, p.Provider, p.ProviderRef, p.Sessions,
 	).Scan(&p.ID, &p.Status)
 	if err != nil {
 		return PackPurchase{}, fmt.Errorf("sessions: create pack purchase: %w", err)
@@ -614,4 +615,100 @@ func (r *Repo) CompletePurchase(ctx context.Context, purchaseID, paymentRef stri
 		return nil
 	})
 	return transitioned, err
+}
+
+// ReverseOutcome reports what ReversePurchase did.
+type ReverseOutcome struct {
+	Reversed   bool // false: already refunded, nothing to do
+	ClawedBack int  // credits removed from the ledger
+	Shortfall  int  // credits already spent, which could not be clawed back
+}
+
+const packPurchaseSelect = `SELECT id, org_id, user_id, pack_id, amount_cents, currency, provider, provider_ref,
+	        COALESCE(payment_ref, ''), status, COALESCE((granted->>'sessions')::int, 0)
+	   FROM purchases WHERE product_type = 'session_pack' AND `
+
+func (r *Repo) getPackPurchase(ctx context.Context, where string, args ...any) (PackPurchase, error) {
+	var p PackPurchase
+	err := r.pool.QueryRow(ctx, packPurchaseSelect+where, args...).Scan(&p.ID, &p.OrgID, &p.UserID, &p.PackID,
+		&p.AmountCents, &p.Currency, &p.Provider, &p.ProviderRef, &p.PaymentRef, &p.Status, &p.Sessions)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return PackPurchase{}, ErrNotFound
+	}
+	if err != nil {
+		return PackPurchase{}, fmt.Errorf("sessions: get pack purchase: %w", err)
+	}
+	return p, nil
+}
+
+// GetPurchaseByPaymentRef resolves a refund/dispute event back to its pack
+// purchase (payment_ref is the charge handle captured at confirmation).
+func (r *Repo) GetPurchaseByPaymentRef(ctx context.Context, provider, paymentRef string) (PackPurchase, error) {
+	return r.getPackPurchase(ctx, `provider = $1 AND payment_ref = $2`, provider, paymentRef)
+}
+
+// GetOrgPurchase loads one pack purchase scoped to its org.
+func (r *Repo) GetOrgPurchase(ctx context.Context, orgID, purchaseID string) (PackPurchase, error) {
+	return r.getPackPurchase(ctx, `id = $1 AND org_id = $2`, purchaseID, orgID)
+}
+
+// MarkPurchaseRefunding persists the refund intent before the gateway call
+// (completed or already refunding -> refunding). False when in neither state.
+func (r *Repo) MarkPurchaseRefunding(ctx context.Context, purchaseID string) (bool, error) {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE purchases SET status = 'refunding', updated_at = now()
+		  WHERE id = $1 AND product_type = 'session_pack' AND status IN ('completed', 'refunding')`,
+		purchaseID)
+	if err != nil {
+		return false, fmt.Errorf("sessions: mark purchase refunding: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
+// ReversePurchase marks a pack purchase refunded and claws its credits back
+// out of the ledger in one transaction. The clawback is capped at the user's
+// current balance - the ledger never goes negative - and whatever was already
+// spent is recorded as the shortfall (in the ledger note and in
+// purchases.granted.reversal_shortfall). The guarded UPDATE (status IN
+// completed/refunding) makes it idempotent: a redelivery reverses nothing.
+func (r *Repo) ReversePurchase(ctx context.Context, purchaseID string) (ReverseOutcome, error) {
+	var out ReverseOutcome
+	err := r.tx(ctx, func(tx pgx.Tx) error {
+		var orgID, userID string
+		var sessions int
+		err := tx.QueryRow(ctx,
+			`UPDATE purchases SET status = 'refunded', updated_at = now()
+			  WHERE id = $1 AND product_type = 'session_pack' AND status IN ('completed', 'refunding')
+			  RETURNING org_id, user_id, COALESCE((granted->>'sessions')::int, 0)`,
+			purchaseID,
+		).Scan(&orgID, &userID, &sessions)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("sessions: reverse purchase: %w", err)
+		}
+		if err := r.lockUserCredits(ctx, tx, orgID, userID); err != nil {
+			return err
+		}
+		balance, err := r.creditBalanceTx(ctx, tx, orgID, userID)
+		if err != nil {
+			return err
+		}
+		claw := min(sessions, max(balance, 0))
+		out = ReverseOutcome{Reversed: true, ClawedBack: claw, Shortfall: sessions - claw}
+		if claw > 0 {
+			note := fmt.Sprintf("refund/dispute reversal: clawed back %d of %d credits, shortfall %d", claw, sessions, out.Shortfall)
+			if _, err := r.insertLedgerTx(ctx, tx, orgID, userID, -claw, ReasonPurchaseReversal, nil, &purchaseID, &note, nil); err != nil {
+				return err
+			}
+		}
+		if _, err := tx.Exec(ctx,
+			`UPDATE purchases SET granted = granted || jsonb_build_object('reversal_shortfall', $2::int) WHERE id = $1`,
+			purchaseID, out.Shortfall); err != nil {
+			return fmt.Errorf("sessions: record reversal shortfall: %w", err)
+		}
+		return coupons.ReleaseTx(ctx, tx, purchaseID)
+	})
+	return out, err
 }

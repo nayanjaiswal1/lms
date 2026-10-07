@@ -125,9 +125,46 @@ func (p *StripeProvider) ParseWebhook(rawBody []byte, h http.Header) (Event, err
 		}
 		return Event{ID: event.ID, Type: string(event.Type), ProviderRef: session.ID, Status: StatusFailed, Raw: rawBody}, nil
 
+	case stripe.EventTypeChargeRefunded, stripe.EventTypeChargeDisputeCreated:
+		return parseStripeReversal(event, rawBody)
+
 	default:
 		return Event{ID: event.ID, Type: string(event.Type), Status: StatusIgnored, Raw: rawBody}, nil
 	}
+}
+
+// parseStripeReversal normalizes charge.refunded and charge.dispute.created.
+// A partial refund is ignored (access is only revoked for a full reversal).
+func parseStripeReversal(event stripe.Event, rawBody []byte) (Event, error) {
+	raw, err := json.Marshal(event.Data.Object)
+	if err != nil {
+		return Event{}, fmt.Errorf("payments: stripe encode reversal object: %w", err)
+	}
+	ev := Event{ID: event.ID, Type: string(event.Type), Status: StatusRefunded, Raw: rawBody}
+	if event.Type == stripe.EventTypeChargeRefunded {
+		var ch stripe.Charge
+		if err := json.Unmarshal(raw, &ch); err != nil {
+			return Event{}, fmt.Errorf("payments: stripe decode charge: %w", err)
+		}
+		if !ch.Refunded {
+			ev.Status = StatusIgnored
+			return ev, nil
+		}
+		if ch.PaymentIntent != nil {
+			ev.PaymentRef = ch.PaymentIntent.ID
+		}
+		ev.AmountCents = int(ch.AmountRefunded)
+		ev.Currency = string(ch.Currency)
+		return ev, nil
+	}
+	var d stripe.Dispute
+	if err := json.Unmarshal(raw, &d); err != nil {
+		return Event{}, fmt.Errorf("payments: stripe decode dispute: %w", err)
+	}
+	if d.PaymentIntent != nil {
+		ev.PaymentRef = d.PaymentIntent.ID
+	}
+	return ev, nil
 }
 
 // Refund reverses paymentRef (a PaymentIntent id) in full. amountCents is

@@ -4,18 +4,8 @@ import type { RemotePattern } from "next/dist/shared/lib/image-config";
 
 const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 
-// The lab IDE and app preview are iframes served by labproxy: its own origin plus the
-// per-session preview subdomains (p<port>-<session>.<preview domain>), hence the wildcard.
-function buildLabFrameSources(): string[] {
-  const proxyUrl = process.env.NEXT_PUBLIC_LAB_PROXY_URL;
-  if (!proxyUrl) return [];
-  const { protocol, host } = new URL(proxyUrl.replace(/^ws/, "http"));
-  return [`${protocol}//${host}`, `${protocol}//*.${host}`];
-}
-
+// Content-Security-Policy is per-request (nonce) and set in proxy.ts via lib/csp.ts.
 function buildSecurityHeaders() {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL;
   return [
     // Prevent DNS prefetching leaking visited URLs
     { key: "X-DNS-Prefetch-Control", value: "on" },
@@ -29,28 +19,6 @@ function buildSecurityHeaders() {
     { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
     // Disable unused browser APIs
     { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-    {
-      key: "Content-Security-Policy",
-      value: [
-        "default-src 'self'",
-        // unsafe-inline + unsafe-eval required by Next.js/Turbopack dev mode; eval stripped in production build
-        // 'wasm-unsafe-eval' allows WebAssembly.instantiate only (in-browser runtimes), not JS eval
-        `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
-        // unsafe-inline required by Tailwind CSS-in-JS + shadcn
-        "style-src 'self' 'unsafe-inline'",
-        // Allow avatars from OAuth providers + data URIs + blob URLs (canvas export) + user-uploaded media (MinIO/S3) + CNCF brand assets for seeded dev course covers + GitHub-hosted lesson screenshots (markdown-authored course content)
-        ["img-src 'self' data: blob: https://avatars.githubusercontent.com https://lh3.googleusercontent.com https://graph.microsoft.com https://raw.githubusercontent.com https://user-images.githubusercontent.com", mediaUrl].filter(Boolean).join(" "),
-        "font-src 'self'",
-        // ws/wss for Yjs WebSocket (interview real-time sync)
-        ["connect-src 'self'", apiUrl, "ws: wss:"].filter(Boolean).join(" "),
-        // Worker required by Monaco Editor
-        "worker-src 'self' blob:",
-        // YouTube block embeds (course content + wizard preview) — youtube-nocookie only
-        ["frame-src https://www.youtube-nocookie.com", ...buildLabFrameSources()].join(" "),
-        "object-src 'none'",
-        "base-uri 'self'",
-      ].join("; "),
-    },
   ];
 }
 

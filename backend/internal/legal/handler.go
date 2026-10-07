@@ -1,11 +1,10 @@
 package legal
 
 import (
-	"fmt"
-	"net"
 	"net/http"
 
 	"github.com/mindforge/backend/internal/auth"
+	"github.com/mindforge/backend/internal/authevents"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -19,24 +18,6 @@ var domainErrors = map[error]httputil.ErrSpec{
 
 func writeDomainError(w http.ResponseWriter, err error) {
 	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
-
-// firstThreeOctets mirrors internal/auth's helper of the same name — stored
-// IPs are truncated platform-wide, not full addresses, to minimize retained
-// PII (see refresh_tokens.ip in docs/auth.md).
-func firstThreeOctets(remoteAddr string) string {
-	host := remoteAddr
-	if h, _, err := net.SplitHostPort(remoteAddr); err == nil {
-		host = h
-	}
-	ip := net.ParseIP(host)
-	if ip == nil {
-		return host
-	}
-	if v4 := ip.To4(); v4 != nil {
-		return fmt.Sprintf("%d.%d.%d", v4[0], v4[1], v4[2])
-	}
-	return ip.Mask(net.CIDRMask(48, 128)).String()
 }
 
 // HandleStatus reports which legal documents the caller still needs to
@@ -67,7 +48,7 @@ func (h *Handler) HandleAccept(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	ip := firstThreeOctets(r.RemoteAddr)
+	ip := authevents.TruncateIP(r.RemoteAddr)
 	acceptance, err := h.service.Accept(r.Context(), claims.UserID, req.DocType, &ip)
 	if err != nil {
 		writeDomainError(w, err)

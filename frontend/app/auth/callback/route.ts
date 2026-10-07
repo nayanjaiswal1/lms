@@ -3,6 +3,7 @@ import { forwardSetCookies } from "@/lib/server/set-cookie";
 import { resolveLegalGateRedirect } from "@/lib/server/legal";
 import { baseURL } from "@/lib/server/api";
 import { authFetchWithCookies } from "@/lib/server/auth-fetch";
+import { startMfaStep } from "@/lib/server/mfa-challenge";
 import ROUTES from "@/lib/routes";
 
 // Receives the one-time exchange token from the Go OAuth callback redirect,
@@ -50,6 +51,10 @@ export async function GET(req: NextRequest) {
     loginUrl.searchParams.set("error", "exchange_failed");
     return NextResponse.redirect(loginUrl);
   }
+
+  // MFA-enabled and privileged accounts finish sign-in on the second step page.
+  const mfaStep = await startMfaStep(body);
+  if (mfaStep) return NextResponse.redirect(new URL(mfaStep, appUrl));
 
   // Forward auth cookies (access_token, refresh_token, csrf_token) from Go to
   // the browser's Next.js origin via the server-side cookie store.

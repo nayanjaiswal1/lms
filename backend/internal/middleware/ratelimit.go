@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/ratelimit"
 	"github.com/redis/go-redis/v9"
@@ -30,13 +31,74 @@ func RateLimit(rdb *redis.Client, max int, window time.Duration) func(http.Handl
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			key := "rl:" + r.URL.Path + ":" + clientIP(r)
 			if allowed, retryAfter := limiter.Allow(r.Context(), key, max, window); !allowed {
-				w.Header().Set("Retry-After", fmt.Sprintf("%d", ratelimit.RetryAfterSeconds(retryAfter)))
-				httputil.WriteError(w, http.StatusTooManyRequests, "Too many requests. Please try again later.")
+				writeTooMany(w, retryAfter)
 				return
 			}
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// PathLimit is one per-IP limit applied to every request whose path starts
+// with Prefix. Requests sharing a Bucket share one budget per client IP, so a
+// scanner cannot dodge the limit by varying the path (attempt tokens, short
+// codes).
+type PathLimit struct {
+	Prefix string
+	Bucket string
+	Max    int
+	Window time.Duration
+}
+
+// RateLimitPaths enforces the first PathLimit whose Prefix matches the
+// request, per client IP. Requests matching no rule pass through untouched.
+// Used for the unauthenticated surface (public tests, OAuth, MCP, certificate
+// lookup), which sits outside every authenticated group.
+func RateLimitPaths(rdb *redis.Client, rules []PathLimit) func(http.Handler) http.Handler {
+	limiter := ratelimit.New(rdb)
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			for _, rule := range rules {
+				if !strings.HasPrefix(r.URL.Path, rule.Prefix) {
+					continue
+				}
+				key := "rl:" + rule.Bucket + ":" + clientIP(r)
+				if allowed, retryAfter := limiter.Allow(r.Context(), key, rule.Max, rule.Window); !allowed {
+					writeTooMany(w, retryAfter)
+					return
+				}
+				break
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// RateLimitUser enforces a per-user request budget on an authenticated group.
+// It must run after RequireAuth.
+func RateLimitUser(rdb *redis.Client, max int, window time.Duration) func(http.Handler) http.Handler {
+	limiter := ratelimit.New(rdb)
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, ok := auth.GetClaims(r.Context())
+			if !ok {
+				next.ServeHTTP(w, r)
+				return
+			}
+			if allowed, retryAfter := limiter.Allow(r.Context(), "rl:user:"+claims.UserID, max, window); !allowed {
+				writeTooMany(w, retryAfter)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func writeTooMany(w http.ResponseWriter, retryAfter time.Duration) {
+	w.Header().Set("Retry-After", fmt.Sprintf("%d", ratelimit.RetryAfterSeconds(retryAfter)))
+	httputil.WriteError(w, http.StatusTooManyRequests, "Too many requests. Please try again later.")
 }
 
 // clientIP extracts the client IP from r.RemoteAddr, stripping the port.

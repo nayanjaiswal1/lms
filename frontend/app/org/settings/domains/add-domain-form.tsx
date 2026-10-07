@@ -47,7 +47,6 @@ export function AddDomainForm({ orgId }: AddDomainFormProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="dns_txt">DNS TXT record</SelectItem>
-              <SelectItem value="email">Email verification</SelectItem>
             </SelectContent>
           </Select>
         </div>

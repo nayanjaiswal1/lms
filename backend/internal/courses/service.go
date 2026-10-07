@@ -127,6 +127,8 @@ func (s *Service) GetCourseDetailForViewer(ctx context.Context, orgID, userID, s
 		return CourseDetailForViewer{}, err
 	}
 	detail := CourseDetailForViewer{CourseTree: tree}
+	// Redaction happens after the enrollment check below; until then the
+	// unredacted tree is only held in memory, never returned.
 
 	// Every read below is keyed by (user, course) only, so each stage runs
 	// concurrently — serially these six round trips made this endpoint the
@@ -142,6 +144,9 @@ func (s *Service) GetCourseDetailForViewer(ctx context.Context, orgID, userID, s
 		return nil
 	})
 	if err := g.Wait(); err != nil {
+		return CourseDetailForViewer{}, err
+	}
+	if err := s.restrictTreeForViewer(ctx, orgID, userID, &detail.CourseTree, detail.IsEnrolled); err != nil {
 		return CourseDetailForViewer{}, err
 	}
 	if !detail.IsEnrolled {
@@ -171,6 +176,54 @@ func (s *Service) GetCourseDetailForViewer(ctx context.Context, orgID, userID, s
 	}
 	detail.Progress = &CourseProgressSummary{Completed: cp.Completed, Total: cp.Total, Pct: cp.Pct, Modules: modules}
 	return detail, nil
+}
+
+// GetCourseTree returns a course's tree as the viewer is entitled to see it
+// (see restrictTreeForViewer).
+func (s *Service) GetCourseTree(ctx context.Context, orgID, userID, courseID string) (CourseTree, error) {
+	tree, err := s.repo.GetCourseTree(ctx, orgID, userID, courseID)
+	if err != nil {
+		return CourseTree{}, err
+	}
+	enrolled, err := s.repo.IsEnrolled(ctx, userID, tree.ID)
+	if err != nil {
+		return CourseTree{}, fmt.Errorf("courses: check enrollment: %w", err)
+	}
+	if err := s.restrictTreeForViewer(ctx, orgID, userID, &tree, enrolled); err != nil {
+		return CourseTree{}, err
+	}
+	return tree, nil
+}
+
+// restrictTreeForViewer enforces course entitlement on a loaded tree. Authors
+// (creator or org staff) and enrolled learners see everything. Everyone else
+// gets ErrNotFound for an unpublished course, and for a published one only the
+// structure plus free-preview lesson bodies: paid lesson content, storage keys,
+// knowledge-check answers and assessment/lab links are stripped.
+func (s *Service) restrictTreeForViewer(ctx context.Context, orgID, userID string, tree *CourseTree, enrolled bool) error {
+	if enrolled || tree.CreatorID == userID {
+		return nil
+	}
+	staff, err := s.repo.IsOrgStaff(ctx, orgID, userID)
+	if err != nil {
+		return err
+	}
+	if staff {
+		return nil
+	}
+	if tree.Status != StatusPublished {
+		return ErrNotFound
+	}
+	for si := range tree.Sections {
+		for mi := range tree.Sections[si].Modules {
+			m := &tree.Sections[si].Modules[mi]
+			if m.IsFreePreview {
+				continue
+			}
+			m.ContentBody, m.StorageKey, m.AssessmentID, m.LabID, m.KnowledgeCheck = nil, nil, nil, nil, nil
+		}
+	}
+	return nil
 }
 
 // GetModuleContent verifies access and returns module content + presigned URL when needed.
@@ -363,15 +416,19 @@ func (s *Service) GetRandomTopic(ctx context.Context, orgID, userID string) (Ran
 	return RandomTopic{}, ErrNotFound
 }
 
-// PresignedUploadURL returns a presigned PUT URL and the resulting storage key for a course asset.
-func (s *Service) PresignedUploadURL(ctx context.Context, orgID, courseID, moduleID, mimeType string) (string, string, error) {
+// MaxPresignedUploadBytes is the size ceiling enforced by the upload policy.
+const MaxPresignedUploadBytes = 2 * 1024 * 1024 * 1024
+
+// PresignedUploadURL returns a POST-policy upload target (url + form fields)
+// and the resulting storage key for a course asset.
+func (s *Service) PresignedUploadURL(ctx context.Context, orgID, courseID, moduleID, mimeType string) (string, map[string]string, string, error) {
 	ext := mimeExtension(mimeType)
 	key := "orgs/" + orgID + "/courses/" + courseID + "/modules/" + moduleID + "/" + randomHex(8) + ext
-	url, err := s.store.PresignedPutURL(ctx, key, mimeType, 2*1024*1024*1024)
+	url, fields, err := s.store.PresignedPost(ctx, key, mimeType, MaxPresignedUploadBytes)
 	if err != nil {
-		return "", "", err
+		return "", nil, "", err
 	}
-	return url, key, nil
+	return url, fields, key, nil
 }
 
 // UploadAsset stores an uploaded file and returns its public URL and storage key.

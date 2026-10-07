@@ -108,7 +108,7 @@ Platform role (`users.platform_role`): `super_admin` · `user`
 | Feature | What it does | MindForge fit |
 |---|---|---|
 | White-labeling + custom domains | Org hosts its course catalog under its own branded domain, no platform branding | Natural extension of the multi-org model — orgs already get their own tenant, but no white-label/custom-domain support exists yet |
-| SAML / OpenID Connect SSO | Enterprise identity-provider login for org members | `auth.md` covers social OAuth + magic link only — SAML/OIDC is what a college or company's IT team actually asks for before rolling out org accounts |
+| SAML / OpenID Connect SSO **(planned, not built)** | Enterprise identity-provider login for org members | `auth.md` covers social OAuth + magic link only — SAML/OIDC is what a college or company's IT team actually asks for before rolling out org accounts |
 | DRM / video content protection | Encrypted video delivery that resists downloading of paid course video | Courses already support video lessons, no DRM — matters once paid video courses are common |
 | Purchase-power-parity pricing | Auto-adjusts a course's price by the buyer's country purchasing power | Payments (Phase 11) is Stripe/Razorpay checkout only, no regional pricing logic |
 | Built-in course SEO | Meta tags, sitemap entries, structured data per public course page | Public course pages exist (`getPublicCourses`) but have no SEO tooling beyond page `<title>`/description |
@@ -123,3 +123,15 @@ Platform role (`users.platform_role`): `super_admin` · `user`
 | Monaco Editor lazy loading | ✅ Done | `components/shared/code-editor.tsx` — `dynamic()` + Suspense skeleton, JetBrains Mono font |
 | Piston code execution | ✅ Done | `internal/assessment/executor.go` — `pistonExecutor` implementing `CodeExecutor` interface; priority over Judge0 when `PISTON_URL` set |
 | Type sync script | ✅ Done | `scripts/gen-types.sh` + `backend/tygo.yaml` — generates `frontend/types/generated/*.ts` from Go structs |
+
+
+---
+
+## Privacy and tenancy rules (current behaviour)
+
+- **Consent and rights:** AI processing of a user's own content is opt-in (default off); users can name a nominee, download their data, and erase their account (see `auth.md`). Registration requires an 18+ declaration.
+- **Retention:** `retention.purge` enforces per-class windows (see `infrastructure.md`); the `auth_events` security trail is append-only.
+- **Leaderboards are scoped to the caller:** `org` and `feature` boards are always the caller's own org; `batch`, `group` and `course` boards require the id to belong to the caller's org (otherwise 403); the `global` board shows other users as anonymous "Learner" rows so it cannot be used as a cross-tenant directory.
+- **Admin user overview** (`GET /api/admin/rbac/users/{id}/overview`) returns only org-scoped enrollments and recent activity. The personal tabs (journal, mistakes, habits, sheets) were removed because those tables have no `org_id` and an org admin could read a user's pre-existing private data.
+- **Public tests** (`/api/p/{code}`): attempts per candidate email are capped by the test's `max_attempts` (atomic under an advisory lock); the candidate token travels in the `X-Attempt-Token` header (the URL-path form is deprecated and logged), is valid until the time limit plus 24 h, and the server enforces the time limit (2 min grace); request bodies are size-capped; candidate name/email/phone are nulled after `RETENTION_PUBLIC_CANDIDATES_DAYS`.
+- **Not built yet:** SAML/OIDC SSO, magic-link login, device/session list, the interview board's Yjs WebSocket relay, Google Calendar account sync, and the `/design` wiki embed are described in their docs as design only and are marked "planned (not built)" there.

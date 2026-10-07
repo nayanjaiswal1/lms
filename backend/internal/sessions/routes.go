@@ -69,6 +69,11 @@ func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 	r.Get("/api/session-booking/packs", rt.handler.ListPacks)
 	r.Post("/api/session-booking/packs/{packID}/checkout", rt.handler.BuyPack)
 
+	// Refunding a pack is money movement, so it is gated by the same
+	// permission as a course refund, not by manage_booking.
+	r.With(authz.RequirePermission(authzSvc, PermissionManageRefunds)).
+		Post("/api/session-booking/purchases/{purchaseID}/refund", rt.handler.RefundPack)
+
 	// Org-admin surface.
 	r.Group(func(r chi.Router) {
 		r.Use(manageBooking)

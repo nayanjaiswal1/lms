@@ -845,6 +845,21 @@ func (r *Repo) IsEnrolled(ctx context.Context, userID, courseID string) (bool, e
 	return ok, err
 }
 
+// IsOrgStaff reports whether userID is an active owner, admin or instructor
+// of orgID, the roles that author and review course content.
+func (r *Repo) IsOrgStaff(ctx context.Context, orgID, userID string) (bool, error) {
+	var ok bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM org_members
+		   WHERE org_id = $1 AND user_id = $2 AND status = 'active' AND role IN ('owner','admin','instructor'))`,
+		orgID, userID,
+	).Scan(&ok)
+	if err != nil {
+		return false, fmt.Errorf("courses: check org staff: %w", err)
+	}
+	return ok, nil
+}
+
 // UpsertReview creates or updates the student's star rating for a course.
 func (r *Repo) UpsertReview(ctx context.Context, rev CourseReview) (CourseReview, error) {
 	// ponytail: org_id not available in CourseReview; fetch from courses to populate feedback.org_id

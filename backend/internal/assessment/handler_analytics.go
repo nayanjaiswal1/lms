@@ -94,7 +94,15 @@ func (h *Handler) OrgAnalytics(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	stats, err := h.repo.OrgAnalytics(r.Context(), claims.OrgID)
+	ids, scoped, err := mentorScopeIDs(r.Context(), h.pool, claims)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Could not verify access.")
+		return
+	}
+	if !scoped {
+		ids = nil
+	}
+	stats, err := h.repo.OrgAnalytics(r.Context(), claims.OrgID, ids)
 	if err != nil {
 		writeDomainError(w, err)
 		return

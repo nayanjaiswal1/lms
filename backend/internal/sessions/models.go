@@ -28,6 +28,7 @@ const (
 	ReasonAdminRevoke        = "admin_revoke"
 	ReasonBooking            = "booking"
 	ReasonCancellationRefund = "cancellation_refund"
+	ReasonPurchaseReversal   = "purchase_reversal"
 )
 
 // Feedback author roles — mirrors mentor_session_feedback.author_role.
@@ -42,7 +43,13 @@ const (
 	PurchaseStatusPending   = "pending"
 	PurchaseStatusCompleted = "completed"
 	PurchaseStatusFailed    = "failed"
+	PurchaseStatusRefunding = "refunding"
+	PurchaseStatusRefunded  = "refunded"
 )
+
+// PermissionManageRefunds is the permission code courses also uses for a
+// course refund (payments.manage_refunds).
+const PermissionManageRefunds = "payments.manage_refunds"
 
 // PermissionManageBooking gates the org-admin surface of this package:
 // editing the booking policy, creating credit packs, granting credits, and
@@ -218,6 +225,7 @@ type PackPurchase struct {
 	Currency    string `json:"currency"`
 	Provider    string `json:"provider"`
 	ProviderRef string `json:"provider_ref"`
+	PaymentRef  string `json:"-"`
 	Status      string `json:"status"`
 }
 

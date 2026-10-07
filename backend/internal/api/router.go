@@ -87,6 +87,8 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// rate-limit bucket per request. Ours honours forwarding headers only from
 	// TRUSTED_PROXY_CIDRS.
 	r.Use(apimiddleware.RealIP(cfg))
+	r.Use(apimiddleware.RedactRequestURI)
+	r.Use(apimiddleware.SecureHeaders, apimiddleware.MaxBody(cfg.MaxBodyBytes))
 	r.Use(chimiddleware.Logger)
 	// No global chimiddleware.Timeout: it force-writes a 504 the instant its
 	// deadline passes (see its own doc comment), which cut off
@@ -99,18 +101,43 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	r.Use(corsMiddleware(cfg))
 	r.Use(metrics.Middleware)
 
+	// Unauthenticated surface outside /api/auth: per-IP budgets, shared across
+	// each bucket so varying a path token or short code cannot dodge the limit.
+	// Most specific prefix first. Webhooks are excluded (the gateway is the
+	// caller and authenticates by signature).
+	r.Use(apimiddleware.RateLimitPaths(rdb, []apimiddleware.PathLimit{
+		{Prefix: "/oauth/register", Bucket: "oauth-register", Max: cfg.OAuthRegisterRateLimitMax, Window: cfg.OAuthRegisterRateLimitWindow},
+		{Prefix: "/oauth/", Bucket: "public", Max: cfg.PublicRateLimitMax, Window: cfg.PublicRateLimitWindow},
+		{Prefix: "/mcp", Bucket: "public", Max: cfg.PublicRateLimitMax, Window: cfg.PublicRateLimitWindow},
+		{Prefix: "/api/p/", Bucket: "public", Max: cfg.PublicRateLimitMax, Window: cfg.PublicRateLimitWindow},
+		{Prefix: "/api/public/", Bucket: "public", Max: cfg.PublicRateLimitMax, Window: cfg.PublicRateLimitWindow},
+		{Prefix: "/api/calendar/events.ics", Bucket: "public", Max: cfg.PublicRateLimitMax, Window: cfg.PublicRateLimitWindow},
+		{Prefix: "/api/certificates/", Bucket: "public", Max: cfg.PublicRateLimitMax, Window: cfg.PublicRateLimitWindow},
+		{Prefix: "/api/invitations/", Bucket: "public", Max: cfg.PublicRateLimitMax, Window: cfg.PublicRateLimitWindow},
+	}))
+
 	// ─── Health check ─────────────────────────────────────────────────────────
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteJSON(w, http.StatusOK, "ok")
 	})
 
 	// ─── Metrics ──────────────────────────────────────────────────────────────
-	// Not proxied by Caddy (only /api/* is, see Caddyfile) — reachable only
-	// from inside the docker network, which is where Prometheus scrapes it.
-	r.Handle("/metrics", metrics.Handler())
+	// Self-hosted, Caddy only proxies /api/*, so this is reachable only inside
+	// the docker network. On hosts that serve the container directly (Render)
+	// it is public, so it needs a bearer token (METRICS_TOKEN) and stays
+	// closed in production without one.
+	r.Handle("/metrics", apimiddleware.RequireMetricsToken(cfg, metrics.Handler()))
 
 	// ─── Handlers ─────────────────────────────────────────────────────────────
-	authHandler := auth.NewHandler(cfg, pool, cache, rdb)
+	// Secrets vault — created once and shared by auth (MFA secrets), gitlab
+	// (credentials) and orgs (OIDC client secrets). cmd/server/main.go builds its
+	// own instance for background jobs the same way.
+	secretsVault, err := secrets.New(cfg)
+	if err != nil {
+		slog.Error("api: secrets vault init failed", "error", err)
+		os.Exit(1)
+	}
+	authHandler := auth.NewHandler(cfg, pool, cache, rdb, secretsVault)
 	onboardingHandler := onboarding.NewHandler(pool)
 	// Built early (before certificatesRouter below) purely so the public
 	// profile can list a learner's certificates — same *pool-backed Repo
@@ -175,15 +202,6 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	practiceRouter := practice.New(pool, aiProvider)
 	interviewPrepRouter := interviewprep.New(pool, cfg, aiProvider, practiceRouter.Service)
 
-	// Secrets vault — created once and shared by both gitlab (credentials encryption)
-	// and orgs (OIDC client secret encryption). cmd/server/main.go builds its own
-	// separate instance for background jobs the same way.
-	secretsVault, err := secrets.New(cfg)
-	if err != nil {
-		slog.Error("api: secrets vault init failed", "error", err)
-		os.Exit(1)
-	}
-
 	orgsHandler := orgs.NewHandler(cfg, pool, cache, secretsVault, jobsRegistry)
 	srsRouter := srs.New(pool)
 	// A second *srs.Repo wrapping the same pool (NewRepo holds no state of its
@@ -239,7 +257,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// private one through, since account deletion calls AdminRepo.SetUserStatus
 	// directly (bypassing AdminService's self-action guard — see
 	// internal/privacy/service.go).
-	privacyRouter := privacy.New(pool, authz.NewAdminRepo(pool))
+	privacyRouter := privacy.New(pool, authz.NewAdminRepo(pool), store)
 
 	// AI Connector (MCP) — lets a student connect their own Claude/ChatGPT to
 	// their account via OAuth 2.1+PKCE. Built with coursesRepo/coursesSvc (not
@@ -312,8 +330,12 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	r.Route("/api/auth", func(r chi.Router) {
 		r.Use(apimiddleware.RateLimit(rdb, cfg.AuthRateLimitMax, cfg.AuthRateLimitWindow))
 
-		r.Post("/register", authHandler.HandleRegister)
-		r.Post("/login", authHandler.HandleLogin)
+		captcha := apimiddleware.RequireCaptcha(cfg)
+		r.With(captcha).Post("/register", authHandler.HandleRegister)
+		r.With(captcha).Post("/login", authHandler.HandleLogin)
+		r.Post("/mfa/verify", authHandler.HandleMFAVerify)
+		r.Post("/mfa/enroll/begin", authHandler.HandleMFAEnrollBegin)
+		r.Post("/mfa/enroll/finish", authHandler.HandleMFAEnrollFinish)
 
 		// /refresh and /logout act on an existing session identified purely by
 		// cookie, so they are exactly the shape a cross-site request forgery
@@ -328,7 +350,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 		r.Post("/verify-email", authHandler.HandleVerifyEmail)
 		r.Post("/resend-verification", authHandler.HandleResendVerification)
-		r.Post("/forgot-password", authHandler.HandleForgotPassword)
+		r.With(captcha).Post("/forgot-password", authHandler.HandleForgotPassword)
 		r.Post("/reset-password", authHandler.HandleResetPassword)
 
 		// CSRF token endpoint — issues a token for unauthenticated page loads
@@ -410,10 +432,19 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 	r.Group(func(r chi.Router) {
 		r.Use(requireAuth)
+		r.Use(apimiddleware.RequireActiveOrg(pool))
 		r.Use(apimiddleware.RequireCSRF(cfg))
+		r.Use(apimiddleware.RateLimitUser(rdb, cfg.UserRateLimitMax, cfg.UserRateLimitWindow))
+		r.Use(apimiddleware.LLMQuotaContext)
 
 		r.Get("/api/auth/me", authHandler.HandleMe)
 		r.Post("/api/auth/logout-all", authHandler.HandleLogoutAll)
+		r.Post("/api/auth/change-password", authHandler.HandleChangePassword)
+		r.Get("/api/auth/mfa", authHandler.HandleMFAStatus)
+		r.Post("/api/auth/mfa/setup", authHandler.HandleMFASetup)
+		r.Post("/api/auth/mfa/enable", authHandler.HandleMFAEnable)
+		r.Post("/api/auth/mfa/disable", authHandler.HandleMFADisable)
+		r.Post("/api/auth/mfa/recovery-codes", authHandler.HandleMFARecoveryRegenerate)
 
 		// Passkey (WebAuthn) enrollment/management — the account must already
 		// exist (created via password or OAuth) before a passkey can be added.
@@ -558,7 +589,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// package doc for why this couldn't live inside internal/authz itself
 		// (courses and journal both import authz, so authz importing them back
 		// would be a cycle).
-		useroverview.New(pool, authzHandler.Service(), coursesRepo, mistakesRepo).RegisterRoutes(r)
+		useroverview.New(pool, authzHandler.Service(), coursesRepo).RegisterRoutes(r)
 
 		// Job Management System — org job list/cancel/retry, admin stats, worker view.
 		jobsHandler := jobs.NewHTTPHandler(pool, rdb, cfg, jobsRegistry)

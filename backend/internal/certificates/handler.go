@@ -147,7 +147,13 @@ func (h *Handler) VerifyCertificate(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, cert)
+	httputil.WriteJSON(w, http.StatusOK, PublicCertificate{
+		CertUUID:    cert.CertUUID,
+		CourseTitle: cert.CourseTitle,
+		LearnerName: cert.LearnerName,
+		IssuedAt:    cert.IssuedAt,
+		IssueType:   cert.IssueType,
+	})
 }
 
 // IssueCertificate handles POST /api/courses/{courseID}/certificates/issue —

@@ -3,7 +3,11 @@ import { McpAuthorizeConsent } from "@/components/settings/mcp-authorize-consent
 
 interface AuthorizeDetails {
   client_name: string;
+  redirect_host: string;
   scopes: string[];
+  scope_keys: string[];
+  new_scopes: string[];
+  reapproval: boolean;
   scope_descriptions: string[];
 }
 
@@ -33,6 +37,7 @@ export default async function SettingsIntegrationsAuthorizePage({
   return (
     <McpAuthorizeConsent
       clientName={details.client_name}
+      redirectHost={details.redirect_host}
       decision={{
         client_id: clientId,
         redirect_uri: redirectUri,
@@ -40,7 +45,12 @@ export default async function SettingsIntegrationsAuthorizePage({
         state,
         code_challenge: codeChallenge,
       }}
-      scopeDescriptions={details.scope_descriptions}
+      scopes={details.scope_keys.map((key, i) => ({
+        key,
+        description: details.scope_descriptions[i],
+        isNew: details.new_scopes.includes(key),
+      }))}
+      reapproval={details.reapproval}
     />
   );
 }

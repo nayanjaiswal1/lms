@@ -441,13 +441,22 @@ func (s *Service) GetPublicProfile(ctx context.Context, slug string) (*PublicPro
 // ─── GetUserProfile ───────────────────────────────────────────────────────────
 
 // GetUserProfile returns the full profile for targetUserID. The requester must
-// be the target themselves, a super_admin, or an org admin.
-func (s *Service) GetUserProfile(ctx context.Context, requesterUserID, requesterPlatformRole, requesterOrgRole, targetUserID string) (*Profile, error) {
-	if requesterUserID == targetUserID {
+// be the target themselves, a super_admin, or an admin of an org the target is
+// an active member of (orgID is the requester's org).
+func (s *Service) GetUserProfile(ctx context.Context, requesterUserID, requesterPlatformRole, requesterOrgRole, orgID, targetUserID string) (*Profile, error) {
+	if requesterUserID == targetUserID || requesterPlatformRole == "super_admin" {
 		return s.GetMyProfile(ctx, targetUserID)
 	}
-	if requesterPlatformRole == "super_admin" || requesterOrgRole == "admin" {
-		return s.GetMyProfile(ctx, targetUserID)
+	if requesterOrgRole == "admin" {
+		member, err := s.repo.IsActiveOrgMember(ctx, orgID, targetUserID)
+		if err != nil {
+			return nil, fmt.Errorf("profile: check target membership: %w", err)
+		}
+		if member {
+			return s.GetMyProfile(ctx, targetUserID)
+		}
+		// Same answer as a missing user so org admins cannot probe other tenants.
+		return nil, ErrNotFound
 	}
 	return nil, ErrForbidden
 }

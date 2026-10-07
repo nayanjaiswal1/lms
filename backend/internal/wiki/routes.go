@@ -24,7 +24,7 @@ type Router struct {
 func New(pool *pgxpool.Pool, coursesRepo *courses.Repo) *Router {
 	repo := NewRepo(pool)
 	service := NewService(repo, coursesRepo)
-	return &Router{handler: newHandler(service), pool: pool}
+	return &Router{handler: newHandler(service, pool), pool: pool}
 }
 
 // requireWikiOrProjectAccess admits a caller who either holds content.wiki

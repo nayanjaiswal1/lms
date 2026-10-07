@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mindforge/backend/internal/auth"
@@ -273,6 +274,10 @@ func (h *Handler) HandleGetUserProfile(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteError(w, http.StatusBadRequest, "User ID is required.")
 		return
 	}
+	if _, err := uuid.Parse(targetUserID); err != nil {
+		httputil.WriteError(w, http.StatusNotFound, "User not found.")
+		return
+	}
 
 	// Live-looked-up org role, not claims.OrgRole: the JWT claim is minted at
 	// sign-in and can outlive a demotion, which would otherwise let a
@@ -287,6 +292,7 @@ func (h *Handler) HandleGetUserProfile(w http.ResponseWriter, r *http.Request) {
 		claims.UserID,
 		"", // platform_role — not available in JWT Claims
 		liveRole,
+		claims.OrgID,
 		targetUserID,
 	)
 	if err != nil {

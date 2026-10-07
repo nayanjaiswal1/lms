@@ -25,10 +25,12 @@ import (
 	"github.com/mindforge/backend/internal/labbuild"
 	"github.com/mindforge/backend/internal/labs"
 	"github.com/mindforge/backend/internal/mailer"
+	"github.com/mindforge/backend/internal/mentoring"
 	"github.com/mindforge/backend/internal/metrics"
 	"github.com/mindforge/backend/internal/notifications"
 	"github.com/mindforge/backend/internal/profile"
 	"github.com/mindforge/backend/internal/projectmarket"
+	"github.com/mindforge/backend/internal/ratelimit"
 	"github.com/mindforge/backend/internal/rewards"
 	"github.com/mindforge/backend/internal/secrets"
 	"github.com/mindforge/backend/internal/session"
@@ -116,7 +118,9 @@ func main() {
 	slog.Info("minio private bundle storage ready")
 
 	// ─── AI Provider ─────────────────────────────────────────────────────────
-	aiProvider := ai.NewProvider(cfg.LLMProvider, cfg.LLMAPIKey, cfg.LLMModel, cfg.LLMBaseURL)
+	aiProvider := ai.LLMProvider(ai.NewQuotaProvider(
+		ai.NewProvider(cfg.LLMProvider, cfg.LLMAPIKey, cfg.LLMModel, cfg.LLMBaseURL),
+		ratelimit.New(rdb), cfg.LLMUserMaxPerHour, cfg.LLMUserMaxPerDay))
 	slog.Info("ai provider configured", "provider", cfg.LLMProvider, "available", aiProvider.Available())
 
 	// ─── Lab Sandbox Runtime ───────────────────────────────────────────────────
@@ -136,6 +140,7 @@ func main() {
 			Elevated:             true,
 			CPU:                  labs.NestedContainerCPU,
 			MemoryMB:             labs.NestedContainerMemoryMB,
+			PidsLimit:            labs.NestedContainerPidsLimit,
 			Network:              labs.NestedLabNetwork,
 			SkipPreWarm:          true,
 			RequiresOrgAllowlist: true,
@@ -170,7 +175,11 @@ func main() {
 		}
 		slog.Info("labs: kubernetes runtime ready", "namespace", cfg.LabsK8sNamespace, "image_registry", cfg.LabsImageRegistry)
 	default:
-		labsRuntime = labs.NewDockerContainerService(labsImageProfiles)
+		dockerRuntime := labs.NewDockerContainerService(labsImageProfiles)
+		dockerRuntime.SetHardening(
+			labs.RuntimeLimits{PidsLimit: cfg.LabsPidsLimit},
+			labs.NetworkPolicy{PerSession: cfg.LabsNetworkPerSession, Internal: cfg.LabsNetworkInternal, ProxyContainer: cfg.LabsProxyContainer})
+		labsRuntime = dockerRuntime
 		slog.Info("labs: docker runtime ready")
 	}
 	if len(labsImageProfiles) > 0 {
@@ -278,6 +287,11 @@ func main() {
 	jobsRegistry.OnDead(handlers.HandlerBulkInvite, handlers.NewInviteDeadHook())
 	jobsRegistry.Register(handlers.HandlerLLM, handlers.NewLLMHandler(pool, aiProvider, cfg))
 	jobsRegistry.Register(handlers.HandlerAnalytics, handlers.NewAnalyticsHandler(pool))
+	jobsRegistry.Register(handlers.HandlerRetentionPurge, handlers.NewRetentionPurgeHandler(pool, cfg))
+	// ReconcilePayments only reads through the repo, so the other deps stay nil.
+	jobsRegistry.Register(handlers.HandlerPaymentReconcile, handlers.NewPaymentReconcileHandler(
+		mentoring.NewService(mentoring.NewRepo(pool), nil, nil, nil, nil, nil, cfg),
+		time.Duration(cfg.PaymentReconcileStaleMinutes)*time.Minute))
 	jobsRegistry.Register(handlers.HandlerLabExpire, handlers.NewLabExpireHandler(pool, labsRuntime, notificationsSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerLabCleanup, handlers.NewLabCleanupHandler(pool, labsRuntime))
 	jobsRegistry.Register(handlers.HandlerLabBundleGC, handlers.NewLabBundleGCHandler(pool, privateStore))
@@ -339,6 +353,8 @@ func main() {
 		// their own separate message. No cron entry for it here anymore.
 		{Handler: handlers.HandlerAnalytics, Schedule: "0 2 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 300000},
 		{Handler: handlers.HandlerAnalytics, Schedule: "0 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
+		{Handler: handlers.HandlerRetentionPurge, Schedule: "15 3 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 300000},
+		{Handler: handlers.HandlerPaymentReconcile, Schedule: "*/15 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 		{Handler: handlers.HandlerLabExpire, Schedule: "* * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 30000},
 		{Handler: handlers.HandlerLabCleanup, Schedule: "*/10 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 		{Handler: handlers.HandlerLabBundleGC, Schedule: "30 3 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
