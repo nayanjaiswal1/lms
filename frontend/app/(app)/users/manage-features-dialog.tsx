@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useEffect, useState, useTransition } from "react";
 import { useQueryState } from "nuqs";
 import { toast } from "sonner";
@@ -103,14 +104,14 @@ export function ManageFeaturesDialog({ orgId, userId, userName }: Props) {
                   {flag.overridden && (
                     <>
                       <Badge variant="secondary">Custom</Badge>
-                      <button
-                        className="text-xs text-primary hover:underline disabled:opacity-50 disabled:pointer-events-none"
+                      <Button className="text-xs text-primary hover:underline disabled:opacity-50 disabled:pointer-events-none"
                         disabled={isPending}
                         type="button"
+                        variant="unstyled"
                         onClick={() => resetFlag(flag.key)}
                       >
                         Reset
-                      </button>
+                      </Button>
                     </>
                   )}
                   <Switch

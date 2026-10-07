@@ -6,6 +6,8 @@ import remarkGfm from "remark-gfm";
 import { ArrowLeftRight, Bold, Code, Columns2, Heading, Italic, Link2, ListChecks, RefreshCw, Table } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 type Mode = "write" | "split" | "preview";
 
 const MODES: { key: Mode; label: string }[] = [
@@ -67,8 +69,7 @@ export function MarkdownSplitEditor({ initialValue }: MarkdownSplitEditorProps) 
         </div>
         <div aria-label="Editor mode" className="flex items-center rounded-lg bg-muted p-0.5" role="tablist">
           {MODES.map(({ key, label }) => (
-            <button
-              aria-selected={ui.mode === key}
+            <Button aria-selected={ui.mode === key}
               className={cn(
                 "m-label-sm flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors",
                 ui.mode === key ? "bg-card text-primary shadow-card" : "text-muted-foreground hover:text-foreground",
@@ -77,11 +78,12 @@ export function MarkdownSplitEditor({ initialValue }: MarkdownSplitEditorProps) 
               key={key}
               role="tab"
               type="button"
+              variant="unstyled"
               onClick={() => setUi({ ...ui, mode: key })}
             >
               {key === "split" && <Columns2 aria-hidden className="size-3.5" />}
               <span>{label}</span>
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -92,9 +94,9 @@ export function MarkdownSplitEditor({ initialValue }: MarkdownSplitEditorProps) 
             {FORMATS.map(([label, Icon, before, after], i) => (
               <span className="flex items-center" key={label}>
                 {i === 3 && <span className="mx-0.5 h-3.5 w-px bg-(--m-outline-variant)/40" />}
-                <button aria-label={label} className="rounded p-1 hover:bg-muted hover:text-foreground" title={label} type="button" onClick={() => format(before, after)}>
+                <Button aria-label={label} className="rounded p-1 hover:bg-muted hover:text-foreground" title={label} type="button" variant="unstyled" onClick={() => format(before, after)}>
                   <Icon aria-hidden className="size-3.5" />
-                </button>
+                </Button>
               </span>
             ))}
           </div>
@@ -103,12 +105,12 @@ export function MarkdownSplitEditor({ initialValue }: MarkdownSplitEditorProps) 
               <RefreshCw aria-hidden className="size-3 text-success" />
               {ui.sync ? "1:1 Bi-directional" : "Independent scroll"}
             </span>
-            <button
-              aria-pressed={ui.sync}
+            <Button aria-pressed={ui.sync}
               className="group m-label-sm flex select-none items-center gap-1.5 rounded-lg border border-(--mc)/20 bg-muted px-2 py-1 shadow-card transition-all hover:bg-muted"
               data-mtone={ui.sync ? "tertiary" : "muted"}
               title="Toggle bi-directional scroll synchronization between editor and preview"
               type="button"
+              variant="unstyled"
               onClick={() => setUi({ ...ui, sync: !ui.sync })}
             >
               <span className="relative flex size-2">
@@ -117,7 +119,7 @@ export function MarkdownSplitEditor({ initialValue }: MarkdownSplitEditorProps) 
               </span>
               <span className="text-xs font-medium text-(--mc)">Sync Scroll: {ui.sync ? "ON" : "OFF"}</span>
               <ArrowLeftRight aria-hidden className="ml-0.5 size-3.5 text-(--mc) transition-transform duration-normal group-hover:rotate-180" />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -127,9 +129,9 @@ export function MarkdownSplitEditor({ initialValue }: MarkdownSplitEditorProps) 
               <span>MARKDOWN SOURCE</span>
               <span className="text-(--m-outline)">UTF-8 • ln {md.split("\n").length}</span>
             </div>
-            <textarea
+            <Textarea
               aria-label="Markdown source"
-              className="ae-mono min-h-0 w-full flex-1 resize-none border-0 bg-transparent p-3 text-xs leading-relaxed text-foreground selection:bg-(--m-primary-fixed) focus:outline-none"
+              className="ae-mono min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent p-3 text-xs leading-relaxed text-foreground selection:bg-(--m-primary-fixed) focus:outline-none"
               ref={source}
               spellCheck={false}
               value={md}

@@ -164,9 +164,9 @@ function TaskSection({ title, items, onAdd, onCheck, onSaveDetails }: TaskSectio
                 </div>
               </div>
             ) : (
-              <button
-                className="flex-1 text-left"
+              <Button className="flex-1 text-left"
                 type="button"
+                variant="unstyled"
                 onClick={() => startEdit(task)}
               >
                 <span className={cn("block text-sm text-foreground", task.done && "text-muted-foreground line-through")}>
@@ -175,7 +175,7 @@ function TaskSection({ title, items, onAdd, onCheck, onSaveDetails }: TaskSectio
                 {task.description && (
                   <span className="mt-0.5 block text-xs text-muted-foreground">{task.description}</span>
                 )}
-              </button>
+              </Button>
             )}
           </li>
         ))}

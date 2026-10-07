@@ -31,6 +31,7 @@ import {
   updateNotesAction,
 } from "@/lib/server/calendar";
 import { ATTENDEE_ROLE_OPTIONS, CALENDAR_PRIORITY_OPTIONS } from "@/lib/calendar/types";
+import { Checkbox } from "@/components/ui/checkbox";
 import type {
   Attendee,
   AttendeeRole,
@@ -461,12 +462,12 @@ export function EventPanel({
 
         {!isEditing && !readOnly && event.event_type === "task" && (
           <div className="flex-between gap-2">
-            <label className="flex w-fit items-center gap-2 text-sm">
-              <input
+            <label className="flex w-fit items-center gap-2 text-sm" htmlFor="event-mark-done">
+              <Checkbox
                 checked={Boolean(event.completed_at)}
                 className="h-4 w-4"
-                type="checkbox"
-                onChange={(e) => void handleToggleComplete(e.target.checked)}
+                id="event-mark-done"
+                onCheckedChange={(v) => void handleToggleComplete(v === true)}
               />
               Mark as done
             </label>

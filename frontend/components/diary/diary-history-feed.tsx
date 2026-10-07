@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import Link from "next/link";
 import { NotebookPen } from "lucide-react";
@@ -59,10 +60,10 @@ export function DiaryHistoryFeed({ entries }: DiaryHistoryFeedProps) {
         const expanded = open?.date === entry.entry_date;
         return (
           <li className="border-t border-border pt-4" key={entry.id}>
-            <button
-              aria-expanded={expanded}
+            <Button aria-expanded={expanded}
               className="group block w-full text-left"
               type="button"
+              variant="unstyled"
               onClick={() => toggle(entry.entry_date)}
             >
               <time className="diary-paper-headline text-sm font-semibold uppercase tracking-wide text-primary">
@@ -77,7 +78,7 @@ export function DiaryHistoryFeed({ entries }: DiaryHistoryFeedProps) {
                   {entry.preview}
                 </p>
               )}
-            </button>
+            </Button>
             {expanded && (
               <Link
                 className="mt-2 inline-block text-xs text-muted-foreground underline-offset-2 hover:underline"

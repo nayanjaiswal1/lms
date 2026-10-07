@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { BlockEditor } from "@/components/courses/block-editor";
 import type { DraftSection, DraftModule, ContentBlock } from "@/lib/courses/draft-types";
 
+import { Button } from "@/components/ui/button";
 interface ContentTabProps {
   sections:        DraftSection[];
   activeModuleId:  string | null;
@@ -46,8 +47,7 @@ export function ContentTab({
                   {section.title || "Untitled section"}
                 </p>
                 {section.modules.map((mod) => (
-                  <button
-                    className={cn(
+                  <Button className={cn(
                       "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
                       mod.localId === activeModuleId
                         ? "bg-primary/10 text-primary font-medium"
@@ -55,6 +55,7 @@ export function ContentTab({
                     )}
                     key={mod.localId}
                     type="button"
+                    variant="unstyled"
                     onClick={() => onSelectModule(mod.localId)}
                   >
                     <span className="line-clamp-1">{mod.title || "Untitled lesson"}</span>
@@ -63,7 +64,7 @@ export function ContentTab({
                         {mod.blocks.length}
                       </span>
                     )}
-                  </button>
+                  </Button>
                 ))}
               </div>
             ),

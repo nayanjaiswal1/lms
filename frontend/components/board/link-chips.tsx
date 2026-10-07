@@ -48,14 +48,14 @@ export function LinkChips({ task, allTasks, diaryEntries, projects }: LinkChipsP
       {(task.links ?? []).map((link) => (
         <Badge className="gap-1 pr-1" key={link.id} variant="outline">
           {TARGET_LABEL[link.targetType]}: {link.targetLabel}
-          <button
-            aria-label={`Remove link to ${link.targetLabel}`}
+          <Button aria-label={`Remove link to ${link.targetLabel}`}
             className="rounded-full hover:bg-foreground/10"
             type="button"
+            variant="unstyled"
             onClick={() => removeLink(link.id)}
           >
             <X aria-hidden className="h-3 w-3" />
-          </button>
+          </Button>
         </Badge>
       ))}
       <Button className="h-6 gap-1 px-2 text-xs" size="sm" variant="ghost" onClick={() => setOpen(true)}>

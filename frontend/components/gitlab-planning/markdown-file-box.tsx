@@ -1,6 +1,7 @@
 import { Copy, Download, FileText, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { Button } from "@/components/ui/button";
 interface MarkdownFileBoxProps {
   name: string;
   markdown: string;
@@ -35,13 +36,13 @@ export function MarkdownFileBox({ name, markdown }: MarkdownFileBoxProps) {
         <div className="flex items-center gap-1">
           <span className="rounded border border-border bg-card px-1.5 py-0.5 text-xs text-muted-foreground shadow-card">Preview</span>
           {ACTIONS.map(({ label, icon: Icon }) => (
-            <button aria-label={`${label} ${name}`} className="p-1 text-muted-foreground hover:text-muted-foreground" key={label} type="button">
+            <Button aria-label={`${label} ${name}`} className="p-1 text-muted-foreground hover:text-muted-foreground" key={label} type="button" variant="unstyled">
               <Icon aria-hidden className="size-3.5" />
-            </button>
+            </Button>
           ))}
-          <button aria-label={`Delete ${name}`} className="p-1 text-(--ae-danger-soft) hover:text-(--ae-danger)" type="button">
+          <Button aria-label={`Delete ${name}`} className="p-1 text-(--ae-danger-soft) hover:text-(--ae-danger)" type="button" variant="unstyled">
             <Trash2 aria-hidden className="size-3.5" />
-          </button>
+          </Button>
         </div>
       </div>
       <div className="ae-mono space-y-1 rounded border border-border bg-card p-2 text-xs leading-relaxed text-foreground">

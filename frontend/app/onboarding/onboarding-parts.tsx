@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import {
   TrendingUp, Compass, Hammer, RefreshCw, ShieldCheck,
   Sprout, Puzzle, Layers, Gem,
@@ -41,12 +42,12 @@ interface SelectionCardProps {
 
 export function SelectionCard({ selected, onClick, title, subtitle, icon: Icon }: SelectionCardProps) {
   return (
-    <button
-      className={cn(
+    <Button className={cn(
         "card-interactive flex w-full items-center gap-3 p-3 text-left transition-all duration-normal",
         selected ? "ring-2 ring-primary bg-primary/5 border-primary/30" : "",
       )}
       type="button"
+      variant="unstyled"
       onClick={onClick}
     >
       {Icon && (
@@ -61,6 +62,6 @@ export function SelectionCard({ selected, onClick, title, subtitle, icon: Icon }
         <span className="text-sm font-semibold text-foreground">{title}</span>
         <span className="text-xs text-muted-foreground">{subtitle}</span>
       </span>
-    </button>
+    </Button>
   );
 }

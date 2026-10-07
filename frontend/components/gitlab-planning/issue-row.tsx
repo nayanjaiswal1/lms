@@ -3,6 +3,8 @@ import { QuadrantBadge } from "@/components/gitlab-planning/quadrant-badge";
 import type { AeIssue, AeMTone, AeStatusIcon } from "@/lib/server/gitlab-planning";
 import { cn } from "@/lib/utils";
 
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 export const STATUS_ICON: Record<AeStatusIcon, { icon: typeof Zap; tone: AeMTone }> = {
   critical: { icon: CircleAlert, tone: "error" },
   in_progress: { icon: LoaderCircle, tone: "secondary" },
@@ -37,12 +39,11 @@ export function IssueRow({ issue, checked, compact, onToggle, onOpen }: IssueRow
       )}
     >
       <div className="flex min-w-0 items-start gap-2">
-        <input
+        <Checkbox
           aria-label={`Select issue #${issue.id}`}
           checked={checked}
-          className="relative z-raised mt-1 size-4 shrink-0 cursor-pointer rounded accent-primary"
-          type="checkbox"
-          onChange={onToggle}
+          className="relative z-raised mt-1 size-4 shrink-0 cursor-pointer rounded"
+          onCheckedChange={onToggle}
         />
         <span className="mt-0.5 shrink-0 text-(--mc)" data-mtone={status.tone} title={issue.status_title}>
           <StatusIcon aria-hidden className="size-4.5" />
@@ -50,9 +51,9 @@ export function IssueRow({ issue, checked, compact, onToggle, onOpen }: IssueRow
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-1">
             {/* Stretched button: its ::after covers the row, so the whole card opens the drawer. */}
-            <button className="m-headline-md text-left after:absolute after:inset-0 after:rounded-xl tracking-tight text-foreground transition-colors hover:text-primary" type="button" onClick={onOpen}>
+            <Button className="m-headline-md text-left after:absolute after:inset-0 after:rounded-xl tracking-tight text-foreground transition-colors hover:text-primary" type="button" variant="unstyled" onClick={onOpen}>
               #{issue.id} {issue.title}
-            </button>
+            </Button>
             <QuadrantBadge quadrant={issue.quadrant} />
             {issue.labels.map((l) => (
               <span className="m-label-sm rounded-full bg-(--mc-bg) px-2 text-xs text-(--mc-fg)" data-mtone={l.tone} key={l.text}>

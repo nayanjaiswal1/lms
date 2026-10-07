@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Camera, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -113,24 +114,24 @@ export function BatchAvatar({ batchId, name, imageUrl = null, size = "sm", edita
             type="file"
             onChange={handleFileChange}
           />
-          <button
-            aria-label="Change batch image"
+          <Button aria-label="Change batch image"
             className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background hover:bg-muted transition-colors duration-fast touch-target disabled:opacity-50"
             disabled={isUploading}
             type="button"
+            variant="unstyled"
             onClick={() => inputRef.current?.click()}
           >
             <Camera className="text-foreground" size={icon} />
-          </button>
+          </Button>
           {displaySrc && (
-            <button
-              aria-label="Remove batch image"
+            <Button aria-label="Remove batch image"
               className="absolute bottom-0 left-0 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background hover:bg-muted transition-colors duration-fast touch-target"
               type="button"
+              variant="unstyled"
               onClick={handleRemove}
             >
               <Trash2 className="text-destructive" size={icon} />
-            </button>
+            </Button>
           )}
           <AvatarCropDialog file={pendingFile} onCancel={handleCropCancel} onConfirm={handleCropConfirm} />
         </>

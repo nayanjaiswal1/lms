@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
@@ -41,14 +42,14 @@ function PlanTreeRow({ node, depth, workspaceId }: { node: PlanTreeNodeType; dep
       {/* eslint-disable-next-line no-restricted-syntax -- dynamic tree-depth indent requires inline style */}
       <div className="flex items-center gap-1.5 rounded-md py-1 hover:bg-muted" style={{ paddingLeft: depth * 20 }}>
         {hasChildren ? (
-          <button
-            aria-label={expanded ? "Collapse" : "Expand"}
+          <Button aria-label={expanded ? "Collapse" : "Expand"}
             className="text-muted-foreground"
             type="button"
+            variant="unstyled"
             onClick={() => setExpanded((e) => !e)}
           >
             {expanded ? <ChevronDown aria-hidden className="h-4 w-4" /> : <ChevronRight aria-hidden className="h-4 w-4" />}
-          </button>
+          </Button>
         ) : (
           <span className="w-4" />
         )}

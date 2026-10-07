@@ -101,18 +101,18 @@ export function CohortTreeNode({ node, depth, allGroups, mode, selectedId, onSel
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        <button
-          aria-label={hasContent ? (open ? "Collapse" : "Expand") : undefined}
+        <Button aria-label={hasContent ? (open ? "Collapse" : "Expand") : undefined}
           className={cn("touch-target h-5 w-5 shrink-0 p-0 text-muted-foreground", !hasContent && "invisible")}
           type="button"
+          variant="unstyled"
           onClick={() => setOpen((o) => !o)}
         >
           <ChevronRight aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-fast", open && "rotate-90")} />
-        </button>
+        </Button>
 
-        <button
-          className="flex min-w-0 flex-1 items-center gap-1.5 py-0.5 text-left"
+        <Button className="flex min-w-0 flex-1 items-center gap-1.5 py-0.5 text-left"
           type="button"
+          variant="unstyled"
           onClick={mode === "picker" ? () => onSelect?.(node.id) : undefined}
         >
           <span className="truncate">{node.name}</span>
@@ -120,7 +120,7 @@ export function CohortTreeNode({ node, depth, allGroups, mode, selectedId, onSel
           <span className="shrink-0 text-xs text-muted-foreground">
             {node.batch_count} batch{node.batch_count !== 1 ? "es" : ""}
           </span>
-        </button>
+        </Button>
 
         {mode === "manage" && (
           <div className="hidden shrink-0 items-center gap-0.5 group-hover:flex">

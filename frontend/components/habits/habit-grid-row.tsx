@@ -59,15 +59,15 @@ export function HabitGridRow({ habit, month, days, elapsed, counts, selected, on
       <th className="sticky left-0 z-raised border-r border-border bg-card p-2 text-left font-normal">
         <div className="flex items-center gap-1.5">
           {clickable ? (
-            <button
-              aria-expanded={selected}
+            <Button aria-expanded={selected}
               className="flex min-w-0 flex-1 items-center gap-1.5 text-left hover:text-primary"
               type="button"
+              variant="unstyled"
               onClick={onSelect}
             >
               <HabitIcon className="size-3 shrink-0 text-muted-foreground" fallback={rowFallbackIcon} icon={habit.icon} />
               <span className="min-w-0 flex-1 truncate pr-1">{habit.name}</span>
-            </button>
+            </Button>
           ) : (
             <>
               <HabitIcon className="size-3 shrink-0 text-muted-foreground" fallback={rowFallbackIcon} icon={habit.icon} />
@@ -83,14 +83,14 @@ export function HabitGridRow({ habit, month, days, elapsed, counts, selected, on
         return (
           <td className="h-9 border-l border-border p-0 text-center" colSpan={cell.endDay - cell.startDay + 1} key={cell.period}>
             {cell.interactive ? (
-              <button
-                aria-label={
+              <Button aria-label={
                   target > 1
                     ? `${habit.name}, ${cell.label}, ${count} of ${target}`
                     : `${habit.name}, ${cell.label}, ${done ? "done" : missed ? "missed" : "not yet"}`
                 }
                 className="flex h-full min-h-9 w-full items-center justify-center text-xs text-foreground/70 transition-colors duration-fast hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
                 type="button"
+                variant="unstyled"
                 onClick={() => onToggle(habit.id, cell.period, done)}
               >
                 {target > 1 ? (
@@ -102,7 +102,7 @@ export function HabitGridRow({ habit, month, days, elapsed, counts, selected, on
                 ) : (
                   <span aria-hidden className="block size-1.5 rounded-full bg-border" />
                 )}
-              </button>
+              </Button>
             ) : (
               <div aria-hidden className="h-full min-h-9 w-full bg-muted/20" />
             )}

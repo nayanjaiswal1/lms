@@ -45,8 +45,7 @@ export function LabPreviewPane({ sessionId, previewPort, ports, onSelectPort }: 
               </span>
             )}
             {ports.map(({ port, process_name }) => (
-              <button
-                aria-selected={port === previewPort}
+              <Button aria-selected={port === previewPort}
                 className={cn(
                   "rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap touch-target",
                   port === previewPort
@@ -57,13 +56,14 @@ export function LabPreviewPane({ sessionId, previewPort, ports, onSelectPort }: 
                 role="tab"
                 title={process_name ? `Port ${port} — ${process_name}` : `Port ${port}`}
                 type="button"
+                variant="unstyled"
                 onClick={() => onSelectPort?.(port)}
               >
                 :{port}
                 {process_name && (
                   <span className="ml-1 text-muted-foreground">({process_name})</span>
                 )}
-              </button>
+              </Button>
             ))}
           </div>
         ) : (

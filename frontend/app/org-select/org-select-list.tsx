@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useActionState } from "react";
 import { Loader2, Building2, ChevronRight } from "lucide-react";
 
@@ -32,13 +33,13 @@ export function OrgSelectList({ orgs }: OrgSelectListProps) {
           <li key={org.id}>
             <form action={formAction}>
               <input name="org_id" type="hidden" value={org.id} />
-              <button
-                className={cn(
+              <Button className={cn(
                   "card-interactive flex w-full items-center gap-4 p-4 text-left",
                   "disabled:pointer-events-none disabled:opacity-60",
                 )}
                 disabled={isPending}
                 type="submit"
+                variant="unstyled"
               >
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted">
                   <Building2 aria-hidden className="h-5 w-5 text-muted-foreground" />
@@ -52,7 +53,7 @@ export function OrgSelectList({ orgs }: OrgSelectListProps) {
                 ) : (
                   <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
                 )}
-              </button>
+              </Button>
             </form>
           </li>
         ))}

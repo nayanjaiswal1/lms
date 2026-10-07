@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { CourseTree, ModuleProgress } from "@/lib/server/courses";
 import ROUTES from "@/lib/routes";
 
+import { Button } from "@/components/ui/button";
 interface CourseSidebarDrawerProps {
   course: CourseTree;
   currentModuleId: string;
@@ -39,21 +40,21 @@ export function CourseSidebarDrawer({
           <ArrowLeft aria-hidden className="h-5 w-5" />
         </Link>
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{currentModuleTitle}</span>
-        <button
-          aria-label="Open course contents"
+        <Button aria-label="Open course contents"
           className="touch-target flex shrink-0 items-center gap-1.5 rounded-md border border-border px-3 text-xs font-medium transition-colors duration-fast hover:bg-muted"
+          variant="unstyled"
           onClick={() => setOpen(true)}
         >
           <ListTree aria-hidden className="h-4 w-4" />
           Contents
-        </button>
+        </Button>
       </div>
 
       {open && (
-        <button
-          aria-label="Close course contents"
+        <Button aria-label="Close course contents"
           className="sidebar-drawer-backdrop"
           type="button"
+          variant="unstyled"
           onClick={() => setOpen(false)}
         />
       )}
@@ -70,13 +71,13 @@ export function CourseSidebarDrawer({
       >
         <div className="flex-between border-b border-sidebar-border px-4 py-4">
           <span className="text-sm font-semibold">Course contents</span>
-          <button
-            aria-label="Close course contents"
+          <Button aria-label="Close course contents"
             className="touch-target flex items-center justify-center rounded-md transition-colors duration-fast hover:bg-accent/60"
+            variant="unstyled"
             onClick={() => setOpen(false)}
           >
             <X aria-hidden className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
         <CourseSidebar
           course={course}

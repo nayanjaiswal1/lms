@@ -129,13 +129,13 @@ function SectionCard({
     <div className="card-base">
       {/* Section header */}
       <div className="flex items-center gap-2 p-3 border-b border-border">
-        <button
-          aria-label={open ? "Collapse section" : "Expand section"}
+        <Button aria-label={open ? "Collapse section" : "Expand section"}
           type="button"
+          variant="unstyled"
           onClick={() => setOpen((v) => !v)}
         >
           <ChevronRight className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-90")} />
-        </button>
+        </Button>
         <Input
           className="h-8 flex-1 text-sm font-medium border-0 shadow-none bg-transparent px-0"
           placeholder="Section title"

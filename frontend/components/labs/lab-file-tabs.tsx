@@ -1,5 +1,7 @@
 "use client"
 
+import { Button } from "@/components/ui/button";
+
 import { X } from "lucide-react"
 import { getFileIcon } from "@/lib/labs/file-icon"
 import { cn } from "@/lib/utils"
@@ -67,10 +69,10 @@ export function LabFileTabs({ openFiles, activePath, onSelect, onClose }: LabFil
           >
             <Icon aria-hidden className="h-3.5 w-3.5 shrink-0" />
             <span className="flex-1 truncate">{basename(file.path)}</span>
-            <button
-              aria-label={`Close ${basename(file.path)}${file.dirty ? " (unsaved changes)" : ""}`}
+            <Button aria-label={`Close ${basename(file.path)}${file.dirty ? " (unsaved changes)" : ""}`}
               className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-muted"
               type="button"
+              variant="unstyled"
               onClick={(e) => {
                 e.stopPropagation()
                 onClose(file.path)
@@ -92,7 +94,7 @@ export function LabFileTabs({ openFiles, activePath, onSelect, onClose }: LabFil
                   isActive ? "opacity-100" : "opacity-0",
                 )}
               />
-            </button>
+            </Button>
           </div>
         )
       })}

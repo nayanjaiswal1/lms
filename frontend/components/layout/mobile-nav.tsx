@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/lib/server/auth";
 import type { Feature } from "@/lib/features";
 
+import { Button } from "@/components/ui/button";
 interface Props {
   user: AuthUser | null;
 }
@@ -45,13 +46,13 @@ export function MobileNav({ user }: Props) {
   return (
     <>
       <header className="app-header lg:hidden">
-        <button
-          aria-label="Open menu"
+        <Button aria-label="Open menu"
           className="touch-target -ml-2 flex items-center justify-center rounded-md hover:bg-accent/60 transition-colors duration-fast"
+          variant="unstyled"
           onClick={() => setOpen(true)}
         >
           <Menu aria-hidden className="h-5 w-5" />
-        </button>
+        </Button>
         <Link aria-label="Go to your home page" href={user?.default_landing_page || ROUTES.DASHBOARD}>
           <BrandMark />
         </Link>
@@ -64,10 +65,10 @@ export function MobileNav({ user }: Props) {
       </header>
 
       {open && (
-        <button
-          aria-label="Close navigation"
+        <Button aria-label="Close navigation"
           className="sidebar-drawer-backdrop"
           type="button"
+          variant="unstyled"
           onClick={() => setOpen(false)}
         />
       )}
@@ -89,13 +90,13 @@ export function MobileNav({ user }: Props) {
           >
             <BrandMark />
           </Link>
-          <button
-            aria-label="Close menu"
+          <Button aria-label="Close menu"
             className="touch-target flex items-center justify-center rounded-md hover:bg-accent/60 transition-colors duration-fast"
+            variant="unstyled"
             onClick={() => setOpen(false)}
           >
             <X aria-hidden className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
         <SidebarNavContent user={user} onNavigate={() => setOpen(false)} />
         {user && <SidebarUserMenu user={user} onNavigate={() => setOpen(false)} />}
@@ -123,14 +124,14 @@ export function MobileNav({ user }: Props) {
             </Link>
           );
         })}
-        <button
-          aria-label="Open menu"
+        <Button aria-label="Open menu"
           className="bottom-nav-item"
+          variant="unstyled"
           onClick={() => setOpen(true)}
         >
           <Menu aria-hidden className="h-5 w-5" />
           <span className="bottom-nav-item-label">Menu</span>
-        </button>
+        </Button>
       </nav>
     </>
   );

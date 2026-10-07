@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ROLE_ICONS } from "@/app/(app)/users/role-badges";
@@ -7,15 +8,15 @@ import { ROLE_ICONS } from "@/app/(app)/users/role-badges";
 // Sits right next to the "Roles" column header, since that's where the
 // icon-only stack that needs decoding actually lives. Hover, not click —
 // it's a passive hint, not an action, so it shouldn't look or behave like
-// a button. The trigger is still a real <button> (unstyled) so it stays
+// a button. The trigger is still a real <Button variant="unstyled"> (unstyled) so it stays
 // keyboard-focusable and announced to screen readers.
 export function RoleLegend() {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button aria-label="Role icon legend" className="text-muted-foreground hover:text-foreground" type="button">
+        <Button aria-label="Role icon legend" className="text-muted-foreground hover:text-foreground" type="button" variant="unstyled">
           <Info aria-hidden className="h-3 w-3" />
-        </button>
+        </Button>
       </TooltipTrigger>
       <TooltipContent align="start" className="flex flex-col gap-1.5">
         {Object.entries(ROLE_ICONS).map(([name, Icon]) => (

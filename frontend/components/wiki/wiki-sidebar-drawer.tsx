@@ -7,6 +7,7 @@ import { WikiSidebarTree } from "@/components/wiki/wiki-sidebar-tree";
 import { cn } from "@/lib/utils";
 import type { WikiPageTreeNode, WikiTemplate } from "@/lib/server/wiki";
 
+import { Button } from "@/components/ui/button";
 interface WikiSidebarDrawerProps {
   spaceSlug: string;
   spaceId: string;
@@ -27,22 +28,22 @@ export function WikiSidebarDrawer({ currentTitle, ...treeProps }: WikiSidebarDra
     <>
       <div className="app-subheader -mx-4 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-sm sm:-mx-6 sm:px-6 lg:hidden">
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{currentTitle}</span>
-        <button
-          aria-label="Open wiki pages"
+        <Button aria-label="Open wiki pages"
           className="touch-target flex shrink-0 items-center gap-1.5 rounded-md border border-border px-3 text-xs font-medium transition-colors duration-fast hover:bg-muted"
           type="button"
+          variant="unstyled"
           onClick={() => setOpen(true)}
         >
           <ListTree aria-hidden className="h-4 w-4" />
           Pages
-        </button>
+        </Button>
       </div>
 
       {open && (
-        <button
-          aria-label="Close wiki pages"
+        <Button aria-label="Close wiki pages"
           className="sidebar-drawer-backdrop"
           type="button"
+          variant="unstyled"
           onClick={() => setOpen(false)}
         />
       )}
@@ -58,14 +59,14 @@ export function WikiSidebarDrawer({ currentTitle, ...treeProps }: WikiSidebarDra
         inert={!open}
       >
         <div className="mb-2 flex items-center justify-end">
-          <button
-            aria-label="Close wiki pages"
+          <Button aria-label="Close wiki pages"
             className="touch-target flex items-center justify-center rounded-md transition-colors duration-fast hover:bg-accent/60"
             type="button"
+            variant="unstyled"
             onClick={() => setOpen(false)}
           >
             <X aria-hidden className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
         <WikiSidebarTree {...treeProps} onNavigate={() => setOpen(false)} />
       </aside>

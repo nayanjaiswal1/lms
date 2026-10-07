@@ -138,14 +138,14 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrConflict:  {Status: http.StatusConflict, Message: "Conflict."},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.", func(w http.ResponseWriter, err error) bool {
 	var ve ValidationError
-	if errors.As(err, &ve) {
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{ve.Field: ve.Message})
-		return
+	if !errors.As(err, &ve) {
+		return false
 	}
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
+	httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{ve.Field: ve.Message})
+	return true
+})
 
 // ─── Course CRUD ──────────────────────────────────────────────────────────────
 

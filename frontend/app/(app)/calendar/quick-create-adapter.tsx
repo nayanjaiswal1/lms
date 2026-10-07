@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import * as React from "react";
 import { QuickCreateSlot } from "@/app/(app)/calendar/quick-create-slot";
 import { EnhancedQuickCreate } from "@/app/(app)/calendar/enhanced-quick-create";
@@ -40,13 +41,13 @@ export function QuickCreateAdapter({
           onCreate={onCreate}
         />
         {useEnhanced && (
-          <button
-            className="flex w-full items-center justify-center gap-1.5 rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted"
+          <Button className="flex w-full items-center justify-center gap-1.5 rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted"
+            variant="unstyled"
             onClick={() => setMode("full")}
           >
             <Lightbulb className="h-3.5 w-3.5" />
             Show advanced options
-          </button>
+          </Button>
         )}
       </div>
     );

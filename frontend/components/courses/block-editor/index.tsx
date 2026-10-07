@@ -40,15 +40,15 @@ function BlockPicker({ onPick, onClose }: BlockPickerProps) {
   return (
     <div className="rounded-md border border-border bg-card shadow-raised p-2 grid grid-cols-5 gap-1">
       {BLOCK_MENU.map(({ type, icon: Icon, label }) => (
-        <button
-          className="flex flex-col items-center gap-1 rounded p-2 text-center hover:bg-muted transition-colors"
+        <Button className="flex flex-col items-center gap-1 rounded p-2 text-center hover:bg-muted transition-colors"
           key={type}
           type="button"
+          variant="unstyled"
           onClick={() => { onPick(type); onClose(); }}
         >
           <Icon className="h-4 w-4 text-muted-foreground" />
           <span className="text-xs text-muted-foreground">{label}</span>
-        </button>
+        </Button>
       ))}
     </div>
   );

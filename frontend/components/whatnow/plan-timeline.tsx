@@ -156,10 +156,10 @@ export function PlanTimeline({
             {/* Full-height native button behind the blocks: click an empty slot
                 to quick-create there. Blocks/form render later (and z-raised),
                 so their clicks never reach it. */}
-            <button
-              aria-label="Add a task at a chosen time"
+            <Button aria-label="Add a task at a chosen time"
               className="absolute inset-0 cursor-copy"
               type="button"
+              variant="unstyled"
               onClick={(e) => {
                 setDraftTitle("");
                 // detail === 0 → keyboard activation carries no pointer position; default to 9:00 AM.

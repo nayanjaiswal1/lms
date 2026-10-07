@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 // One scheduled task's time block on the Plan Day timeline. Presentational —
 // PlanTimeline owns the pixel math and resize/drag commit logic, mirroring
 // calendar/event-block.tsx's "time" variant.
@@ -32,17 +33,17 @@ export function PlanBlock({ task, style, timeLabel, resizeHandlers, onDragStart,
       style={style}
       onDragStart={onDragStart}
     >
-      <button
-        aria-label={`Unschedule ${task.title}`}
+      <Button aria-label={`Unschedule ${task.title}`}
         className="absolute right-1 top-1 hidden h-4 w-4 items-center justify-center rounded-full bg-background text-muted-foreground group-hover:flex"
         type="button"
+        variant="unstyled"
         onClick={(e) => {
           e.stopPropagation();
           onUnschedule();
         }}
       >
         ×
-      </button>
+      </Button>
       <span className="truncate shrink-0 font-medium text-foreground">{task.title}</span>
       <span className="shrink-0 tabular-nums text-muted-foreground">{timeLabel}</span>
       <div

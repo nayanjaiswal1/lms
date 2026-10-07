@@ -154,13 +154,13 @@ export function NotificationBell() {
         <div className="flex-between px-2 py-1.5">
           <DropdownMenuLabel className="p-0 text-sm font-normal">Notifications</DropdownMenuLabel>
           {unreadCount > 0 && (
-            <button
-              className="text-xs font-medium text-primary hover:underline"
+            <Button className="text-xs font-medium text-primary hover:underline"
               type="button"
+              variant="unstyled"
               onClick={handleMarkAllRead}
             >
               Mark all read
-            </button>
+            </Button>
           )}
         </div>
         <DropdownMenuSeparator />

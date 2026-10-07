@@ -45,15 +45,15 @@ export function RateTeammateRow({ workspaceId, person, existing }: RateTeammateR
         <p className="text-sm font-medium">{person.name}</p>
         <div aria-label={`Rate ${person.name}`} className="flex gap-0.5" role="radiogroup">
           {[1, 2, 3, 4, 5].map((n) => (
-            <button
-              aria-label={`${n} star${n === 1 ? "" : "s"}`}
+            <Button aria-label={`${n} star${n === 1 ? "" : "s"}`}
               className="touch-target"
               key={n}
               type="button"
+              variant="unstyled"
               onClick={() => setRating(n)}
             >
               <Star aria-hidden className={cn("h-5 w-5", n <= rating ? "fill-primary text-primary" : "text-muted-foreground")} />
-            </button>
+            </Button>
           ))}
         </div>
       </div>

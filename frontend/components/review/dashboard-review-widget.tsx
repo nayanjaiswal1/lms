@@ -129,13 +129,13 @@ const ratingStyles: Record<RatingButtonProps["variant"], string> = {
 // replaces the individual borders the container used to draw.
 function RatingButton({ label, variant, disabled, onClick }: RatingButtonProps) {
   return (
-    <button
-      className={`touch-target flex-1 border-l border-border text-xs font-semibold transition-colors duration-fast ease-smooth first:border-l-0 disabled:pointer-events-none disabled:opacity-50 ${ratingStyles[variant]}`}
+    <Button className={`touch-target flex-1 border-l border-border text-xs font-semibold transition-colors duration-fast ease-smooth first:border-l-0 disabled:pointer-events-none disabled:opacity-50 ${ratingStyles[variant]}`}
       disabled={disabled}
       type="button"
+      variant="unstyled"
       onClick={onClick}
     >
       {label}
-    </button>
+    </Button>
   );
 }

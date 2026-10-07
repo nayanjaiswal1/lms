@@ -37,30 +37,30 @@ export function DemoShell({ activeView }: DemoShellProps) {
 
           {/* Center — view switcher */}
           <div className="flex items-center gap-1 rounded-full bg-muted p-1">
-            <button
-              className={cn(
+            <Button className={cn(
                 "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
                 activeView === "learner"
                   ? "bg-primary text-primary-foreground"
                   : "bg-transparent text-muted-foreground hover:text-foreground",
               )}
               type="button"
+              variant="unstyled"
               onClick={() => switchView("learner")}
             >
               Learner
-            </button>
-            <button
-              className={cn(
+            </Button>
+            <Button className={cn(
                 "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
                 activeView === "admin"
                   ? "bg-primary text-primary-foreground"
                   : "bg-transparent text-muted-foreground hover:text-foreground",
               )}
               type="button"
+              variant="unstyled"
               onClick={() => switchView("admin")}
             >
               Admin
-            </button>
+            </Button>
           </div>
 
           {/* Right — exit link */}

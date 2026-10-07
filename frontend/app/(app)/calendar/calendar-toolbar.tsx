@@ -134,18 +134,18 @@ export function CalendarToolbar({
         <div className="ml-auto flex items-center gap-2">
           <div className="flex rounded-md border border-border p-0.5">
             {CALENDAR_VIEW_OPTIONS.map((opt) => (
-              <button
-                className={`rounded px-3 py-1.5 text-sm font-medium transition-colors duration-fast ease-smooth touch-target ${
+              <Button className={`rounded px-3 py-1.5 text-sm font-medium transition-colors duration-fast ease-smooth touch-target ${
                   view === opt.value
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
                 key={opt.value}
                 type="button"
+                variant="unstyled"
                 onClick={() => onViewChange(opt.value)}
               >
                 {opt.label}
-              </button>
+              </Button>
             ))}
           </div>
           <Button size="sm" onClick={onNewEvent}>

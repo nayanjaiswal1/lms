@@ -87,14 +87,14 @@ function PublicLinkCard({ shortCode, published }: { shortCode: string; published
 
   return (
     <section className="flex flex-col gap-3">
-      <button
-        className="flex items-center gap-2 text-left"
+      <Button className="flex items-center gap-2 text-left"
         type="button"
+        variant="unstyled"
         onClick={() => setOpen(false)}
       >
         <Link aria-hidden className="h-5 w-5 text-primary" />
         <h2 className="section-title">Public candidate link</h2>
-      </button>
+      </Button>
       <div className="card-base flex flex-col gap-4 p-6">
         {!published ? (
           <p className="text-sm text-muted-foreground">

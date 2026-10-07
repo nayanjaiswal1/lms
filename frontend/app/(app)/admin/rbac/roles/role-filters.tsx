@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { Search as SearchIcon, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -53,14 +54,14 @@ export function RoleFilters() {
           onChange={(e) => void setSearch(e.target.value)}
         />
         {search && (
-          <button
-            aria-label="Clear search"
+          <Button aria-label="Clear search"
             className="touch-target absolute right-0 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
             type="button"
+            variant="unstyled"
             onClick={() => void setSearch("")}
           >
             <X aria-hidden className="h-4 w-4" />
-          </button>
+          </Button>
         )}
       </div>
 

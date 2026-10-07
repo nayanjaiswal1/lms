@@ -106,26 +106,26 @@ export function ModuleSystemDesignClient({
         >
           <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
           <div className="flex gap-1 rounded-lg bg-muted p-1">
-            <button
-              className={cn(
+            <Button className={cn(
                 "touch-target flex flex-1 items-center justify-center gap-1.5 rounded-md text-xs font-medium transition-colors duration-fast",
                 tab === "guidance" ? "bg-card shadow-card" : "text-muted-foreground",
               )}
               type="button"
+              variant="unstyled"
               onClick={() => void setTab("guidance")}
             >
               <NotebookText aria-hidden className="h-3.5 w-3.5" />How to answer
-            </button>
-            <button
-              className={cn(
+            </Button>
+            <Button className={cn(
                 "touch-target flex flex-1 items-center justify-center gap-1.5 rounded-md text-xs font-medium transition-colors duration-fast",
                 tab === "chat" ? "bg-card shadow-card" : "text-muted-foreground",
               )}
               type="button"
+              variant="unstyled"
               onClick={() => void setTab("chat")}
             >
               <MessageCircleQuestion aria-hidden className="h-3.5 w-3.5" />Ask clarifying questions
-            </button>
+            </Button>
           </div>
           <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
             {tab === "chat" ? (

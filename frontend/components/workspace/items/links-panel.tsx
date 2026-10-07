@@ -124,9 +124,9 @@ export function LinksPanel({ workspaceId, item }: LinksPanelProps) {
                 {l.other.key} — {l.other.title}
               </Link>
             </div>
-            <button aria-label={`Remove link to ${l.other.key}`} disabled={pending} type="button" onClick={() => remove(l.other.id, l.kind)}>
+            <Button aria-label={`Remove link to ${l.other.key}`} disabled={pending} type="button" variant="unstyled" onClick={() => remove(l.other.id, l.kind)}>
               <X className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-            </button>
+            </Button>
           </li>
         ))}
       </ul>

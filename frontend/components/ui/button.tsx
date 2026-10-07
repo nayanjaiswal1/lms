@@ -16,6 +16,7 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        unstyled: "",
       },
       size: {
         // px-5 py-2.5 matches the button padding spec in frontend/CLAUDE.md
@@ -40,6 +41,9 @@ interface ButtonProps
 
 function Button({ className, variant, size, asChild = false, ...props }: ButtonProps) {
   const Comp = asChild ? Slot : "button";
+  // "unstyled" adds no base classes: for custom-looking controls (tabs, tree rows, cells)
+  // that own their sizing/typography but should still go through the shared Button.
+  if (variant === "unstyled") return <Comp className={className} {...props} />;
   return <Comp className={cn(buttonVariants({ variant, size }), className)} {...props} />;
 }
 

@@ -1,5 +1,6 @@
 import { Bell, Plus, Search } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 interface DashboardHeaderProps {
   title: string;
   subtitle: string;
@@ -39,25 +40,25 @@ export function DashboardHeader({ title, subtitle, initial }: DashboardHeaderPro
             type="search"
           />
         </label>
-        <button aria-label="Search" className="flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden" type="button">
+        <Button aria-label="Search" className="flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden" type="button" variant="unstyled">
           <Search aria-hidden className="size-5" />
-        </button>
-        <button
-          aria-label="Notifications"
+        </Button>
+        <Button aria-label="Notifications"
           className="relative flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:size-auto lg:border lg:border-border lg:p-2 lg:hover:bg-accent"
           type="button"
+          variant="unstyled"
         >
           <Bell aria-hidden className="size-5 lg:size-4" />
           <span className="absolute right-2 top-2 size-2 rounded-full border-2 border-(--ae-card) bg-(--ae-brand-500) lg:right-1.5 lg:top-1.5 lg:size-1.5 lg:border-0" />
-        </button>
-        <button
-          aria-label="Add task"
+        </Button>
+        <Button aria-label="Add task"
           className="flex size-9 items-center justify-center gap-1.5 rounded-xl bg-primary text-xs font-semibold text-(--ae-card) shadow-card transition-colors hover:bg-(--ae-brand-hover) lg:size-auto lg:px-3.5 lg:py-1.5"
           type="button"
+          variant="unstyled"
         >
           <Plus aria-hidden className="size-4" strokeWidth={2.5} />
           <span className="hidden lg:inline">Add Task</span>
-        </button>
+        </Button>
       </div>
     </header>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { HABIT_COLOR_OPTIONS, type HabitColorValue } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -61,12 +62,12 @@ export function HabitColorPicker({ habitName, color, onChange }: HabitColorPicke
       <PopoverContent align="start" className="w-auto p-2">
         <div className="grid grid-cols-4 gap-1">
           {HABIT_COLOR_OPTIONS.map((opt) => (
-            <button
-              aria-label={opt.label}
+            <Button aria-label={opt.label}
               aria-pressed={opt.value === color}
               className="touch-target flex items-center justify-center rounded-md hover:bg-accent"
               key={opt.value}
               type="button"
+              variant="unstyled"
               onClick={() => onChange(opt.value)}
             >
               <span
@@ -77,7 +78,7 @@ export function HabitColorPicker({ habitName, color, onChange }: HabitColorPicke
                   opt.value === color && "ring-2 ring-foreground",
                 )}
               />
-            </button>
+            </Button>
           ))}
         </div>
       </PopoverContent>

@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import type { QuestionSection } from "@/lib/assessments/types";
 
+import { Button } from "@/components/ui/button";
 interface SectionTabsProps {
   sections: QuestionSection[];
   currentType: string;
@@ -17,8 +18,7 @@ export function SectionTabs({ sections, currentType, onJump }: SectionTabsProps)
   return (
     <div aria-label="Question sections" className="mb-4 flex gap-2 overflow-x-auto pb-1 lg:hidden" role="tablist">
       {sections.map((s) => (
-        <button
-          aria-selected={s.type === currentType}
+        <Button aria-selected={s.type === currentType}
           className={cn(
             "touch-target shrink-0 whitespace-nowrap rounded-md border px-3 text-xs font-medium transition-colors duration-fast",
             s.type === currentType
@@ -28,10 +28,11 @@ export function SectionTabs({ sections, currentType, onJump }: SectionTabsProps)
           key={s.type}
           role="tab"
           type="button"
+          variant="unstyled"
           onClick={() => onJump(s.startIndex)}
         >
           {s.label} · {s.answeredCount}/{s.count}
-        </button>
+        </Button>
       ))}
     </div>
   );

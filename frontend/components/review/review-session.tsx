@@ -218,15 +218,15 @@ const ratingStyles: Record<RatingButtonProps["variant"], string> = {
 
 function RatingButton({ label, sublabel, variant, disabled, onClick }: RatingButtonProps) {
   return (
-    <button
-      className={`flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors duration-fast ease-smooth disabled:pointer-events-none disabled:opacity-50 ${ratingStyles[variant]}`}
+    <Button className={`flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors duration-fast ease-smooth disabled:pointer-events-none disabled:opacity-50 ${ratingStyles[variant]}`}
       disabled={disabled}
       type="button"
+      variant="unstyled"
       onClick={onClick}
     >
       <span>{label}</span>
       <span className="text-xs font-normal opacity-70">{sublabel}</span>
-    </button>
+    </Button>
   );
 }
 

@@ -1,5 +1,7 @@
 "use client"
 
+import { Button } from "@/components/ui/button";
+
 import { useEffect, useRef } from "react"
 import dynamic from "next/dynamic"
 import { MonitorOff, AlertCircle, X } from "lucide-react"
@@ -168,14 +170,14 @@ export function StandardLabWorkspace({
       {verifyError && (
         <IconMessage
           action={
-            <button
-              aria-label="Dismiss error"
+            <Button aria-label="Dismiss error"
               className="text-destructive hover:text-destructive/80 touch-target"
               type="button"
+              variant="unstyled"
               onClick={dismissVerifyError}
             >
               <X aria-hidden className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           }
           className="shrink-0"
           icon={AlertCircle}

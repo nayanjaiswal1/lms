@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { AeIssuesPage } from "@/lib/server/gitlab-planning";
 import { cn } from "@/lib/utils";
 
+import { Button } from "@/components/ui/button";
 interface IssuesPaginationProps {
   pagination: AeIssuesPage["pagination"];
   shown: number;
@@ -19,28 +20,28 @@ export function IssuesPagination({ pagination, shown }: IssuesPaginationProps) {
         <span className="font-semibold text-foreground">{total}</span> open issues
       </p>
       <nav aria-label="Pagination" className="flex items-center gap-1">
-        <button disabled className={cn(PAGE_BTN, "gap-0.5 text-muted-foreground disabled:opacity-40")} type="button">
+        <Button disabled className={cn(PAGE_BTN, "gap-0.5 text-muted-foreground disabled:opacity-40")} type="button" variant="unstyled">
           <ChevronLeft aria-hidden className="size-4" />
           <span>Prev</span>
-        </button>
+        </Button>
         {pages.map((p, i) =>
           p === "…" ? (
             <span className="px-1 text-muted-foreground" key={`gap-${i}`}>…</span>
           ) : (
-            <button
-              aria-current={p === current ? "page" : undefined}
+            <Button aria-current={p === current ? "page" : undefined}
               className={cn(PAGE_BTN, p === current ? "bg-primary text-(--m-sc-lowest)" : "text-foreground hover:bg-muted")}
               key={p}
               type="button"
+              variant="unstyled"
             >
               {p}
-            </button>
+            </Button>
           ),
         )}
-        <button className={cn(PAGE_BTN, "gap-0.5 bg-card text-foreground shadow-card hover:bg-muted")} type="button">
+        <Button className={cn(PAGE_BTN, "gap-0.5 bg-card text-foreground shadow-card hover:bg-muted")} type="button" variant="unstyled">
           <span>Next</span>
           <ChevronRight aria-hidden className="size-4" />
-        </button>
+        </Button>
       </nav>
     </footer>
   );

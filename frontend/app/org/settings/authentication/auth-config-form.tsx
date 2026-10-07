@@ -56,8 +56,7 @@ export function AuthConfigForm({ orgId, config }: AuthConfigFormProps) {
             Allow members to sign in using your identity provider.
           </p>
         </div>
-        <button
-          aria-checked={ssoEnabled}
+        <Button aria-checked={ssoEnabled}
           aria-label="Toggle Single Sign-On"
           className={[
             "relative inline-flex h-5 w-9 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-[--duration-normal] flex-shrink-0 mt-0.5",
@@ -66,6 +65,7 @@ export function AuthConfigForm({ orgId, config }: AuthConfigFormProps) {
           id="sso-toggle"
           role="switch"
           type="button"
+          variant="unstyled"
           onClick={() => setSsoEnabled((v) => !v)}
         >
           <span
@@ -74,7 +74,7 @@ export function AuthConfigForm({ orgId, config }: AuthConfigFormProps) {
               ssoEnabled ? "translate-x-4" : "translate-x-0",
             ].join(" ")}
           />
-        </button>
+        </Button>
       </div>
 
       {/* Provider select — only when SSO is on */}

@@ -77,17 +77,28 @@ type ErrSpec struct {
 	Fields  map[string]string
 }
 
-// DomainErrorWriter binds specs and fallbackMessage into a per-package
-// writeDomainError(w, err) function.
-func DomainErrorWriter(specs map[error]ErrSpec, fallbackMessage string) func(http.ResponseWriter, error) {
+// ErrHook handles errors that need more than a static ErrSpec (typed errors
+// carrying fields, headers or payloads). It returns true once it has written
+// the response.
+type ErrHook func(w http.ResponseWriter, err error) bool
+
+// DomainErrorWriter binds specs, fallbackMessage and optional hooks into a
+// per-package writeDomainError(w, err) function.
+func DomainErrorWriter(specs map[error]ErrSpec, fallbackMessage string, hooks ...ErrHook) func(http.ResponseWriter, error) {
 	return func(w http.ResponseWriter, err error) {
-		WriteDomainError(w, err, specs, fallbackMessage)
+		WriteDomainError(w, err, specs, fallbackMessage, hooks...)
 	}
 }
 
-// WriteDomainError looks up err against specs (via errors.Is on each key) and
-// writes the matching response, or a generic 500 with fallbackMessage on no match.
-func WriteDomainError(w http.ResponseWriter, err error, specs map[error]ErrSpec, fallbackMessage string) {
+// WriteDomainError runs hooks first, then looks up err against specs (via
+// errors.Is on each key) and writes the matching response, or a generic 500
+// with fallbackMessage on no match.
+func WriteDomainError(w http.ResponseWriter, err error, specs map[error]ErrSpec, fallbackMessage string, hooks ...ErrHook) {
+	for _, hook := range hooks {
+		if hook(w, err) {
+			return
+		}
+	}
 	for sentinel, spec := range specs {
 		if !errors.Is(err, sentinel) {
 			continue

@@ -140,15 +140,15 @@ export function Step4Team({ orgId }: Step4TeamProps) {
               </Select>
             </div>
 
-            <button
-              aria-label={`Remove invite row ${index + 1}`}
+            <Button aria-label={`Remove invite row ${index + 1}`}
               className="touch-target mb-px flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:text-destructive disabled:pointer-events-none disabled:opacity-30"
               disabled={isPending || rows.length === 1}
               type="button"
+              variant="unstyled"
               onClick={() => removeRow(row.id)}
             >
               <Trash2 aria-hidden className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         ))}
       </div>

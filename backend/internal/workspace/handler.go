@@ -90,27 +90,35 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrUnfinishedChoice: {Status: http.StatusUnprocessableEntity},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	var fe *FieldError
-	if errors.As(err, &fe) {
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong. Please try again.",
+	func(w http.ResponseWriter, err error) bool {
+		var fe *FieldError
+		if !errors.As(err, &fe) {
+			return false
+		}
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fe.Fields)
-		return
-	}
-	var rl *RateLimitError
-	if errors.As(err, &rl) {
+		return true
+	},
+	func(w http.ResponseWriter, err error) bool {
+		var rl *RateLimitError
+		if !errors.As(err, &rl) {
+			return false
+		}
 		w.Header().Set("Retry-After", strconv.Itoa(ratelimit.RetryAfterSeconds(rl.RetryAfter)))
 		httputil.WriteError(w, http.StatusTooManyRequests, "Too many requests. Please try again later.")
-		return
-	}
+		return true
+	},
 	// A stale-version PATCH/move/transition carries the current row so the
 	// client can render "yours vs current" (D17) instead of just erroring.
-	var ce *ConflictError
-	if errors.As(err, &ce) {
+	func(w http.ResponseWriter, err error) bool {
+		var ce *ConflictError
+		if !errors.As(err, &ce) {
+			return false
+		}
 		httputil.WriteErrorWithData(w, http.StatusConflict, ErrStaleVersion.Error(), ce.Current)
-		return
-	}
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong. Please try again.")
-}
+		return true
+	},
+)
 
 // maskShareToken clears p.ShareToken unless the caller is the owner or
 // acting as one (overseer) — everyone else with viewer/member/manager access

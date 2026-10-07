@@ -1,5 +1,6 @@
 import { Send, Sparkles } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 interface AiAssistantCardProps {
   placeholder: string;
   suggestions: string[];
@@ -19,23 +20,23 @@ export function AiAssistantCard({ placeholder, suggestions }: AiAssistantCardPro
           placeholder={placeholder}
           type="text"
         />
-        <button
-          aria-label="Send to assistant"
+        <Button aria-label="Send to assistant"
           className="absolute right-2 top-2 rounded-lg bg-primary p-1.5 text-(--ae-card) transition-colors hover:bg-(--ae-brand-hover)"
           type="button"
+          variant="unstyled"
         >
           <Send aria-hidden className="size-4" />
-        </button>
+        </Button>
       </label>
       <div className="flex flex-wrap gap-2 pt-1">
         {suggestions.map((s) => (
-          <button
-            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-border hover:bg-accent"
+          <Button className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-border hover:bg-accent"
             key={s}
             type="button"
+            variant="unstyled"
           >
             {s}
-          </button>
+          </Button>
         ))}
       </div>
     </section>

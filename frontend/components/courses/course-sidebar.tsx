@@ -13,6 +13,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { Input } from "@/components/ui/input";
 import ROUTES from "@/lib/routes";
 
+import { Button } from "@/components/ui/button";
 interface CourseSidebarProps {
   course: CourseTree;
   currentModuleId?: string;
@@ -62,14 +63,14 @@ export function CourseSidebar({ course, currentModuleId, progress, isEnrolled, o
             onChange={(e) => setQuery(e.target.value)}
           />
           {isSearching && (
-            <button
-              aria-label="Clear search"
+            <Button aria-label="Clear search"
               className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors duration-fast hover:text-foreground"
               type="button"
+              variant="unstyled"
               onClick={() => setQuery("")}
             >
               <X aria-hidden className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           )}
         </div>
       </div>

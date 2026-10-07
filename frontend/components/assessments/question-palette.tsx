@@ -101,8 +101,7 @@ export function QuestionPalette({
             const isCurrent = i === currentIndex;
             const isMarked = markedForReview[q.assessment_question_id] ?? false;
             return (
-              <button
-                aria-current={isCurrent ? "step" : undefined}
+              <Button aria-current={isCurrent ? "step" : undefined}
                 aria-label={`Question ${i + 1}${answered ? ", answered" : ""}${isMarked ? ", marked for review" : ""}`}
                 className={cn(
                   "flex h-9 w-full items-center justify-center rounded-md text-xs font-semibold tabular-nums transition-all duration-fast",
@@ -119,10 +118,11 @@ export function QuestionPalette({
                 )}
                 disabled={!allowBacktrack && i !== currentIndex}
                 key={q.assessment_question_id}
+                variant="unstyled"
                 onClick={() => (allowBacktrack ? onJump(i) : undefined)}
               >
                 {i + 1}
-              </button>
+              </Button>
             );
           })}
         </div>

@@ -167,14 +167,14 @@ export function WikiEditorToolbar({ editor }: WikiEditorToolbarProps) {
             <ul className="mt-2 max-h-56 space-y-0.5 overflow-y-auto">
               {linkResults.map((r) => (
                 <li key={r.page_id}>
-                  <button
-                    className="w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
+                  <Button className="w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
                     type="button"
+                    variant="unstyled"
                     onClick={() => void insertPageLink(r)}
                   >
                     <span className="block truncate font-medium">{r.title}</span>
                     <span className="block truncate text-xs text-muted-foreground">{r.space_name}</span>
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>

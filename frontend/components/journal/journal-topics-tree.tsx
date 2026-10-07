@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useMemo, useState } from "react";
 import { useQueryState } from "nuqs";
 import { ChevronDown, FileText, Search, X } from "lucide-react";
@@ -61,14 +62,14 @@ export function JournalTopicsTree({ entries, onNavigate }: JournalTopicsTreeProp
             onChange={(e) => setQuery(e.target.value)}
           />
           {isSearching && (
-            <button
-              aria-label="Clear search"
+            <Button aria-label="Clear search"
               className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors duration-fast hover:text-foreground"
               type="button"
+              variant="unstyled"
               onClick={() => setQuery("")}
             >
               <X aria-hidden className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -95,13 +96,13 @@ export function JournalTopicsTree({ entries, onNavigate }: JournalTopicsTreeProp
                   const isCurrent = entry.id === selected;
                   return (
                     <li key={entry.id}>
-                      <button
-                        aria-current={isCurrent ? "true" : undefined}
+                      <Button aria-current={isCurrent ? "true" : undefined}
                         className={cn(
                           "flex w-full items-center gap-3 border-l-2 border-transparent py-2.5 pl-6 pr-4 text-left text-sm text-foreground transition-colors duration-fast hover:bg-muted",
                           isCurrent && "border-primary bg-primary/8 font-medium text-primary",
                         )}
                         type="button"
+                        variant="unstyled"
                         onClick={() => {
                           void setSelected(entry.id);
                           onNavigate?.();
@@ -116,7 +117,7 @@ export function JournalTopicsTree({ entries, onNavigate }: JournalTopicsTreeProp
                         ) : null}
                         <span className="line-clamp-2 min-w-0 flex-1 leading-snug">{entry.title}</span>
                         <span className="ml-auto shrink-0 text-xs text-muted-foreground">{entry.subcategory}</span>
-                      </button>
+                      </Button>
                     </li>
                   );
                 })}

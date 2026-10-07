@@ -4,6 +4,7 @@ import * as React from "react";
 import { Mic, MicOff, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
 
 const MAX_CHARS = 50_000;
 
@@ -120,9 +121,9 @@ export function TranscriptInput({ prompt, value, onChange, onSave }: TranscriptI
 
       {/* Answer panel — textarea + footer live in one bordered surface */}
       <div className="flex flex-col rounded-lg border border-border bg-muted/40">
-        <textarea
+        <Textarea
           aria-label="Your answer"
-          className="min-h-[280px] w-full resize-y rounded-t-lg bg-transparent px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus-visible:outline-none"
+          className="min-h-[280px] resize-y rounded-b-none rounded-t-lg border-0 bg-transparent px-4 py-3 leading-relaxed"
           placeholder="Write your answer here…"
           value={value}
           onChange={(e) => handleChange(e.target.value)}

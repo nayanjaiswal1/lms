@@ -125,18 +125,18 @@ export function InfoTab({ info, coverFile, onChange, onCoverFile }: InfoTabProps
         <Label>Cover image</Label>
         <div className="flex gap-1 text-xs">
           {(["upload", "url"] as const).map((t) => (
-            <button
-              className={cn(
+            <Button className={cn(
                 "flex items-center gap-1 rounded px-2 py-1 transition-colors",
                 coverTab === t ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground",
               )}
               key={t}
               type="button"
+              variant="unstyled"
               onClick={() => setCoverTab(t)}
             >
               {t === "upload" ? <Upload className="h-3 w-3" /> : <LinkIcon className="h-3 w-3" />}
               {t === "upload" ? "Upload" : "Paste URL"}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -232,9 +232,9 @@ export function InfoTab({ info, coverFile, onChange, onCoverFile }: InfoTabProps
           {info.tags.map((tag) => (
             <span className="flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs" key={tag}>
               {tag}
-              <button aria-label={`Remove tag ${tag}`} type="button" onClick={() => removeTag(tag)}>
+              <Button aria-label={`Remove tag ${tag}`} type="button" variant="unstyled" onClick={() => removeTag(tag)}>
                 <X className="h-3 w-3" />
-              </button>
+              </Button>
             </span>
           ))}
           <input

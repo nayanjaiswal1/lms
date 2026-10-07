@@ -59,21 +59,20 @@ export function HabitCustomizeDialog({ habit, open, onOpenChange, onSave }: Habi
                   <FormControl>
                     <div className="flex flex-col gap-2">
                       <div className="grid grid-cols-6 gap-1.5">
-                        <button
-                          aria-label="Use default icon"
+                        <Button aria-label="Use default icon"
                           aria-pressed={icon === ""}
                           className={cn(
                             "touch-target flex items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent",
                             icon === "" && "border-primary bg-primary/10 text-primary",
                           )}
                           type="button"
+                          variant="unstyled"
                           onClick={() => form.setValue("icon", "")}
                         >
                           <RotateCcw aria-hidden className="size-4" />
-                        </button>
+                        </Button>
                         {HABIT_ICON_OPTIONS.map((opt) => (
-                          <button
-                            aria-label={opt.value}
+                          <Button aria-label={opt.value}
                             aria-pressed={icon === opt.value}
                             className={cn(
                               "touch-target flex items-center justify-center rounded-md border border-border hover:bg-accent",
@@ -81,10 +80,11 @@ export function HabitCustomizeDialog({ habit, open, onOpenChange, onSave }: Habi
                             )}
                             key={opt.value}
                             type="button"
+                            variant="unstyled"
                             onClick={() => form.setValue("icon", opt.value)}
                           >
                             <opt.Icon aria-hidden className="size-4" />
-                          </button>
+                          </Button>
                         ))}
                       </div>
                       <div className="flex items-center gap-2">

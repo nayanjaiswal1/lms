@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import type { HealthReport } from "@/lib/workspace/types";
@@ -26,13 +27,13 @@ export function DashboardHealthBadge({ health }: DashboardHealthBadgeProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
-          className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm font-medium transition-colors duration-fast hover:bg-muted"
+        <Button className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm font-medium transition-colors duration-fast hover:bg-muted"
           type="button"
+          variant="unstyled"
         >
           <span aria-hidden className={cn("h-2.5 w-2.5 rounded-full", HEALTH_DOT_CLASS[health.color])} />
           {HEALTH_LABEL[health.color]}
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80">
         {health.reasons.length === 0 ? (

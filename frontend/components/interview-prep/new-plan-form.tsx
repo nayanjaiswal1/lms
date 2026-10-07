@@ -72,13 +72,13 @@ export function NewPlanForm() {
           <p className="text-xs text-muted-foreground">
             We&apos;ll set this up as <span className="font-medium text-foreground">{MODE_LABEL[mode]}</span>
             {" — "}
-            <button
-              className="text-primary underline-offset-2 hover:underline"
+            <Button className="text-primary underline-offset-2 hover:underline"
               type="button"
+              variant="unstyled"
               onClick={() => setModeOverride(OTHER_MODE[mode])}
             >
               switch to {MODE_LABEL[OTHER_MODE[mode]]}
-            </button>
+            </Button>
           </p>
         )}
       </div>

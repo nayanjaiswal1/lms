@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { ListTree, X } from "lucide-react";
 
@@ -16,22 +17,22 @@ export function JournalTopicsDrawer({ entries, currentTitle }: { entries: Journa
     <>
       <div className="app-subheader -mx-4 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-sm sm:-mx-6 sm:px-6 lg:hidden">
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{currentTitle}</span>
-        <button
-          aria-label="Open topics"
+        <Button aria-label="Open topics"
           className="touch-target flex shrink-0 items-center gap-1.5 rounded-md border border-border px-3 text-xs font-medium transition-colors duration-fast hover:bg-muted"
           type="button"
+          variant="unstyled"
           onClick={() => setOpen(true)}
         >
           <ListTree aria-hidden className="h-4 w-4" />
           Topics
-        </button>
+        </Button>
       </div>
 
       {open && (
-        <button
-          aria-label="Close topics"
+        <Button aria-label="Close topics"
           className="sidebar-drawer-backdrop"
           type="button"
+          variant="unstyled"
           onClick={() => setOpen(false)}
         />
       )}
@@ -48,14 +49,14 @@ export function JournalTopicsDrawer({ entries, currentTitle }: { entries: Journa
       >
         <div className="flex-between border-b border-sidebar-border px-4 py-4">
           <span className="text-sm font-semibold">Topics</span>
-          <button
-            aria-label="Close topics"
+          <Button aria-label="Close topics"
             className="touch-target flex items-center justify-center rounded-md transition-colors duration-fast hover:bg-accent/60"
             type="button"
+            variant="unstyled"
             onClick={() => setOpen(false)}
           >
             <X aria-hidden className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
         <JournalTopicsTree entries={entries} onNavigate={() => setOpen(false)} />
       </aside>

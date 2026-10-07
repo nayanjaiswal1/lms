@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -61,14 +62,14 @@ export function OrgFeatureFlagRow({ orgId, flag }: Props) {
       {overridden && (
         <>
           <Badge variant="secondary">Overridden</Badge>
-          <button
-            className="text-xs text-primary hover:underline disabled:opacity-50 disabled:pointer-events-none"
+          <Button className="text-xs text-primary hover:underline disabled:opacity-50 disabled:pointer-events-none"
             disabled={isPending}
             type="button"
+            variant="unstyled"
             onClick={handleReset}
           >
             Reset
-          </button>
+          </Button>
         </>
       )}
       <Switch

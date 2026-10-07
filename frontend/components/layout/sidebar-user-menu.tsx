@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/lib/server/auth";
 import ROUTES from "@/lib/routes";
 
+import { Button } from "@/components/ui/button";
 interface Props {
   user: AuthUser;
   /** Called after "Profile settings" is clicked — used to close the mobile drawer. */
@@ -32,12 +33,12 @@ export function SidebarUserMenu({ user, onNavigate, collapsed = false }: Props) 
     <div className="border-t border-sidebar-border p-3">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button
-            aria-label="User menu"
+          <Button aria-label="User menu"
             className={cn(
               "flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-accent/60 transition-colors duration-fast touch-target",
               collapsed && "justify-center px-0",
             )}
+            variant="unstyled"
           >
             <ProfileAvatar avatarUrl={user.avatar_url} name={user.name} size="sm" />
             {!collapsed && (
@@ -53,7 +54,7 @@ export function SidebarUserMenu({ user, onNavigate, collapsed = false }: Props) 
                 <ChevronsUpDown aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
               </>
             )}
-          </button>
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56" side="top" sideOffset={8}>
           <DropdownMenuLabel className="font-normal">

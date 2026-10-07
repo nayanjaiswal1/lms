@@ -167,8 +167,7 @@ function TestRunner({
           {questions.map((question, i) => {
             const isAnswered = (answers[question.assessment_question_id]?.length ?? 0) > 0;
             return (
-              <button
-                className={`flex h-8 w-8 items-center justify-center rounded-md border text-sm font-medium transition-colors duration-fast ease-smooth ${
+              <Button className={`flex h-8 w-8 items-center justify-center rounded-md border text-sm font-medium transition-colors duration-fast ease-smooth ${
                   i === index
                     ? "border-primary bg-primary text-primary-foreground"
                     : isAnswered
@@ -177,10 +176,11 @@ function TestRunner({
                 }`}
                 key={question.assessment_question_id}
                 type="button"
+                variant="unstyled"
                 onClick={() => setIndex(i)}
               >
                 {i + 1}
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -202,14 +202,14 @@ function TestRunner({
             {(q.content.options ?? []).map((opt) => {
               const isSelected = selected.includes(opt.id);
               return (
-                <button
-                  className={`flex items-start gap-3 rounded-lg border p-4 text-left text-sm transition-colors duration-fast ease-smooth ${
+                <Button className={`flex items-start gap-3 rounded-lg border p-4 text-left text-sm transition-colors duration-fast ease-smooth ${
                     isSelected
                       ? "border-primary bg-primary/10 font-medium text-foreground"
                       : "border-border bg-card hover:border-primary/40 hover:bg-muted"
                   }`}
                   key={opt.id}
                   type="button"
+                  variant="unstyled"
                   onClick={() => toggle(q.assessment_question_id, opt.id, isMultiple)}
                 >
                   <span
@@ -221,7 +221,7 @@ function TestRunner({
                     {isSelected && <span className="h-2 w-2 rounded-full bg-primary-foreground" />}
                   </span>
                   {opt.text}
-                </button>
+                </Button>
               );
             })}
           </div>

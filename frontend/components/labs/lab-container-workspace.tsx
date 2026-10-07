@@ -113,8 +113,7 @@ export function LabContainerWorkspace({
       />
       <div aria-label="Lab workspace view" className="flex items-center gap-1 border-b border-border px-2 shrink-0 bg-card" role="tablist">
         {tabs.map(({ id, label, icon: Icon }, index) => (
-          <button
-            aria-selected={activePanel === id}
+          <Button aria-selected={activePanel === id}
             className={cn(
               // Compact tabs: desktop-only surface, no 44px touch-target here.
               "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-b-2 -mb-px",
@@ -128,12 +127,13 @@ export function LabContainerWorkspace({
             }}
             role="tab"
             tabIndex={activePanel === id ? 0 : -1}
+            variant="unstyled"
             onClick={() => selectPanel(id)}
             onKeyDown={(e) => onTabKeyDown(e, index)}
           >
             <Icon aria-hidden className="h-3.5 w-3.5" />
             {label}
-          </button>
+          </Button>
         ))}
 
         <div className="ml-auto flex items-center gap-3 shrink-0">

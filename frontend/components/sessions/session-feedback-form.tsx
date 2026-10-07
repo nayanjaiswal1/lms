@@ -59,13 +59,13 @@ export function SessionFeedbackForm({ sessionId, status, endsAt, myFeedback }: S
               <FormLabel>Rating</FormLabel>
               <div aria-label="Star rating" className="flex items-center gap-1" role="radiogroup">
                 {(["1", "2", "3", "4", "5"] as const).map((n) => (
-                  <button
-                    aria-checked={field.value === n}
+                  <Button aria-checked={field.value === n}
                     aria-label={`${n} star${n === "1" ? "" : "s"}`}
                     className="touch-target"
                     key={n}
                     role="radio"
                     type="button"
+                    variant="unstyled"
                     onClick={() => field.onChange(n)}
                   >
                     <Star
@@ -75,7 +75,7 @@ export function SessionFeedbackForm({ sessionId, status, endsAt, myFeedback }: S
                         Number(field.value) >= Number(n) ? "fill-primary text-primary" : "text-muted-foreground",
                       )}
                     />
-                  </button>
+                  </Button>
                 ))}
               </div>
               <FormMessage />

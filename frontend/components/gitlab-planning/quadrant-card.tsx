@@ -2,6 +2,7 @@ import { MoreVertical, Plus } from "lucide-react";
 import type { AeQuadrant } from "@/lib/server/gitlab-planning";
 import { cn } from "@/lib/utils";
 
+import { Button } from "@/components/ui/button";
 interface QuadrantCardProps {
   quadrant: AeQuadrant;
   selectedTaskId: string;
@@ -47,21 +48,21 @@ export function QuadrantCard({ quadrant, selectedTaskId }: QuadrantCardProps) {
                     {task.title}
                   </span>
                 </div>
-                <button aria-label={`More actions for ${task.title}`} className="hidden text-muted-foreground hover:text-muted-foreground sm:block" type="button">
+                <Button aria-label={`More actions for ${task.title}`} className="hidden text-muted-foreground hover:text-muted-foreground sm:block" type="button" variant="unstyled">
                   <MoreVertical aria-hidden className="size-4" />
-                </button>
+                </Button>
               </li>
             );
           })}
         </ul>
       </div>
-      <button
-        className="mt-2.5 flex w-full items-center justify-center gap-1 rounded-xl border border-dashed border-border py-1.5 text-xs font-semibold text-(--t-700) transition-colors hover:bg-(--t-100)/50 sm:mt-3 sm:text-xs"
+      <Button className="mt-2.5 flex w-full items-center justify-center gap-1 rounded-xl border border-dashed border-border py-1.5 text-xs font-semibold text-(--t-700) transition-colors hover:bg-(--t-100)/50 sm:mt-3 sm:text-xs"
         type="button"
+        variant="unstyled"
       >
         <Plus aria-hidden className="size-3.5" />
         Add task
-      </button>
+      </Button>
     </div>
   );
 }

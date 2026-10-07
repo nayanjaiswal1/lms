@@ -45,8 +45,8 @@ export function DebugIdeFrame({ ide, reloaded }: DebugIdeFrameProps) {
               <iframe
                 allow="clipboard-read; clipboard-write"
                 className="h-full w-full border-0 bg-background"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
                 key={reloadKey}
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
                 src={freshSrc ? (popOutUrl ?? ideUrl) : ideUrl}
                 title="Browser IDE"
                 onLoad={onLoad}

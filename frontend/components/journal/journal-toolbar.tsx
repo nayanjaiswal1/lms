@@ -188,10 +188,10 @@ export function JournalToolbar({ categories }: JournalToolbarProps) {
       </div>
 
       {minimized ? (
-        <button
-          aria-label="Show quick capture"
+        <Button aria-label="Show quick capture"
           className="group fixed above-bottom-nav right-4 z-modal flex size-11 touch-target items-center justify-center rounded-full border border-border bg-background shadow-raised transition-transform duration-fast ease-smooth hover:scale-105"
           type="button"
+          variant="unstyled"
           onClick={show}
         >
           <Sparkles aria-hidden className="size-4 text-ai" />
@@ -201,7 +201,7 @@ export function JournalToolbar({ categories }: JournalToolbarProps) {
           >
             What did you learn today?
           </span>
-        </button>
+        </Button>
       ) : (
         <div
           aria-label="Add a journal entry"
@@ -223,15 +223,15 @@ export function JournalToolbar({ categories }: JournalToolbarProps) {
               tabIndex={-1}
             >
               <GripHorizontal aria-hidden className="size-3.5 text-muted-foreground" />
-              <button
-                aria-label="Hide"
+              <Button aria-label="Hide"
                 className="absolute right-0.5 flex size-3.5 items-center justify-center text-muted-foreground hover:text-foreground"
                 type="button"
+                variant="unstyled"
                 onClick={hide}
                 onPointerDown={(e) => e.stopPropagation()}
               >
                 <Minus aria-hidden className="size-3" />
-              </button>
+              </Button>
             </div>
             {open ? (
               <>

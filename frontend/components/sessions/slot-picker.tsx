@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import * as React from "react";
 import { toast } from "sonner";
 
@@ -117,8 +118,7 @@ export function SlotPicker({ mentorId, onSelect }: SlotPickerProps) {
     <>
       <div aria-label="Choose a day" className="flex gap-2 overflow-x-auto pb-2" role="tablist">
         {days.map((d) => (
-          <button
-            aria-selected={view.day === d.key}
+          <Button aria-selected={view.day === d.key}
             className={cn(
               "flex min-w-16 shrink-0 flex-col items-center gap-0.5 rounded-md border border-border px-3 py-2 text-sm transition-colors duration-fast touch-target",
               view.day === d.key
@@ -128,6 +128,7 @@ export function SlotPicker({ mentorId, onSelect }: SlotPickerProps) {
             key={d.key}
             role="tab"
             type="button"
+            variant="unstyled"
             onClick={() => {
               onSelect(null);
               void loadDay(d.key);
@@ -135,7 +136,7 @@ export function SlotPicker({ mentorId, onSelect }: SlotPickerProps) {
           >
             <span className="text-xs uppercase tracking-wide opacity-80">{d.weekday}</span>
             <span className="font-semibold">{d.dayLabel}</span>
-          </button>
+          </Button>
         ))}
       </div>
 

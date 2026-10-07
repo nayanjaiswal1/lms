@@ -6,6 +6,7 @@ import { MarkdownFileBox } from "@/components/gitlab-planning/markdown-file-box"
 import type { AeStep, AeTone } from "@/lib/server/gitlab-planning";
 import { cn } from "@/lib/utils";
 
+import { Button } from "@/components/ui/button";
 interface StepCardProps {
   step: AeStep;
   index: number;
@@ -74,17 +75,16 @@ export function StepCard({ step, index }: StepCardProps) {
             <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
               <Timer aria-hidden className="size-3" /> {step.estimate}
             </span>
-            <button aria-label={`More actions for ${step.title}`} className="text-muted-foreground hover:text-muted-foreground" type="button">
+            <Button aria-label={`More actions for ${step.title}`} className="text-muted-foreground hover:text-muted-foreground" type="button" variant="unstyled">
               <MoreVertical aria-hidden className="size-4" />
-            </button>
+            </Button>
           </div>
         </div>
 
         {step.sub_tabs.length > 0 && (
           <div className="flex gap-4 border-b border-border pt-1 text-xs font-medium" role="tablist">
             {step.sub_tabs.map((t, i) => (
-              <button
-                aria-selected={i === tab}
+              <Button aria-selected={i === tab}
                 className={cn(
                   "pb-1",
                   i === tab ? "border-b-2 border-(--ae-brand) font-semibold text-primary" : "text-muted-foreground hover:text-muted-foreground",
@@ -92,11 +92,12 @@ export function StepCard({ step, index }: StepCardProps) {
                 key={t.label}
                 role="tab"
                 type="button"
+                variant="unstyled"
                 onClick={() => setTab(i)}
               >
                 {t.label}
                 {t.count !== undefined && <span className="ml-0.5 text-xs">{t.count}</span>}
-              </button>
+              </Button>
             ))}
           </div>
         )}
@@ -121,11 +122,11 @@ export function StepCard({ step, index }: StepCardProps) {
                 const isChecked = checked.has(s.id);
                 return (
                   <li key={s.id}>
-                    <button
-                      aria-checked={isChecked}
+                    <Button aria-checked={isChecked}
                       className="flex w-full select-none items-center gap-2.5 rounded-lg border border-transparent px-2.5 py-1.5 text-left transition hover:border-border/60 hover:bg-accent"
                       role="checkbox"
                       type="button"
+                      variant="unstyled"
                       onClick={() => toggle(s.id)}
                     >
                       <span
@@ -146,7 +147,7 @@ export function StepCard({ step, index }: StepCardProps) {
                         ) : (
                           <span className="ae-mono text-xs text-muted-foreground">{s.meta}</span>
                         ))}
-                    </button>
+                    </Button>
                   </li>
                 );
               })}

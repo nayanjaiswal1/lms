@@ -127,17 +127,17 @@ export function SkillsManager({ skills, addAction, removeAction, readonly = fals
 
                 {!readonly && (
                   <form action={() => { void removeAction(skill.id) }} className="contents">
-                    <button
-                      aria-label={`Remove ${skill.skill_name}`}
+                    <Button aria-label={`Remove ${skill.skill_name}`}
                       className={cn(
                         "ml-0.5 rounded-sm p-0.5",
                         "hover:bg-muted transition-colors duration-fast",
                         "touch-target"
                       )}
                       type="submit"
+                      variant="unstyled"
                     >
                       <X size={12} />
-                    </button>
+                    </Button>
                   </form>
                 )}
               </Badge>

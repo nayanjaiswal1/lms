@@ -142,9 +142,9 @@ export function AssigneePicker({ workspaceId, item, members, currentUserId }: As
                 <Badge className="w-fit gap-1.5 pr-1" key={`${a.user_id}-${a.role}`} variant="secondary">
                   {a.name}
                   {canRemove && (
-                    <button aria-label={`Remove ${a.name}`} className="rounded-full hover:bg-foreground/10" disabled={pending} type="button" onClick={() => remove(a)}>
+                    <Button aria-label={`Remove ${a.name}`} className="rounded-full hover:bg-foreground/10" disabled={pending} type="button" variant="unstyled" onClick={() => remove(a)}>
                       <X className="h-3 w-3" />
-                    </button>
+                    </Button>
                   )}
                 </Badge>
               );

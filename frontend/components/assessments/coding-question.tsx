@@ -12,6 +12,8 @@ import { SESSION_SUPERSEDED_MESSAGE } from "@/lib/assessments/types";
 import type { RunResult, StudentCodingContent } from "@/lib/assessments/types";
 import type { CodingAnswer } from "@/lib/assessments/use-answers";
 
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 interface CodingQuestionProps {
   content: StudentCodingContent;
   value: CodingAnswer | undefined;
@@ -195,8 +197,7 @@ export function CodingQuestion({
                 <div className="flex-between border-b border-border bg-muted/50 px-3 py-1.5">
                   <div className="flex gap-0.5">
                     {content.languages.map((lang) => (
-                      <button
-                        className={cn(
+                      <Button className={cn(
                           "rounded px-3 py-1 text-xs font-medium transition-colors",
                           language === lang
                             ? "bg-background text-foreground shadow-card"
@@ -204,21 +205,22 @@ export function CodingQuestion({
                         )}
                         key={lang}
                         type="button"
+                        variant="unstyled"
                         onClick={() => onLanguage(lang, content.starter_code?.[lang] ?? "")}
                       >
                         {LANG_LABEL[lang] ?? lang}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-muted-foreground tabular-nums">
                       {code.split("\n").length} lines
                     </span>
-                    <button
-                      aria-label="Run code against sample tests"
+                    <Button aria-label="Run code against sample tests"
                       className="flex h-7 items-center gap-1.5 rounded px-2.5 text-xs font-medium text-ai transition-colors hover:bg-ai/10 disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:bg-transparent"
                       disabled={run.running || !code.trim() || content.sample_cases.length === 0}
                       type="button"
+                      variant="unstyled"
                       onClick={() => void handleRun()}
                     >
                       {run.running ? (
@@ -227,7 +229,7 @@ export function CodingQuestion({
                         <Play aria-hidden className="h-3.5 w-3.5" />
                       )}
                       Run
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
@@ -236,9 +238,9 @@ export function CodingQuestion({
                   <div aria-hidden className={styles.lineNums} ref={lineNumRef}>
                     {lineNumbers}
                   </div>
-                  <textarea
+                  <Textarea
                     aria-label="Code editor"
-                    className={styles.editor}
+                    className={`${styles.editor} min-h-0 w-auto rounded-none`}
                     placeholder={`# Write your ${LANG_LABEL[language] ?? language} solution here…`}
                     ref={textareaRef}
                     spellCheck={false}

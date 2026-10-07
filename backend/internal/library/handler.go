@@ -1,7 +1,6 @@
 package library
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -27,32 +26,21 @@ func NewHandler(service *Service) *Handler { return &Handler{service: service} }
 // through this package) report them identically.
 func WriteError(w http.ResponseWriter, err error) { writeDomainError(w, err) }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, ErrNotFound):
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
-	case errors.Is(err, ErrInvalidKind):
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid kind — must be lab, debug, quiz, or notes.")
-	case errors.Is(err, ErrItemNotEligible):
-		httputil.WriteError(w, http.StatusUnprocessableEntity, "This item isn't published/eligible to place yet.")
-	case errors.Is(err, courses.ErrNotFound):
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
-	case errors.Is(err, labs.ErrImageNotAllowed):
-		httputil.WriteError(w, http.StatusForbidden, "This lab is not available for your organization.")
-	case errors.Is(err, labs.ErrLabNotPublished):
-		httputil.WriteError(w, http.StatusConflict, "Lab is not published.")
-	case errors.Is(err, labs.ErrCapacityReached):
-		httputil.WriteError(w, http.StatusTooManyRequests, "Lab capacity reached, try again shortly.")
-	case errors.Is(err, labs.ErrUserHasActiveSession), errors.Is(err, labs.ErrSessionActive):
-		httputil.WriteError(w, http.StatusConflict, "You already have a lab running. End it before trying another.")
-	case errors.Is(err, labs.ErrLabProvisioningUnstable):
-		httputil.WriteError(w, http.StatusServiceUnavailable, "This lab is temporarily unavailable.")
-	case errors.Is(err, labs.ErrPlanQuotaExceeded):
-		httputil.WriteError(w, http.StatusForbidden, "Lab quota exceeded for your plan.")
-	default:
-		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong. Please try again.")
-	}
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound: {Status: http.StatusNotFound, Message: "Not found."},
+	ErrInvalidKind: {Status: http.StatusBadRequest, Message: "Invalid kind — must be lab, debug, quiz, or notes."},
+	ErrItemNotEligible: {Status: http.StatusUnprocessableEntity, Message: "This item isn't published/eligible to place yet."},
+	courses.ErrNotFound: {Status: http.StatusNotFound, Message: "Not found."},
+	labs.ErrImageNotAllowed: {Status: http.StatusForbidden, Message: "This lab is not available for your organization."},
+	labs.ErrLabNotPublished: {Status: http.StatusConflict, Message: "Lab is not published."},
+	labs.ErrCapacityReached: {Status: http.StatusTooManyRequests, Message: "Lab capacity reached, try again shortly."},
+	labs.ErrUserHasActiveSession: {Status: http.StatusConflict, Message: "You already have a lab running. End it before trying another."},
+	labs.ErrSessionActive: {Status: http.StatusConflict, Message: "You already have a lab running. End it before trying another."},
+	labs.ErrLabProvisioningUnstable: {Status: http.StatusServiceUnavailable, Message: "This lab is temporarily unavailable."},
+	labs.ErrPlanQuotaExceeded: {Status: http.StatusForbidden, Message: "Lab quota exceeded for your plan."},
 }
+
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong. Please try again.")
 
 // HandleList serves GET /api/library.
 func (h *Handler) HandleList(w http.ResponseWriter, r *http.Request) {
