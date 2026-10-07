@@ -1,5 +1,6 @@
 import type { Profile } from '@/lib/profile/types'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import { updatePrivacyAction } from '@/app/(app)/settings/profile/actions'
 // Public-profile visibility toggles. Lives on Settings → Privacy alongside
 // data export and account deletion.
@@ -54,18 +55,13 @@ export function ProfileVisibilityForm({ profile }: { profile: Profile }) {
               <p className="text-sm font-medium text-foreground">{label}</p>
               <p className="text-xs text-muted-foreground">{description}</p>
             </div>
-            {/* Native checkbox styled as a toggle track */}
-            <input
-              className="sr-only peer"
+            <Switch
+              className="mt-0.5 h-5 w-9 border-border data-[state=checked]:border-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               defaultChecked={checked}
               id={name}
               name={name}
-              type="checkbox"
+              thumbClassName="h-4 w-4 shadow-card data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0.5"
               value="on"
-            />
-            <span
-              aria-hidden="true"
-              className="flex-shrink-0 mt-0.5 h-5 w-9 rounded-full border border-border bg-muted transition-colors duration-[--duration-fast] peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary"
             />
           </label>
         ))}
