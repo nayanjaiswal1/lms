@@ -1,5 +1,6 @@
 "use client";
 
+import { PLACEHOLDER_DOMAIN } from "@/lib/constants";
 import { useActionState, startTransition, useState } from "react";
 import { ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -112,7 +113,7 @@ export function Step4Team({ orgId }: Step4TeamProps) {
                 disabled={isPending}
                 id={`invite_email_${row.id}`}
                 inputMode="email"
-                placeholder="colleague@example.com"
+                placeholder={`colleague@${PLACEHOLDER_DOMAIN}`}
                 type="email"
                 value={row.email}
                 onChange={(e) => updateEmail(row.id, e.target.value)}

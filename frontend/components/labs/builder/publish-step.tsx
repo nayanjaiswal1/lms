@@ -35,10 +35,10 @@ export async function PublishStep({ recipe, analysis, courseParam }: PublishStep
   const course = courses.find((c) => c.id === courseId);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {recipe.lab_id && (
         <p className="text-sm text-muted-foreground">
-          This lab is already published; publishing again cuts a new version. Sessions in progress keep theirs.
+          Already published; publishing again cuts a new version.
         </p>
       )}
       <CoursePicker defaultCourseId={placement?.course_id ?? ""} options={courses.map((c) => ({ label: c.title, value: c.id }))} />

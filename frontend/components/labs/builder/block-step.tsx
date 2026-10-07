@@ -30,14 +30,14 @@ export async function BlockStep({ recipe, step, valid }: BlockStepProps) {
   const ticketIds = (lists[step.kinds.indexOf("ticket")] ?? []).filter((c) => c.selected).map((c) => c.version_id);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       {step.kinds.map((kind, i) => {
         const candidates = [...lists[i]].sort((a, b) => rank(a) - rank(b));
         const selectedIds = candidates.filter((c) => c.selected).map((c) => c.version_id);
         const faults = kind === "fault" ? candidates.filter((c) => c.selected).map((c) => ({ key: c.block.block_key, title: c.block.title })) : undefined;
         return (
-          <section aria-label={`${kind} blocks`} className="flex flex-col gap-3" key={kind}>
-            {step.kinds.length > 1 && <h3 className="text-sm font-semibold capitalize">{kind}</h3>}
+          <section aria-label={`${kind} blocks`} className="flex flex-col gap-2" key={kind}>
+            {step.kinds.length > 1 && <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{kind}</h3>}
             {canManage && isTextKind(kind) && (
               <Link className="w-fit text-sm font-medium text-primary underline-offset-4 hover:underline" href={ROUTES.labBuilderBlockNew(kind)}>
                 Write a new {kind} block
@@ -46,12 +46,12 @@ export async function BlockStep({ recipe, step, valid }: BlockStepProps) {
             {candidates.length === 0 ? (
               <p className="text-sm text-muted-foreground">No {kind} blocks are available yet.</p>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {candidates.map((c) => (
                   <CandidateCard
                     candidate={c}
-                    key={c.block.id}
                     faults={faults}
+                    key={c.block.id}
                     recipe={recipe}
                     replaces={step.mode === "single" && !c.selected ? selectedIds : []}
                   />

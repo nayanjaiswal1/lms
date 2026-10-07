@@ -9,7 +9,7 @@ interface BuildRunRowProps {
 export function BuildRunRow({ run }: BuildRunRowProps) {
   const failed = !run.passed;
   return (
-    <li className="border-b border-border py-3 last:border-0">
+    <li className="border-b border-border py-2 last:border-0">
       <details>
         <summary className="flex cursor-pointer items-start gap-2 text-sm">
           {failed ? (

@@ -1,5 +1,6 @@
 "use client";
 
+import { PLACEHOLDER_DOMAIN } from "@/lib/constants";
 import { useActionState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,7 +35,7 @@ export function AddDomainForm({ orgId }: AddDomainFormProps) {
             required
             id="domain-input"
             name="domain"
-            placeholder="example.com"
+            placeholder={`${PLACEHOLDER_DOMAIN}`}
             type="text"
           />
         </div>

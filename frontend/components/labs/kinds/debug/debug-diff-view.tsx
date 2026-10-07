@@ -34,8 +34,8 @@ export function DebugDiffView({ title, diff, emptyMessage }: DebugDiffViewProps)
   const lines = diff.replace(/\n$/, "").split("\n")
 
   return (
-    <figure className="flex min-w-0 flex-col gap-2">
-      <figcaption className="text-sm font-semibold">{title}</figcaption>
+    <figure className="flex min-w-0 flex-col gap-1.5">
+      <figcaption className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</figcaption>
       {diff.trim() === "" ? (
         <p className="rounded-md border border-border p-3 text-sm text-muted-foreground">
           {emptyMessage}
@@ -43,7 +43,7 @@ export function DebugDiffView({ title, diff, emptyMessage }: DebugDiffViewProps)
       ) : (
         <pre
           aria-label={title}
-          className="overflow-x-auto rounded-md border border-border bg-card py-2 font-mono text-xs leading-5"
+          className="max-h-96 overflow-auto rounded-md border border-border bg-card py-2 font-mono text-xs leading-5"
           // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- keyboard users must be able to focus and scroll a wide diff
           tabIndex={0}
         >

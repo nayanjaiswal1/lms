@@ -25,9 +25,9 @@ export async function PreviewStep({ recipe, analysis }: PreviewStepProps) {
   const build = await getBuild(verified.id);
   const options = build.variants.map((v) => ({ label: v.key, value: v.key }));
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">
-        The preview is a real sandbox session of the verified build, marked as a test session.
+        A real sandbox session of the verified build, marked as a test.
       </p>
       <PreviewLauncher buildId={build.id} variantOptions={options} />
     </div>

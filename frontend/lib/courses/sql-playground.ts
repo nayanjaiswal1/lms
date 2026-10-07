@@ -1,4 +1,5 @@
 import initSqlJs, { type Database, type QueryExecResult, type SqlJsStatic, type SqlValue } from "sql.js";
+import { PLACEHOLDER_DOMAIN } from "@/lib/constants";
 
 // Original sample dataset for the SQL Mastery course's in-browser "Try it
 // Yourself" boxes — a small library domain. Chosen because it naturally
@@ -77,16 +78,16 @@ INSERT INTO books (id, title, author_id, genre_id, price, published_year, stock)
   (15, 'Nobody''s Almanac',        6, 5, 8.75,  2011, 4);
 
 INSERT INTO members (id, name, email, joined_date, city, referred_by) VALUES
-  (1,  'Ana Torres',      'ana.torres@example.com',      '2021-03-14', 'Lisbon',    NULL),
-  (2,  'Ben Okafor',      'ben.okafor@example.com',      '2021-06-02', 'Lagos',     1),
-  (3,  'Chloe Martin',    'chloe.martin@example.com',    '2022-01-19', 'Paris',     NULL),
-  (4,  'Dev Patel',       'dev.patel@example.com',       '2022-02-27', 'Mumbai',    1),
-  (5,  'Elin Karlsson',   'elin.karlsson@example.com',   '2022-05-30', 'Stockholm', NULL),
-  (6,  'Farid Haidari',   'farid.haidari@example.com',   '2022-09-11', 'Kabul',     3),
-  (7,  'Grace Kim',       'grace.kim@example.com',       '2023-01-05', 'Seoul',     NULL),
-  (8,  'Hiro Tanaka',     'hiro.tanaka@example.com',     '2023-04-22', 'Osaka',     7),
-  (9,  'Ines Costa',      'ines.costa@example.com',      '2023-07-08', 'Porto',     1),
-  (10, 'Jonas Weber',     'jonas.weber@example.com',     '2023-10-16', 'Berlin',    NULL);
+  (1,  'Ana Torres',      'ana.torres@${PLACEHOLDER_DOMAIN}',      '2021-03-14', 'Lisbon',    NULL),
+  (2,  'Ben Okafor',      'ben.okafor@${PLACEHOLDER_DOMAIN}',      '2021-06-02', 'Lagos',     1),
+  (3,  'Chloe Martin',    'chloe.martin@${PLACEHOLDER_DOMAIN}',    '2022-01-19', 'Paris',     NULL),
+  (4,  'Dev Patel',       'dev.patel@${PLACEHOLDER_DOMAIN}',       '2022-02-27', 'Mumbai',    1),
+  (5,  'Elin Karlsson',   'elin.karlsson@${PLACEHOLDER_DOMAIN}',   '2022-05-30', 'Stockholm', NULL),
+  (6,  'Farid Haidari',   'farid.haidari@${PLACEHOLDER_DOMAIN}',   '2022-09-11', 'Kabul',     3),
+  (7,  'Grace Kim',       'grace.kim@${PLACEHOLDER_DOMAIN}',       '2023-01-05', 'Seoul',     NULL),
+  (8,  'Hiro Tanaka',     'hiro.tanaka@${PLACEHOLDER_DOMAIN}',     '2023-04-22', 'Osaka',     7),
+  (9,  'Ines Costa',      'ines.costa@${PLACEHOLDER_DOMAIN}',      '2023-07-08', 'Porto',     1),
+  (10, 'Jonas Weber',     'jonas.weber@${PLACEHOLDER_DOMAIN}',     '2023-10-16', 'Berlin',    NULL);
 
 INSERT INTO loans (id, book_id, member_id, loan_date, return_date) VALUES
   (1,  1, 1,  '2023-11-01', '2023-11-14'),

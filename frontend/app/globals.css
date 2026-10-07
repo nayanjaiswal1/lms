@@ -804,6 +804,8 @@
   /* ── Touch targets — WCAG 2.5.5 minimum 44×44px ────────────────── */
   /* Apply to any interactive element that is visually smaller than 44px */
   .touch-target { @apply min-h-11 min-w-11 flex items-center justify-center; }
+  /* Dense desktop chrome (toolbars, tab rows): 44px on touch, compact on lg+. */
+  .touch-target-dense { @apply min-h-11 min-w-11 flex items-center justify-center lg:min-h-0 lg:min-w-0; }
 
   /* ── Responsive table — horizontal scroll on narrow screens ──────── */
   .table-responsive {

@@ -8,7 +8,7 @@ interface DebugWriteupReviewCardProps {
 /** One AI write-up review: verdict, feedback and the rubric points it credited (AI = cyan surface). */
 export function DebugWriteupReviewCard({ result }: DebugWriteupReviewCardProps) {
   return (
-    <div aria-live="polite" className="ai-surface flex flex-col gap-3 p-4">
+    <div aria-live="polite" className="ai-surface flex flex-col gap-2 p-3">
       <div className="flex items-center justify-between gap-2">
         <span className="ai-badge inline-flex items-center gap-1">
           <Sparkles aria-hidden className="h-3 w-3" />

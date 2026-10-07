@@ -22,18 +22,18 @@ export async function BuildStep({ recipe, analysis }: BuildStepProps) {
   if (current && latest.status === "failed") label = "Retry build";
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <RefreshPoller active={inFlight} />
       <div className="flex flex-wrap items-center gap-3">
         {!(current && (inFlight || latest.status === "verified")) && (
           <StartBuildButton disabled={!analysis.valid} label={label} recipeId={recipe.id} />
         )}
         {build && <BuildStatusBadge status={build.status} />}
-        {!analysis.valid && <p className="text-sm text-muted-foreground">Fix the errors in the validation panel first.</p>}
+        {!analysis.valid && <p className="text-sm text-muted-foreground">Fix the validation errors first.</p>}
       </div>
       {build && !current && (
         <p className="text-sm text-muted-foreground">
-          The composition changed since this build. Build again to verify the current version.
+          Composition changed since this build; build again to verify.
         </p>
       )}
       {build && <BuildReport build={build} />}

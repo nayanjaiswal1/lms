@@ -1,5 +1,6 @@
 "use client";
 
+import { PLACEHOLDER_DOMAIN } from "@/lib/constants";
 import { useActionState, startTransition, useState } from "react";
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -62,7 +63,7 @@ export function Step2Auth({ orgId, authConfig }: Step2AuthProps) {
         <Input
           disabled={isPending}
           id="allowed_domains"
-          placeholder="example.com, company.org"
+          placeholder={`${PLACEHOLDER_DOMAIN}, company.org`}
           value={domainInput}
           onChange={(e) => setDomainInput(e.target.value)}
         />

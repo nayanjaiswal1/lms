@@ -1,42 +1,75 @@
 "use client"
 
-import { useState } from "react"
-import { AppWindow, Code2 } from "lucide-react"
+import { useState, type ReactNode } from "react"
+import { AppWindow, Code2, ExternalLink, RefreshCw } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DebugIdeFrame } from "@/components/labs/kinds/debug/debug-ide-frame"
 import { LabPreviewPane } from "@/components/labs/lab-preview-pane"
+import { useLabIde } from "@/hooks/use-lab-ide"
 
 interface DebugMainProps {
+  /** Left of the IDE/App tabs: panel toggle + progress. */
+  leading: ReactNode
+  /** Right end of the row: Check / Finish. */
+  trailing: ReactNode
   sessionId: string
   idePort: number
   appPorts: number[]
 }
 
 /**
- * IDE / App tabs. Both panes stay mounted (forceMount + hidden) so switching
- * tabs never reloads VS Code or the running app.
+ * IDE / App tabs with the IDE reload + pop-out actions on the same row. Both
+ * panes stay mounted (forceMount + hidden) so switching tabs never reloads
+ * VS Code or the running app.
  */
-export function DebugMain({ sessionId, idePort, appPorts }: DebugMainProps) {
+export function DebugMain({ leading, trailing, sessionId, idePort, appPorts }: DebugMainProps) {
   const [appPort, setAppPort] = useState(appPorts[0] ?? 0)
+  const [reloadKey, setReloadKey] = useState(0)
+  const ide = useLabIde(sessionId, idePort)
 
   return (
     <Tabs className="h-full min-h-0 gap-0" defaultValue="ide">
-      <TabsList className="w-full shrink-0 rounded-none sm:w-full">
-        <TabsTrigger value="ide">
-          <Code2 aria-hidden className="h-4 w-4" />
-          IDE
-        </TabsTrigger>
-        <TabsTrigger value="app">
-          <AppWindow aria-hidden className="h-4 w-4" />
-          App
-        </TabsTrigger>
-      </TabsList>
+      <div className="flex shrink-0 items-center gap-1 border-b border-border bg-card px-2">
+        {leading}
+        <TabsList className="h-10 w-auto gap-1 overflow-visible bg-transparent p-0 sm:w-auto">
+          <TabsTrigger className="h-8 flex-none px-2.5 text-xs lg:min-h-0 lg:min-w-0" value="ide">
+            <Code2 aria-hidden className="h-4 w-4" />
+            IDE
+          </TabsTrigger>
+          <TabsTrigger className="h-8 flex-none px-2.5 text-xs lg:min-h-0 lg:min-w-0" value="app">
+            <AppWindow aria-hidden className="h-4 w-4" />
+            App
+          </TabsTrigger>
+        </TabsList>
+        <div className="ml-auto flex items-center gap-1">
+          <Button
+            aria-label="Reload IDE"
+            className="touch-target-dense text-muted-foreground hover:text-foreground"
+            size="sm"
+            variant="ghost"
+            onClick={() => setReloadKey((k) => k + 1)}
+          >
+            <RefreshCw aria-hidden className="h-3.5 w-3.5" />
+          </Button>
+          {ide.popOutUrl && (
+            <Button asChild className="touch-target-dense gap-1.5" size="sm" variant="ghost">
+              {/* External labproxy origin — next/link is for internal routes. */}
+              <a href={ide.popOutUrl} rel="noreferrer" target="_blank">
+                <ExternalLink aria-hidden className="h-3.5 w-3.5" />
+                <span className="max-sm:sr-only">Pop out</span>
+              </a>
+            </Button>
+          )}
+          <div className="ml-1 flex items-center gap-2 border-l border-border pl-2">{trailing}</div>
+        </div>
+      </div>
       <TabsContent
         forceMount
         className="min-h-0 flex-1 data-[state=inactive]:hidden"
         value="ide"
       >
-        <DebugIdeFrame idePort={idePort} sessionId={sessionId} />
+        <DebugIdeFrame ide={ide} key={reloadKey} reloaded={reloadKey > 0} />
       </TabsContent>
       <TabsContent
         forceMount

@@ -1059,3 +1059,6 @@ export const TICKET_PRIORITY_OPTIONS = [
 // `${DNS_VERIFICATION_LABEL}.<domain>`. Mirrors backend orgs.DNSVerificationLabel.
 export const DNS_VERIFICATION_LABEL = "_mindforge-verification";
 export const DNS_VERIFICATION_VALUE_PREFIX = "mindforge-verification=";
+
+// Domain used for sample addresses and URLs in form placeholders and hints.
+export const PLACEHOLDER_DOMAIN = "mindforge.test";

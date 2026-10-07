@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ORG_ROLE_OPTIONS } from "@/lib/constants";
+import { ORG_ROLE_OPTIONS, PLACEHOLDER_DOMAIN } from "@/lib/constants";
 
 const Schema = z.object({
   emailsRaw: z.string().min(1, "Enter at least one email address"),
@@ -72,7 +72,7 @@ export function InviteSendForm({ onSend }: InviteSendFormProps) {
                     {...field}
                     className="font-mono text-sm resize-y"
                     placeholder={
-                      "alice@example.com\nbob@example.com\n\nor paste CSV: alice@x.com, bob@x.com"
+                      `alice@${PLACEHOLDER_DOMAIN}\nbob@${PLACEHOLDER_DOMAIN}\n\nor paste CSV: alice@x.com, bob@x.com`
                     }
                     rows={5}
                   />

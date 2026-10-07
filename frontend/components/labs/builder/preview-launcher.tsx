@@ -42,7 +42,7 @@ export function PreviewLauncher({ buildId, variantOptions }: PreviewLauncherProp
 
   return (
     <Form {...form}>
-      <form className="form-stack" onSubmit={form.handleSubmit(onSubmit)}>
+      <form className="form-stack max-w-md" onSubmit={form.handleSubmit(onSubmit)}>
         {variantOptions.length > 1 && (
           <FormSelectField control={form.control} label="Variant" name="variantKey" options={variantOptions} />
         )}

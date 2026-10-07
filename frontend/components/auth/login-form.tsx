@@ -1,5 +1,6 @@
 "use client";
 
+import { PLACEHOLDER_DOMAIN } from "@/lib/constants";
 import Link from "next/link";
 import { useActionState, startTransition, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -88,7 +89,7 @@ export function LoginForm({ oauthError, next }: LoginFormProps) {
             // the browser lists matching passkeys in this field's own
             // autofill dropdown (see components/auth/passkey-autofill.tsx).
             name="email"
-            placeholder="you@example.com"
+            placeholder={`you@${PLACEHOLDER_DOMAIN}`}
             serverError={state.fieldErrors?.email}
             type="email"
           />
