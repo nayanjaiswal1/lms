@@ -129,10 +129,10 @@ describe("LoginForm", () => {
     const handleSubmit = vi.fn();
     const user = userEvent.setup();
     render(<LoginForm onSubmit={handleSubmit} />);
-    await user.type(screen.getByLabelText(/email/i), "jane@example.com");
+    await user.type(screen.getByLabelText(/email/i), "jane@mindforge.test");
     await user.type(screen.getByLabelText(/password/i), "hunter2");
     await user.click(screen.getByRole("button", { name: /log in/i }));
-    expect(handleSubmit).toHaveBeenCalledWith("jane@example.com", "hunter2");
+    expect(handleSubmit).toHaveBeenCalledWith("jane@mindforge.test", "hunter2");
   });
 
   test("shows a validation error for an invalid email", async () => {

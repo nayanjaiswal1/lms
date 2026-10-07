@@ -56,8 +56,8 @@ module.exports = {
     new ModuleFederationPlugin({
       name: "shell",
       remotes: {
-        checkout: "checkout@https://checkout.example.com/remoteEntry.js",
-        catalog: "catalog@https://catalog.example.com/remoteEntry.js",
+        checkout: "checkout@https://checkout.mindforge.test/remoteEntry.js",
+        catalog: "catalog@https://catalog.mindforge.test/remoteEntry.js",
       },
       shared: { react: { singleton: true, requiredVersion: "^19.0.0" }, "react-dom": { singleton: true, requiredVersion: "^19.0.0" } },
     }),
@@ -122,12 +122,12 @@ Two real options for shipping it. An **npm package**: versioned, each team upgra
 
 ## Independent deployment: the whole point of doing this
 
-Team Checkout ships a fix to `checkout.example.com/remoteEntry.js`, and it's live in the shell on the very next page load, no shell rebuild, no coordinated release with other teams.
+Team Checkout ships a fix to `checkout.mindforge.test/remoteEntry.js`, and it's live in the shell on the very next page load, no shell rebuild, no coordinated release with other teams.
 
 ```
-shell.example.com/          → loads remoteEntry.js from each remote at runtime
-checkout.example.com/       → deployed independently by the checkout team
-catalog.example.com/        → deployed independently by the catalog team
+shell.mindforge.test/          → loads remoteEntry.js from each remote at runtime
+checkout.mindforge.test/       → deployed independently by the checkout team
+catalog.mindforge.test/        → deployed independently by the catalog team
 ```
 
 This requires the shell to treat each remote as a runtime contract, not a build-time dependency: it doesn't know or care what version of checkout is currently live, only that it exposes `./CheckoutFlow` with a compatible interface. That contract, the props shape and the exposed module names, is the thing that actually needs versioning discipline, not the whole bundle.

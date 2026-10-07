@@ -161,7 +161,7 @@ def db_session(engine):
 
 @pytest.fixture
 def sample_user(db_session):
-    user = User(username="alice", email="alice@example.com")
+    user = User(username="alice", email="alice@mindforge.test")
     db_session.add(user)
     db_session.commit()
     return user
@@ -203,7 +203,7 @@ def client(db_session):
 
 
 def test_create_user_endpoint(client):
-    response = client.post("/users", json={"username": "bob", "email": "bob@example.com"})
+    response = client.post("/users", json={"username": "bob", "email": "bob@mindforge.test"})
     assert response.status_code == 201
     assert response.json()["username"] == "bob"
 ```
@@ -365,10 +365,10 @@ def test_get_user_greeting_stub(mocker):
 def test_send_welcome_email_mock(mocker):
     mock_mailer = mocker.Mock()
 
-    send_welcome_email(mock_mailer, "alice@example.com")
+    send_welcome_email(mock_mailer, "alice@mindforge.test")
 
     mock_mailer.send.assert_called_once_with(
-        to="alice@example.com", subject="Welcome!"
+        to="alice@mindforge.test", subject="Welcome!"
     )
     # We DO care that send() was called with exactly these args:
     # that's the whole behavior being tested here.

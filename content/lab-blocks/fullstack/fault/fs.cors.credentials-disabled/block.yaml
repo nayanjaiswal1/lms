@@ -84,7 +84,7 @@ fault:
       from: carrier/backend/app/ext/low_stock.py
   commit:
     message: 'reports: add the low-stock report and tidy the CORS setup'
-    persona: Sam Okafor <sam@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.pytest-node
     role: symptom

@@ -70,7 +70,7 @@ fault:
       from: carrier/src/ext/flagged-count/index.js
   commit:
     message: 'orders: show how many orders on the page are flagged'
-    persona: Dana Whitfield <dana@opsconsole.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.vitest-node
     role: symptom

@@ -53,7 +53,7 @@ fault:
       from: carrier/src/ext/status-breakdown/index.js
   commit:
     message: 'orders: add a status breakdown action and use a compact timestamp format'
-    persona: Marcus Webb <marcus@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.pytest-node
     role: symptom

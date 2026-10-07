@@ -72,7 +72,7 @@ fault:
       from: carrier/backend/app/ext/order_summary.py
   commit:
     message: 'reports: add the order summary report and use the framework error shape'
-    persona: Marcus Webb <marcus@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.pytest-node
     role: symptom

@@ -57,7 +57,7 @@ fault:
       from: carrier/ext/product_feed/views.py
   commit:
     message: 'catalog: publish a partner product feed'
-    persona: Sam Okafor <sam@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.http-behavior
     role: symptom

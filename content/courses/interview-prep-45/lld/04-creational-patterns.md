@@ -239,7 +239,7 @@ class HttpRequestBuilder:
                            self._body, self._timeout)
 
 
-req = (HttpRequestBuilder("https://api.example.com/orders")
+req = (HttpRequestBuilder("https://api.mindforge.test/orders")
        .method("POST")
        .header("Content-Type", "application/json")
        .body('{"total":49900}')

@@ -51,7 +51,7 @@ fault:
       from: carrier/backend/app/ext/low_stock.py
   commit:
     message: 'catalog: build the search URL directly and add the low-stock report'
-    persona: Elena Petrov <elena@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.vitest-node
     role: symptom

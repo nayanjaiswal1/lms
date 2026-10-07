@@ -80,7 +80,7 @@ fault:
       from: carrier/ext/order_export/views.py
   commit:
     message: 'orders: let customers download their order history as CSV'
-    persona: Priya Nair <priya@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.concurrent-invariant
     role: symptom

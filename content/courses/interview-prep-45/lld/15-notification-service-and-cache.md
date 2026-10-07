@@ -219,7 +219,7 @@ service = NotificationService({Channel.EMAIL: email, Channel.SMS: sms}, pipeline
 prefs = UserPreferences(
     channels={Channel.EMAIL, Channel.SMS},
     muted_categories={"marketing"},
-    contact={Channel.EMAIL: "asha@example.com", Channel.SMS: "+91999"},
+    contact={Channel.EMAIL: "asha@mindforge.test", Channel.SMS: "+91999"},
 )
 
 order = Notification("u1", "transactional", "order_shipped", {"order_id": "ord_1"})

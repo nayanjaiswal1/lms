@@ -21,7 +21,7 @@ HTTP is request-response: the client asks, the server answers, and the connectio
 
 ```
 GET /ws/chat HTTP/1.1
-Host: example.com
+Host: mindforge.test
 Upgrade: websocket
 Connection: Upgrade
 Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==

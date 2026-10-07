@@ -29,7 +29,7 @@ files:
       metadata:
         name: myconfigmap
       data:
-        db_server: "db.example.com"
+        db_server: "db.mindforge.test"
         database: "mydatabase"
         site.settings: |
           color=blue
@@ -73,10 +73,10 @@ tasks:
     description: Apply `configmap.yaml`. Then run `kubectl describe configmap myconfigmap` and `kubectl describe pod configmappod`. Find where the pod gets `DB_SERVER` from and where `/config` is mounted.
     verification_script: |
       #!/bin/bash
-      test "$(kubectl get configmap myconfigmap -o jsonpath='{.data.db_server}')" = "db.example.com" || exit 1
+      test "$(kubectl get configmap myconfigmap -o jsonpath='{.data.db_server}')" = "db.mindforge.test" || exit 1
       test "$(kubectl get pod configmappod -o jsonpath='{.status.phase}')" = "Running"
     hint_context: "`kubectl apply -f configmap.yaml`"
-    explanation_context: On a real cluster, `kubectl exec configmappod -- printenv DB_SERVER` prints db.example.com and `kubectl exec configmappod -- cat /config/site.settings` prints the settings file.
+    explanation_context: On a real cluster, `kubectl exec configmappod -- printenv DB_SERVER` prints db.mindforge.test and `kubectl exec configmappod -- cat /config/site.settings` prints the settings file.
     solution_script: kubectl apply -f configmap.yaml
   - id_key: imperative-configmap
     title: Create a ConfigMap from the command line
@@ -120,13 +120,13 @@ tasks:
     title: Change a value
     points: 10
     is_stateful: false
-    description: Change `db_server` in `myconfigmap` to `db2.example.com` (edit the file and re-apply, or use `kubectl edit configmap myconfigmap`).
+    description: Change `db_server` in `myconfigmap` to `db2.mindforge.test` (edit the file and re-apply, or use `kubectl edit configmap myconfigmap`).
     verification_script: |
       #!/bin/bash
-      test "$(kubectl get configmap myconfigmap -o jsonpath='{.data.db_server}')" = "db2.example.com"
+      test "$(kubectl get configmap myconfigmap -o jsonpath='{.data.db_server}')" = "db2.mindforge.test"
     hint_context: Edit configmap.yaml and run `kubectl apply -f configmap.yaml` again.
     explanation_context: The file mounted at /config/db_server updates within about a minute, but the DB_SERVER environment variable in the running pod keeps the old value until the pod is recreated.
     solution_script: |
-      sed -i 's/db.example.com/db2.example.com/' configmap.yaml
+      sed -i 's/db.mindforge.test/db2.mindforge.test/' configmap.yaml
       kubectl apply -f configmap.yaml
 ---

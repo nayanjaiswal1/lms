@@ -466,9 +466,9 @@ class SignupService:
 
 
 fake = FakeMailer()
-SignupService(fake).register("a@example.com")
-assert fake.sent == [("a@example.com", "Welcome!")]   # tested with no real mail server
-SignupService(SmtpMailer()).register("b@example.com")
+SignupService(fake).register("a@mindforge.test")
+assert fake.sent == [("a@mindforge.test", "Welcome!")]   # tested with no real mail server
+SignupService(SmtpMailer()).register("b@mindforge.test")
 print("sent:", fake.sent)
 ```
 

@@ -67,5 +67,5 @@ def send_low_stock_alert():
     lines = [f"{p.sku}: {p.stock or 0} left" for p in low[:50]]
     if not lines:
         return 0
-    send_mail("Low stock digest", "\n".join(lines), settings.DEFAULT_FROM_EMAIL, ["ops@shop.example.com"])
+    send_mail("Low stock digest", "\n".join(lines), settings.DEFAULT_FROM_EMAIL, ["ops@shop.mindforge.test"])
     return len(lines)

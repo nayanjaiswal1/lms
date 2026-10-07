@@ -59,45 +59,45 @@ app:
     description: The value object shared through the settings context.
   history:
   - message: 'orders: paged order list with status filter, refresh badge and optimistic flags'
-    persona: Dana Whitfield <dana@opsconsole.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: orders
     paths:
     - orders
   - message: 'customers: search customers and edit their name and email'
-    persona: Rahul Mehta <rahul@opsconsole.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: customers
     paths:
     - customers
   - message: 'notes: internal notes per order with inline editing'
-    persona: Lena Fischer <lena@opsconsole.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: notes
     paths:
     - notes
   - message: 'reports: revenue per day with range selector'
-    persona: Tom Brennan <tom@opsconsole.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: reports
     paths:
     - reports
   - message: 'settings: currency and table density preferences'
-    persona: Dana Whitfield <dana@opsconsole.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     feature: settings
     paths:
     - settings
   noise:
   - message: 'docs: describe the project layout in the README'
-    persona: Lena Fischer <lena@opsconsole.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     paths:
     - docs-readme
   - message: 'style: tighten the page spacing'
-    persona: Tom Brennan <tom@opsconsole.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     paths:
     - css-tweaks
   - message: 'chore: declare the supported Node version'
-    persona: Rahul Mehta <rahul@opsconsole.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     paths:
     - node-engine
   - message: 'chore: ignore coverage output'
-    persona: Dana Whitfield <dana@opsconsole.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
     paths:
     - gitignore-coverage
   ports:

@@ -136,7 +136,7 @@ fault:
       from: carrier/src/ext/status-breakdown/index.js
   commit:
     message: 'orders: add a status breakdown to the Tools menu'
-    persona: Rahul Mehta <rahul@opsconsole.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.vitest-node
     role: symptom

@@ -22,7 +22,7 @@ ARG OPENVSCODE_VERSION=1.96.4
 ARG VSX_PYTHON=ms-python.python@2024.22.1
 ARG VSX_DEBUGPY=ms-python.debugpy@2024.14.0
 # Self-hosted webview origin template, deploy specific (docs/debug-labs.md §2
-# "Webview CDN"), e.g. https://{{uuid}}.webview.labs.example.com. Empty = leave
+# "Webview CDN"), e.g. https://{{uuid}}.webview.labs.mindforge.test. Empty = leave
 # VS Code's default (webviews then load from *.vscode-cdn.net).
 ARG WEBVIEW_BASE_URL_TEMPLATE=""
 

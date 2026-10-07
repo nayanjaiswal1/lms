@@ -53,7 +53,7 @@ fault:
       from: carrier/src/ext/order-total/index.js
   commit:
     message: 'orders: add a page total action and expose order totals in dollars'
-    persona: Elena Petrov <elena@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.pytest-node
     role: symptom

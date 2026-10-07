@@ -55,7 +55,7 @@ fault:
       from: carrier/ext/stock_alerts/views.py
   commit:
     message: 'inventory: add a staff endpoint listing products under the low-stock threshold'
-    persona: Marcus Webb <marcus@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.migrate-from-snapshot
     role: symptom

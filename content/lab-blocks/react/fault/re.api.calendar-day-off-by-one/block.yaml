@@ -61,7 +61,7 @@ fault:
       from: carrier/src/ext/order-csv/index.js
   commit:
     message: 'orders: add a CSV copy action to the Tools menu'
-    persona: Tom Brennan <tom@opsconsole.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.vitest-node
     role: symptom

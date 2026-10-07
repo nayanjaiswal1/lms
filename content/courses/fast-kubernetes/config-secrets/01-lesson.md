@@ -55,7 +55,7 @@ kind: ConfigMap
 metadata:
   name: myconfigmap
 data:
-  db_server: "db.example.com"      # simple values
+  db_server: "db.mindforge.test"      # simple values
   database: "mydatabase"
   site.settings: |                 # a whole file as one value
     color=blue
@@ -122,7 +122,7 @@ spec:
       name: myconfigmap
 ```
 
-Inside the container, `echo $DB_SERVER` prints `db.example.com`, and `cat /config/site.settings` prints the settings file.
+Inside the container, `echo $DB_SERVER` prints `db.mindforge.test`, and `cat /config/site.settings` prints the settings file.
 
 **What happens when the ConfigMap changes?**
 
@@ -168,7 +168,7 @@ metadata:
   name: mysecret
 type: Opaque                   # generic key-value secret
 stringData:                    # plain text here; Kubernetes stores it base64-encoded
-  db_server: db.example.com
+  db_server: db.mindforge.test
   db_username: admin
   db_password: P@ssw0rd!
 ```

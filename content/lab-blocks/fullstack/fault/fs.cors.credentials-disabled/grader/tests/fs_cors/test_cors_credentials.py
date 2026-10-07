@@ -6,7 +6,7 @@ from backend.app.config import Settings
 from backend.app.main import create_app
 
 CONSOLE = "https://console.shop.test"
-EVIL = "https://evil.example.com"
+EVIL = "https://evil.mindforge.test"
 
 
 def client():
