@@ -116,8 +116,8 @@ fault:
         minute or more, many gave up and reloaded (creating more waiting requests), and after a while the whole site felt sluggish even for people
         who were only browsing.
       where: 'Checkout: the step that charges the customer''s card through the payments provider.'
-      expected: If the provider does not answer promptly, checkout should give up within a few seconds and tell the customer the payment is temporarily
-        unavailable, so requests never pile up.
+      expected: If the provider does not answer promptly, checkout should give up after a bounded, configured wait (the client's timeouts plus its
+        retries, well under half a minute) and tell the customer the payment is temporarily unavailable, so requests never pile up.
       support_tried: The provider status page showed slow responses for about 40 minutes. We restarted the web workers, which helped for a minute
         and then the site slowed down again.
       observations: |-

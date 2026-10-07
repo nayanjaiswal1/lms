@@ -1,3 +1,10 @@
+/** Shell command (in the lab terminal) that restarts every scenario-owned service. */
+export const RESTART_COMMAND = "mf-svc restart-workspace"
+
+/** Shown under every debug ticket: the app does not reload itself after an edit. */
+export const RESTART_NOTE =
+  "The app runs without auto-reload. After you edit code, restart it from the terminal with"
+
 export interface TicketMeta {
   severity: string | null
   reporter: string | null

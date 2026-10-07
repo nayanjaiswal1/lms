@@ -112,6 +112,12 @@ def _vscode(v: dict) -> Tree:
          "console": "integratedTerminal"},
     ]}
     tasks = {"version": "2.0.0", "tasks": [
+        # Opens the write-up when the workspace first opens (the IDE image
+        # allows automatic tasks; see lab-debug/ide-user-settings.json). Runs
+        # in the integrated terminal, whose PATH carries the IDE's remote CLI.
+        {"label": "Open write-up", "type": "shell", "command": "openvscode-server --reuse-window INCIDENT.md",
+         "runOptions": {"runOn": "folderOpen"},
+         "presentation": {"reveal": "never", "close": True}, "problemMatcher": []},
         {"label": "Run tests", "type": "shell", "command": "python3 -m pytest -q", "problemMatcher": []},
         {"label": "Restart app", "type": "shell", "command": "mf-svc restart-workspace", "problemMatcher": []},
         {"label": "App log", "type": "shell", "command": "tail -n 200 -f /var/log/mindforge-lab/app.log", "problemMatcher": []},

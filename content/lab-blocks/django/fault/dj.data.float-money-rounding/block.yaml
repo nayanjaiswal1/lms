@@ -112,6 +112,7 @@ fault:
       - tests/dj_data_4/test_money_rounding.py
   - ref: check.concurrent-invariant
     role: symptom
+    label: Order total is exact for a 6.00 subtotal
     params:
       before_sql:
       - UPDATE catalog_product SET price = 6.00 WHERE id = 1
@@ -135,6 +136,7 @@ fault:
         equals: 6.5
   - ref: check.concurrent-invariant
     role: symptom
+    label: Order total is exact for a 50.00 subtotal
     params:
       before_sql:
       - UPDATE catalog_product SET price = 50.00 WHERE id = 1

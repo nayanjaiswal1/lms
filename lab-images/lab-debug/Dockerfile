@@ -128,6 +128,15 @@ RUN set -eux; \
       --install-extension "${VSX_DEBUGPY}"; \
     python3 /tmp/mf-patch-product.py "${WEBVIEW_BASE_URL_TEMPLATE}"
 
+# IDE defaults. Workspace trust is switched off on purpose: the whole lab is a
+# throwaway sandbox container (cap-drop ALL, no egress, student-owned files
+# only), so the "do you trust the authors" prompt guards nothing here and only
+# shifts the explorer after every reset. This is a user-level setting; a
+# workspace file cannot set it. The seed also hides Outline/Timeline.
+COPY lab-debug/ide-user-settings.json /opt/ide/data/User/settings.json
+COPY lab-debug/bin/mf-seed-ide-state.py /tmp/mf-seed-ide-state.py
+RUN python3 /tmp/mf-seed-ide-state.py /opt/ide/data && rm -f /tmp/mf-seed-ide-state.py
+
 RUN useradd --create-home --shell /bin/bash labuser \
     && mkdir -p /var/log/mindforge-lab /var/lib/mindforge-pg /opt/ide/data \
     && chown -R labuser:labuser /home/labuser /var/log/mindforge-lab /var/lib/mindforge-pg /opt/ide \

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useRef, useState } from "react"
 import { submitLabAction } from "@/app/(app)/labs/[labId]/actions"
 import { isLabAuthError } from "@/lib/labs/auth-error"
 import { LAB_ERROR_CODES, isLabCompletedAtDeadline, isLabSessionExpired } from "@/lib/labs"
@@ -81,7 +81,10 @@ export function useDebugCheck({
     message: null,
     cooldownUntil: 0,
   })
-  const [isChecking, startCheck] = useTransition()
+  // A plain flag, not a transition: the pending state must paint on the click
+  // itself, and the ref makes a second click in the same frame a no-op.
+  const [isChecking, setIsChecking] = useState(false)
+  const inFlight = useRef(false)
 
   const requiredPassed = tasks
     .filter((t) => !t.is_optional)
@@ -99,8 +102,11 @@ export function useDebugCheck({
     onScoreChange?.(state.score + scoreAdded)
   }
 
-  function check() {
-    startCheck(async () => {
+  async function check() {
+    if (inFlight.current) return
+    inFlight.current = true
+    setIsChecking(true)
+    try {
       const res = await submitLabAction(sessionId)
       if (res.code === LAB_ERROR_CODES.rateLimited) {
         setState((prev) => ({
@@ -148,7 +154,10 @@ export function useDebugCheck({
       }))
       onScoreChange?.(score)
       if (session_completed) onSessionCompleted()
-    })
+    } finally {
+      inFlight.current = false
+      setIsChecking(false)
+    }
   }
 
   return { ...state, isChecking, check, requiredPassed, applyWriteupPass }

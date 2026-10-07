@@ -194,9 +194,22 @@ const (
 
 // CheckRef references a check block by key with fault-specific params.
 type CheckRef struct {
-	Ref    string         `yaml:"ref" json:"ref"`
-	Role   string         `yaml:"role" json:"role"`
+	Ref  string `yaml:"ref" json:"ref"`
+	Role string `yaml:"role" json:"role"`
+	// Label overrides the check block's title in the student-facing check name,
+	// for a probe used for something its generic title does not describe (a
+	// concurrent-invariant probe fired once to check a stored value).
+	Label  string         `yaml:"label,omitempty" json:"label,omitempty"`
 	Params map[string]any `yaml:"params" json:"params,omitempty"`
+}
+
+// DisplayTitle is the student-facing name of the check: the ref's own label,
+// else the block's title.
+func (c CheckRef) DisplayTitle(blockTitle string) string {
+	if c.Label != "" {
+		return c.Label
+	}
+	return blockTitle
 }
 
 // Symptom is the fault's ticket variables and expected log/trace signature.

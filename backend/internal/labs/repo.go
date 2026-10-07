@@ -707,11 +707,16 @@ func (r *Repo) IncrementTaskAttempts(ctx context.Context, sessionID, taskID stri
 	return attempts, nil
 }
 
+// penalizedPoints docks hintPenaltyPct of points per hint used, never below 0.
+func penalizedPoints(points, hintsUsed, hintPenaltyPct int) int {
+	return max(0, points-(hintsUsed*points*hintPenaltyPct/100))
+}
+
 // MarkTaskPassed sets a task completion to passed inside a transaction. Returns
 // ErrTaskAlreadyPassed when the row was not in the pending state.
 // scoreAdded is the points earned after applying the hint penalty.
 func (r *Repo) MarkTaskPassed(ctx context.Context, tx pgx.Tx, sessionID, taskID string, points, hintsUsed, hintPenaltyPct int) (scoreAdded int, err error) {
-	scoreAdded = max(0, points-(hintsUsed*points*hintPenaltyPct/100))
+	scoreAdded = penalizedPoints(points, hintsUsed, hintPenaltyPct)
 
 	tag, err := tx.Exec(ctx,
 		"UPDATE lab_task_completions SET status='passed', completed_at=now() WHERE session_id=$1 AND task_version_item_id=$2 AND status='pending'",

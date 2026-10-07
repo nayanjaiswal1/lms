@@ -75,7 +75,8 @@ fault:
       report: Finance is missing invoices for last quarter. Support deleted a duplicate customer account in the admin at the customer's request,
         and afterwards the customer's orders and their invoices were gone as well. We only meant to remove the account.
       where: 'The Django admin: Customers, select the customer, Delete. The customer''s orders and invoices were listed on the confirmation page
-        but nobody read the long list.'
+        but nobody read the long list. To reproduce it by hand use the duplicate account duplicate.account@shop.test: it has two invoiced
+        orders and no payments, so the delete goes through (customers who paid are already blocked by their payment rows).'
       expected: Deleting a customer must never delete order history or invoices - we need them for tax records.
       support_tried: Restored the orders and invoices from last night's backup (and had to re-create the customer row to do it). Nothing prevents
         the same thing from happening again.

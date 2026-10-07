@@ -1,0 +1,11 @@
+{
+  "security.workspace.trust.enabled": false,
+  "task.allowAutomaticTasks": "on",
+  "workbench.startupEditor": "none",
+  "workbench.tips.enabled": false,
+  "workbench.enableExperiments": false,
+  "explorer.openEditors.visible": 0,
+  "update.mode": "none",
+  "extensions.autoCheckUpdates": false,
+  "telemetry.telemetryLevel": "off"
+}
