@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     payments_retries: int = 3
     payments_backoff_seconds: float = 0.1
 
+    # Simulated round trip of the synonym service (search) and of the services the storefront aggregates.
+    synonym_latency_seconds: float = 0.3
+    storefront_downstream_latency_seconds: float = 0.3
+
     webhook_secret: str = "whsec_mindforge_lab"
     bcrypt_rounds: int = 12
 

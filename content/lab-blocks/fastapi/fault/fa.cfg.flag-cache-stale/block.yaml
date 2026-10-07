@@ -1,0 +1,217 @@
+kind: fault
+id: fa.cfg.flag-cache-stale
+version: 1.0.0
+stack: fastapi
+title: Switching payments off in the flag admin does nothing
+summary: Flag reads that gate behavior are cached in the process forever, so toggling a flag never takes effect until the API restarts, although the flags API itself shows the new value.
+category: config
+difficulty: advanced
+skills:
+- caching
+- feature-flags
+- cache-invalidation
+- dependency-injection
+requires:
+- slot:flags.service.lookup
+- cap:postgres
+fault:
+  chain:
+    after: fa.async.session-leak-on-error
+    mode: masks
+  inject:
+    slots:
+    - slot: flags.service.lookup
+      value: |
+        _FLAGS: dict[str, bool] = {}
+
+
+        async def lookup_flag(session: AsyncSession, key: str) -> bool | None:
+            """The flag's current value, or None when the flag does not exist."""
+            flag = await session.get(FeatureFlag, key)
+            return None if flag is None else flag.enabled
+
+
+        async def flag_enabled(session: AsyncSession, key: str, default: bool = True) -> bool:
+            """Whether a flag is on, for code that gates behavior on it. A flag that does not exist yet is ``default``."""
+            if key not in _FLAGS:
+                value = await lookup_flag(session, key)
+                _FLAGS[key] = default if value is None else value
+            return _FLAGS[key]
+  fix:
+    slots:
+    - slot: flags.service.lookup
+      value: |
+        async def lookup_flag(session: AsyncSession, key: str) -> bool | None:
+            """The flag's current value, or None when the flag does not exist."""
+            flag = await session.get(FeatureFlag, key)
+            return None if flag is None else flag.enabled
+
+
+        async def flag_enabled(session: AsyncSession, key: str, default: bool = True) -> bool:
+            """Whether a flag is on, for code that gates behavior on it. A flag that does not exist yet is ``default``."""
+            value = await lookup_flag(session, key)
+            return default if value is None else value
+    files:
+    - path: tests/test_flag_changes.py
+      from: fix/tests/test_flag_changes.py
+  cheats:
+  - name: five-minute-cache
+    slots:
+    - slot: flags.service.lookup
+      value: |
+        import time
+
+        _FLAGS: dict[str, tuple[float, bool]] = {}
+        _TTL_SECONDS = 300
+
+
+        async def lookup_flag(session: AsyncSession, key: str) -> bool | None:
+            """The flag's current value, or None when the flag does not exist."""
+            flag = await session.get(FeatureFlag, key)
+            return None if flag is None else flag.enabled
+
+
+        async def flag_enabled(session: AsyncSession, key: str, default: bool = True) -> bool:
+            """Whether a flag is on, for code that gates behavior on it. A flag that does not exist yet is ``default``."""
+            cached = _FLAGS.get(key)
+            if cached is None or time.monotonic() - cached[0] > _TTL_SECONDS:
+                value = await lookup_flag(session, key)
+                cached = _FLAGS[key] = (time.monotonic(), default if value is None else value)
+            return cached[1]
+  - name: revert-the-commit
+    slots:
+    - slot: flags.service.lookup
+      value: |
+        async def lookup_flag(session: AsyncSession, key: str) -> bool | None:
+            """The flag's current value, or None when the flag does not exist."""
+            flag = await session.get(FeatureFlag, key)
+            return None if flag is None else flag.enabled
+
+
+        async def flag_enabled(session: AsyncSession, key: str, default: bool = True) -> bool:
+            """Whether a flag is on, for code that gates behavior on it. A flag that does not exist yet is ``default``."""
+            value = await lookup_flag(session, key)
+            return default if value is None else value
+    files:
+    - path: app/ext/product_feed.py
+      from: cheats/empty_ext.py
+    - path: app/payments_killswitch/lifecycle.py
+      from: cheats/noop_lifecycle.py
+  carrier:
+    feature: product-feed
+    files:
+    - path: app/ext/product_feed.py
+      from: carrier/app/ext/product_feed.py
+    - path: app/payments_killswitch/__init__.py
+      from: carrier/app/payments_killswitch/__init__.py
+    - path: app/payments_killswitch/lifecycle.py
+      from: carrier/app/payments_killswitch/lifecycle.py
+  commit:
+    message: 'payments: add the payments_enabled kill switch and the public product feed'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.http-behavior
+    role: symptom
+    params:
+      steps:
+      - method: PUT
+        path: /api/v1/staff/flags/payments_enabled
+        headers:
+          Authorization: Bearer mf_tok_staff
+        body:
+          enabled: true
+        expect_status: 200
+      - method: POST
+        path: /api/v1/orders
+        headers:
+          Authorization: Bearer mf_tok_alice
+        body:
+          items:
+          - product_id: 1
+            quantity: 1
+          shipping_name: CFG7-kill-switch-warmup
+        expect_status: 201
+        save:
+          warmup_order_id: id
+      - method: POST
+        path: '/api/v1/orders/{{warmup_order_id}}/pay'
+        headers:
+          Authorization: Bearer mf_tok_alice
+        expect_status:
+        - 200
+        - 502
+        - 504
+      - method: PUT
+        path: /api/v1/staff/flags/payments_enabled
+        headers:
+          Authorization: Bearer mf_tok_staff
+        body:
+          enabled: false
+        expect_status: 200
+      - method: POST
+        path: /api/v1/orders
+        headers:
+          Authorization: Bearer mf_tok_alice
+        body:
+          items:
+          - product_id: 1
+            quantity: 1
+          shipping_name: CFG7-kill-switch-off
+        expect_status: 201
+        save:
+          switched_off_order_id: id
+      - method: POST
+        path: '/api/v1/orders/{{switched_off_order_id}}/pay'
+        headers:
+          Authorization: Bearer mf_tok_alice
+        expect_status: 503
+      - method: PUT
+        path: /api/v1/staff/flags/payments_enabled
+        headers:
+          Authorization: Bearer mf_tok_staff
+        body:
+          enabled: true
+        expect_status: 200
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fa_svc_7/test_flag_changes.py
+  symptom:
+    vars:
+      title: 'We switched payments off during the incident and customers could still pay'
+      report: |-
+        During the payments incident the on-call engineer turned the `payments_enabled` flag off in the staff flag admin to stop new charges. The
+        flags API confirmed the new value, yet orders kept being charged for the next forty minutes, until somebody restarted the API. When the flag was
+        turned back on later, the behavior did not change either.
+      where: |-
+        The staff flag toggle (`PUT /api/v1/staff/flags/payments_enabled`) and the pay endpoint `POST /api/v1/orders/{id}/pay`.
+      expected: |-
+        While the flag is off, pay must answer 503 without charging anyone. Turning it back on must re-enable payments at once, on every instance.
+      support_tried: |-
+        Support re-saved the flag several times and read it back with `GET /api/v1/flags/payments_enabled`: it shows `false`. Only a restart of the API made the switch take effect.
+      observations: |-
+        ### Other observations from the reporter
+
+        - The database row and the flags API are correct; the pay endpoint behaves as if it were reading an old value.
+        - After a deploy the flag works for a while, until the next change.
+        - The partner product feed that shipped with the kill switch works.
+    signature: payments_enabled is false in the database but charges still go through
+  hints:
+  - Verify each layer. `GET /api/v1/flags/payments_enabled` and the `feature_flags` table say `false`, but pay still charges, so the value pay sees comes from somewhere else. Find where pay decides whether payments are enabled and what it calls.
+  - Follow the kill switch to `app.flags.service`. The helper that gates behavior remembers a value after the first read. Ask what invalidates that memory when staff change the flag, and what happens with more than one API process.
+  - Read the flag from the database on every check (it is one primary-key lookup), or if a cache is really needed, give it a short expiry and a shared store - never a process-local forever cache. Add a test that flips the flag and asserts the next payment is refused.
+  rubric:
+    key_points:
+    - Identifies the process-local cache in the flag helper that is filled once and never invalidated, while the flags API reads the database directly.
+    - Explains why a restart "fixes" it and why it is worse with several API instances (each keeps its own stale copy).
+    - Fixes it by reading the flag on each check (or an invalidated or short-lived shared cache), not by lowering a TTL in one process.
+    - Adds a test that toggles the flag and asserts the behavior changes on the very next request.
+    misconceptions:
+    - A five-minute TTL is good enough for a kill switch (the incident lasts for the TTL).
+    - Restarting the API on every flag change is a fix.
+    - The bug is in the flag admin write path (the database row and the flags API are correct).
+  root_cause: |-
+    `flag_enabled`, the helper the payments kill switch uses, stored the first value it read for a key in a module-level dictionary and never refreshed or invalidated it. `set_flag` writes the database only, and the public flags endpoint calls `lookup_flag`, which reads the database, so every view of the flag looked right except the one that gated payments.
+
+    The fix reads the flag from the database on each check. For a kill switch correctness beats saving one primary-key lookup; a cache would need a short expiry and a shared store (and an invalidation on write) to stay correct with more than one API instance.

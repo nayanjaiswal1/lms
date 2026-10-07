@@ -1,0 +1,117 @@
+kind: fault
+id: fa.svc.retry-new-idempotency-key
+version: 1.0.0
+stack: fastapi
+title: Customers are charged twice when the payments provider has a bad minute
+summary: Every retry of a charge is sent with a brand-new idempotency key, so a charge that was recorded but whose response was lost is recorded again by the provider.
+category: service-calls
+difficulty: advanced
+skills:
+- idempotency
+- retries
+- httpx
+- resilience
+requires:
+- slot:payments.client.headers
+- svc:payments-stub
+fault:
+  inject:
+    slots:
+    - slot: payments.client.headers
+      value: |
+        import uuid
+
+
+        class _AttemptHeaders(dict):
+            """Rebuilt on every send, so each attempt is a separate request id in the provider's logs."""
+
+            def items(self):
+                return [("Idempotency-Key", str(uuid.uuid4()))]
+
+
+        headers = _AttemptHeaders()
+  fix:
+    slots:
+    - slot: payments.client.headers
+      value: |
+        headers = {"Idempotency-Key": idempotency_key}
+    files:
+    - path: tests/test_payment_retry_keys.py
+      from: fix/tests/test_payment_retry_keys.py
+  cheats:
+  - name: prefixed-random-key
+    slots:
+    - slot: payments.client.headers
+      value: |
+        import uuid
+
+
+        class _AttemptHeaders(dict):
+            """Rebuilt on every send; the key still starts with the order reference."""
+
+            def items(self):
+                return [("Idempotency-Key", f"{idempotency_key}-{uuid.uuid4().hex[:8]}")]
+
+
+        headers = _AttemptHeaders()
+  - name: revert-the-commit
+    slots:
+    - slot: payments.client.headers
+      value: |
+        headers = {"Idempotency-Key": idempotency_key}
+    files:
+    - path: app/ext/order_export.py
+      from: cheats/empty_ext.py
+  carrier:
+    feature: order-export
+    files:
+    - path: app/ext/order_export.py
+      from: carrier/app/ext/order_export.py
+  commit:
+    message: 'payments: tag every provider request with its own id and add the finance order export'
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
+  checks:
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/fa_svc_2/test_payment_retry_keys.py
+  symptom:
+    vars:
+      title: 'Some customers were charged twice for one order'
+      report: |-
+        Finance found customers with two card charges for a single order: the provider dashboard shows two charges with the same order reference, but our
+        database has one payment (or none). Support refunded the duplicates by hand. It started during the provider's incident on Tuesday, when about half of
+        its responses were errors, and it keeps happening whenever the provider is unhealthy.
+      where: |-
+        `POST /api/v1/orders/{id}/pay` talking to the payments provider. The charge client retries failed calls on its own.
+      expected: |-
+        However many times a charge call is retried, the provider must end up with exactly one charge per order.
+      support_tried: |-
+        Support asked the provider: the duplicate charges have different idempotency keys. The provider says its idempotency replay works, and that
+        some of its 500 responses were sent after the charge had already been recorded.
+      observations: |-
+        ### Other observations from the reporter
+
+        - Duplicates only appear for orders whose first call got a 5xx; orders that were charged on the first try are fine.
+        - Our own payment table never shows the duplicate, because the app only saves the payment of the call that succeeded.
+        - The finance export shipped in the same release; it only reads orders.
+    signature: two provider charges with the same reference but different idempotency keys
+  hints:
+  - Compare what the provider recorded with what the app saved. The stub mirrors every recorded charge into `mf_stub_payments_charge` (query it with psql), so look at `idempotency_key` and `reference` for one order, and at the app log for how many times the charge call was made.
+  - The client retries after a 5xx or a connection error. A retry is only safe when the provider can tell it is the same request. Look at how the `Idempotency-Key` header is built in `PaymentsClient.charge` and when it is evaluated - once per charge, or once per attempt?
+  - The key must be derived from the charge (the order), not from the attempt, and the same value must be sent on every retry. Fix the header, then add a test with a transport that fails once and assert that every attempt carries the same key.
+  rubric:
+    key_points:
+    - Identifies that each retry carries a new idempotency key, so the provider cannot recognise the retry as the same charge.
+    - Explains why the failure needs a response that is lost after the provider recorded the charge (a 5xx after commit) - a retry is the only way to see it.
+    - Fixes it by sending a stable key derived from the order on every attempt, not by disabling retries.
+    - Adds a test that fails the first call and asserts that all attempts use the same key (or that the provider records one charge).
+    misconceptions:
+    - Removing the retries fixes it (customers then see errors for charges that actually succeeded).
+    - Checking for an existing payment row before charging fixes it (the duplicate is created by the retry inside one request, before any row exists).
+    - A random key is safer because it never collides.
+  root_cause: |-
+    The Idempotency-Key header was rebuilt on every send of the request, with a fresh random UUID. When the provider recorded a charge and then answered 500, the client retried with a different key, so the provider treated the retry as a new charge. The app only saved the payment of the call that finally succeeded, so the duplicate was invisible in our database.
+
+    The fix sends the key derived from the order (`order-<id>`) on every attempt. The provider then replays the stored charge for the retry instead of charging again. Retrying stays safe only as long as the key identifies the logical operation, not the attempt.

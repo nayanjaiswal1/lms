@@ -35,3 +35,9 @@ def test_search_treats_wildcards_literally(client, db):
 def test_search_needs_at_least_two_characters(client, db):
     assert client.get("/api/v1/products/search", params={"q": "a"}).status_code == 422
     assert client.get("/api/v1/products/search").status_code == 422
+
+
+def test_search_expands_synonyms(client, db):
+    make_product(db, name="Corner sofa")
+    make_product(db, name="Kettle")
+    assert _names(client, "couch") == ["Corner sofa"]

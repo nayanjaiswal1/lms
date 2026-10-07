@@ -69,7 +69,7 @@ fault:
       from: carrier/app/ext/account_overview.py
   commit:
     message: 'wallet: show the store credit balance on the account overview'
-    persona: Marcus Webb <marcus@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.concurrent-invariant
     role: symptom

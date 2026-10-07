@@ -1,12 +1,13 @@
 """Application factory and ASGI entry point (``uvicorn app.main:app``)."""
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import text
 
-from app import registry
+from app import metrics, registry
 from app.config import Settings
 from app.db import build_engine, build_session_factory
 
@@ -25,9 +26,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         for hook in hooks:
             await hook.startup(app)
         logger.info("orders API started")
+        lag_monitor = asyncio.create_task(metrics.monitor_loop_lag())
         try:
             yield
         finally:
+            lag_monitor.cancel()
             for hook in reversed(hooks):
                 await hook.shutdown(app)
             await app.state.engine.dispose()
@@ -36,6 +39,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="Orders API", version="1.0.0", lifespan=lifespan)
     # mf:endslot
     app.state.settings = settings
+    metrics.install(app)
 
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:

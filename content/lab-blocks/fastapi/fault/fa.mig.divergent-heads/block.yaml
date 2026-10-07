@@ -44,7 +44,7 @@ fault:
       from: carrier/app/ext/stock_alerts.py
   commit:
     message: 'stock: staff endpoint listing products under the low-stock threshold, plus two orders data fixes'
-    persona: Marcus Webb <marcus@shop.example.com>
+    persona: Nayan Jaiswal <nayan.jaiswal.dev@gmail.com>
   checks:
   - ref: check.migrate-from-snapshot
     role: symptom

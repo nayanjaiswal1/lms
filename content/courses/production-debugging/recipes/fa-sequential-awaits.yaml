@@ -1,0 +1,11 @@
+lab_kind: debug
+app_range: "^1"
+seed: 3102
+blocks:
+  - block: fa.orders@1.0.0
+  - block: fa.perf.sequential-awaits@1.0.0
+  - block: seed.fa-small@1.0.0
+  - block: stub.payments@1.0.0
+  - block: check.latency-while@1.0.0
+  - block: check.pytest-node@1.0.0
+  - block: ticket.support-escalation@1.0.0
