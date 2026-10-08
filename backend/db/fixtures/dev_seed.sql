@@ -945,7 +945,7 @@ ON CONFLICT (id) DO NOTHING;
 -- ─── Targeted plan: Senior Backend Engineer, technical, 2 rounds + report ──
 
 INSERT INTO assessments (id, org_id, title, slug, type, parent_type, status, duration_minutes, pass_percentage, max_attempts, shuffle_questions, shuffle_options, allow_backtrack, show_results, created_by)
-VALUES ('00000000-0000-0000-0000-000000000541', '00000000-0000-0000-0000-000000000001', 'Go, PostgreSQL, Distributed Systems practice', 'seed-go-practice', 'practice', 'standalone', 'active', 1, 0, 1, false, false, false, false, '00000000-0000-0000-0000-000000000015')
+VALUES ('00000000-0000-0000-0000-000000000541', '00000000-0000-0000-0000-000000000001', 'Go, PostgreSQL, Distributed Systems practice', 'seed-go-postgresql-distributed-systems-practice', 'practice', 'standalone', 'active', 1, 0, 1, false, false, false, false, '00000000-0000-0000-0000-000000000015')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO assessment_attempts (id, assessment_id, user_id, org_id, attempt_number, status, started_at, submitted_at)
@@ -1038,6 +1038,49 @@ VALUES (
   'behavioral', 0, '00000000-0000-0000-0000-000000000502', 'completed'
 )
 ON CONFLICT (id) DO NOTHING;
+
+-- ─── Practice items for the three sessions above ───────────────────────────
+-- A practice item is questions -> question_versions -> assessment_questions
+-- (owns `position`) -> attempt_answers, exactly as practice.Repo.InsertItems
+-- writes it. Idempotent: a session that already has answers is skipped.
+
+DO $$
+DECLARE
+  s record;
+  q text;
+  i int;
+  qid uuid;
+  vid uuid;
+  aqid uuid;
+BEGIN
+  FOR s IN
+    SELECT * FROM (VALUES
+      ('00000000-0000-0000-0000-000000000500'::uuid, '00000000-0000-0000-0000-000000000540'::uuid,
+        ARRAY['What is a goroutine and how does the scheduler run it?', 'When would you pick a buffered channel over an unbuffered one?', 'How does context cancellation propagate?']),
+      ('00000000-0000-0000-0000-000000000501'::uuid, '00000000-0000-0000-0000-000000000541'::uuid,
+        ARRAY['How do you choose between a B-tree and a GIN index in PostgreSQL?', 'Explain how a quorum read/write keeps replicas consistent.']),
+      ('00000000-0000-0000-0000-000000000502'::uuid, '00000000-0000-0000-0000-000000000542'::uuid,
+        ARRAY['Tell me about a time you pushed back on a stakeholder request.', 'How do you prioritise when everything is urgent?'])
+    ) AS t(attempt_id, assessment_id, questions)
+  LOOP
+    CONTINUE WHEN EXISTS (SELECT 1 FROM attempt_answers WHERE attempt_id = s.attempt_id);
+    i := 0;
+    FOREACH q IN ARRAY s.questions LOOP
+      INSERT INTO questions (org_id, type, title, created_by)
+      VALUES ('00000000-0000-0000-0000-000000000001', 'interview_prep', left(q, 500), '00000000-0000-0000-0000-000000000015')
+      RETURNING id INTO qid;
+      INSERT INTO question_versions (question_id, version, content, created_by)
+      VALUES (qid, 1, jsonb_build_object('question_text', q), '00000000-0000-0000-0000-000000000015')
+      RETURNING id INTO vid;
+      INSERT INTO assessment_questions (assessment_id, question_id, version_id, position)
+      VALUES (s.assessment_id, qid, vid, i)
+      RETURNING id INTO aqid;
+      INSERT INTO attempt_answers (attempt_id, assessment_question_id, question_id, answer)
+      VALUES (s.attempt_id, aqid, qid, jsonb_build_object('question_text', q));
+      i := i + 1;
+    END LOOP;
+  END LOOP;
+END $$;
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- Public Discover roadmaps — pulled from system-design-12-week.vercel.app

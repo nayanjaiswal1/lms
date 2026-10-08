@@ -61,6 +61,13 @@ must additionally differ from the dev values. `ENCRYPTION_KEY` must be exactly
 32 bytes (AES-256-GCM). Token lifetimes use Go duration format (`15m`, `1h`,
 `720h`).
 
+`REFRESH_REUSE_GRACE` (default `30s`): a refresh token rotated less than this
+long ago and presented again is treated as a multi-tab race, not theft — the
+caller gets a fresh access token and the family stays alive. Past the window
+reuse revokes the whole token family (all sessions). Raise it if slow clients
+or throttled background tabs hit "Session reuse detected"; keep it short, since
+it is also the window in which a stolen rotated token is still honoured.
+
 ## Tenant
 
 `DEFAULT_ORG_ID` is the org self-registered users are assigned to — seeded in

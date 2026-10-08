@@ -12,6 +12,7 @@ estimated_minutes: 120
 source:
     - docs/debug-labs.md
 max_duration: 180
+hint_penalty_pct: 10
 recipe: ../recipes/fa-chain-double-charge-freeze.yaml
 ---
 

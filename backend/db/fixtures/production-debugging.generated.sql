@@ -2,12 +2,12 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-10-06T08:40:37Z
+-- Generated at: 2026-10-08T11:26:58Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: Production Debugging: Fix Real Bugs in a Live-Looking App ─────────────────────────────────────────────
 INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, is_free, is_public, estimated_hours)
-VALUES ('8af0a927-61bf-5a04-a2e9-e74f552564bf', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'Production Debugging: Fix Real Bugs in a Live-Looking App', 'production-debugging', 'Learn to debug the way it is done at work. Every lab drops you into a small, realistic e-commerce application (Django or FastAPI with PostgreSQL, and a React dashboard) inside a browser IDE with a real git history, a ticket from support or the on-call channel, logs, a database and a debugger. You reproduce the problem, follow the evidence to the root cause, fix it, prove the fix with a test that fails on the broken code, and write a short incident note. The Django track covers performance and query problems, data-model and money bugs, concurrency, migrations, configuration and calls to other services. The FastAPI track covers Alembic migrations, async SQLAlchemy performance, event-loop and concurrency bugs, outbound calls and error contracts, validation models, proxy configuration and authorization. The React track covers hooks and closures, async races, state and keys, render performance and leaks, and API and build configuration. The Fullstack track covers sessions, cookies and CORS, API contracts, and values that change meaning between browser and API. Each section starts with a short lesson on the debugging skill, never on the answer.', NULL, 'intermediate', ARRAY['debugging','django','fastapi','react','postgresql','performance','concurrency','migrations','incident-response'], 'published', true, true, 31.0)
+VALUES ('8af0a927-61bf-5a04-a2e9-e74f552564bf', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'Production Debugging: Fix Real Bugs in a Live-Looking App', 'production-debugging', 'Learn to debug the way it is done at work. Every lab drops you into a small, realistic e-commerce application (Django or FastAPI with PostgreSQL, and a React dashboard) inside a browser IDE with a real git history, a ticket from support or the on-call channel, logs, a database and a debugger. You reproduce the problem, follow the evidence to the root cause, fix it, prove the fix with a test that fails on the broken code, and write a short incident note. The Django track covers performance and query problems, data-model and money bugs, concurrency, migrations, configuration and calls to other services. The FastAPI track covers Alembic migrations, async SQLAlchemy performance, event-loop and concurrency bugs, outbound calls and error contracts, validation models, proxy configuration and authorization. The React track covers hooks and closures, async races, state and keys, render performance and leaks, and API and build configuration. The Fullstack track covers sessions, cookies and CORS, API contracts, and values that change meaning between browser and API. Each section starts with a short lesson on the debugging skill, never on the answer.', NULL, 'intermediate', ARRAY['debugging','django','fastapi','react','postgresql','performance','concurrency','migrations','incident-response'], 'published', true, true, 35.2)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, is_public=EXCLUDED.is_public, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();
 
 UPDATE course_sections SET position = position + 100000 WHERE course_id = '8af0a927-61bf-5a04-a2e9-e74f552564bf';
@@ -104,7 +104,7 @@ VALUES ('89a9c00f-9137-58f9-af1a-1a2e7364e812', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('09280cf0-b66f-5c34-a6ad-04655a503d7d', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '89a9c00f-9137-58f9-af1a-1a2e7364e812', 'module', 'Lab: The order list page is slow for repeat customers', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('09280cf0-b66f-5c34-a6ad-04655a503d7d', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '89a9c00f-9137-58f9-af1a-1a2e7364e812', 'module', 'Lab: The order list page is slow for repeat customers', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -118,7 +118,7 @@ VALUES ('46604227-42de-5739-ade3-783db7693447', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('5ce46d7b-c309-561b-86da-a76e2d8f32d3', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '46604227-42de-5739-ade3-783db7693447', 'module', 'Lab: The staff dashboard hits the database too often', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('5ce46d7b-c309-561b-86da-a76e2d8f32d3', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '46604227-42de-5739-ade3-783db7693447', 'module', 'Lab: The staff dashboard hits the database too often', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -217,7 +217,7 @@ VALUES ('f0afbafc-7b67-5c97-a2bb-e19b9c19bca7', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('558eca4d-99d4-5e87-a81d-c5ec61359b7b', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'f0afbafc-7b67-5c97-a2bb-e19b9c19bca7', 'module', 'Lab: Invoices vanish when a customer is deleted', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('558eca4d-99d4-5e87-a81d-c5ec61359b7b', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'f0afbafc-7b67-5c97-a2bb-e19b9c19bca7', 'module', 'Lab: Invoices vanish when a customer is deleted', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -231,7 +231,7 @@ VALUES ('16254531-52f4-5fe0-b1bd-743626184b8d', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('993b6117-02b6-565e-a1b2-c3e11cc3585b', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '16254531-52f4-5fe0-b1bd-743626184b8d', 'module', 'Lab: Order totals are one cent off', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('993b6117-02b6-565e-a1b2-c3e11cc3585b', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '16254531-52f4-5fe0-b1bd-743626184b8d', 'module', 'Lab: Order totals are one cent off', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -245,7 +245,7 @@ VALUES ('10220d66-172f-58ae-b876-f829c0a7260f', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('2423b2fd-6c43-58fd-a69a-4f17bb8af4ff', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '10220d66-172f-58ae-b876-f829c0a7260f', 'module', 'Lab: Evening orders land on tomorrow''s report', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('2423b2fd-6c43-58fd-a69a-4f17bb8af4ff', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '10220d66-172f-58ae-b876-f829c0a7260f', 'module', 'Lab: Evening orders land on tomorrow''s report', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -330,7 +330,7 @@ VALUES ('96a415c6-071c-523e-8fc0-fc624f9db203', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('93e8be17-50ba-5906-a165-ee41afb22179', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '96a415c6-071c-523e-8fc0-fc624f9db203', 'module', 'Lab: A burst of signups crashes with IntegrityError', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('93e8be17-50ba-5906-a165-ee41afb22179', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '96a415c6-071c-523e-8fc0-fc624f9db203', 'module', 'Lab: A burst of signups crashes with IntegrityError', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -344,7 +344,7 @@ VALUES ('d5571474-dee0-523d-8e8d-ec18d39875ea', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('9342f9f0-f34e-59ce-8b57-fa78117d4a77', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'd5571474-dee0-523d-8e8d-ec18d39875ea', 'module', 'Lab: The last unit is sold twice', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('9342f9f0-f34e-59ce-8b57-fa78117d4a77', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'd5571474-dee0-523d-8e8d-ec18d39875ea', 'module', 'Lab: The last unit is sold twice', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -425,7 +425,7 @@ VALUES ('ebbf18aa-4dc6-5a82-a825-66bdb47bc875', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('176205d8-fda2-59cf-958e-294fc906f823', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'ebbf18aa-4dc6-5a82-a825-66bdb47bc875', 'module', 'Lab: The release is blocked by conflicting migrations', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('176205d8-fda2-59cf-958e-294fc906f823', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'ebbf18aa-4dc6-5a82-a825-66bdb47bc875', 'module', 'Lab: The release is blocked by conflicting migrations', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -439,7 +439,7 @@ VALUES ('16e7356a-6487-5f42-9ddf-b6bcee59c28e', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('c5a95d95-e598-52f4-8a37-c15bc37ec911', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '16e7356a-6487-5f42-9ddf-b6bcee59c28e', 'module', 'Lab: A migration that only fails on production data', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('c5a95d95-e598-52f4-8a37-c15bc37ec911', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '16e7356a-6487-5f42-9ddf-b6bcee59c28e', 'module', 'Lab: A migration that only fails on production data', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -520,7 +520,7 @@ VALUES ('c1289e9b-a81a-5c22-8ac8-85a15b3849ad', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('3330d553-8e04-5420-a133-5668093c8825', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'c1289e9b-a81a-5c22-8ac8-85a15b3849ad', 'module', 'Lab: Production has no styles or scripts', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('3330d553-8e04-5420-a133-5668093c8825', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'c1289e9b-a81a-5c22-8ac8-85a15b3849ad', 'module', 'Lab: Production has no styles or scripts', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -602,7 +602,7 @@ VALUES ('8fa0d22a-ebbd-559a-b52c-c7286b4f4927', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('88ddbf53-8044-5817-b80e-c310be928f1d', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '8fa0d22a-ebbd-559a-b52c-c7286b4f4927', 'module', 'Lab: Checkout hangs when the payments provider is slow', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('88ddbf53-8044-5817-b80e-c310be928f1d', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '8fa0d22a-ebbd-559a-b52c-c7286b4f4927', 'module', 'Lab: Checkout hangs when the payments provider is slow', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -700,7 +700,7 @@ VALUES ('ecfe452d-d7ac-5781-a44e-34fd8a62c665', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('1b36fcfb-f6f6-5536-99bb-6444f985c8fa', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'ecfe452d-d7ac-5781-a44e-34fd8a62c665', 'module', 'Lab: The release is blocked by multiple Alembic heads', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('1b36fcfb-f6f6-5536-99bb-6444f985c8fa', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'ecfe452d-d7ac-5781-a44e-34fd8a62c665', 'module', 'Lab: The release is blocked by multiple Alembic heads', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -714,7 +714,7 @@ VALUES ('23b9f1d1-15f2-53f7-9f8b-049ac030323c', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('2cd9777f-6b4c-5b82-a26b-216ccea83c55', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '23b9f1d1-15f2-53f7-9f8b-049ac030323c', 'module', 'Lab: A migration works in staging and crashes on production', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('2cd9777f-6b4c-5b82-a26b-216ccea83c55', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '23b9f1d1-15f2-53f7-9f8b-049ac030323c', 'module', 'Lab: A migration works in staging and crashes on production', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -812,7 +812,7 @@ VALUES ('a6ca0747-5929-5d25-9aef-4a125bb1bed4', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('f639e9d6-87be-5d44-b327-3e9212ad6e1b', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'a6ca0747-5929-5d25-9aef-4a125bb1bed4', 'module', 'Lab: The order list is slow for repeat customers', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('f639e9d6-87be-5d44-b327-3e9212ad6e1b', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'a6ca0747-5929-5d25-9aef-4a125bb1bed4', 'module', 'Lab: The order list is slow for repeat customers', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -908,7 +908,7 @@ VALUES ('dc648be3-e909-5f93-984c-ca1a144edf7e', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('0336fcfa-9081-5a32-9b83-868418ec94fd', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'dc648be3-e909-5f93-984c-ca1a144edf7e', 'module', 'Lab: The whole API freezes whenever somebody logs in', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('0336fcfa-9081-5a32-9b83-868418ec94fd', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'dc648be3-e909-5f93-984c-ca1a144edf7e', 'module', 'Lab: The whole API freezes whenever somebody logs in', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -922,7 +922,7 @@ VALUES ('aebc53b8-eba9-5cfa-b938-2864e04ab883', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('b7c76879-3c9b-5e19-b968-824586f84950', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'aebc53b8-eba9-5cfa-b938-2864e04ab883', 'module', 'Lab: Store credit goes missing under load', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('b7c76879-3c9b-5e19-b968-824586f84950', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'aebc53b8-eba9-5cfa-b938-2864e04ab883', 'module', 'Lab: Store credit goes missing under load', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1018,7 +1018,7 @@ VALUES ('4053b2d0-9f6a-55ef-bf2e-14ab6e45ef5d', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('4c10f9a6-d415-5ad5-ac39-ceaa6da526f1', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '4053b2d0-9f6a-55ef-bf2e-14ab6e45ef5d', 'module', 'Lab: Paying hangs when the payments provider is slow', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('4c10f9a6-d415-5ad5-ac39-ceaa6da526f1', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '4053b2d0-9f6a-55ef-bf2e-14ab6e45ef5d', 'module', 'Lab: Paying hangs when the payments provider is slow', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1032,7 +1032,7 @@ VALUES ('8e19bd8c-f21d-555a-b0d3-88598b3185dc', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('4c9d53d1-38d6-5cd4-a2c0-e036fd299b72', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '8e19bd8c-f21d-555a-b0d3-88598b3185dc', 'module', 'Lab: Customers cannot pay but the dashboards show no errors', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('4c9d53d1-38d6-5cd4-a2c0-e036fd299b72', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '8e19bd8c-f21d-555a-b0d3-88598b3185dc', 'module', 'Lab: Customers cannot pay but the dashboards show no errors', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1092,7 +1092,7 @@ VALUES ('96911d8c-e8ed-548f-b3bc-f10f9f4b0ab8', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('d2870ad8-26f4-57af-a8ee-60193e008157', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '96911d8c-e8ed-548f-b3bc-f10f9f4b0ab8', 'module', 'Lab: Saving one profile field erases the others', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('d2870ad8-26f4-57af-a8ee-60193e008157', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '96911d8c-e8ed-548f-b3bc-f10f9f4b0ab8', 'module', 'Lab: Saving one profile field erases the others', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1188,7 +1188,7 @@ VALUES ('913e0966-7661-5e6d-80b2-d6cfd7e556c5', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('68da45aa-f1ac-57c7-a836-dd5b98ac929a', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '913e0966-7661-5e6d-80b2-d6cfd7e556c5', 'module', 'Lab: The API docs are blank behind the gateway', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('68da45aa-f1ac-57c7-a836-dd5b98ac929a', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '913e0966-7661-5e6d-80b2-d6cfd7e556c5', 'module', 'Lab: The API docs are blank behind the gateway', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1202,11 +1202,25 @@ VALUES ('8eb9f7c2-90d2-5ba9-998f-46a268def26b', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('2148d76b-cec8-5f1b-8ff8-8e99edebe34b', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '8eb9f7c2-90d2-5ba9-998f-46a268def26b', 'module', 'Lab: Any customer can read any order', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('2148d76b-cec8-5f1b-8ff8-8e99edebe34b', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '8eb9f7c2-90d2-5ba9-998f-46a268def26b', 'module', 'Lab: Any customer can read any order', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
 VALUES ('e5e8ff02-2907-54a5-91c8-377a75db0dbb', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Any customer can read any order', $json${"app_range":"^1","blocks":[{"block_version_id":"7f4707a2-1c83-5c77-9c17-3daf6d0ddf6e"},{"block_version_id":"5ccabd41-3c70-5b74-9d6f-ff7bd65bb0a0"},{"block_version_id":"592cc315-ea72-5910-b845-b2bbe06c8ed1"},{"block_version_id":"1f38f850-53f5-54c5-b661-fcbb2f200510"},{"block_version_id":"018de84a-34e1-5831-8782-8e877ed4ae16"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"9f013da8-2692-5987-9ddf-8f056d257d87"}],"seed":3009}$json$::jsonb, '2148d76b-cec8-5f1b-8ff8-8e99edebe34b', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('800220a8-7363-5f99-8424-bf66ef070c48', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'a085bf16-522a-52c6-8c87-7fe214b3c60e', 'Expert lab: Double charges, then a frozen API, then a kill switch that does nothing', 'lab', 4, 120, '72f351e0-3d75-56b5-b3e2-fc26f79f8b38', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('72f351e0-3d75-56b5-b3e2-fc26f79f8b38', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '800220a8-7363-5f99-8424-bf66ef070c48', 'module', 'Expert lab: Double charges, then a frozen API, then a kill switch that does nothing', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 180, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('200c1c6d-4312-5b50-80a9-139f54bae11d', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Expert lab: Double charges, then a frozen API, then a kill switch that does nothing', $json${"app_range":"^1","blocks":[{"block_version_id":"7f4707a2-1c83-5c77-9c17-3daf6d0ddf6e"},{"block_version_id":"39b24a45-8b9e-5344-9663-9218993b5694"},{"block_version_id":"b25adfa3-c22d-5048-9cb5-22872fa70222"},{"block_version_id":"695cacfd-9ca1-5de4-bd1d-99cf249b8c98"},{"block_version_id":"592cc315-ea72-5910-b845-b2bbe06c8ed1"},{"block_version_id":"1f38f850-53f5-54c5-b661-fcbb2f200510"},{"block_version_id":"138b9154-6030-58ce-ba37-68f3c50e861e"},{"block_version_id":"018de84a-34e1-5831-8782-8e877ed4ae16"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"5b34e087-f9c6-5c92-aa98-23578da4a3ee"}],"seed":3012}$json$::jsonb, '72f351e0-3d75-56b5-b3e2-fc26f79f8b38', true)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
   revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
   spec=EXCLUDED.spec, updated_at=now();
@@ -1298,7 +1312,7 @@ VALUES ('bab1cceb-f2ea-5518-b789-de8c33541f2d', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('98252ca4-7c95-5bee-a5f9-f530175625a5', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'bab1cceb-f2ea-5518-b789-de8c33541f2d', 'module', 'Lab: The updated badge never gets past 1', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('98252ca4-7c95-5bee-a5f9-f530175625a5', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'bab1cceb-f2ea-5518-b789-de8c33541f2d', 'module', 'Lab: The updated badge never gets past 1', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1312,7 +1326,7 @@ VALUES ('87886ae8-7324-53d6-a83d-8e0c5cbbf329', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('661c83aa-ccd7-5fc7-b731-e7b03640ecb4', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '87886ae8-7324-53d6-a83d-8e0c5cbbf329', 'module', 'Lab: Changing the status filter does not reload orders', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('661c83aa-ccd7-5fc7-b731-e7b03640ecb4', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '87886ae8-7324-53d6-a83d-8e0c5cbbf329', 'module', 'Lab: Changing the status filter does not reload orders', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1326,7 +1340,7 @@ VALUES ('0339708c-c52d-5c88-9f1a-3c998f99afa5', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('20bf8288-5894-53b3-bf78-38a2cf43027e', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '0339708c-c52d-5c88-9f1a-3c998f99afa5', 'module', 'Lab: The Reports page hammers the API', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('20bf8288-5894-53b3-bf78-38a2cf43027e', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '0339708c-c52d-5c88-9f1a-3c998f99afa5', 'module', 'Lab: The Reports page hammers the API', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1420,7 +1434,7 @@ VALUES ('5eba040b-3ebf-5599-abf0-8b7ab1cd2bed', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('d8045b28-345c-5469-8bd9-055d231a1a5e', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '5eba040b-3ebf-5599-abf0-8b7ab1cd2bed', 'module', 'Lab: Customer search shows results for an older query', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('d8045b28-345c-5469-8bd9-055d231a1a5e', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '5eba040b-3ebf-5599-abf0-8b7ab1cd2bed', 'module', 'Lab: Customer search shows results for an older query', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1434,7 +1448,7 @@ VALUES ('996c0dc8-fbc6-5b48-9857-94180ed1e198', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('1e370030-2d5c-5002-b0cb-6b9cc3150cb2', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '996c0dc8-fbc6-5b48-9857-94180ed1e198', 'module', 'Lab: An order stays flagged after the server refused it', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('1e370030-2d5c-5002-b0cb-6b9cc3150cb2', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '996c0dc8-fbc6-5b48-9857-94180ed1e198', 'module', 'Lab: An order stays flagged after the server refused it', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1492,7 +1506,7 @@ VALUES ('acab63e0-30fd-5f5a-9d08-d14e2dc39e91', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('48fca65c-2762-5a4e-bfea-962aa441b86e', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'acab63e0-30fd-5f5a-9d08-d14e2dc39e91', 'module', 'Lab: Deleting a note makes the next note show the wrong text', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('48fca65c-2762-5a4e-bfea-962aa441b86e', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'acab63e0-30fd-5f5a-9d08-d14e2dc39e91', 'module', 'Lab: Deleting a note makes the next note show the wrong text', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1506,7 +1520,7 @@ VALUES ('968ea5f2-548a-58e8-9aff-18f3ba2a89e5', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('34e21ade-b702-5e7c-aad4-b01ada76bb77', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '968ea5f2-548a-58e8-9aff-18f3ba2a89e5', 'module', 'Lab: The customer editor shows the previous customer', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('34e21ade-b702-5e7c-aad4-b01ada76bb77', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '968ea5f2-548a-58e8-9aff-18f3ba2a89e5', 'module', 'Lab: The customer editor shows the previous customer', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1564,7 +1578,7 @@ VALUES ('8106dcc1-83f9-58ca-9196-834f9a50c349', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('27b49a0c-72ec-54fe-996c-f44afb96003a', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '8106dcc1-83f9-58ca-9196-834f9a50c349', 'module', 'Lab: Typing in the quick filter makes every page re-render', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('27b49a0c-72ec-54fe-996c-f44afb96003a', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '8106dcc1-83f9-58ca-9196-834f9a50c349', 'module', 'Lab: Typing in the quick filter makes every page re-render', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1578,7 +1592,7 @@ VALUES ('31a8c60c-b409-5cf2-a1dc-3f12cfef7e02', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('d90b19a1-beef-59e6-81e1-23ca12fc2091', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '31a8c60c-b409-5cf2-a1dc-3f12cfef7e02', 'module', 'Lab: Memory and CPU grow every time Orders is opened', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('d90b19a1-beef-59e6-81e1-23ca12fc2091', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '31a8c60c-b409-5cf2-a1dc-3f12cfef7e02', 'module', 'Lab: Memory and CPU grow every time Orders is opened', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1636,7 +1650,7 @@ VALUES ('3692d718-969b-5bf7-af51-922ea5d5be3d', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('8b0a788a-3f7b-5cf4-a787-36df241b3f0e', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '3692d718-969b-5bf7-af51-922ea5d5be3d', 'module', 'Lab: The UI says Saved while the server was down', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('8b0a788a-3f7b-5cf4-a787-36df241b3f0e', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '3692d718-969b-5bf7-af51-922ea5d5be3d', 'module', 'Lab: The UI says Saved while the server was down', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1650,7 +1664,7 @@ VALUES ('a3488ba4-f261-5b6e-8820-361e4453d5f3', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('078ba2a5-8955-5710-a101-ca37113ef9e7', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'a3488ba4-f261-5b6e-8820-361e4453d5f3', 'module', 'Lab: Revenue report shows the previous day for US users', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('078ba2a5-8955-5710-a101-ca37113ef9e7', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'a3488ba4-f261-5b6e-8820-361e4453d5f3', 'module', 'Lab: Revenue report shows the previous day for US users', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1664,7 +1678,7 @@ VALUES ('05c56672-9259-532a-b121-4ebfa56bb8e2', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('bb0ad065-2116-53d8-afb4-6baa4db3394f', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '05c56672-9259-532a-b121-4ebfa56bb8e2', 'module', 'Lab: The staging build still calls its own host', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('bb0ad065-2116-53d8-afb4-6baa4db3394f', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '05c56672-9259-532a-b121-4ebfa56bb8e2', 'module', 'Lab: The staging build still calls its own host', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1679,8 +1693,7 @@ VALUES ('7f3c3c6a-b9d5-5b47-9378-87f28a8bca94', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('96bf42b2-cc53-51f8-b4eb-fb4b622fe9f6', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '7f3c3c6a-b9d5-5b47-9378-87f28a8bca94', 'Where the browser and the API disagree: sessions, cookies and CORS', 'notes', 1, $md$
-## Sessions, cookies and CORS
+VALUES ('96bf42b2-cc53-51f8-b4eb-fb4b622fe9f6', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '7f3c3c6a-b9d5-5b47-9378-87f28a8bca94', 'Where the browser and the API disagree: sessions, cookies and CORS', 'notes', 1, $md$## Sessions, cookies and CORS
 
 A cookie session crosses three boundaries: CORS decides whether the browser lets a page use credentials, cookie attributes (Path, HttpOnly, SameSite) decide where the cookie travels and who can read it, and the CSRF token has to be read by script and echoed in a header. Break any one and sign-in looks fine while every later request fails. Reproduce with the network tab: check Set-Cookie flags, the request's Cookie header and the response's Access-Control-* headers.
 
@@ -1723,7 +1736,7 @@ VALUES ('56f76ab1-4a77-5f99-b8a5-cfb5d1dc639d', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('7bc9193c-687f-550c-b883-5e006419c19a', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '56f76ab1-4a77-5f99-b8a5-cfb5d1dc639d', 'module', 'Lab: Staging console cannot sign in - the form just says "Failed to fetch', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('7bc9193c-687f-550c-b883-5e006419c19a', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '56f76ab1-4a77-5f99-b8a5-cfb5d1dc639d', 'module', 'Lab: Staging console cannot sign in - the form just says "Failed to fetch', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1737,7 +1750,7 @@ VALUES ('ce4f240e-8057-5c91-9791-8ba3e28cec0a', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('84ed348e-c808-5817-bebb-53a4b0b8a211', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'ce4f240e-8057-5c91-9791-8ba3e28cec0a', 'module', 'Lab: Sign-in succeeds, then Orders and Profile say "Sign in to continue', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('84ed348e-c808-5817-bebb-53a4b0b8a211', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'ce4f240e-8057-5c91-9791-8ba3e28cec0a', 'module', 'Lab: Sign-in succeeds, then Orders and Profile say "Sign in to continue', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1751,7 +1764,7 @@ VALUES ('4552504e-4b77-56ba-95cc-84405942e2d6', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('c4169e83-1ef3-56db-b570-9631d78326ac', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '4552504e-4b77-56ba-95cc-84405942e2d6', 'module', 'Lab: Saving anything fails with "The request could not be verified', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('c4169e83-1ef3-56db-b570-9631d78326ac', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '4552504e-4b77-56ba-95cc-84405942e2d6', 'module', 'Lab: Saving anything fails with "The request could not be verified', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1765,7 +1778,7 @@ VALUES ('9e5e163a-751a-5888-8dab-f228bc7908ef', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('e413e172-749f-5e64-98ba-fe489348d86f', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '9e5e163a-751a-5888-8dab-f228bc7908ef', 'module', 'Lab: Saving the profile fails with "The request could not be verified', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('e413e172-749f-5e64-98ba-fe489348d86f', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '9e5e163a-751a-5888-8dab-f228bc7908ef', 'module', 'Lab: Saving the profile fails with "The request could not be verified', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1780,8 +1793,7 @@ VALUES ('01054f35-310a-5551-99a0-cde874af2b87', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('fe491a1e-658d-534e-a99e-47cb64187af1', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '01054f35-310a-5551-99a0-cde874af2b87', 'Contracts across the wire: error bodies, query strings and paging', 'notes', 1, $md$
-## The API contract
+VALUES ('fe491a1e-658d-534e-a99e-47cb64187af1', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '01054f35-310a-5551-99a0-cde874af2b87', 'Contracts across the wire: error bodies, query strings and paging', 'notes', 1, $md$## The API contract
 
 Frontend and backend only agree through the wire format. Error bodies must have the shape the client reads, query strings must be encoded, and page numbers must mean the same thing on both sides (1-based vs 0-based). Test the contract end to end: send the real request and read the real response before blaming either side.
 
@@ -1820,15 +1832,15 @@ $md$, 15, $json$[{"id":"production-debugging-fullstack-api-contract-q1","type":"
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
-VALUES ('49a9fe3e-0cb1-54f1-887c-78938172112f', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '01054f35-310a-5551-99a0-cde874af2b87', 'Lab: Error messages are gone - every failure shows "Request failed (409)', 'lab', 2, 30, 'e25eb9a1-b064-58d0-b8fc-fc91f0aa5d04', false)
+VALUES ('49a9fe3e-0cb1-54f1-887c-78938172112f', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '01054f35-310a-5551-99a0-cde874af2b87', 'Lab: Error messages are gone - not-found and forbidden failures show "Request failed"', 'lab', 2, 30, 'e25eb9a1-b064-58d0-b8fc-fc91f0aa5d04', false)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('e25eb9a1-b064-58d0-b8fc-fc91f0aa5d04', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '49a9fe3e-0cb1-54f1-887c-78938172112f', 'module', 'Lab: Error messages are gone - every failure shows "Request failed (409)', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('e25eb9a1-b064-58d0-b8fc-fc91f0aa5d04', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '49a9fe3e-0cb1-54f1-887c-78938172112f', 'module', 'Lab: Error messages are gone - not-found and forbidden failures show "Request failed"', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
-VALUES ('0cc50778-7b84-586b-b012-f05ffcfd049b', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Error messages are gone - every failure shows "Request failed (409)', $json${"app_range":"^1","blocks":[{"block_version_id":"4bbf77a8-8483-5a32-8b44-529cbad7bf37"},{"block_version_id":"9e82d478-dc15-598e-9463-63abf5919151"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"9aa45629-917c-5db7-994f-5a7ad10df22a"}],"seed":5102}$json$::jsonb, 'e25eb9a1-b064-58d0-b8fc-fc91f0aa5d04', true)
+VALUES ('0cc50778-7b84-586b-b012-f05ffcfd049b', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: Error messages are gone - not-found and forbidden failures show "Request failed"', $json${"app_range":"^1","blocks":[{"block_version_id":"4bbf77a8-8483-5a32-8b44-529cbad7bf37"},{"block_version_id":"9e82d478-dc15-598e-9463-63abf5919151"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"888d8445-6ac3-5eb7-94d7-90dab52f3ebb"},{"block_version_id":"9aa45629-917c-5db7-994f-5a7ad10df22a"}],"seed":5102}$json$::jsonb, 'e25eb9a1-b064-58d0-b8fc-fc91f0aa5d04', true)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
   revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
   spec=EXCLUDED.spec, updated_at=now();
@@ -1838,7 +1850,7 @@ VALUES ('2645e125-8b67-57ee-93a1-a55d5e5d4ba4', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('788ffa65-9fca-50af-86f4-37dc3ed2941f', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '2645e125-8b67-57ee-93a1-a55d5e5d4ba4', 'module', 'Lab: Searching for "R&D Kit" lists everything containing an R', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('788ffa65-9fca-50af-86f4-37dc3ed2941f', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '2645e125-8b67-57ee-93a1-a55d5e5d4ba4', 'module', 'Lab: Searching for "R&D Kit" lists everything containing an R', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1852,7 +1864,7 @@ VALUES ('17bef067-f75d-5d03-ae43-5ad6b2109c14', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('f01d1f65-4518-5dd1-bd85-448627c47285', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '17bef067-f75d-5d03-ae43-5ad6b2109c14', 'module', 'Lab: Our newest orders are missing from the order history', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('f01d1f65-4518-5dd1-bd85-448627c47285', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '17bef067-f75d-5d03-ae43-5ad6b2109c14', 'module', 'Lab: Our newest orders are missing from the order history', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1867,8 +1879,7 @@ VALUES ('ff923b9c-b062-5a66-bf4c-b3781174e8ae', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('843c1dbe-bd45-5049-9d88-1f622d9b2877', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'ff923b9c-b062-5a66-bf4c-b3781174e8ae', 'Values that change meaning on the way: time zones, money and stale writes', 'notes', 1, $md$
-## Data and state
+VALUES ('843c1dbe-bd45-5049-9d88-1f622d9b2877', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'ff923b9c-b062-5a66-bf4c-b3781174e8ae', 'Values that change meaning on the way: time zones, money and stale writes', 'notes', 1, $md$## Data and state
 
 A value crosses the wire as text and means different things on each side: a timestamp without an offset is read as local time, an amount in dollars is formatted as cents, and a save based on an old version overwrites newer data. Agree on one representation (UTC with an offset, integer cents, an explicit version check) and enforce it at the API boundary.
 
@@ -1911,7 +1922,7 @@ VALUES ('d8b60b31-11ba-5e32-b4b2-4a90e7921e4a', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('facafe9d-0da6-5f4d-a5ba-dc0bb3112920', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'd8b60b31-11ba-5e32-b4b2-4a90e7921e4a', 'module', 'Lab: The order I placed this evening is dated tomorrow', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('facafe9d-0da6-5f4d-a5ba-dc0bb3112920', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'd8b60b31-11ba-5e32-b4b2-4a90e7921e4a', 'module', 'Lab: The order I placed this evening is dated tomorrow', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1925,7 +1936,7 @@ VALUES ('1308a02d-abce-5c58-be4a-38d7a6105ff0', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('293ff23d-fc4e-59d3-a7f7-e0d09388db59', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '1308a02d-abce-5c58-be4a-38d7a6105ff0', 'module', 'Lab: Every order in the history shows a total of under a dollar', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('293ff23d-fc4e-59d3-a7f7-e0d09388db59', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '1308a02d-abce-5c58-be4a-38d7a6105ff0', 'module', 'Lab: Every order in the history shows a total of under a dollar', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1939,7 +1950,7 @@ VALUES ('0d53544c-dcb8-5c9a-9a9e-b60e097aa157', '8af0a927-61bf-5a04-a2e9-e74f552
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
-VALUES ('6aae679d-2e98-57d7-bc8f-3ec0f094ee8a', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '0d53544c-dcb8-5c9a-9a9e-b60e097aa157', 'module', 'Lab: Saving my profile on my laptop erased the phone number I just changed on my phone', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+VALUES ('6aae679d-2e98-57d7-bc8f-3ec0f094ee8a', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '0d53544c-dcb8-5c9a-9a9e-b60e097aa157', 'module', 'Lab: Saving my profile on my laptop erased the phone number I just changed on my phone', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
@@ -1948,10 +1959,134 @@ ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind,
   revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
   spec=EXCLUDED.spec, updated_at=now();
 
+-- Section: Latency and slow APIs
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('361f09e1-308c-5853-a954-96dca1a98e3a', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'Latency and slow APIs', 21, 'FastAPI')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('2c35c57b-0789-568c-8ca0-8b2bb6804b48', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '361f09e1-308c-5853-a954-96dca1a98e3a', 'Debugging a slow API: blocked loops, sequential awaits and throwaway clients', 'notes', 1, $md$A slow API has three usual suspects that no profiler of your own code shows at first: something stops the event loop, independent waits run one after another, or every call pays for setup it should have paid once. The skill this section trains is turning "it feels slow" into a number that points at one of them.
+
+## A blocking call stops everyone
+
+An `async def` handler shares one thread with every other request of the process. A synchronous call that waits (`time.sleep`, `requests`, a legacy client, heavy CPU work) holds that thread, so unrelated requests, even `/healthz`, wait behind it. The test is to time a cheap endpoint while the suspect endpoint runs. The cure is to move the call off the loop (`run_in_threadpool`, `asyncio.to_thread`) or to use an async client. Adding `await` in front of a synchronous function, a lock around it, or `asyncio.wait_for` does not make it yield.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-fa-latency-blocking-q1",
+      "type": "mcq",
+      "prompt": "Search calls a synchronous lookup that waits 300 ms inside an async def handler. While 5 searches run, what happens to GET /healthz?",
+      "options": [
+        { "id": "a", "text": "It answers normally, async handlers run in parallel" },
+        { "id": "b", "text": "It waits behind the searches, because the blocked event loop cannot run anything else" },
+        { "id": "c", "text": "It fails with a 500 because the pool is full" },
+        { "id": "d", "text": "Only requests from the same client are delayed" }
+      ],
+      "correct": "b",
+      "explanation": "The synchronous call keeps the single event loop thread busy. Every other coroutine, including the health check, only runs when the loop is free again."
+    }
+  ]
+}
+```
+
+## Independent waits should overlap
+
+When a handler needs two things that do not depend on each other (two remote services, two queries on separate sessions), `await a(); await b()` costs the sum of both. `asyncio.gather(a(), b())` starts both and costs the longest. Measure each dependency alone, then the endpoint: a total close to the sum is the signature. Calls that need each other's result, or that share one `AsyncSession`, must stay sequential.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-fa-latency-gather-q1",
+      "type": "mcq",
+      "prompt": "A page awaits two independent 300 ms lookups one after another. Roughly how long does it take, and what is the fix?",
+      "options": [
+        { "id": "a", "text": "About 300 ms, nothing to fix" },
+        { "id": "b", "text": "About 600 ms; start both with asyncio.gather" },
+        { "id": "c", "text": "About 600 ms; wrap each lookup in asyncio.wait_for" },
+        { "id": "d", "text": "About 300 ms; add a lock so they do not interfere" }
+      ],
+      "correct": "b",
+      "explanation": "Sequential awaits add their latencies. gather runs the two waits at the same time, so the total becomes the longer one. wait_for only adds a timeout and a lock would force them to run one at a time."
+    }
+  ]
+}
+```
+
+## Build the client once
+
+An `httpx.AsyncClient` owns a connection pool with keep-alive. Creating one per call and closing it at the end of the block throws the pool away, so every call pays for a new TCP (and in production TLS) handshake and leaves a socket in TIME_WAIT. On localhost this is invisible, which is why it survives review. Create the client once at startup, share it, and close it at shutdown. Counting how often the client is constructed is a better test than timing.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "production-debugging-fa-latency-client-q1",
+      "type": "mcq",
+      "prompt": "Why does building an httpx.AsyncClient inside every request handler hurt, even though each call succeeds?",
+      "options": [
+        { "id": "a", "text": "The client is not thread safe" },
+        { "id": "b", "text": "Each client discards its connection pool, so every call opens a new connection and handshake" },
+        { "id": "c", "text": "httpx forbids more than one client per process" },
+        { "id": "d", "text": "It makes the response body larger" }
+      ],
+      "correct": "b",
+      "explanation": "The pool and its keep-alive connections belong to the client. A client that lives for one call can never reuse a connection, so the setup cost is paid every time."
+    }
+  ]
+}
+```
+$md$, 20, $json$[{"id":"production-debugging-fa-latency-blocking-q1","type":"mcq","correct":"b"},{"id":"production-debugging-fa-latency-gather-q1","type":"mcq","correct":"b"},{"id":"production-debugging-fa-latency-client-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('b8a029a0-54f9-5991-86f1-93c50b0d8c8a', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '361f09e1-308c-5853-a954-96dca1a98e3a', 'Lab: The API stalls while shoppers search', 'lab', 2, 40, '790aaa28-274b-54c3-90f3-9aca9f9d4f8b', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('790aaa28-274b-54c3-90f3-9aca9f9d4f8b', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'b8a029a0-54f9-5991-86f1-93c50b0d8c8a', 'module', 'Lab: The API stalls while shoppers search', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('dfc92ad6-f464-5eec-9128-7363900a2a22', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: The API stalls while shoppers search', $json${"app_range":"^1","blocks":[{"block_version_id":"7f4707a2-1c83-5c77-9c17-3daf6d0ddf6e"},{"block_version_id":"298fed14-819b-5f66-9a55-d27c63e050a4"},{"block_version_id":"592cc315-ea72-5910-b845-b2bbe06c8ed1"},{"block_version_id":"1f38f850-53f5-54c5-b661-fcbb2f200510"},{"block_version_id":"58f7c05b-d75f-5118-b108-b11d2bc735d2"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"5b34e087-f9c6-5c92-aa98-23578da4a3ee"}],"seed":3101}$json$::jsonb, '790aaa28-274b-54c3-90f3-9aca9f9d4f8b', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('898d4ce2-b69b-5132-84d7-8f33d0bbe190', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '361f09e1-308c-5853-a954-96dca1a98e3a', 'Lab: The storefront takes the sum of its dependencies', 'lab', 3, 30, '559c99e0-5ef4-54f4-8a8f-d309b1b555db', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('559c99e0-5ef4-54f4-8a8f-d309b1b555db', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '898d4ce2-b69b-5132-84d7-8f33d0bbe190', 'module', 'Lab: The storefront takes the sum of its dependencies', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('bd8cb683-8856-5cb7-aa53-77c4fbb0438a', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: The storefront takes the sum of its dependencies', $json${"app_range":"^1","blocks":[{"block_version_id":"7f4707a2-1c83-5c77-9c17-3daf6d0ddf6e"},{"block_version_id":"6d6d7586-dcb4-5837-bebc-035c7abe6769"},{"block_version_id":"592cc315-ea72-5910-b845-b2bbe06c8ed1"},{"block_version_id":"1f38f850-53f5-54c5-b661-fcbb2f200510"},{"block_version_id":"58f7c05b-d75f-5118-b108-b11d2bc735d2"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"5b34e087-f9c6-5c92-aa98-23578da4a3ee"}],"seed":3102}$json$::jsonb, '559c99e0-5ef4-54f4-8a8f-d309b1b555db', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('b5d83fbd-b24d-5df2-ad8b-c79163b18347', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '361f09e1-308c-5853-a954-96dca1a98e3a', 'Lab: A new connection for every charge', 'lab', 4, 40, 'daec8d8f-6e9d-514c-af3a-478aa6d30dbd', false)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('daec8d8f-6e9d-514c-af3a-478aa6d30dbd', '00000000-0000-0000-0000-000000000001', '8af0a927-61bf-5a04-a2e9-e74f552564bf', 'b5d83fbd-b24d-5df2-ad8b-c79163b18347', 'module', 'Lab: A new connection for every charge', NULL, 'debug', 'mindforge/lab-debug:1', 0, $script$cd /home/labuser/work && exec bash .mf/setup.sh$script$, 90, 3, 10, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+INSERT INTO lab_recipes (id, org_id, owner_id, lab_kind, title, spec, lab_id, is_platform)
+VALUES ('ab078c80-40b6-53b4-ab41-bae6587f7f28', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'debug', 'Lab: A new connection for every charge', $json${"app_range":"^1","blocks":[{"block_version_id":"7f4707a2-1c83-5c77-9c17-3daf6d0ddf6e"},{"block_version_id":"97f45860-af16-55cf-ae49-852303bacf79"},{"block_version_id":"592cc315-ea72-5910-b845-b2bbe06c8ed1"},{"block_version_id":"1f38f850-53f5-54c5-b661-fcbb2f200510"},{"block_version_id":"b3f57e3d-def5-588d-987c-2f3f59fda7b5"},{"block_version_id":"5b34e087-f9c6-5c92-aa98-23578da4a3ee"}],"seed":3103}$json$::jsonb, 'daec8d8f-6e9d-514c-af3a-478aa6d30dbd', true)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_kind=EXCLUDED.lab_kind, lab_id=EXCLUDED.lab_id,
+  revision = CASE WHEN lab_recipes.spec IS DISTINCT FROM EXCLUDED.spec THEN lab_recipes.revision + 1 ELSE lab_recipes.revision END,
+  spec=EXCLUDED.spec, updated_at=now();
+
 INSERT INTO enrollments (id, user_id, course_id, enrolled_by)
 VALUES ('fd0481e0-44c4-5c39-b8c8-aaf8ca8488bc', '00000000-0000-0000-0000-000000000014', '8af0a927-61bf-5a04-a2e9-e74f552564bf', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (user_id, course_id) DO NOTHING;
 
-DELETE FROM course_modules WHERE course_id = '8af0a927-61bf-5a04-a2e9-e74f552564bf' AND id NOT IN ('660b721f-3bea-54bc-b2f9-7e9107365ccf', '89a9c00f-9137-58f9-af1a-1a2e7364e812', '46604227-42de-5739-ade3-783db7693447', '0721aba0-a80b-55a8-80e4-56ee4429c1e2', 'f0afbafc-7b67-5c97-a2bb-e19b9c19bca7', '16254531-52f4-5fe0-b1bd-743626184b8d', '10220d66-172f-58ae-b876-f829c0a7260f', '1ff1d0ec-7999-50ed-981b-a5ddb014f554', '96a415c6-071c-523e-8fc0-fc624f9db203', 'd5571474-dee0-523d-8e8d-ec18d39875ea', '9df2ff32-3dab-50ab-b05f-636076e3a25e', 'ebbf18aa-4dc6-5a82-a825-66bdb47bc875', '16e7356a-6487-5f42-9ddf-b6bcee59c28e', '178a3b24-fc15-534e-a93a-909609f07a1d', 'c1289e9b-a81a-5c22-8ac8-85a15b3849ad', 'd361fad8-5183-5df6-9507-6e9cf5eaecc2', '8fa0d22a-ebbd-559a-b52c-c7286b4f4927', '6d493c90-6a47-579d-8ee4-041b20e04e87', 'ecfe452d-d7ac-5781-a44e-34fd8a62c665', '23b9f1d1-15f2-53f7-9f8b-049ac030323c', 'd46741c3-3276-5ccb-a9a4-ce47acc6ab1f', 'a6ca0747-5929-5d25-9aef-4a125bb1bed4', '735a6afc-cb17-5887-884c-d999886d79ed', 'dc648be3-e909-5f93-984c-ca1a144edf7e', 'aebc53b8-eba9-5cfa-b938-2864e04ab883', '31028379-3faa-5d91-93f5-97ae7fa8af99', '4053b2d0-9f6a-55ef-bf2e-14ab6e45ef5d', '8e19bd8c-f21d-555a-b0d3-88598b3185dc', '3b20905c-f13e-52f9-bf4f-b5db45df634d', '96911d8c-e8ed-548f-b3bc-f10f9f4b0ab8', '5ac0efb6-16e1-5d01-a142-a381c0a7e10d', '913e0966-7661-5e6d-80b2-d6cfd7e556c5', '8eb9f7c2-90d2-5ba9-998f-46a268def26b', '1d6973ab-711f-5053-96f7-a31386b782f7', 'bab1cceb-f2ea-5518-b789-de8c33541f2d', '87886ae8-7324-53d6-a83d-8e0c5cbbf329', '0339708c-c52d-5c88-9f1a-3c998f99afa5', '5b282640-e3f3-5709-8fe5-1bddc42f7c14', '5eba040b-3ebf-5599-abf0-8b7ab1cd2bed', '996c0dc8-fbc6-5b48-9857-94180ed1e198', '993606a2-8f4c-54bc-badc-009ca1160a88', 'acab63e0-30fd-5f5a-9d08-d14e2dc39e91', '968ea5f2-548a-58e8-9aff-18f3ba2a89e5', '6ec6cbc1-de48-570e-a00a-8030205d70d8', '8106dcc1-83f9-58ca-9196-834f9a50c349', '31a8c60c-b409-5cf2-a1dc-3f12cfef7e02', 'f0563bd4-61e0-5626-a282-0806735ba631', '3692d718-969b-5bf7-af51-922ea5d5be3d', 'a3488ba4-f261-5b6e-8820-361e4453d5f3', '05c56672-9259-532a-b121-4ebfa56bb8e2', '96bf42b2-cc53-51f8-b4eb-fb4b622fe9f6', '56f76ab1-4a77-5f99-b8a5-cfb5d1dc639d', 'ce4f240e-8057-5c91-9791-8ba3e28cec0a', '4552504e-4b77-56ba-95cc-84405942e2d6', '9e5e163a-751a-5888-8dab-f228bc7908ef', 'fe491a1e-658d-534e-a99e-47cb64187af1', '49a9fe3e-0cb1-54f1-887c-78938172112f', '2645e125-8b67-57ee-93a1-a55d5e5d4ba4', '17bef067-f75d-5d03-ae43-5ad6b2109c14', '843c1dbe-bd45-5049-9d88-1f622d9b2877', 'd8b60b31-11ba-5e32-b4b2-4a90e7921e4a', '1308a02d-abce-5c58-be4a-38d7a6105ff0', '0d53544c-dcb8-5c9a-9a9e-b60e097aa157');
-DELETE FROM course_sections WHERE course_id = '8af0a927-61bf-5a04-a2e9-e74f552564bf' AND id NOT IN ('db19aa3e-9ffb-5efc-a991-9344be87258c', '28d5d409-2fd5-586f-9971-8a6380813e83', '13dfba35-e5d7-565e-9324-7dda478ef6d8', '36b18bec-3fc7-5ea2-b7d0-b3b1015f663e', '24ca35ad-5e2a-58ac-8dbe-a56c49ac3d26', '14f3c3f5-c499-5877-a007-80c1d544ce15', '2331f636-e8f9-5020-9bb0-4dc991097e89', 'f6ccdc79-34fc-5ec3-a606-ef0c4b200d90', 'f22bb6dc-9cc9-56a5-881c-54d11c5fd8bf', '7ba71527-a3f1-5f33-8baa-08c884adf01e', 'd443dfcc-5cdc-5ad5-a262-ebc3bb1e5af4', 'a085bf16-522a-52c6-8c87-7fe214b3c60e', '04e3dbe5-5840-5ac9-a2e2-23f30ce162df', '06f976a5-6d4e-5961-bd6c-40e192be837f', 'a96af7a6-3458-50ec-865e-11c1523aee57', 'ceaa8b25-53fe-50e4-89ba-a617938c1d73', '2689f97b-9792-51bc-a6df-3d8739e41e3f', '7f3c3c6a-b9d5-5b47-9378-87f28a8bca94', '01054f35-310a-5551-99a0-cde874af2b87', 'ff923b9c-b062-5a66-bf4c-b3781174e8ae');
+DELETE FROM course_modules WHERE course_id = '8af0a927-61bf-5a04-a2e9-e74f552564bf' AND id NOT IN ('660b721f-3bea-54bc-b2f9-7e9107365ccf', '89a9c00f-9137-58f9-af1a-1a2e7364e812', '46604227-42de-5739-ade3-783db7693447', '0721aba0-a80b-55a8-80e4-56ee4429c1e2', 'f0afbafc-7b67-5c97-a2bb-e19b9c19bca7', '16254531-52f4-5fe0-b1bd-743626184b8d', '10220d66-172f-58ae-b876-f829c0a7260f', '1ff1d0ec-7999-50ed-981b-a5ddb014f554', '96a415c6-071c-523e-8fc0-fc624f9db203', 'd5571474-dee0-523d-8e8d-ec18d39875ea', '9df2ff32-3dab-50ab-b05f-636076e3a25e', 'ebbf18aa-4dc6-5a82-a825-66bdb47bc875', '16e7356a-6487-5f42-9ddf-b6bcee59c28e', '178a3b24-fc15-534e-a93a-909609f07a1d', 'c1289e9b-a81a-5c22-8ac8-85a15b3849ad', 'd361fad8-5183-5df6-9507-6e9cf5eaecc2', '8fa0d22a-ebbd-559a-b52c-c7286b4f4927', '6d493c90-6a47-579d-8ee4-041b20e04e87', 'ecfe452d-d7ac-5781-a44e-34fd8a62c665', '23b9f1d1-15f2-53f7-9f8b-049ac030323c', 'd46741c3-3276-5ccb-a9a4-ce47acc6ab1f', 'a6ca0747-5929-5d25-9aef-4a125bb1bed4', '735a6afc-cb17-5887-884c-d999886d79ed', 'dc648be3-e909-5f93-984c-ca1a144edf7e', 'aebc53b8-eba9-5cfa-b938-2864e04ab883', '31028379-3faa-5d91-93f5-97ae7fa8af99', '4053b2d0-9f6a-55ef-bf2e-14ab6e45ef5d', '8e19bd8c-f21d-555a-b0d3-88598b3185dc', '3b20905c-f13e-52f9-bf4f-b5db45df634d', '96911d8c-e8ed-548f-b3bc-f10f9f4b0ab8', '5ac0efb6-16e1-5d01-a142-a381c0a7e10d', '913e0966-7661-5e6d-80b2-d6cfd7e556c5', '8eb9f7c2-90d2-5ba9-998f-46a268def26b', '800220a8-7363-5f99-8424-bf66ef070c48', '1d6973ab-711f-5053-96f7-a31386b782f7', 'bab1cceb-f2ea-5518-b789-de8c33541f2d', '87886ae8-7324-53d6-a83d-8e0c5cbbf329', '0339708c-c52d-5c88-9f1a-3c998f99afa5', '5b282640-e3f3-5709-8fe5-1bddc42f7c14', '5eba040b-3ebf-5599-abf0-8b7ab1cd2bed', '996c0dc8-fbc6-5b48-9857-94180ed1e198', '993606a2-8f4c-54bc-badc-009ca1160a88', 'acab63e0-30fd-5f5a-9d08-d14e2dc39e91', '968ea5f2-548a-58e8-9aff-18f3ba2a89e5', '6ec6cbc1-de48-570e-a00a-8030205d70d8', '8106dcc1-83f9-58ca-9196-834f9a50c349', '31a8c60c-b409-5cf2-a1dc-3f12cfef7e02', 'f0563bd4-61e0-5626-a282-0806735ba631', '3692d718-969b-5bf7-af51-922ea5d5be3d', 'a3488ba4-f261-5b6e-8820-361e4453d5f3', '05c56672-9259-532a-b121-4ebfa56bb8e2', '96bf42b2-cc53-51f8-b4eb-fb4b622fe9f6', '56f76ab1-4a77-5f99-b8a5-cfb5d1dc639d', 'ce4f240e-8057-5c91-9791-8ba3e28cec0a', '4552504e-4b77-56ba-95cc-84405942e2d6', '9e5e163a-751a-5888-8dab-f228bc7908ef', 'fe491a1e-658d-534e-a99e-47cb64187af1', '49a9fe3e-0cb1-54f1-887c-78938172112f', '2645e125-8b67-57ee-93a1-a55d5e5d4ba4', '17bef067-f75d-5d03-ae43-5ad6b2109c14', '843c1dbe-bd45-5049-9d88-1f622d9b2877', 'd8b60b31-11ba-5e32-b4b2-4a90e7921e4a', '1308a02d-abce-5c58-be4a-38d7a6105ff0', '0d53544c-dcb8-5c9a-9a9e-b60e097aa157', '2c35c57b-0789-568c-8ca0-8b2bb6804b48', 'b8a029a0-54f9-5991-86f1-93c50b0d8c8a', '898d4ce2-b69b-5132-84d7-8f33d0bbe190', 'b5d83fbd-b24d-5df2-ad8b-c79163b18347');
+DELETE FROM course_sections WHERE course_id = '8af0a927-61bf-5a04-a2e9-e74f552564bf' AND id NOT IN ('db19aa3e-9ffb-5efc-a991-9344be87258c', '28d5d409-2fd5-586f-9971-8a6380813e83', '13dfba35-e5d7-565e-9324-7dda478ef6d8', '36b18bec-3fc7-5ea2-b7d0-b3b1015f663e', '24ca35ad-5e2a-58ac-8dbe-a56c49ac3d26', '14f3c3f5-c499-5877-a007-80c1d544ce15', '2331f636-e8f9-5020-9bb0-4dc991097e89', 'f6ccdc79-34fc-5ec3-a606-ef0c4b200d90', 'f22bb6dc-9cc9-56a5-881c-54d11c5fd8bf', '7ba71527-a3f1-5f33-8baa-08c884adf01e', 'd443dfcc-5cdc-5ad5-a262-ebc3bb1e5af4', 'a085bf16-522a-52c6-8c87-7fe214b3c60e', '04e3dbe5-5840-5ac9-a2e2-23f30ce162df', '06f976a5-6d4e-5961-bd6c-40e192be837f', 'a96af7a6-3458-50ec-865e-11c1523aee57', 'ceaa8b25-53fe-50e4-89ba-a617938c1d73', '2689f97b-9792-51bc-a6df-3d8739e41e3f', '7f3c3c6a-b9d5-5b47-9378-87f28a8bca94', '01054f35-310a-5551-99a0-cde874af2b87', 'ff923b9c-b062-5a66-bf4c-b3781174e8ae', '361f09e1-308c-5853-a954-96dca1a98e3a');
 

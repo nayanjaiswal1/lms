@@ -17,6 +17,8 @@ interface UseLabIdeReturn {
   hasError: boolean
   /** Opens the IDE in a new tab with a token minted at click time. */
   popOut: () => Promise<void>
+  /** Mints a token again after the first mint failed. */
+  retry: () => Promise<string | null>
 }
 
 // The IDE is served like a preview port, so the cookie renewal reuses the
@@ -46,6 +48,7 @@ export function useLabIde(sessionId: string, idePort: number): UseLabIdeReturn {
 
   return {
     popOut,
+    retry: store.mintNow,
     ideUrl: tokens.first ? buildLabPreviewUrl(tokens.first, idePort) : null,
     refreshUrl:
       tokens.latest && tokens.latest !== tokens.first
