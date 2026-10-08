@@ -78,17 +78,14 @@ type ContainerRuntime interface {
 	// caller's ctx bounds it.
 	ExecCapture(ctx context.Context, containerID, script string, maxBytes int) (stdout, stderr string, exitCode int, err error)
 
-	// ExecSetup runs a lab's setup_script — the one exec that is privileged
-	// (Docker: --user root) rather than running as the sandbox's ordinary
-	// student user. Kept as its own method rather than a bool on Exec so that
-	// "which call sites can run as root" stays answerable by grep: exactly one
-	// caller, Service.prepareLabEnvironment, with an instructor-authored
-	// script. Everything student-reachable goes through Exec/ExecStdin and can
-	// never escalate.
+	// ExecSetup runs a lab's setup_script, the one exec that carries an
+	// instructor-authored script. Kept as its own method rather than a bool on
+	// Exec so "which call sites run setup" stays answerable by grep: exactly
+	// one caller, Service.prepareLabEnvironment.
 	//
-	// The Kubernetes runtime cannot grant this — a Pod's securityContext is
-	// fixed at creation — so there it runs as the image's default user. Lab
-	// images are built so setup does not require root (world-writable workdir,
+	// Both runtimes run it as the image's default user (Docker: no --user
+	// override; Kubernetes cannot override the Pod user at all). Lab images
+	// are built so setup does not require root (world-writable workdir,
 	// traversable home); see lab-images/*/entrypoint.sh.
 	ExecSetup(ctx context.Context, containerID, script string, timeoutSec int) (stdout, stderr string, exitCode int, err error)
 

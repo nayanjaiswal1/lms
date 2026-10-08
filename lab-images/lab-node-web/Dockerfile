@@ -20,7 +20,7 @@ RUN curl -fsSL -o /usr/local/bin/ttyd \
       "https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.x86_64" \
     && chmod +x /usr/local/bin/ttyd
 
-RUN useradd --create-home --shell /bin/bash labuser \
+RUN useradd --uid 1001 --create-home --shell /bin/bash labuser \
     && mkdir -p /var/log/mindforge-lab \
     && chown -R labuser:labuser /home/labuser /var/log/mindforge-lab \
     && chmod 777 /var/log/mindforge-lab

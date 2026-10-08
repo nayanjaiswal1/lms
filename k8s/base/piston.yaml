@@ -1,5 +1,5 @@
 # Privileged — sandboxes untrusted user code, matches docker-compose.prod.yml's
-# `privileged: true`. Requires the mindforge-labs namespace's permissive Pod
+# `privileged: true`. Requires the mindforge-piston namespace's permissive Pod
 # Security Admission label (namespace.yaml). Some managed clusters (GKE
 # Autopilot, hardened EKS/AKS node groups) forbid privileged Pods outright
 # regardless of namespace labels — if this Deployment can't schedule, point
@@ -10,7 +10,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: piston-data
-  namespace: mindforge-labs
+  namespace: mindforge-piston
 spec:
   accessModes: ["ReadWriteOnce"]
   resources:
@@ -21,7 +21,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: piston
-  namespace: mindforge-labs
+  namespace: mindforge-piston
 spec:
   selector:
     app: piston
@@ -33,7 +33,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: piston
-  namespace: mindforge-labs
+  namespace: mindforge-piston
 spec:
   replicas: 1
   strategy:
@@ -48,7 +48,7 @@ spec:
     spec:
       containers:
         - name: piston
-          image: ghcr.io/engineer-man/piston
+          image: ghcr.io/engineer-man/piston@sha256:2f66b7456189c4d713aa986d98eccd0b6ee16d26c7ec5f21b30e942756fd127a
           imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true

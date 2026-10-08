@@ -1,11 +1,18 @@
 package main
 
 import (
-	"github.com/mindforge/backend/internal/testdomain"
+	"context"
+	"fmt"
 	"net/http/httptest"
+	"os"
 	"testing"
+	"time"
 
+	"github.com/mindforge/backend/internal/ratelimit"
+	"github.com/mindforge/backend/internal/testdomain"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOriginAllowed(t *testing.T) {
@@ -29,15 +36,49 @@ func TestOriginAllowed(t *testing.T) {
 	assert.False(t, originAllowed(r, nil), "empty allowlist fails closed")
 }
 
+// Needs a live Redis (the cap is global); skipped unless LABPROXY_TEST_REDIS_URL is set.
 func TestConnLimiter(t *testing.T) {
-	var l connLimiter
-	for i := 0; i < maxConnsPerUser; i++ {
-		assert.True(t, l.acquire("u"))
+	url := os.Getenv("LABPROXY_TEST_REDIS_URL")
+	if url == "" {
+		t.Skip("LABPROXY_TEST_REDIS_URL not set")
 	}
-	assert.False(t, l.acquire("u"))
-	assert.True(t, l.acquire("v"))
-	l.release("u")
-	assert.True(t, l.acquire("u"))
+	opts, err := redis.ParseURL(url)
+	require.NoError(t, err)
+	rdb := redis.NewClient(opts)
+	defer rdb.Close()
+	// Two limiters model two replicas sharing one cap.
+	a, b := newConnLimiter(rdb), newConnLimiter(rdb)
+	user := fmt.Sprintf("test-%d", time.Now().UnixNano())
+	ctx := context.Background()
+
+	var leases []*ratelimit.Lease
+	for i := 0; i < maxConnsPerUser; i++ {
+		l := a
+		if i%2 == 1 {
+			l = b
+		}
+		lease, err := l.acquire(ctx, user)
+		require.NoError(t, err)
+		require.NotNil(t, lease)
+		leases = append(leases, lease)
+	}
+	over, err := b.acquire(ctx, user)
+	require.NoError(t, err)
+	assert.Nil(t, over, "cap is global across replicas")
+
+	other, err := a.acquire(ctx, user+"-other")
+	require.NoError(t, err)
+	require.NotNil(t, other)
+	other.Release()
+
+	leases[0].Release()
+	again, err := b.acquire(ctx, user)
+	require.NoError(t, err)
+	require.NotNil(t, again)
+	again.Release()
+	for _, l := range leases[1:] {
+		l.Release()
+	}
 }
 
 func TestWSTokenFromProtocols(t *testing.T) {

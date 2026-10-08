@@ -106,8 +106,8 @@ const (
 	// where it's an emptyDir sharing the node's disk — see
 	// KubernetesContainerService.startPod. Unbounded, one nested-docker
 	// session's image pulls/builds could fill the node and evict every other
-	// pod on it, including other students' sessions. Ignored by the Docker
-	// runtime, which has no equivalent per-container knob wired up yet.
+	// pod on it, including other students' sessions. The Docker runtime
+	// enforces the same number via --storage-opt (ImageProfile.DiskGB).
 	NestedContainerDiskGB = 10
 	// NestedLabNetwork isolates nested-Docker (elevated, SYS_ADMIN-holding)
 	// containers onto their own bridge, separate from the shared
@@ -127,6 +127,9 @@ const (
 	// ValidationContainerNamePrefix names clean-room grader / build-verify
 	// sandboxes; LabCleanupHandler already sweeps this prefix.
 	ValidationContainerNamePrefix = "mindforge-validate-"
+	// ProbeContainerNamePrefix names the throwaway container the lab agent
+	// creates once at startup to verify --storage-opt support.
+	ProbeContainerNamePrefix = "mindforge-probe-"
 	// SetupScriptTimeoutSeconds bounds a lab's setup_script. It runs at CLAIM
 	// time now (Service.prepareLabEnvironment), so it is on the student's
 	// critical path — a lab whose setup genuinely needs minutes is a lab
@@ -136,11 +139,8 @@ const (
 	// (docs/debug-labs.md §2: 2 CPU / 2048 MB / 5 GB, not elevated).
 	DebugIDEContainerCPU      = "2.0"
 	DebugIDEContainerMemoryMB = 2048
-	// DebugIDEContainerDiskGB documents the profile's target disk allowance —
-	// not yet enforced by either runtime (Docker has no per-container disk
-	// quota wired up at all today; see NestedContainerDiskGB's doc comment
-	// for the same pre-existing gap on the Kubernetes side), kept here so
-	// this number lives in one place for whenever that lands.
+	// DebugIDEContainerDiskGB is the profile's disk allowance, enforced on
+	// Docker via --storage-opt when LABS_STORAGE_QUOTA_ENABLED is on.
 	DebugIDEContainerDiskGB = 5
 	// DebugGradeTimeoutSeconds bounds one grade.sh invocation
 	// (docs/debug-labs.md §4: symptom/regression/student-test restart the

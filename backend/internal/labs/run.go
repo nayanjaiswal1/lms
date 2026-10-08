@@ -23,6 +23,11 @@ import (
 const (
 	// snippetRateLimitSeconds is the per-user cooldown between snippet runs.
 	snippetRateLimitSeconds = 2
+	// DefaultSnippetDailyLimit is the per-user daily snippet-run quota when
+	// LABS_SNIPPET_DAILY_LIMIT is unset.
+	DefaultSnippetDailyLimit = 200
+	// snippetQuotaWindow is the rolling window the daily quota is counted over.
+	snippetQuotaWindow = 24 * time.Hour
 	// maxSnippetCodeBytes bounds the request body — lesson snippets are small.
 	maxSnippetCodeBytes = 64 * 1024
 )
@@ -45,6 +50,12 @@ func (s *Service) RunSnippet(ctx context.Context, userID, language, code string)
 	rateLimitKey := fmt.Sprintf("lab:snippet:rate:%s", userID)
 	if err := s.acquireCooldown(ctx, rateLimitKey, snippetRateLimitSeconds*time.Second, "labs.Service.RunSnippet"); err != nil {
 		return nil, fmt.Errorf("labs.RunSnippet: %w", err)
+	}
+
+	// Daily quota (sliding 24h, Redis-backed via the shared limiter). One
+	// limit for every plan: entitlements has no per-plan quota hook to reuse.
+	if ok, _ := s.snippetLimiter.Allow(ctx, "lab:snippet:daily:"+userID, s.snippetDailyLimit, snippetQuotaWindow); !ok {
+		return nil, ErrSnippetQuotaExceeded
 	}
 
 	execCtx, cancel := context.WithTimeout(ctx, 30*time.Second)

@@ -3,30 +3,6 @@ version: "3.9"
 networks:
   mindforge_prod:
     driver: bridge
-  # Joined by lab sandbox containers spawned dynamically via `docker run` in
-  # internal/labs/container.go, and by labproxy, which dials them directly by
-  # container-ID hostname for the in-browser terminal WebSocket relay.
-  # Create once, before first deploy: docker network create mindforge-labs
-  mindforge-labs:
-    name: mindforge-labs
-    external: true
-  # Separate bridge for nested-Docker (Docker-in-Docker) lab containers only
-  # (see docs/labs.md "Nested Docker labs") — kept off the shared
-  # mindforge-labs bridge so an elevated (SYS_ADMIN-holding) container is
-  # never L2-adjacent to every other student's unprivileged one, and so a
-  # nested dockerd's own docker0/iptables rules can't collide with the
-  # platform bridge. Only created/used when LABS_IMAGE_PROFILES maps an
-  # image to the "nested-docker" profile on a deploy — inert otherwise, and
-  # per docs/labs.md must only be enabled on a lab host that does NOT also
-  # run this compose file's other services.
-  # Create once, before first deploy: docker network create mindforge-labs-dind
-  mindforge-labs-dind:
-    name: mindforge-labs-dind
-    external: true
-
-  # Backend <-> docker-socket-proxy only; nothing else can reach the proxy.
-  mindforge_dockerapi:
-    internal: true
   # Backend <-> Piston only, so a Piston escape/compromise has no L3 path to
   # Postgres, Redis or MinIO.
   mindforge_piston:
@@ -115,7 +91,7 @@ services:
         max-file: "3"
 
   piston:
-    image: ghcr.io/engineer-man/piston
+    image: ghcr.io/engineer-man/piston@sha256:2f66b7456189c4d713aa986d98eccd0b6ee16d26c7ec5f21b30e942756fd127a
     container_name: mindforge_piston_prod
     restart: always
     # Piston's isolate sandbox needs cgroup/namespace/mount setup that only
@@ -142,34 +118,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # The only container that touches /var/run/docker.sock. The backend talks to
-  # it over the internal mindforge_dockerapi network and is limited to the
-  # API groups internal/labs needs: containers (run/rm/pause/inspect/ps),
-  # exec, networks (per-session lab networks), images (pull on demand).
-  # Everything else (volumes, swarm, secrets, build, info, ...) is 403.
-  docker-proxy:
-    image: tecnativa/docker-socket-proxy:0.3.0
-    container_name: mindforge_docker_proxy_prod
-    restart: always
-    environment:
-      CONTAINERS: "1"
-      EXEC: "1"
-      NETWORKS: "1"
-      IMAGES: "1"
-      POST: "1"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - mindforge_dockerapi
-    read_only: true
-    tmpfs:
-      - /run
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   backend:
     build:
       context: ./backend
@@ -177,23 +125,24 @@ services:
     container_name: mindforge_backend_prod
     restart: always
     env_file: .env.prod
-    # The Go server shells out to `docker` to spawn/exec/stop lab sandbox
-    # containers (internal/labs/container.go). It reaches the daemon only
-    # through docker-proxy; the host socket is NOT mounted here, and the
-    # image runs as a non-root user.
+    # Lab sandboxes run on a SEPARATE lab host (docker-compose.labhost.yml).
+    # The backend never touches a Docker socket: it calls the lab agent there
+    # over mTLS (LABS_AGENT_URL, e.g. https://10.0.0.2:8443). Client cert, key
+    # and the CA that signed the agent's server cert live in ./labs-agent-certs.
     environment:
-      DOCKER_HOST: tcp://docker-proxy:2375
-      LABS_PROXY_CONTAINER: mindforge_labproxy_prod
+      LABS_AGENT_URL: ${LABS_AGENT_URL}
+      LABS_AGENT_CA_FILE: /run/labs-agent/ca.pem
+      LABS_AGENT_CERT_FILE: /run/labs-agent/client.pem
+      LABS_AGENT_KEY_FILE: /run/labs-agent/client.key
+    volumes:
+      - ./labs-agent-certs:/run/labs-agent:ro
     # No published port — only Caddy (proxying /api/*) reaches this, over
     # mindforge_prod. Publishing 8080 to the host would let anyone bypass
     # Caddy's TLS termination and hit the API over plain HTTP.
     networks:
       - mindforge_prod
-      - mindforge_dockerapi
       - mindforge_piston
     depends_on:
-      docker-proxy:
-        condition: service_started
       postgres:
         condition: service_healthy
       redis:
@@ -265,43 +214,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  labproxy:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.labproxy
-    container_name: mindforge_labproxy_prod
-    restart: always
-    environment:
-      LABPROXY_PORT: "8081"
-      LABPROXY_DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      LABPROXY_REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
-      LABPROXY_JWT_SECRET: ${JWT_SECRET}
-      LABPROXY_JWT_ISSUER: mindforge-labproxy
-      LABPROXY_PREVIEW_DOMAIN: ${LABPROXY_PREVIEW_DOMAIN}
-      LABPROXY_ALLOWED_ORIGINS: ${NEXT_PUBLIC_APP_URL}
-    networks:
-      - mindforge_prod
-      - mindforge-labs
-      - mindforge-labs-dind
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/health || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   frontend:
     build:
       context: ./frontend
@@ -360,8 +272,6 @@ services:
       backend:
         condition: service_healthy
       frontend:
-        condition: service_healthy
-      labproxy:
         condition: service_healthy
       minio:
         condition: service_healthy

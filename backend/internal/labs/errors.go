@@ -88,6 +88,10 @@ var (
 	// of the previous attempt on the same task.
 	ErrRateLimited = errors.New("labs: verification rate limit exceeded")
 
+	// ErrSnippetQuotaExceeded is returned when a user has used their daily
+	// allowance of standalone snippet runs (POST /api/labs/run).
+	ErrSnippetQuotaExceeded = errors.New("labs: daily snippet run quota exceeded")
+
 	// ErrExecutorUnavailable is returned when the Piston code runner is not
 	// configured (PISTON_URL not set in env). Verify degrades gracefully — the
 	// endpoint returns 503 so the frontend can show a clear message.

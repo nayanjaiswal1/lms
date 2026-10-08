@@ -12,6 +12,7 @@ const (
 	CodeHintNotSupported           = "hint_not_supported"
 	CodeMaxHintsReached            = "max_hints_reached"
 	CodeWriteupReviewLimit         = "writeup_review_limit"
+	CodeSnippetDailyLimit          = "snippet_daily_limit"
 	CodeAIUnavailable              = "ai_unavailable"
 	CodeNotFound = "lab_not_found"
 	CodeForbidden = "lab_forbidden"
