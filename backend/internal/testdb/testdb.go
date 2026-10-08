@@ -1,25 +1,25 @@
 // Package testdb provides a shared, disposable Postgres testcontainer for
-// packages that need DB-backed tests. One postgres:16-alpine container is
-// started per test binary (guarded by sync.Once), migrated once into a
-// template database, and then each call to New clones that template into a
-// brand-new database for the calling test — so tests never see each other's
-// data — and registers a t.Cleanup to drop it again.
+// packages that need DB-backed tests. One named postgres:16-alpine container
+// ("mindforge-testdb") is shared by every test binary and left running between
+// runs. Migrations are applied once per migration set into a hash-named
+// template database; each call to New clones that template into a brand-new
+// database for the calling test — so tests never see each other's data — and
+// registers a t.Cleanup to drop it again.
 //
 // Docker (or a live Postgres reachable via TESTDB_URL) is required. There is
-// no silent skip path: if neither is available, New/RunMain fail the test
+// no silent skip path: if neither is available, New fails the test
 // binary hard rather than quietly no-op.
 package testdb
 
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/url"
 	"os"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -34,9 +34,18 @@ import (
 // docker-compose.prod.yml, and k8s/base/postgres.yaml.
 const postgresImage = "postgres:16-alpine"
 
-// templateDBName is the database migrations are applied to once; every
-// per-test database is a CREATE DATABASE ... TEMPLATE clone of it.
-const templateDBName = "testdb_template"
+// containerName is the shared, reused container all test binaries attach to.
+const containerName = "mindforge-testdb"
+
+// windowsDockerHost is Docker Desktop's default Windows engine pipe.
+const windowsDockerHost = "npipe:////./pipe/docker_engine"
+
+// buildDBName is where migrations run before being renamed to templateName;
+// templateLockKey serializes template creation across test binaries.
+const (
+	buildDBName     = "testdb_template_build"
+	templateLockKey = 7412903551
+)
 
 // testdbURLEnv is the escape hatch: point at an already-running Postgres
 // instead of starting a container. Migrations still run against it the same
@@ -44,16 +53,21 @@ const templateDBName = "testdb_template"
 const testdbURLEnv = "TESTDB_URL"
 
 func init() {
-	// RunMain always deterministically terminates the shared container after
-	// m.Run(), so we don't need (and don't want) testcontainers-go's Ryuk
-	// reaper: it's a single container shared across every package's test
-	// binary process on the host, and `go test ./...` starts several of
-	// those binaries in parallel — each racing to create/attach the same
-	// reaper, which is flaky under Docker Desktop's Windows named-pipe
-	// transport. Must be set before the first testcontainers call, which is
+	// The shared container is intentionally long-lived, so Ryuk (which would
+	// reap it when the first binary exits) must stay disabled; it is also
+	// flaky when parallel binaries race to attach under Docker Desktop's
+	// Windows named-pipe transport. Must be set before the first testcontainers call, which is
 	// why it lives in init() rather than inside setup().
 	if _, set := os.LookupEnv("TESTCONTAINERS_RYUK_DISABLED"); !set {
 		_ = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
+	}
+	// With ~dozens of binaries starting at once, testcontainers' Docker host
+	// discovery (config/context lookup) intermittently fails on Windows and
+	// caches the failure for the whole process, surfacing as "rootless Docker
+	// is not supported on Windows". Pinning the default Docker Desktop pipe
+	// skips discovery entirely.
+	if _, set := os.LookupEnv("DOCKER_HOST"); !set && runtime.GOOS == "windows" {
+		_ = os.Setenv("DOCKER_HOST", windowsDockerHost)
 	}
 }
 
@@ -64,7 +78,10 @@ var (
 	// maintenanceDSN addresses the "postgres" maintenance database — the only
 	// database CREATE DATABASE / DROP DATABASE can run against.
 	maintenanceDSN string
-	container      *tcpostgres.PostgresContainer
+
+	// templateName is the migrated database every per-test database clones,
+	// keyed on a hash of the embedded migration set.
+	templateName = "testdb_template_" + migrate.MigrationsHash()[:12]
 
 	dbSeq atomic.Int64
 )
@@ -82,7 +99,8 @@ func New(t *testing.T) *pgxpool.Pool {
 		t.Fatalf("testdb: setup: %v", setupErr)
 	}
 
-	dbName := fmt.Sprintf("test_%d", dbSeq.Add(1))
+	// The pid keeps names unique across test binaries sharing the container.
+	dbName := fmt.Sprintf("test_%d_%d", os.Getpid(), dbSeq.Add(1))
 
 	maintConn, err := pgx.Connect(ctx, maintenanceDSN)
 	if err != nil {
@@ -91,7 +109,7 @@ func New(t *testing.T) *pgxpool.Pool {
 	defer maintConn.Close(ctx)
 
 	createSQL := fmt.Sprintf(`CREATE DATABASE %s TEMPLATE %s`,
-		pgx.Identifier{dbName}.Sanitize(), pgx.Identifier{templateDBName}.Sanitize())
+		pgx.Identifier{dbName}.Sanitize(), pgx.Identifier{templateName}.Sanitize())
 	if _, err := maintConn.Exec(ctx, createSQL); err != nil {
 		t.Fatalf("testdb: create database %s: %v", dbName, err)
 	}
@@ -126,32 +144,8 @@ func New(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-// RunMain runs m, deterministically tears down the shared container
-// afterwards (rather than relying on the Ryuk reaper), and then exits with
-// m's result code. Wire it up as the package's TestMain:
-//
-//	func TestMain(m *testing.M) { testdb.RunMain(m) }
-func RunMain(m *testing.M) {
-	code := m.Run()
-	teardown()
-	os.Exit(code)
-}
-
-func teardown() {
-	if container == nil {
-		return
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	if err := container.Terminate(ctx); err != nil {
-		log.Printf("testdb: terminate container: %v", err)
-	}
-}
-
-// setup starts (or attaches to, via TESTDB_URL) Postgres, then runs the
-// repo's migration runner against a fresh template database and closes that
-// connection completely — CREATE DATABASE ... TEMPLATE fails if any session
-// is still connected to the template it's cloning.
+// setup attaches to (or starts) the shared Postgres, then ensures a fully
+// migrated template database for the current migration set exists.
 func setup(ctx context.Context) error {
 	if testdbURL := os.Getenv(testdbURLEnv); testdbURL != "" {
 		if err := checkTestDBURL(testdbURL); err != nil {
@@ -159,21 +153,24 @@ func setup(ctx context.Context) error {
 		}
 		maintenanceDSN = testdbURL
 	} else {
+		// One named container shared by every test binary: testcontainers
+		// reuses it when it exists and resolves create-name races between
+		// parallel binaries. It is never terminated here; it is tmpfs-backed
+		// and disposable (`docker rm -f mindforge-testdb` resets it).
 		c, err := tcpostgres.Run(ctx, postgresImage,
+			testcontainers.WithReuseByName(containerName),
 			tcpostgres.BasicWaitStrategies(),
 			testcontainers.WithTmpfs(map[string]string{"/var/lib/postgresql/data": ""}),
 			testcontainers.WithCmd("postgres",
 				"-c", "fsync=off",
 				"-c", "full_page_writes=off",
 				"-c", "synchronous_commit=off",
-				"-c", "max_connections=200",
+				"-c", "max_connections=500",
 			),
 		)
 		if err != nil {
 			return fmt.Errorf("start postgres container: %w", err)
 		}
-		container = c
-
 		dsn, err := c.ConnectionString(ctx, "sslmode=disable")
 		if err != nil {
 			return fmt.Errorf("get container connection string: %w", err)
@@ -181,39 +178,63 @@ func setup(ctx context.Context) error {
 		maintenanceDSN = dsn
 	}
 
+	return ensureTemplate(ctx)
+}
+
+// ensureTemplate creates templateName (keyed on the migration set) if it is
+// missing. It serializes concurrent test binaries with an advisory lock, and
+// migrates into a build database that is renamed into place only after
+// success, so a crashed run can never leave a half-migrated template behind.
+func ensureTemplate(ctx context.Context) error {
 	maintConn, err := pgx.Connect(ctx, maintenanceDSN)
 	if err != nil {
 		return fmt.Errorf("connect to maintenance db: %w", err)
 	}
 	defer maintConn.Close(ctx)
 
-	dropSQL := fmt.Sprintf(`DROP DATABASE IF EXISTS %s WITH (FORCE)`, pgx.Identifier{templateDBName}.Sanitize())
-	if _, err := maintConn.Exec(ctx, dropSQL); err != nil {
-		return fmt.Errorf("drop stale template database: %w", err)
+	if _, err := maintConn.Exec(ctx, `SELECT pg_advisory_lock($1)`, templateLockKey); err != nil {
+		return fmt.Errorf("acquire template lock: %w", err)
 	}
-	createSQL := fmt.Sprintf(`CREATE DATABASE %s`, pgx.Identifier{templateDBName}.Sanitize())
-	if _, err := maintConn.Exec(ctx, createSQL); err != nil {
-		return fmt.Errorf("create template database: %w", err)
+	// Closing maintConn also releases the lock if the unlock itself fails.
+	defer func() { _, _ = maintConn.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, templateLockKey) }()
+
+	var exists bool
+	if err := maintConn.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1)`, templateName,
+	).Scan(&exists); err != nil {
+		return fmt.Errorf("check template database: %w", err)
+	}
+	if exists {
+		return nil
 	}
 
-	templateDSN, err := withDatabase(maintenanceDSN, templateDBName)
+	build := pgx.Identifier{buildDBName}.Sanitize()
+	if _, err := maintConn.Exec(ctx, `DROP DATABASE IF EXISTS `+build+` WITH (FORCE)`); err != nil {
+		return fmt.Errorf("drop stale build database: %w", err)
+	}
+	if _, err := maintConn.Exec(ctx, `CREATE DATABASE `+build); err != nil {
+		return fmt.Errorf("create build database: %w", err)
+	}
+
+	buildDSN, err := withDatabase(maintenanceDSN, buildDBName)
 	if err != nil {
 		return fmt.Errorf("build template dsn: %w", err)
 	}
-
-	templatePool, err := dbconn.Connect(ctx, templateDSN)
+	pool, err := dbconn.Connect(ctx, buildDSN)
 	if err != nil {
-		return fmt.Errorf("connect to template database: %w", err)
+		return fmt.Errorf("connect to build database: %w", err)
 	}
-	if err := migrate.RunMigrations(ctx, templatePool); err != nil {
-		templatePool.Close()
+	err = migrate.RunMigrations(ctx, pool)
+	// Renaming and cloning require zero sessions connected to the database,
+	// so the pool must be fully closed, not merely idle.
+	pool.Close()
+	if err != nil {
 		return fmt.Errorf("run migrations: %w", err)
 	}
-	// CREATE DATABASE ... TEMPLATE requires zero sessions connected to the
-	// template, so the pool must be fully closed — not merely idle — before
-	// New can clone it.
-	templatePool.Close()
 
+	if _, err := maintConn.Exec(ctx, `ALTER DATABASE `+build+` RENAME TO `+pgx.Identifier{templateName}.Sanitize()); err != nil {
+		return fmt.Errorf("publish template database: %w", err)
+	}
 	return nil
 }
 

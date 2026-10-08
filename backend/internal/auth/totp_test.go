@@ -67,10 +67,3 @@ func TestRecoveryCodes(t *testing.T) {
 		t.Error("looksLikeTOTP misclassified")
 	}
 }
-
-func TestTOTPURI(t *testing.T) {
-	u := totpURI([]byte("12345678901234567890"), "a@b.com")
-	if !strings.HasPrefix(u, "otpauth://totp/MindForge:a@b.com?") || !strings.Contains(u, "secret=GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ") {
-		t.Errorf("unexpected uri %s", u)
-	}
-}

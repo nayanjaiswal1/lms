@@ -14,8 +14,6 @@ import (
 	"github.com/mindforge/backend/internal/testdb"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 // seedUser inserts the minimum users row diary_entries.user_id's FK requires.
 func seedUser(t *testing.T, ctx context.Context, pool *pgxpool.Pool, email string) string {
 	t.Helper()

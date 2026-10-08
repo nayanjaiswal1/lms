@@ -59,21 +59,13 @@ func TestBuildRunArgs_NonNestedImageUnchanged(t *testing.T) {
 	), args)
 }
 
-func TestBuildRunArgs_FeatureOffByDefault(t *testing.T) {
-	svc := NewDockerContainerService(nil)
-	args := svc.buildRunArgs("mindforge-lab-abc-0", "mindforge/lab-docker:27")
-	assert.NotContains(t, args, "SYS_ADMIN")
-	assert.Contains(t, args, "no-new-privileges")
-	assert.Contains(t, args, "mindforge-labs")
-}
-
+// The exact-args tests above and below already pin the absence of --privileged
+// for both real mechanisms; this covers the empty-mechanism profile they don't.
 func TestBuildRunArgs_NeverPrivileged(t *testing.T) {
-	for _, mech := range []string{"rootless-dind", "sysbox-runc", ""} {
-		svc := NewDockerContainerService(map[string]ImageProfile{
-			"img": nestedDockerTestProfile(mech),
-		})
-		assert.NotContains(t, svc.buildRunArgs("n", "img"), "--privileged", mech)
-	}
+	svc := NewDockerContainerService(map[string]ImageProfile{
+		"img": nestedDockerTestProfile(""),
+	})
+	assert.NotContains(t, svc.buildRunArgs("n", "img"), "--privileged")
 }
 
 func TestBuildRunArgs_NestedImageRootlessDind(t *testing.T) {

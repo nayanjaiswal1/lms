@@ -210,24 +210,27 @@ func TestParseFile_UnknownKind(t *testing.T) {
 	assert.Contains(t, err.Error(), "unknown kind")
 }
 
-func TestID_Deterministic(t *testing.T) {
-	a := canonical.ID("k8s/workloads/deployment/lab", "lab")
-	b := canonical.ID("k8s/workloads/deployment/lab", "lab")
-	assert.Equal(t, a, b)
-}
-
-func TestID_DifferentSuffixesDiffer(t *testing.T) {
-	labID := canonical.ID("k8s/workloads/deployment/lab", "lab")
-	taskID := canonical.ID("k8s/workloads/deployment/lab", "task:t1")
-	versionID := canonical.ID("k8s/workloads/deployment/lab", "version")
-
-	assert.NotEqual(t, labID, taskID)
-	assert.NotEqual(t, labID, versionID)
-	assert.NotEqual(t, taskID, versionID)
-}
-
-func TestID_DifferentIDKeysDiffer(t *testing.T) {
-	a := canonical.ID("k8s/workloads/deployment/lab", "lab")
-	b := canonical.ID("k8s/workloads/daemonset/lab", "lab")
-	assert.NotEqual(t, a, b)
+func TestID(t *testing.T) {
+	const key = "k8s/workloads/deployment/lab"
+	labID := canonical.ID(key, "lab")
+	tests := []struct {
+		name  string
+		other string
+		equal bool
+	}{
+		{"deterministic", canonical.ID(key, "lab"), true},
+		{"task suffix differs", canonical.ID(key, "task:t1"), false},
+		{"version suffix differs", canonical.ID(key, "version"), false},
+		{"different id key differs", canonical.ID("k8s/workloads/daemonset/lab", "lab"), false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.equal {
+				assert.Equal(t, labID, tc.other)
+			} else {
+				assert.NotEqual(t, labID, tc.other)
+			}
+		})
+	}
+	assert.NotEqual(t, canonical.ID(key, "task:t1"), canonical.ID(key, "version"))
 }

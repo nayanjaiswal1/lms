@@ -108,7 +108,7 @@ func (h *Handler) HandleParseResume(w http.ResponseWriter, r *http.Request) {
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxResumeBytes+1)
 	if err := r.ParseMultipartForm(maxResumeBytes); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Failed to parse multipart form.")
+		httputil.WriteMultipartParseError(w, err, "Resume must be under 5 MB.")
 		return
 	}
 	file, _, err := r.FormFile("resume")

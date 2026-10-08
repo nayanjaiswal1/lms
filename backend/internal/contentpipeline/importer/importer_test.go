@@ -59,14 +59,9 @@ func TestImport_RealSnapshot(t *testing.T) {
 			require.NoErrorf(t, err, "parsing lab stub %q for section %q", labMeta.Dir, sec.Slug)
 			require.Equal(t, canonical.KindLab, labDoc.Kind)
 			require.NotNil(t, labDoc.Lab)
-			// Lab stubs are an intentional WIP hand-off: Tasks is empty, so
-			// full Validate() is expected to fail on the "at least one task
-			// required" rule. Assert that specific, expected shape instead
-			// of a clean pass.
-			require.Empty(t, labDoc.Lab.Tasks, "lab stub %q should have empty tasks awaiting authoring", labMeta.Dir)
+			// Task authoring state is upstream-content state, not import behaviour,
+			// so only the import guarantee is asserted: starter files come through.
 			require.NotEmpty(t, labDoc.Lab.Files, "lab stub %q should carry starter files from the upstream labs/ dir", labMeta.Dir)
-			err = labDoc.Validate()
-			require.Error(t, err, "lab stub %q is expected to fail Validate() until tasks are authored", labMeta.Dir)
 			labCount++
 		}
 	}
@@ -74,4 +69,18 @@ func TestImport_RealSnapshot(t *testing.T) {
 	require.Equal(t, len(Sections), lessonCount)
 	require.Positive(t, labCount)
 	t.Logf("imported %d lesson(s) and %d lab stub(s) across %d section(s)", lessonCount, labCount, len(Sections))
+}
+
+func TestWriteCanonicalFile_RefusesToOverwrite(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "course.md")
+	const authored = "hand-authored content\n"
+	require.NoError(t, os.WriteFile(path, []byte(authored), 0o644))
+
+	err := writeCanonicalFile(path, []byte("title: x\n"), "body")
+	require.Error(t, err)
+	require.ErrorIs(t, err, os.ErrExist)
+
+	got, readErr := os.ReadFile(path)
+	require.NoError(t, readErr)
+	require.Equal(t, authored, string(got))
 }

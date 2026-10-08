@@ -8,8 +8,6 @@ import (
 	"github.com/mindforge/backend/internal/testdb"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 // TestSheetVisibility pins TEN-17: a non-system sheet is subscribable and
 // previewable only by users sharing an active org with its creator.
 func TestSheetVisibility(t *testing.T) {

@@ -78,35 +78,32 @@ func TestStripeParseWebhook_UnpaidSessionIsIgnored(t *testing.T) {
 	}
 }
 
-func TestStripeParseWebhook_TamperedBodyFailsSignature(t *testing.T) {
-	secret := "whsec_test_secret"
+func TestStripeParseWebhook_BadSignatureRejected(t *testing.T) {
 	body := []byte(`{"id":"evt_test789","type":"checkout.session.completed","data":{"object":{"id":"cs_test789","payment_status":"paid"}}}`)
-	signed := webhook.GenerateTestSignedPayload(&webhook.UnsignedPayload{Payload: body, Secret: secret, Timestamp: time.Now()})
-
-	tampered := append([]byte{}, signed.Payload...)
-	// Flip one byte inside the JSON body — the signature was computed over
-	// the original bytes, so this must fail verification.
-	tampered[len(tampered)-3] = 'X'
-
-	p := NewStripeProvider("sk_test_dummy", secret)
-	h := http.Header{}
-	h.Set("Stripe-Signature", signed.Header)
-
-	if _, err := p.ParseWebhook(tampered, h); !errors.Is(err, ErrInvalidSignature) {
-		t.Fatalf("expected ErrInvalidSignature, got %v", err)
+	tests := []struct {
+		name          string
+		signSecret    string
+		providerKey   string
+		tamperPayload bool
+	}{
+		// The signature covers the original bytes, so flipping one must fail.
+		{"tampered body", "whsec_test_secret", "whsec_test_secret", true},
+		{"wrong secret", "whsec_correct", "whsec_wrong", false},
 	}
-}
-
-func TestStripeParseWebhook_WrongSecretFailsSignature(t *testing.T) {
-	body := []byte(`{"id":"evt_test999","type":"checkout.session.completed","data":{"object":{"id":"cs_test999","payment_status":"paid"}}}`)
-	signed := webhook.GenerateTestSignedPayload(&webhook.UnsignedPayload{Payload: body, Secret: "whsec_correct", Timestamp: time.Now()})
-
-	p := NewStripeProvider("sk_test_dummy", "whsec_wrong")
-	h := http.Header{}
-	h.Set("Stripe-Signature", signed.Header)
-
-	if _, err := p.ParseWebhook(signed.Payload, h); !errors.Is(err, ErrInvalidSignature) {
-		t.Fatalf("expected ErrInvalidSignature, got %v", err)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			signed := webhook.GenerateTestSignedPayload(&webhook.UnsignedPayload{Payload: body, Secret: tc.signSecret, Timestamp: time.Now()})
+			payload := append([]byte{}, signed.Payload...)
+			if tc.tamperPayload {
+				payload[len(payload)-3] = 'X'
+			}
+			p := NewStripeProvider("sk_test_dummy", tc.providerKey)
+			h := http.Header{}
+			h.Set("Stripe-Signature", signed.Header)
+			if _, err := p.ParseWebhook(payload, h); !errors.Is(err, ErrInvalidSignature) {
+				t.Fatalf("expected ErrInvalidSignature, got %v", err)
+			}
+		})
 	}
 }
 

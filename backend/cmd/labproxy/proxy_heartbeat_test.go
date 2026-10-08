@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -56,21 +57,24 @@ func TestHeartbeatPreview_Debounced(t *testing.T) {
 	rdb := testRedis(t)
 	ctx := context.Background()
 
+	suffix := time.Now().UnixNano()
 	var orgID, userID string
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO organizations (slug, name) VALUES ('heartbeat-test-org', 'Heartbeat Test Org') RETURNING id`,
+		`INSERT INTO organizations (slug, name) VALUES ($1, 'Heartbeat Test Org') RETURNING id`,
+		fmt.Sprintf("heartbeat-test-org-%d", suffix),
 	).Scan(&orgID); err != nil {
 		t.Fatalf("seed org: %v", err)
 	}
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO users (email, name) VALUES ('heartbeat-test@`+testdomain.Domain+`', 'Heartbeat Test') RETURNING id`,
+		`INSERT INTO users (email, name) VALUES ($1, 'Heartbeat Test') RETURNING id`,
+		fmt.Sprintf("heartbeat-test-%d@%s", suffix, testdomain.Domain),
 	).Scan(&userID); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
 	var labID string
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO lab_definitions (org_id, title, lab_type, environment, created_by)
-		 VALUES ($1, 'Heartbeat Test Lab', 'terminal', 'mindforge/lab-python-web:1', $2) RETURNING id`,
+		`INSERT INTO lab_definitions (org_id, title, lab_type, environment, created_by, scope)
+		 VALUES ($1, 'Heartbeat Test Lab', 'terminal', 'mindforge/lab-python-web:1', $2, 'standalone') RETURNING id`,
 		orgID, userID,
 	).Scan(&labID); err != nil {
 		t.Fatalf("seed lab: %v", err)
@@ -83,7 +87,9 @@ func TestHeartbeatPreview_Debounced(t *testing.T) {
 		t.Fatalf("seed task version: %v", err)
 	}
 	var sessionID string
-	pastActive := time.Now().Add(-1 * time.Hour)
+	// Postgres timestamptz keeps microseconds; truncate so Equal compares the
+	// value that round-trips through the DB.
+	pastActive := time.Now().Add(-1 * time.Hour).Truncate(time.Microsecond)
 	if err := pool.QueryRow(ctx,
 		`INSERT INTO lab_sessions (lab_id, task_version_id, user_id, org_id, status, expires_at, last_active_at)
 		 VALUES ($1, $2, $3, $4, 'running', now() + interval '1 hour', $5) RETURNING id`,

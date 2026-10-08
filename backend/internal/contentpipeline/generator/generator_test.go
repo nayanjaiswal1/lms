@@ -94,6 +94,7 @@ func TestRender_Idempotent(t *testing.T) {
 	out2, err := Render(sampleDocs(), canonical.CourseMeta{}) // fresh structs, same content
 	require.NoError(t, err)
 	require.Equal(t, out1, out2, "Render must be byte-identical across runs on identical input")
+	require.Contains(t, out1, canonical.ID("test/section/lab", "lab"), "lab ID must come from canonical.ID")
 }
 
 func TestRender_NeverLeaksSolutionScript(t *testing.T) {
@@ -105,32 +106,19 @@ func TestRender_NeverLeaksSolutionScript(t *testing.T) {
 func TestRender_MutableTablesUseOnConflict(t *testing.T) {
 	out, err := Render(sampleDocs(), canonical.CourseMeta{})
 	require.NoError(t, err)
-	for _, table := range []string{
-		"INSERT INTO courses",
-		"INSERT INTO course_sections",
-		"INSERT INTO course_modules",
-		"INSERT INTO lab_definitions",
-		"INSERT INTO lab_tasks",
-		"INSERT INTO lab_task_versions",
-		"INSERT INTO questions",
-		"INSERT INTO question_versions",
-		"INSERT INTO assessments",
-		"INSERT INTO assessment_questions",
-	} {
-		require.Contains(t, out, table)
+	// Each INSERT statement (text up to the next INSERT INTO) must carry its own ON CONFLICT.
+	stmts := map[string]string{}
+	for _, seg := range strings.Split(out, "INSERT INTO ")[1:] {
+		table := strings.Fields(seg)[0]
+		stmts[table] += seg
+		require.Contains(t, seg, "ON CONFLICT", "INSERT INTO %s has no ON CONFLICT clause", table)
 	}
-	// Every INSERT block in the output is followed somewhere by an
-	// ON CONFLICT clause before the next INSERT — spot check counts match.
-	inserts := strings.Count(out, "INSERT INTO")
-	onConflicts := strings.Count(out, "ON CONFLICT")
-	require.Equal(t, inserts, onConflicts, "every INSERT must have a matching ON CONFLICT clause")
-}
-
-func TestRender_DeterministicIDsMatchCanonicalPackage(t *testing.T) {
-	out, err := Render(sampleDocs(), canonical.CourseMeta{})
-	require.NoError(t, err)
-	labID := canonical.ID("test/section/lab", "lab")
-	require.Contains(t, out, labID)
+	for _, table := range []string{
+		"courses", "course_sections", "course_modules", "lab_definitions", "lab_tasks",
+		"lab_task_versions", "questions", "question_versions", "assessments", "assessment_questions",
+	} {
+		require.Contains(t, stmts, table, "no INSERT INTO %s in output", table)
+	}
 }
 
 func TestRender_EmptyInputErrors(t *testing.T) {

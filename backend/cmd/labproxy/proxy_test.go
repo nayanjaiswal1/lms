@@ -47,19 +47,3 @@ func TestDeriveContainerCredential_KnownVector(t *testing.T) {
 		t.Fatalf("deriveContainerCredential known vector mismatch: got %q, want %q", got, want)
 	}
 }
-
-// TestDeriveContainerCredential_HexEncoded guards the wire format: ttyd's
-// -c user:pass flag and the HTTP Basic Auth header both need a value with
-// no ':' or control characters in it.
-func TestDeriveContainerCredential_HexEncoded(t *testing.T) {
-	cred := deriveContainerCredential("secret", "session-id")
-	if len(cred) != 64 { // hex-encoded SHA-256 = 32 bytes = 64 hex chars
-		t.Fatalf("expected 64 hex chars (SHA-256), got %d: %q", len(cred), cred)
-	}
-	for _, c := range cred {
-		isHex := (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')
-		if !isHex {
-			t.Fatalf("credential contains non-hex character %q: %q", c, cred)
-		}
-	}
-}

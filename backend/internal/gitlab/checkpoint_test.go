@@ -5,7 +5,6 @@ import (
 	"errors"
 	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/config"
@@ -48,13 +47,13 @@ func seedCheckpointTest(t *testing.T, pool *pgxpool.Pool, repo *Repo, requiredAp
 	if err != nil {
 		t.Fatalf("create team: %v", err)
 	}
-	gitlabProjectID := time.Now().UnixNano() % 1_000_000_000
+	gitlabProjectID := nextTestProjectID()
 	if err := repo.SetTeamForkResult(ctx, team.ID, gitlabProjectID, "merge-gate-test-group/merge-gate-test-team", "https://gitlab."+testdomain.Domain+"/merge-gate-test-group/merge-gate-test-team"); err != nil {
 		t.Fatalf("set team fork result: %v", err)
 	}
 
 	cp, err := repo.CreateCheckpoint(ctx, ProjectCheckpoint{
-		OrgID: orgID, AssignmentID: assignment.ID, Title: "Checkpoint 1", Position: 1,
+		OrgID: orgID, AssignmentID: assignment.ID, Title: "Checkpoint 1", Position: 1, Kind: CheckpointKindMilestone,
 		Weight: 100, RequiresMR: true, RequiresCIPass: false,
 	})
 	if err != nil {

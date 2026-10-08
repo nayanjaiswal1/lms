@@ -26,6 +26,18 @@ func WriteError(w http.ResponseWriter, status int, message string) {
 	writeEnvelope(w, status, map[string]any{"error": message})
 }
 
+// WriteMultipartParseError answers a failed ParseMultipartForm. A body that
+// hit the http.MaxBytesReader limit is 413 with tooLargeMessage; any other
+// parse failure is a malformed request, 400.
+func WriteMultipartParseError(w http.ResponseWriter, err error, tooLargeMessage string) {
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		WriteError(w, http.StatusRequestEntityTooLarge, tooLargeMessage)
+		return
+	}
+	WriteError(w, http.StatusBadRequest, "Failed to parse multipart form.")
+}
+
 // WriteErrorCode writes an error envelope with a stable machine-readable code:
 // {"error": message, "code": code}. Clients switch on code, never on the
 // message text or on a status that several conditions share. Codes are

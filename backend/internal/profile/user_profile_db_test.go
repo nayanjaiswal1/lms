@@ -9,8 +9,6 @@ import (
 	"github.com/mindforge/backend/internal/testdb"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 // An org admin may read a member's profile, but never a user of another org.
 func TestGetUserProfile_AdminScopedToOwnOrg(t *testing.T) {
 	pool := testdb.New(t)

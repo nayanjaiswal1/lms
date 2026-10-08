@@ -1,0 +1,60 @@
+name: nightly
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  env-gated-tests:
+    runs-on: ubuntu-latest
+    # The service container is ephemeral and reachable only on the runner, so it
+    # uses trust auth: no password is set and none appears in any connection string.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: mindforge_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres@localhost:5432/mindforge_test?sslmode=disable
+      TEST_REDIS_URL: redis://localhost:6379/0
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      # Apply the schema in migration order (down files skipped), the same way
+      # db.RunMigrations does on backend boot. Uses a throwaway psql client
+      # container so the runner needs no PostgreSQL client install.
+      - name: Apply migrations to test database
+        run: |
+          find db/migrations -name '*.sql' ! -name '*.down.sql' | sort | while read -r f; do
+            docker run --rm -i --network host postgres:16-alpine \
+              psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -q < "$f" || exit 1
+          done
+      - run: go test -count=1 ./...

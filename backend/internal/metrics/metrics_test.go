@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestMiddlewarePreservesFlusher(t *testing.T) {
@@ -17,7 +19,12 @@ func TestMiddlewarePreservesFlusher(t *testing.T) {
 	}
 }
 
-func TestRegisterPoolTwiceDoesNotPanic(t *testing.T) {
-	RegisterPool(nil)
-	RegisterPool(nil)
+func TestRegisterPoolTwiceDoesNotPanicAndReplacesPool(t *testing.T) {
+	first, second := &pgxpool.Pool{}, &pgxpool.Pool{}
+	t.Cleanup(func() { RegisterPool(nil) }) // zero-value pools must never be scraped
+	RegisterPool(first)
+	RegisterPool(second) // a second registration would panic on the duplicate collector
+	if got := currentPool.Load(); got != second {
+		t.Fatalf("currentPool = %p, want the most recently registered pool %p", got, second)
+	}
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mindforge/backend/internal/testdomain"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/notifications"
 	"github.com/mindforge/backend/internal/secrets"
+	"github.com/mindforge/backend/internal/testdb"
 )
 
 // noopJobHandler satisfies jobs.Handler without doing anything — registered
@@ -21,6 +23,12 @@ import (
 // not the ingest_event job body itself (that's covered by IngestEvent's own
 // dispatch, exercised indirectly via team_test.go's provisioning coverage).
 type noopJobHandler struct{}
+
+// testProjectIDSeq hands out a GitLab project ID unique per call, so tests can
+// never collide on the UNIQUE project-id column.
+var testProjectIDSeq atomic.Int64
+
+func nextTestProjectID() int64 { return testProjectIDSeq.Add(1) }
 
 func (noopJobHandler) Handle(context.Context, jobs.Job) error { return nil }
 
@@ -89,7 +97,7 @@ func seedWebhookTestTeam(t *testing.T, pool *pgxpool.Pool, repo *Repo, vault *se
 		t.Fatalf("create team: %v", err)
 	}
 
-	gitlabProjectID := time.Now().UnixNano() % 1_000_000_000
+	gitlabProjectID := nextTestProjectID()
 	if err := repo.SetTeamForkResult(ctx, team.ID, gitlabProjectID, "webhook-test-group/webhook-test-team", "https://gitlab."+testdomain.Domain+"/webhook-test-group/webhook-test-team"); err != nil {
 		t.Fatalf("set team fork result: %v", err)
 	}
@@ -178,5 +186,62 @@ func TestInsertWebhookEvent_RedeliveryIsIdempotent(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("expected exactly one row after a redelivered event_uuid, got %d", count)
+	}
+}
+
+// TestHandleWebhook_SameGitlabProjectIDAcrossOrgsResolvesPerOrg is the TEN-20
+// regression (migration 061): gitlab_project_id is only unique per GitLab
+// instance, so two orgs can own the same numeric id. Each webhook must be
+// attributed to the org whose installation secret matches the token, and a
+// delivery for org A must never write anything under org B.
+func TestHandleWebhook_SameGitlabProjectIDAcrossOrgsResolvesPerOrg(t *testing.T) {
+	pool := testdb.New(t)
+	repo := NewRepo(pool)
+	vault := testVault(t)
+	registry := jobs.NewRegistry()
+	registry.Register(jobIngestEvent, noopJobHandler{})
+	svc := NewService(pool, &config.Config{BackendURL: "http://localhost:8080"}, vault, registry, notifications.NewService(pool, registry), nil)
+	ctx := context.Background()
+
+	a := seedWebhookTestTeam(t, pool, repo, vault, "secret-org-a")
+	b := seedWebhookTestTeam(t, pool, repo, vault, "secret-org-b")
+	if a.orgID == b.orgID {
+		t.Fatal("fixtures must be two distinct orgs")
+	}
+	// Collide the ids: migration 061 makes (org_id, gitlab_project_id) the unique key.
+	if _, err := pool.Exec(ctx, `UPDATE project_teams SET gitlab_project_id = $2 WHERE id = $1`, b.teamID, a.gitlabProjectID); err != nil {
+		t.Fatalf("collide project ids across orgs: %v", err)
+	}
+
+	eventsFor := func(orgID, eventUUID string) int {
+		var n int
+		if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM gitlab_webhook_events WHERE org_id = $1 AND event_uuid = $2`, orgID, eventUUID).Scan(&n); err != nil {
+			t.Fatalf("count events: %v", err)
+		}
+		return n
+	}
+
+	if err := svc.HandleWebhook(ctx, a.gitlabProjectID, "Push Hook", "evt-for-a", "secret-org-a", []byte(`{"object_kind":"push"}`)); err != nil {
+		t.Fatalf("webhook for org A: %v", err)
+	}
+	if eventsFor(a.orgID, "evt-for-a") != 1 || eventsFor(b.orgID, "evt-for-a") != 0 {
+		t.Fatalf("event for A recorded under wrong org: A=%d B=%d, want 1/0", eventsFor(a.orgID, "evt-for-a"), eventsFor(b.orgID, "evt-for-a"))
+	}
+
+	if err := svc.HandleWebhook(ctx, a.gitlabProjectID, "Push Hook", "evt-for-b", "secret-org-b", []byte(`{"object_kind":"push"}`)); err != nil {
+		t.Fatalf("webhook for org B: %v", err)
+	}
+	if eventsFor(b.orgID, "evt-for-b") != 1 || eventsFor(a.orgID, "evt-for-b") != 0 {
+		t.Fatalf("event for B recorded under wrong org: A=%d B=%d, want 0/1", eventsFor(a.orgID, "evt-for-b"), eventsFor(b.orgID, "evt-for-b"))
+	}
+
+	// Both rows still resolve to their own org, and org B's row was not rewritten.
+	gotA, err := repo.GetTeamByOrgGitlabProjectID(ctx, a.orgID, a.gitlabProjectID)
+	if err != nil || gotA.ID != a.teamID {
+		t.Fatalf("org A resolves to %+v err=%v, want team %s", gotA, err, a.teamID)
+	}
+	gotB, err := repo.GetTeamByOrgGitlabProjectID(ctx, b.orgID, a.gitlabProjectID)
+	if err != nil || gotB.ID != b.teamID || gotB.OrgID != b.orgID {
+		t.Fatalf("org B resolves to %+v err=%v, want team %s", gotB, err, b.teamID)
 	}
 }

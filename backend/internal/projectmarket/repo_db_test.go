@@ -2,6 +2,7 @@ package projectmarket
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
@@ -11,8 +12,6 @@ import (
 
 	"github.com/mindforge/backend/internal/testdb"
 )
-
-func TestMain(m *testing.M) { testdb.RunMain(m) }
 
 // seedOrgAndUsers creates one organization and n users — the minimum every
 // projectmarket repo method needs (project_requirements.org_id/created_by,
@@ -219,5 +218,47 @@ func TestListApplicationsForStaff_OrdersByAIScoreDescNullsLast(t *testing.T) {
 	}
 	if len(unscored) != 1 || unscored[0].ID != appUnscored.ID {
 		t.Fatalf("expected only appUnscored in the unscored list, got %+v", unscored)
+	}
+}
+
+// Regression (2026-09-25): a nil RequiredSkills slice was encoded by pgx as
+// NULL and violated the NOT NULL column, 500ing requirement creation.
+func TestCreateRequirementWithNilSkills(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+	repo := NewRepo(pool)
+
+	orgID, users := seedOrgAndUsers(t, ctx, pool, 1)
+
+	created, err := repo.CreateRequirement(ctx, ProjectRequirement{
+		OrgID: orgID, Title: "No skills", Brief: "Skills left unset.",
+		RequiredSkills: nil, TeamSizeMin: 1, TeamSizeMax: 3,
+		ApplicationDeadline: time.Now().Add(24 * time.Hour), Status: RequirementStatusDraft, CreatedBy: users[0],
+	})
+	if err != nil {
+		t.Fatalf("create requirement with nil skills: %v", err)
+	}
+	if created.RequiredSkills == nil || len(created.RequiredSkills) != 0 {
+		t.Fatalf("RequiredSkills = %#v, want empty non-nil slice", created.RequiredSkills)
+	}
+}
+
+// Regression (2026-09-25): an empty board used to marshal as JSON null, which
+// crashed the frontend's .map. It must be the empty array.
+func TestListBoard_EmptyBoardMarshalsAsEmptyArray(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+	orgID, users := seedOrgAndUsers(t, ctx, pool, 1)
+
+	board, err := NewRepo(pool).ListBoard(ctx, orgID, users[0])
+	if err != nil {
+		t.Fatalf("list empty board: %v", err)
+	}
+	got, err := json.Marshal(board)
+	if err != nil {
+		t.Fatalf("marshal board: %v", err)
+	}
+	if string(got) != "[]" {
+		t.Fatalf("empty board JSON = %s, want []", got)
 	}
 }

@@ -63,28 +63,25 @@ func TestRazorpayParseWebhook_ValidSignatureSucceeds(t *testing.T) {
 	}
 }
 
-func TestRazorpayParseWebhook_InvalidSignatureRejected(t *testing.T) {
-	secret := "razorpay_test_secret"
+func TestRazorpayParseWebhook_BadSignatureRejected(t *testing.T) {
 	body := razorpayBody(t, "payment.captured", time.Now().Unix())
-
-	p := NewRazorpayProvider("rzp_test_key", "rzp_test_secret", secret)
-	h := http.Header{}
-	h.Set("X-Razorpay-Signature", "0000deadbeef")
-
-	if _, err := p.ParseWebhook(body, h); !errors.Is(err, ErrInvalidSignature) {
-		t.Fatalf("expected ErrInvalidSignature, got %v", err)
+	tests := []struct {
+		name        string
+		providerKey string
+		signature   string
+	}{
+		{"garbage signature", "razorpay_test_secret", "0000deadbeef"},
+		{"wrong secret", "correct_secret", signRazorpay(body, "wrong_secret")},
 	}
-}
-
-func TestRazorpayParseWebhook_WrongSecretRejected(t *testing.T) {
-	body := razorpayBody(t, "payment.captured", time.Now().Unix())
-
-	p := NewRazorpayProvider("rzp_test_key", "rzp_test_secret", "correct_secret")
-	h := http.Header{}
-	h.Set("X-Razorpay-Signature", signRazorpay(body, "wrong_secret"))
-
-	if _, err := p.ParseWebhook(body, h); !errors.Is(err, ErrInvalidSignature) {
-		t.Fatalf("expected ErrInvalidSignature, got %v", err)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			p := NewRazorpayProvider("rzp_test_key", "rzp_test_secret", tc.providerKey)
+			h := http.Header{}
+			h.Set("X-Razorpay-Signature", tc.signature)
+			if _, err := p.ParseWebhook(body, h); !errors.Is(err, ErrInvalidSignature) {
+				t.Fatalf("expected ErrInvalidSignature, got %v", err)
+			}
+		})
 	}
 }
 

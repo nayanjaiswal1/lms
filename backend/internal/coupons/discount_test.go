@@ -34,3 +34,19 @@ func TestDiscountCents(t *testing.T) {
 		})
 	}
 }
+
+// Amounts are the smallest currency unit (paise for INR). A ₹499 course is
+// 49900; discount math must stay in that unit and never scale to rupees.
+func TestDiscountCentsStaysInPaise(t *testing.T) {
+	const price = 49900 // ₹499.00
+
+	if got := DiscountCents(Coupon{DiscountType: DiscountTypePercent, DiscountValue: 10}, price); got != 4990 {
+		t.Errorf("10%% of 49900 paise = %d, want 4990", got)
+	}
+	if got := DiscountCents(Coupon{DiscountType: DiscountTypeFixed, DiscountValue: 10000}, price); got != 10000 {
+		t.Errorf("fixed 10000 paise off = %d, want 10000 (not rupee-scaled)", got)
+	}
+	if got := price - DiscountCents(Coupon{DiscountType: DiscountTypePercent, DiscountValue: 100}, price); got != 0 {
+		t.Errorf("100%% off leaves %d paise, want 0", got)
+	}
+}

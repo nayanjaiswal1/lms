@@ -33,18 +33,25 @@ func TestRequireCaptcha(t *testing.T) {
 		v       *TurnstileVerifier
 		headers map[string]string
 		want    int
+		// disabled: no secret configured → public constructor passes through.
+		disabled bool
 	}{
-		{"valid token", captchaServer(t, 200, `{"success":true}`), map[string]string{CaptchaTokenHeader: "ok"}, http.StatusNoContent},
-		{"rejected token", captchaServer(t, 200, `{"success":true}`), map[string]string{CaptchaTokenHeader: "bad"}, http.StatusBadRequest},
-		{"missing token", captchaServer(t, 200, `{"success":true}`), nil, http.StatusBadRequest},
-		{"upstream 500 fails closed", captchaServer(t, 500, `{}`), map[string]string{CaptchaTokenHeader: "ok"}, http.StatusServiceUnavailable},
-		{"garbage body fails closed", captchaServer(t, 200, `nope`), map[string]string{CaptchaTokenHeader: "ok"}, http.StatusServiceUnavailable},
-		{"bypass secret", captchaServer(t, 500, `{}`), map[string]string{CaptchaBypassHeader: "bypass"}, http.StatusNoContent},
-		{"wrong bypass", captchaServer(t, 200, `{"success":true}`), map[string]string{CaptchaBypassHeader: "nope"}, http.StatusBadRequest},
+		{"valid token", captchaServer(t, 200, `{"success":true}`), map[string]string{CaptchaTokenHeader: "ok"}, http.StatusNoContent, false},
+		{"rejected token", captchaServer(t, 200, `{"success":true}`), map[string]string{CaptchaTokenHeader: "bad"}, http.StatusBadRequest, false},
+		{"missing token", captchaServer(t, 200, `{"success":true}`), nil, http.StatusBadRequest, false},
+		{"upstream 500 fails closed", captchaServer(t, 500, `{}`), map[string]string{CaptchaTokenHeader: "ok"}, http.StatusServiceUnavailable, false},
+		{"garbage body fails closed", captchaServer(t, 200, `nope`), map[string]string{CaptchaTokenHeader: "ok"}, http.StatusServiceUnavailable, false},
+		{"bypass secret", captchaServer(t, 500, `{}`), map[string]string{CaptchaBypassHeader: "bypass"}, http.StatusNoContent, false},
+		{"wrong bypass", captchaServer(t, 200, `{"success":true}`), map[string]string{CaptchaBypassHeader: "nope"}, http.StatusBadRequest, false},
+		{"disabled without secret", nil, nil, http.StatusNoContent, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			h := requireCaptcha(cfg, tc.v)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }))
+			next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
+			h := requireCaptcha(cfg, tc.v)(next)
+			if tc.disabled {
+				h = RequireCaptcha(&config.Config{})(next)
+			}
 			req := httptest.NewRequest(http.MethodPost, "/", nil)
 			req.RemoteAddr = "203.0.113.9:4444"
 			for k, v := range tc.headers {
@@ -56,14 +63,5 @@ func TestRequireCaptcha(t *testing.T) {
 				t.Fatalf("status = %d, want %d", rec.Code, tc.want)
 			}
 		})
-	}
-}
-
-func TestRequireCaptchaDisabledWithoutSecret(t *testing.T) {
-	h := RequireCaptcha(&config.Config{})(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }))
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/", nil))
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("status = %d", rec.Code)
 	}
 }

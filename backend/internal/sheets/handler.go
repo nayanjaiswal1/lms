@@ -365,7 +365,7 @@ func (h *Handler) ImportExcel(w http.ResponseWriter, r *http.Request) {
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxImportBytes+1)
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Failed to parse multipart form.")
+		httputil.WriteMultipartParseError(w, err, "Import file must be under 10 MB.")
 		return
 	}
 	file, _, err := r.FormFile("file")

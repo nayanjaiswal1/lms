@@ -11,8 +11,6 @@ import (
 	"github.com/mindforge/backend/internal/testdb"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 // seedLabFixture inserts the minimum org/user/course/section/module rows a
 // DB-backed labs test needs, plus one published lab linked through
 // course_modules.lab_id (migration 044_course_library.sql) — the resolution

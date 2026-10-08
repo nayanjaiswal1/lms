@@ -10,8 +10,6 @@ import (
 	"github.com/mindforge/backend/internal/testdb"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 type fakeStore struct{ deleted []string }
 
 func (f *fakeStore) Upload(context.Context, string, string, io.Reader, int64) (string, error) {

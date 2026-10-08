@@ -698,7 +698,7 @@ func (h *Handler) UploadAsset(w http.ResponseWriter, r *http.Request) {
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		httputil.WriteError(w, http.StatusRequestEntityTooLarge, "File too large (max 500 MB).")
+		httputil.WriteMultipartParseError(w, err, "File too large (max 500 MB).")
 		return
 	}
 	file, header, err := r.FormFile("file")

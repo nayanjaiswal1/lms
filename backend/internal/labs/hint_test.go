@@ -2,6 +2,7 @@ package labs
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,25 +11,11 @@ import (
 
 // ─── hintCacheKey ────────────────────────────────────────────────────────────
 
-func TestHintCacheKey_DeterministicAndUnique(t *testing.T) {
-	a := hintCacheKey("session-1", "task-1", 1)
-	b := hintCacheKey("session-1", "task-1", 1)
-	if a != b {
-		t.Fatalf("not deterministic: %q != %q", a, b)
-	}
-	if a == "" {
-		t.Fatal("cache key must not be empty")
-	}
-
-	cases := []string{
-		hintCacheKey("session-2", "task-1", 1), // different session
-		hintCacheKey("session-1", "task-2", 1), // different task
-		hintCacheKey("session-1", "task-1", 2), // different level
-	}
-	for i, c := range cases {
-		if c == a {
-			t.Fatalf("case %d: expected a different cache key, got the same as the base case", i)
-		}
+func TestHintCacheKey_Format(t *testing.T) {
+	// sha256("session-1task-11") hex
+	const want = "ff4d71895a99170a9c5825f99177837564b96f9e3a54f9701cb783ba35dd3df4"
+	if got := hintCacheKey("session-1", "task-1", 1); got != want {
+		t.Fatalf("hintCacheKey = %q, want %q", got, want)
 	}
 }
 
@@ -45,11 +32,11 @@ func TestBuildHintUserPrompt_IncludesContextAndNeverLeaksScript(t *testing.T) {
 	prompt := buildHintUserPrompt(task, 2, 4)
 
 	for _, want := range []string{task.Title, task.Description, task.HintContext, "2 of 3", "attempt count so far: 4"} {
-		if !contains(prompt, want) {
+		if !strings.Contains(prompt, want) {
 			t.Errorf("prompt missing expected content %q\nprompt:\n%s", want, prompt)
 		}
 	}
-	if contains(prompt, task.VerificationScript) {
+	if strings.Contains(prompt, task.VerificationScript) {
 		t.Fatal("prompt must never include the verification script")
 	}
 }
@@ -57,22 +44,9 @@ func TestBuildHintUserPrompt_IncludesContextAndNeverLeaksScript(t *testing.T) {
 func TestBuildHintUserPrompt_OmitsEmptyHintContext(t *testing.T) {
 	task := &TaskSnapshot{Title: "T", Description: "D", HintContext: ""}
 	prompt := buildHintUserPrompt(task, 1, 0)
-	if contains(prompt, "Instructor's hint context") {
+	if strings.Contains(prompt, "Instructor's hint context") {
 		t.Fatal("must not mention hint context section when none is authored")
 	}
-}
-
-func contains(haystack, needle string) bool {
-	return len(needle) == 0 || (len(haystack) >= len(needle) && indexOf(haystack, needle) >= 0)
-}
-
-func indexOf(haystack, needle string) int {
-	for i := 0; i+len(needle) <= len(haystack); i++ {
-		if haystack[i:i+len(needle)] == needle {
-			return i
-		}
-	}
-	return -1
 }
 
 // ─── AI circuit breaker (docs/labs.md "Runaway AI retry storms") ────────────

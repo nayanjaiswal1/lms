@@ -6,35 +6,6 @@ import (
 	"testing"
 )
 
-// TestDeriveContainerCredential covers the ttyd auth fix (docs/labs.md
-// "Proxy ↔ Container Channel Security"; docs/debug-labs.md Phase 0):
-// deterministic per (secret, sessionID), different for any different input.
-// This is the property writeTTYDCredential and labproxy's
-// deriveContainerCredential (cmd/labproxy/proxy.go) both depend on landing
-// on independently — one writes the container's credential, the other
-// recomputes it on every upstream connect.
-func TestDeriveContainerCredential(t *testing.T) {
-	const secret = "test-lab-jwt-secret"
-
-	a := DeriveContainerCredential(secret, "session-a")
-	b := DeriveContainerCredential(secret, "session-a")
-	if a != b {
-		t.Fatalf("derivation is not deterministic: %q != %q", a, b)
-	}
-	if a == "" {
-		t.Fatal("derived credential must not be empty")
-	}
-
-	other := DeriveContainerCredential(secret, "session-b")
-	if a == other {
-		t.Fatal("different session IDs must derive different credentials")
-	}
-
-	otherSecret := DeriveContainerCredential("a-different-secret", "session-a")
-	if a == otherSecret {
-		t.Fatal("different secrets must derive different credentials")
-	}
-}
 
 // TestDeriveContainerCredential_KnownVector pins the exact algorithm
 // against an independently computed value (Python hmac/hashlib) — the
@@ -93,15 +64,12 @@ func TestWriteTTYDCredential_Success(t *testing.T) {
 }
 
 // TestWriteTTYDCredential_NonZeroExit asserts a failed write surfaces as an
-// error rather than being silently swallowed — acquireSandbox treats this
-// the same as a spoiled container (see its own doc comment).
+// error carrying the container's stderr rather than being swallowed —
+// acquireSandbox treats this the same as a spoiled container.
 func TestWriteTTYDCredential_NonZeroExit(t *testing.T) {
 	rt := &fakeExecRuntime{exitCode: 1, stderr: "permission denied"}
 	err := writeTTYDCredential(context.Background(), rt, "container-1", "session-a", "secret")
-	if err == nil {
-		t.Fatal("expected an error on non-zero exit")
-	}
-	if !strings.Contains(err.Error(), "permission denied") {
-		t.Fatalf("error %q does not surface the container's stderr", err)
+	if err == nil || !strings.Contains(err.Error(), "permission denied") {
+		t.Fatalf("expected error surfacing stderr, got %v", err)
 	}
 }

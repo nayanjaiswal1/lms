@@ -2,7 +2,9 @@ package db
 
 import (
 	"context"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -14,6 +16,26 @@ import (
 
 //go:embed migrations/*.sql
 var migrationFS embed.FS
+
+// MigrationsHash returns a hex digest of every embedded migration's path and
+// contents, so callers can key caches (e.g. test templates) on the schema.
+func MigrationsHash() string {
+	h := sha256.New()
+	// fs.WalkDir visits files in lexical order, so the digest is stable.
+	_ = fs.WalkDir(migrationFS, "migrations", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		b, err := migrationFS.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		h.Write([]byte(path))
+		h.Write(b)
+		return nil
+	})
+	return hex.EncodeToString(h.Sum(nil))
+}
 
 // RunMigrations creates the schema_migrations tracking table if it does not
 // exist, then applies every *.sql file in db/migrations/ that has not yet been

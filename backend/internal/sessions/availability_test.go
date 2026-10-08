@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"errors"
 	"testing"
 	"time"
 )
@@ -318,10 +319,10 @@ func TestExpandSlots_DuplicateSlotKeepsTaken(t *testing.T) {
 // arithmetic per request.
 func TestExpandSlots_RejectsHugeRange(t *testing.T) {
 	from := time.Now()
-	if _, err := ExpandSlots(nil, nil, nil, from, from.AddDate(1, 0, 0), from, baseCfg()); err == nil {
+	if _, err := ExpandSlots(nil, nil, nil, from, from.AddDate(1, 0, 0), from, baseCfg()); !errors.Is(err, ErrInvalid) {
 		t.Fatal("a one-year range was accepted; want ErrInvalid")
 	}
-	if _, err := ExpandSlots(nil, nil, nil, from, from, from, baseCfg()); err == nil {
+	if _, err := ExpandSlots(nil, nil, nil, from, from, from, baseCfg()); !errors.Is(err, ErrInvalid) {
 		t.Fatal("an empty range was accepted; want ErrInvalid")
 	}
 }
@@ -342,7 +343,7 @@ func TestValidateRule(t *testing.T) {
 		"slot above the 8h ceilng": {Weekday: 2, StartMinute: 0, EndMinute: 1440, SlotMinutes: 600, Timezone: "UTC"},
 	}
 	for name, rule := range cases {
-		if err := validateRule(rule); err == nil {
+		if err := validateRule(rule); !errors.Is(err, ErrInvalid) {
 			t.Errorf("%s: accepted, want ErrInvalid", name)
 		}
 	}
@@ -362,16 +363,16 @@ func TestValidateException(t *testing.T) {
 	}
 	// ...but not as an opening, which would be a 24-hour shift nobody means.
 	wholeDayOpen := AvailabilityException{OnDate: "2026-08-04", IsBlocked: false, SlotMinutes: 30, Timezone: "UTC"}
-	if err := validateException(wholeDayOpen); err == nil {
+	if err := validateException(wholeDayOpen); !errors.Is(err, ErrInvalid) {
 		t.Error("whole-day opening accepted, want ErrInvalid")
 	}
 
 	onlyStart := AvailabilityException{OnDate: "2026-08-04", StartMinute: &start, IsBlocked: true, SlotMinutes: 30, Timezone: "UTC"}
-	if err := validateException(onlyStart); err == nil {
+	if err := validateException(onlyStart); !errors.Is(err, ErrInvalid) {
 		t.Error("half-specified window accepted, want ErrInvalid")
 	}
 	badDate := AvailabilityException{OnDate: "04-08-2026", IsBlocked: true, SlotMinutes: 30, Timezone: "UTC"}
-	if err := validateException(badDate); err == nil {
+	if err := validateException(badDate); !errors.Is(err, ErrInvalid) {
 		t.Error("malformed date accepted, want ErrInvalid")
 	}
 }
