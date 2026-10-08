@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiAction, authHeaders, tryBaseURL } from "@/lib/server/api";
+import { apiAction, authHeaders, idempotencyHeader, tryBaseURL } from "@/lib/server/api";
 import type { ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 import type {
@@ -101,29 +101,33 @@ export async function setShowcaseOptInAction(workspaceId: string, optIn: boolean
 
 // ── AI suggestions (contract-phase5.md 5c) — suggest-only, never auto-applied ─
 
-export async function suggestEpicsAction(workspaceId: string): Promise<ActionResult<ItemSuggestions>> {
-  return apiAction<ItemSuggestions>("POST", `/api/workspaces/${workspaceId}/ai/epics`);
+export async function suggestEpicsAction(workspaceId: string, idempotencyKey: string): Promise<ActionResult<ItemSuggestions>> {
+  return apiAction<ItemSuggestions>("POST", `/api/workspaces/${workspaceId}/ai/epics`, undefined, idempotencyHeader(idempotencyKey));
 }
 
-export async function suggestTaskBreakdownAction(workspaceId: string, itemId: string): Promise<ActionResult<ItemSuggestions>> {
-  return apiAction<ItemSuggestions>("POST", `/api/workspaces/${workspaceId}/items/${itemId}/ai/breakdown`);
+export async function suggestTaskBreakdownAction(workspaceId: string, itemId: string, idempotencyKey: string): Promise<ActionResult<ItemSuggestions>> {
+  return apiAction<ItemSuggestions>("POST", `/api/workspaces/${workspaceId}/items/${itemId}/ai/breakdown`, undefined, idempotencyHeader(idempotencyKey));
 }
 
-export async function suggestAssigneesAction(workspaceId: string, itemId: string): Promise<ActionResult<AssigneeSuggestion[]>> {
-  return apiAction<AssigneeSuggestion[]>("POST", `/api/workspaces/${workspaceId}/items/${itemId}/ai/assignees`);
+export async function suggestAssigneesAction(workspaceId: string, itemId: string, idempotencyKey: string): Promise<ActionResult<AssigneeSuggestion[]>> {
+  return apiAction<AssigneeSuggestion[]>("POST", `/api/workspaces/${workspaceId}/items/${itemId}/ai/assignees`, undefined, idempotencyHeader(idempotencyKey));
 }
 
-export async function explainLateAction(workspaceId: string, itemId: string): Promise<ActionResult<LateExplanation>> {
-  return apiAction<LateExplanation>("POST", `/api/workspaces/${workspaceId}/items/${itemId}/ai/why-late`);
+export async function explainLateAction(workspaceId: string, itemId: string, idempotencyKey: string): Promise<ActionResult<LateExplanation>> {
+  return apiAction<LateExplanation>("POST", `/api/workspaces/${workspaceId}/items/${itemId}/ai/why-late`, undefined, idempotencyHeader(idempotencyKey));
 }
 
-export async function changeImpactAction(workspaceId: string, itemId: string): Promise<ActionResult<ChangeImpact>> {
-  return apiAction<ChangeImpact>("POST", `/api/workspaces/${workspaceId}/items/${itemId}/ai/change-impact`);
+export async function changeImpactAction(workspaceId: string, itemId: string, idempotencyKey: string): Promise<ActionResult<ChangeImpact>> {
+  return apiAction<ChangeImpact>("POST", `/api/workspaces/${workspaceId}/items/${itemId}/ai/change-impact`, undefined, idempotencyHeader(idempotencyKey));
 }
 
-export async function getWeeklySummaryAction(workspaceId: string, regenerate: boolean): Promise<ActionResult<WeeklySummary>> {
+export async function getWeeklySummaryAction(
+  workspaceId: string,
+  regenerate: boolean,
+  idempotencyKey: string,
+): Promise<ActionResult<WeeklySummary>> {
   const qs = regenerate ? "?regenerate=true" : "";
-  return apiAction<WeeklySummary>("POST", `/api/workspaces/${workspaceId}/ai/weekly-summary${qs}`);
+  return apiAction<WeeklySummary>("POST", `/api/workspaces/${workspaceId}/ai/weekly-summary${qs}`, undefined, idempotencyHeader(idempotencyKey));
 }
 
 // ── CSV export (contract-phase5.md 5d) ───────────────────────────────────────

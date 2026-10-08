@@ -176,7 +176,7 @@ func (h *Handler) DeleteQna(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]bool{"deleted": true})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ─── Comments ─────────────────────────────────────────────────────────────────
@@ -226,7 +226,7 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]bool{"deleted": true})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ─── Votes ────────────────────────────────────────────────────────────────────
@@ -276,7 +276,7 @@ func (h *Handler) UpdateFaqStatus(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	if err := h.service.UpdateFaqStatus(r.Context(), claims.UserID, chi.URLParam(r, "qnaId"), req.Status); err != nil {
+	if err := h.service.UpdateFaqStatus(r.Context(), claims.UserID, chi.URLParam(r, "qnaID"), req.Status); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -292,7 +292,7 @@ func (h *Handler) UpdateFaqStarred(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	if err := h.service.UpdateFaqStarred(r.Context(), claims.UserID, chi.URLParam(r, "qnaId"), req.Starred); err != nil {
+	if err := h.service.UpdateFaqStarred(r.Context(), claims.UserID, chi.URLParam(r, "qnaID"), req.Starred); err != nil {
 		writeDomainError(w, err)
 		return
 	}

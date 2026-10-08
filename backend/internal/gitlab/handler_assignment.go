@@ -203,7 +203,7 @@ func (h *Handler) DeleteAssignment(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Assignment deleted."})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // PublishAssignment handles POST /api/projects/assignments/{assignmentID}/publish

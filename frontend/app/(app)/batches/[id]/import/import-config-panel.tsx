@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { confirmImportAction } from "@/app/(app)/batches/actions";
+import { useIdempotencyKey } from "@/hooks/use-idempotency-key";
 import type { Course } from "@/lib/server/courses";
 import type { ImportMemberRow, OrgMemberSummary } from "@/lib/server/batches";
 
@@ -31,6 +32,7 @@ export function ImportConfigPanel({ batchId, rows, courses, orgMembers, blocking
     lockFullName: true,
   });
   const [submitting, setSubmitting] = React.useState(false);
+  const withKey = useIdempotencyKey();
 
   const mentors = orgMembers.filter((m) => m.role === "mentor" || m.role === "instructor" || m.role === "admin");
 
@@ -43,12 +45,13 @@ export function ImportConfigPanel({ batchId, rows, courses, orgMembers, blocking
 
   async function confirm() {
     setSubmitting(true);
-    const result = await confirmImportAction(batchId, {
+    const input = {
       rows,
       course_ids: Array.from(config.courseIds),
       mentor_ids: Array.from(config.mentorIds),
       locked_fields: config.lockFullName ? ["full_name"] : [],
-    });
+    };
+    const result = await withKey((key) => confirmImportAction(batchId, input, key));
     setSubmitting(false);
     if (result.error) {
       toast.error(result.error);

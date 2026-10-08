@@ -331,7 +331,9 @@ func (r *Repo) GetBreadcrumb(ctx context.Context, pageID string) ([]BreadcrumbIt
 // bumps `version` and appends the new state to wiki_page_versions in the same
 // transaction, matching docs/wiki.md ("every PATCH that changes title or
 // content appends a version row").
-func (r *Repo) UpdatePage(ctx context.Context, orgID, id string, title *string, content *json.RawMessage, searchText *string, status, emoji, parentID *string, orderIndex *int, okfMetadata *json.RawMessage, updatedBy string) (Page, error) {
+// UpdatePage applies a partial update. parentSet with a nil parentID moves
+// the page to the space root. Only a title/content change bumps the version.
+func (r *Repo) UpdatePage(ctx context.Context, orgID, id string, title *string, content *json.RawMessage, searchText *string, status, emoji *string, parentSet bool, parentID *string, orderIndex *int, okfMetadata *json.RawMessage, updatedBy string) (Page, error) {
 	var out Page
 	err := r.tx(ctx, func(tx pgx.Tx) error {
 		contentChanged := content != nil || title != nil
@@ -356,7 +358,7 @@ func (r *Repo) UpdatePage(ctx context.Context, orgID, id string, title *string, 
 			 WHERE p.space_id = s.id AND s.org_id = $1 AND p.id = $2 AND p.deleted_at IS NULL
 			 RETURNING p.id, p.space_id, p.parent_id, p.title, p.slug, p.content, p.order_index, p.status, p.emoji, p.version, p.created_by, p.updated_by, p.created_at, p.updated_at, p.okf_metadata`,
 			orgID, id, title, content, searchText, status, emoji,
-			parentID != nil, parentID, orderIndex, bump, updatedBy, okfMetadata)
+			parentSet, parentID, orderIndex, bump, updatedBy, okfMetadata)
 		p, err := scanPage(row)
 		if err != nil {
 			return err
@@ -381,14 +383,22 @@ func (r *Repo) UpdatePage(ctx context.Context, orgID, id string, title *string, 
 	return out, err
 }
 
-// MovePage is a structural-only change (drag-and-drop) — no version row.
-func (r *Repo) MovePage(ctx context.Context, orgID, id string, parentID *string, orderIndex int) (Page, error) {
-	return scanPage(r.pool.QueryRow(ctx,
-		`UPDATE wiki_pages p SET parent_id = $3, order_index = $4, updated_at = now()
-		 FROM wiki_spaces s
-		 WHERE p.space_id = s.id AND s.org_id = $1 AND p.id = $2 AND p.deleted_at IS NULL
-		 RETURNING p.id, p.space_id, p.parent_id, p.title, p.slug, p.content, p.order_index, p.status, p.emoji, p.version, p.created_by, p.updated_by, p.created_at, p.updated_at, p.okf_metadata`,
-		orgID, id, parentID, orderIndex))
+// IsSelfOrAncestor reports whether pageID is candidateID itself or one of
+// its ancestors, i.e. whether nesting pageID under candidateID would cycle.
+func (r *Repo) IsSelfOrAncestor(ctx context.Context, pageID, candidateID string) (bool, error) {
+	var found bool
+	err := r.pool.QueryRow(ctx,
+		`WITH RECURSIVE up AS (
+		   SELECT id, parent_id FROM wiki_pages WHERE id = $2
+		   UNION
+		   SELECT p.id, p.parent_id FROM wiki_pages p JOIN up ON p.id = up.parent_id
+		 )
+		 SELECT EXISTS(SELECT 1 FROM up WHERE id = $1)`,
+		pageID, candidateID).Scan(&found)
+	if err != nil {
+		return false, fmt.Errorf("wiki: ancestor check: %w", err)
+	}
+	return found, nil
 }
 
 // DeletePage soft-deletes the page and re-parents its children to the

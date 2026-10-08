@@ -5,6 +5,7 @@ import (
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/pagination"
 )
 
 // RequestMentor lets the authenticated student open a mentor ticket for a
@@ -33,28 +34,34 @@ func (h *Handler) RequestMentor(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusCreated, ticket)
 }
 
-// GetTicketDetail returns the full staff-facing lifecycle for a ticket —
-// the ticket, its change requests, and (if the caller holds
-// mentoring.manage_reports) complaint reports — the single aggregate behind
-// the ticket detail page. The route is gated by mentoring.assign_tickets
-// (see routes.go); the report section is additionally gated inline here
-// since it's a stricter, separately-grantable permission.
-func (h *Handler) GetTicketDetail(w http.ResponseWriter, r *http.Request) {
+// ListTicketChangeRequests handles GET /api/mentor-tickets/{ticketID}/change-requests
+// (mentoring.assign_tickets) — the change requests filed against a ticket.
+func (h *Handler) ListTicketChangeRequests(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	canViewReports, err := h.authzSvc.HasPermission(r.Context(), claims.UserID, claims.OrgID, PermissionManageReports)
-	if err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, "Permission check failed.")
-		return
-	}
-	detail, err := h.service.GetTicketDetail(r.Context(), claims.OrgID, httputil.URLParam(r, "ticketID"), canViewReports)
+	items, err := h.service.ListTicketChangeRequests(r.Context(), claims.OrgID, httputil.URLParam(r, "ticketID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, detail)
+	httputil.WriteJSON(w, http.StatusOK, pagination.Page[ChangeRequest]{Items: items})
+}
+
+// ListTicketReports handles GET /api/mentor-tickets/{ticketID}/reports
+// (mentoring.manage_reports) — the complaints filed in a ticket's context.
+func (h *Handler) ListTicketReports(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	items, err := h.service.ListTicketReports(r.Context(), claims.OrgID, httputil.URLParam(r, "ticketID"))
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, pagination.Page[Report]{Items: items})
 }
 
 // ClaimTicket lets the authenticated mentor self-assign an open ticket.

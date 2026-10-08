@@ -7,6 +7,7 @@ import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { suggestAssigneesAction } from "@/lib/workspace/phase5-actions";
+import { useIdempotencyKey } from "@/hooks/use-idempotency-key";
 import type { AssigneeSuggestion } from "@/lib/workspace/types";
 
 interface SuggestAssigneesButtonProps {
@@ -21,10 +22,11 @@ interface SuggestAssigneesButtonProps {
 export function SuggestAssigneesButton({ workspaceId, itemId, onAssign }: SuggestAssigneesButtonProps) {
   const [suggestions, setSuggestions] = useState<AssigneeSuggestion[] | null>(null);
   const [pending, startTransition] = useTransition();
+  const withKey = useIdempotencyKey();
 
   function suggest() {
     startTransition(async () => {
-      const result = await suggestAssigneesAction(workspaceId, itemId);
+      const result = await withKey((key) => suggestAssigneesAction(workspaceId, itemId, key));
       if (result.error) {
         toast.error(result.error);
         return;

@@ -60,12 +60,14 @@ export function FocusOverlay({
   const done = () =>
     run(
       () => whatnowApi.completeTask(task.id),
-      (r) =>
+      (r) => {
+        const unlocked = r.unlocked_tasks?.length ?? 0;
         onExit(
-          r.unlockedTasks.length > 0
-            ? `Done. That unlocked ${r.unlockedTasks.length} thing${r.unlockedTasks.length === 1 ? "" : "s"}.`
+          unlocked > 0
+            ? `Done. That unlocked ${unlocked} thing${unlocked === 1 ? "" : "s"}.`
             : "Done. Logged and off your mind.",
-        ),
+        );
+      },
     );
 
   const pause = () =>
@@ -161,7 +163,7 @@ export function FocusOverlay({
               {proposal.steps.map((s) => (
                 <li className="wn-step" key={s.id}>
                   <span>{s.title}</span>
-                  {s.durationMin && <span className="wn-step-min">{s.durationMin}m</span>}
+                  {s.duration_min && <span className="wn-step-min">{s.duration_min}m</span>}
                 </li>
               ))}
             </ol>

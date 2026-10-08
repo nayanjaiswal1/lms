@@ -401,8 +401,10 @@ Per-user row in `user_privacy_settings` (migration 055), served by `internal/pri
 GET /api/privacy/settings      -> {ai_consent, ai_consent_at, nominee}
 PUT /api/privacy/ai-consent    body: {consent: bool}   opt in / withdraw AI processing of your own content
 PUT /api/privacy/nominee       body: {nominee: {name, relationship, contact} | null} (all three or none; null clears; <=200 chars each)
-GET /api/privacy/export        full data bundle (JSON); emits auth event data_export
-POST /api/privacy/delete-account  body: {password} (verified when the account has a password); emits account_deletion
+POST /api/privacy/export       body: {password, code} step-up; full data bundle (JSON); emits auth event data_export
+POST /api/privacy/delete-account  body: {password, code} step-up; emits account_deletion
+                                  step-up (auth.VerifyStepUp): password required when the account has one, TOTP/recovery
+                                  code when MFA is enabled; 403 on failure, shares the per-account MFA rate limit
 ```
 
 AI consent is default off. Features that send the user's own text or files to a third-party model (captures, diary AI analysis and Fix English) return `403` with an explanatory message until consent exists; withdrawing consent takes effect on the next request. The nominee is the person who may exercise the user's rights on their behalf (DPDP s.14); it is stored but exercised through the grievance officer, there is no nominee login.

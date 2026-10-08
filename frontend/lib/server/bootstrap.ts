@@ -5,8 +5,9 @@ import type { AuthMeResponse } from "@/lib/server/auth";
 import type { FeatureConfig } from "@/lib/server/features";
 import type { ActiveLabSession } from "@/lib/labs";
 
-// GET /api/me/bootstrap merges the app shell's per-render reads (auth/me,
-// permissions, features, active lab, current org) into one backend call.
+// GET /api/me?include=… returns the caller plus the app shell's other
+// per-render reads (permissions, features, active lab, current org) in one
+// backend call.
 // A part is absent when its underlying endpoint failed — each reader keeps its
 // own fallback, exactly as when these were separate calls.
 interface Bootstrap {
@@ -19,6 +20,8 @@ interface Bootstrap {
   org?: { name: string; logo_url: string | null; org_type: string | null };
 }
 
+const SHELL_INCLUDES = "permissions,features,active_lab_sessions,org";
+
 // apiGet is request-deduped, so every reader below shares one fetch per render.
 // Never throws: the root layout also renders for logged-out visitors.
 export async function getBootstrap(): Promise<Bootstrap> {
@@ -27,7 +30,7 @@ export async function getBootstrap(): Promise<Bootstrap> {
   // and with it the first paint of every public page — hostage.
   if (!(await cookies()).get("access_token")?.value) return {};
   try {
-    return await apiGet<Bootstrap>("/api/me/bootstrap");
+    return await apiGet<Bootstrap>(`/api/me?include=${SHELL_INCLUDES}`);
   } catch {
     return {};
   }

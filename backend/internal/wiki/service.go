@@ -265,6 +265,12 @@ func (s *Service) CreatePage(ctx context.Context, orgID, userID, orgRole, spaceI
 		content = tpl.Content
 	}
 
+	if req.ParentID != nil {
+		if _, err := s.parentInSpace(ctx, orgID, spaceID, *req.ParentID); err != nil {
+			return Page{}, err
+		}
+	}
+
 	slug := courses.Slugify(title)
 	searchText := extractText(content)
 	return s.repo.CreatePage(ctx, spaceID, title, slug, req.ParentID, req.Emoji, content, searchText, userID)
@@ -339,28 +345,55 @@ func (s *Service) UpdatePage(ctx context.Context, orgID, userID, orgRole, id str
 	if req.Title != nil && strings.TrimSpace(*req.Title) == "" {
 		return Page{}, ErrValidation
 	}
+	if req.ParentID != nil {
+		if req.ClearParent {
+			return Page{}, ErrValidation
+		}
+		if err := s.checkNewParent(ctx, orgID, existing, *req.ParentID); err != nil {
+			return Page{}, err
+		}
+	}
 
 	var searchText *string
 	if req.Content != nil {
 		t := extractText(*req.Content)
 		searchText = &t
 	}
-	return s.repo.UpdatePage(ctx, orgID, id, req.Title, req.Content, searchText, req.Status, req.Emoji, req.ParentID, req.OrderIndex, req.OKFMetadata, userID)
+	return s.repo.UpdatePage(ctx, orgID, id, req.Title, req.Content, searchText, req.Status, req.Emoji,
+		req.ParentID != nil || req.ClearParent, req.ParentID, req.OrderIndex, req.OKFMetadata, userID)
 }
 
-func (s *Service) MovePage(ctx context.Context, orgID, userID, orgRole, id string, req MovePageRequest) (Page, error) {
-	existing, err := s.repo.GetPage(ctx, orgID, id)
+// parentInSpace loads parentID, rejecting one outside spaceID (another space
+// or another org) as a validation error.
+func (s *Service) parentInSpace(ctx context.Context, orgID, spaceID, parentID string) (Page, error) {
+	parent, err := s.repo.GetPage(ctx, orgID, parentID)
+	if errors.Is(err, ErrNotFound) {
+		return Page{}, ErrValidation
+	}
 	if err != nil {
 		return Page{}, err
 	}
-	allowed, err := s.canEditOrDeletePage(ctx, orgID, userID, orgRole, existing, "member")
+	if parent.SpaceID != spaceID {
+		return Page{}, ErrValidation
+	}
+	return parent, nil
+}
+
+// checkNewParent rejects a parent outside the page's own space and one that
+// would create a cycle: the page itself or any of its descendants.
+func (s *Service) checkNewParent(ctx context.Context, orgID string, page Page, parentID string) error {
+	parent, err := s.parentInSpace(ctx, orgID, page.SpaceID, parentID)
 	if err != nil {
-		return Page{}, err
+		return err
 	}
-	if !allowed {
-		return Page{}, ErrForbidden
+	cycle, err := s.repo.IsSelfOrAncestor(ctx, page.ID, parent.ID)
+	if err != nil {
+		return err
 	}
-	return s.repo.MovePage(ctx, orgID, id, req.ParentID, req.OrderIndex)
+	if cycle {
+		return ErrValidation
+	}
+	return nil
 }
 
 func (s *Service) DeletePage(ctx context.Context, orgID, userID, orgRole, id string) error {
@@ -411,7 +444,7 @@ func (s *Service) RestoreVersion(ctx context.Context, orgID, userID, orgRole, pa
 	}
 	searchText := extractText(v.Content)
 	content := v.Content
-	return s.repo.UpdatePage(ctx, orgID, pageID, &v.Title, &content, &searchText, nil, nil, nil, nil, nil, userID)
+	return s.repo.UpdatePage(ctx, orgID, pageID, &v.Title, &content, &searchText, nil, nil, false, nil, nil, nil, userID)
 }
 
 // ─── Comments ─────────────────────────────────────────────────────────────────

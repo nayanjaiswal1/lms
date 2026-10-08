@@ -37,11 +37,10 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 
 		r.Post("/api/upload", h.UploadAsset)
 		r.Post("/api/upload/course-asset", h.GetUploadURL)
-		r.Post("/api/courses/generate-outline", h.GenerateOutline)
+		// A draft outline for review — no rows are created.
+		r.With(middleware.Idempotency(h.repo.Pool())).Post("/api/course-outlines", h.GenerateOutline)
 
 		r.Post("/api/bundles", h.CreateBundle)
-		r.Get("/api/bundles/manage", h.ListManagedBundles)
-		r.Get("/api/bundles/{bundleID}/manage", h.GetManagedBundle)
 		r.Patch("/api/bundles/{bundleID}", h.UpdateBundle)
 		r.Delete("/api/bundles/{bundleID}", h.DeleteBundle)
 		r.Put("/api/bundles/{bundleID}/courses", h.SetBundleCourses)

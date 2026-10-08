@@ -45,7 +45,7 @@ func (s *Service) React(ctx context.Context, orgID, msgID, userID string, reacti
 	if _, err := s.repo.GetMessage(ctx, orgID, msgID); err != nil {
 		return false, fmt.Errorf("messaging.React: %w", err)
 	}
-	return s.repo.ToggleReaction(ctx, msgID, userID, reaction)
+	return s.repo.ToggleReaction(ctx, orgID, msgID, userID, reaction)
 }
 
 func (s *Service) Resolve(ctx context.Context, orgID, msgID string) error {

@@ -136,5 +136,5 @@ func (h *Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Task deleted."})
+	w.WriteHeader(http.StatusNoContent)
 }

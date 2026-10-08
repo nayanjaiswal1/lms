@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { NextPageLink } from "@/components/shared/next-page-link";
 import { toast } from "sonner";
 import { Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -174,13 +174,7 @@ export function McpActionLog({ page }: { page: McpActionLogPage }) {
             );
           })}
 
-          {page.next_cursor && (
-            <div className="flex justify-center pt-4">
-              <Button asChild variant="secondary">
-                <Link href={`?cursor=${encodeURIComponent(page.next_cursor)}`}>Load more</Link>
-              </Button>
-            </div>
-          )}
+          <NextPageLink nextCursor={page.next_cursor} />
         </div>
       )}
 

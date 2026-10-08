@@ -4,8 +4,10 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/middleware"
 )
 
 // maxBundleCourses caps one bundle's course list — a bundle is a curated
@@ -96,7 +98,7 @@ func (h *Handler) DeleteBundle(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // SetBundleCourses replaces the bundle's ordered course list in one call.
@@ -140,41 +142,34 @@ func (h *Handler) SetBundleCourses(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListManagedBundles lists every bundle in the org, drafts included.
-func (h *Handler) ListManagedBundles(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	bundles, err := h.repo.ListBundles(r.Context(), claims.OrgID, false)
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{"bundles": bundles})
-}
-
-// GetManagedBundle is the editor's view: drafts and unpublished courses included.
-func (h *Handler) GetManagedBundle(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	d, err := h.repo.GetBundleDetail(r.Context(), claims.OrgID, claims.UserID, httputil.URLParam(r, "bundleID"), "", false)
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, d)
-}
-
 // ─── All authenticated users ─────────────────────────────────────────────────
 
+// includeDrafts reads ?include_drafts=true — the editor's view, drafts and
+// unpublished courses included — which only instructors+ may ask for.
+// Reports false after writing 403 when the caller may not.
+func (h *Handler) includeDrafts(w http.ResponseWriter, r *http.Request, claims *auth.Claims) (drafts, ok bool) {
+	if r.URL.Query().Get("include_drafts") != "true" {
+		return false, true
+	}
+	if !middleware.HasLiveOrgRole(r.Context(), h.repo.Pool(), claims.UserID, claims.OrgID,
+		middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor) {
+		httputil.WriteError(w, http.StatusForbidden, "Only instructors can see draft bundles.")
+		return false, false
+	}
+	return true, true
+}
+
+// ListBundles handles GET /api/bundles[?include_drafts=true].
 func (h *Handler) ListBundles(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	bundles, err := h.repo.ListBundles(r.Context(), claims.OrgID, true)
+	drafts, ok := h.includeDrafts(w, r, claims)
+	if !ok {
+		return
+	}
+	bundles, err := h.repo.ListBundles(r.Context(), claims.OrgID, !drafts)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -182,12 +177,17 @@ func (h *Handler) ListBundles(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"bundles": bundles})
 }
 
+// GetBundleBySlug handles GET /api/bundles/by-slug/{slug}[?include_drafts=true].
 func (h *Handler) GetBundleBySlug(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	d, err := h.repo.GetBundleDetail(r.Context(), claims.OrgID, claims.UserID, "", httputil.URLParam(r, "slug"), true)
+	drafts, ok := h.includeDrafts(w, r, claims)
+	if !ok {
+		return
+	}
+	d, err := h.repo.GetBundleDetail(r.Context(), claims.OrgID, claims.UserID, "", httputil.URLParam(r, "slug"), !drafts)
 	if err != nil {
 		writeDomainError(w, err)
 		return

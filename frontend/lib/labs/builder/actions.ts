@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiAction } from "@/lib/server/api";
+import { apiAction, idempotencyHeader } from "@/lib/server/api";
 import type { ActionResult } from "@/lib/server/api";
 import type { LabSession } from "@/lib/labs";
 import type {
@@ -99,8 +99,12 @@ export async function deleteTextBlockAction(blockId: string): Promise<ActionResu
 }
 
 /** AI ticket draft for the recipe; cached server-side per (composition, persona). */
-export async function draftTicketAction(recipeId: string, persona: string): Promise<ActionResult<TicketDraft>> {
-  return apiAction<TicketDraft>("POST", `${BASE}/recipes/${recipeId}/ticket-draft`, { persona });
+export async function draftTicketAction(
+  recipeId: string,
+  persona: string,
+  idempotencyKey: string,
+): Promise<ActionResult<TicketDraft>> {
+  return apiAction<TicketDraft>("POST", `${BASE}/recipes/${recipeId}/ticket-draft`, { persona }, idempotencyHeader(idempotencyKey));
 }
 
 // ── Yank (platform super_admin) ──────────────────────────────────────────────

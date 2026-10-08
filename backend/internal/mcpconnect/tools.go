@@ -2394,11 +2394,12 @@ var tools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			req := wiki.MovePageRequest{OrderIndex: optInt(args, "order_index", 0)}
+			orderIndex := optInt(args, "order_index", 0)
+			req := wiki.UpdatePageRequest{OrderIndex: &orderIndex, ClearParent: true}
 			if parentID := optString(args, "parent_id"); parentID != nil && *parentID != "" {
-				req.ParentID = parentID
+				req.ParentID, req.ClearParent = parentID, false
 			}
-			saved, err := rt.wikiSvc.MovePage(ctx, id.OrgID, id.UserID, orgRole, pageID, req)
+			saved, err := rt.wikiSvc.UpdatePage(ctx, id.OrgID, id.UserID, orgRole, pageID, req)
 			if err != nil {
 				return nil, err
 			}
@@ -2413,8 +2414,8 @@ var tools = []mcpTool{
 			if err != nil {
 				return err
 			}
-			_, err = rt.wikiSvc.MovePage(ctx, id.OrgID, id.UserID, orgRole, entry.TargetID, wiki.MovePageRequest{
-				ParentID: before.ParentID, OrderIndex: before.OrderIndex,
+			_, err = rt.wikiSvc.UpdatePage(ctx, id.OrgID, id.UserID, orgRole, entry.TargetID, wiki.UpdatePageRequest{
+				ParentID: before.ParentID, ClearParent: before.ParentID == nil, OrderIndex: &before.OrderIndex,
 			})
 			return err
 		},

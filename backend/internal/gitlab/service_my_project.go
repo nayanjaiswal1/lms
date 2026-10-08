@@ -5,28 +5,30 @@ import (
 	"fmt"
 )
 
-// GetMyProjectDetail returns the caller's own team (with assignment title
-// and role embedded) plus its contribution breakdown and checkpoint list —
-// the team detail page's full data need in one call instead of four
-// (GetMyProject + ListMyProjects + GetMyProjectContributions +
-// GetMyProjectCheckpoints). Row-scoped to (org, user, team) throughout, the
-// same membership guard GetMyProjectContributions/GetMyProjectCheckpoints
-// use, just consolidated into a single query up front instead of repeating
-// the membership check per section.
-func (s *Service) GetMyProjectDetail(ctx context.Context, orgID, userID, teamID string) (*MyProjectDetailView, error) {
+// MyProjectIncludes selects the related collections GetMyProject embeds.
+type MyProjectIncludes struct {
+	Contributions bool
+	Checkpoints   bool
+}
+
+// GetMyProject returns the caller's own team (with assignment title and
+// role embedded) plus the requested related collections. Row-scoped to
+// (org, user, team): the one membership-guarded query up front gates every
+// section.
+func (s *Service) GetMyProject(ctx context.Context, orgID, userID, teamID string, inc MyProjectIncludes) (*MyProjectDetailView, error) {
 	view, err := s.repo.GetMyProjectDetail(ctx, orgID, userID, teamID)
 	if err != nil {
-		return nil, fmt.Errorf("gitlab.GetMyProjectDetail: %w", err)
+		return nil, fmt.Errorf("gitlab.GetMyProject: %w", err)
 	}
-	contributions, err := s.repo.GetTeamContributions(ctx, teamID)
-	if err != nil {
-		return nil, fmt.Errorf("gitlab.GetMyProjectDetail: %w", err)
+	if inc.Contributions {
+		if view.Contributions, err = s.repo.GetTeamContributions(ctx, teamID); err != nil {
+			return nil, fmt.Errorf("gitlab.GetMyProject: %w", err)
+		}
 	}
-	checkpoints, err := s.repo.ListCheckpointsForTeam(ctx, view.AssignmentID, teamID)
-	if err != nil {
-		return nil, fmt.Errorf("gitlab.GetMyProjectDetail: %w", err)
+	if inc.Checkpoints {
+		if view.Checkpoints, err = s.repo.ListCheckpointsForTeam(ctx, view.AssignmentID, teamID); err != nil {
+			return nil, fmt.Errorf("gitlab.GetMyProject: %w", err)
+		}
 	}
-	view.Contributions = contributions
-	view.Checkpoints = checkpoints
 	return view, nil
 }

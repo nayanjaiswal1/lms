@@ -12,6 +12,7 @@ resources:
   - labproxy.yaml
   - frontend.yaml
   - networkpolicy-labs.yaml
+  - networkpolicy-mindforge.yaml
   - runtimeclass-sysbox.yaml
   - gateway.yaml
   - httproute.yaml

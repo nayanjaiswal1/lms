@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,12 +19,18 @@ import (
 const (
 	planCap     = 3
 	pinDuration = 4 * time.Hour
+	// maxPlanTaskIDs bounds POST /plan/today (the cap plus room for reorder slack).
+	maxPlanTaskIDs = planCap + 2
+	// maxCaptureLen bounds the raw quick-capture text.
+	maxCaptureLen = 1000
 )
 
 var (
 	ErrInvalidLinkTarget = errors.New("whatnow: invalid link target type")
 	ErrTemplateNameEmpty = errors.New("whatnow: template name is required")
 	ErrTemplateNoFields  = errors.New("whatnow: template must have at least one field")
+	ErrInvalidDate       = errors.New("whatnow: date must be YYYY-MM-DD")
+	ErrInvalidStatus     = errors.New("whatnow: invalid task status")
 )
 
 // Service holds the deterministic What Now? business logic — a direct port
@@ -394,53 +401,63 @@ func applyPatch(t *Task, patch TaskPatch) {
 	t.touchedAt = time.Now()
 }
 
-func (s *Service) PatchTask(ctx context.Context, userID, id string, patch TaskPatch) (Task, error) {
+// PatchTask applies a partial update. A status change runs that transition's
+// side effects: done stamps completed_at and reports the tasks it unblocked,
+// paused/done drop any pin, and leaving decayed marks the task revived.
+func (s *Service) PatchTask(ctx context.Context, userID, id string, patch TaskPatch) (PatchResult, error) {
+	if patch.Status != nil && !validStatuses[*patch.Status] {
+		return PatchResult{}, ErrInvalidStatus
+	}
 	t, err := s.repo.GetTask(ctx, id, userID)
 	if err != nil {
-		return Task{}, err
+		return PatchResult{}, err
 	}
+	from := t.Status
 	applyPatch(&t, patch)
-	if err := s.repo.UpdateTask(ctx, t); err != nil {
-		return Task{}, err
+	if patch.Status != nil && *patch.Status != from {
+		applyTransition(&t, from)
 	}
-	return t, nil
-}
-
-func containsString(list []string, target string) bool {
-	for _, v := range list {
-		if v == target {
-			return true
+	if err := s.repo.UpdateTask(ctx, t); err != nil {
+		return PatchResult{}, err
+	}
+	res := PatchResult{Task: t}
+	if t.Status == StatusDone && from != StatusDone {
+		if res.UnlockedTasks, err = s.unlockedBy(ctx, userID, id); err != nil {
+			return PatchResult{}, err
 		}
 	}
-	return false
+	return res, nil
 }
 
-func (s *Service) CompleteTask(ctx context.Context, userID, id string) (CompleteResponse, error) {
-	t, err := s.repo.GetTask(ctx, id, userID)
-	if err != nil {
-		return CompleteResponse{}, err
+// applyTransition stamps the side effects of moving t out of status from.
+func applyTransition(t *Task, from TaskStatus) {
+	now := t.touchedAt
+	switch t.Status {
+	case StatusDone:
+		t.CompletedAt = now.Format(time.RFC3339)
+		t.pinnedUntil = nil
+	case StatusPaused:
+		t.pinnedUntil = nil
 	}
-	now := time.Now()
-	t.Status = StatusDone
-	t.CompletedAt = now.Format(time.RFC3339)
-	t.touchedAt = now
-	t.pinnedUntil = nil
-	if err := s.repo.UpdateTask(ctx, t); err != nil {
-		return CompleteResponse{}, err
+	if from == StatusDecayed {
+		t.revivedAt = &now
 	}
+}
 
+// unlockedBy returns the open tasks that depended on doneID and now have
+// every dependency done.
+func (s *Service) unlockedBy(ctx context.Context, userID, doneID string) ([]Task, error) {
 	doneIDs, err := s.repo.ListDoneIDs(ctx, userID)
 	if err != nil {
-		return CompleteResponse{}, fmt.Errorf("whatnow: complete task: %w", err)
+		return nil, fmt.Errorf("whatnow: unlocked tasks: %w", err)
 	}
 	candidates, err := s.repo.ListByStatuses(ctx, userID, []TaskStatus{StatusInbox, StatusPlanned, StatusActive, StatusPaused})
 	if err != nil {
-		return CompleteResponse{}, fmt.Errorf("whatnow: complete task: %w", err)
+		return nil, fmt.Errorf("whatnow: unlocked tasks: %w", err)
 	}
-
 	unlocked := make([]Task, 0)
 	for _, x := range candidates {
-		if !containsString(x.DependsOn, id) {
+		if !slices.Contains(x.DependsOn, doneID) {
 			continue
 		}
 		allDone := true
@@ -454,22 +471,7 @@ func (s *Service) CompleteTask(ctx context.Context, userID, id string) (Complete
 			unlocked = append(unlocked, x)
 		}
 	}
-	return CompleteResponse{UnlockedTasks: unlocked}, nil
-}
-
-func (s *Service) PauseTask(ctx context.Context, userID, id, resumeNote string) (Task, error) {
-	t, err := s.repo.GetTask(ctx, id, userID)
-	if err != nil {
-		return Task{}, err
-	}
-	t.Status = StatusPaused
-	t.ResumeNote = resumeNote
-	t.touchedAt = time.Now()
-	t.pinnedUntil = nil
-	if err := s.repo.UpdateTask(ctx, t); err != nil {
-		return Task{}, err
-	}
-	return t, nil
+	return unlocked, nil
 }
 
 // StuckTask applies one of the 4 canned resolutions from store.ts's
@@ -520,21 +522,6 @@ func (s *Service) StuckTask(ctx context.Context, userID, id string, reason Stuck
 		return StuckResolution{}, err
 	}
 	return res, nil
-}
-
-func (s *Service) ReviveTask(ctx context.Context, userID, id string) (Task, error) {
-	t, err := s.repo.GetTask(ctx, id, userID)
-	if err != nil {
-		return Task{}, err
-	}
-	now := time.Now()
-	t.Status = StatusInbox
-	t.revivedAt = &now
-	t.touchedAt = now
-	if err := s.repo.UpdateTask(ctx, t); err != nil {
-		return Task{}, err
-	}
-	return t, nil
 }
 
 // ProposeBreakdown returns a fixed 3-step template — not an AI call.
@@ -629,9 +616,13 @@ func (s *Service) GetPlanToday(ctx context.Context, userID string) (PlanToday, e
 // vanishes from the day it was created on.
 func (s *Service) GetDayPlan(ctx context.Context, userID, dateStr string, tzOffsetMin int) (DayPlan, error) {
 	loc := time.FixedZone("client", tzOffsetMin*60)
-	day, err := time.ParseInLocation("2006-01-02", dateStr, loc)
-	if err != nil {
-		day = time.Now().In(loc)
+	day := time.Now().In(loc)
+	if dateStr != "" {
+		parsed, err := time.ParseInLocation("2006-01-02", dateStr, loc)
+		if err != nil {
+			return DayPlan{}, ErrInvalidDate
+		}
+		day = parsed
 	}
 	dayStart := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, loc)
 	dayEnd := dayStart.AddDate(0, 0, 1)
@@ -654,10 +645,6 @@ func (s *Service) GetDayPlan(ctx context.Context, userID, dateStr string, tzOffs
 // from array order, per Part 3 reorder support) and demotes any
 // previously-planned task that was dropped from the selection.
 func (s *Service) PostPlanToday(ctx context.Context, userID string, taskIDs []string) (PlanToday, error) {
-	limit := planCap + 2
-	if len(taskIDs) > limit {
-		taskIDs = taskIDs[:limit]
-	}
 	chosen := make(map[string]int, len(taskIDs))
 	for i, id := range taskIDs {
 		chosen[id] = i
@@ -668,23 +655,29 @@ func (s *Service) PostPlanToday(ctx context.Context, userID string, taskIDs []st
 		return PlanToday{}, fmt.Errorf("whatnow: post plan today: %w", err)
 	}
 	now := time.Now()
-	for _, t := range all {
-		pos, isChosen := chosen[t.ID]
-		switch {
-		case isChosen:
-			t.Status = StatusPlanned
-			t.touchedAt = now
-			p := pos
-			t.planPosition = &p
-		case t.Status == StatusPlanned:
-			t.Status = StatusInbox
-			t.planPosition = nil
-		default:
-			continue
+	err = s.repo.WithTx(ctx, func(tx pgx.Tx) error {
+		for _, t := range all {
+			pos, isChosen := chosen[t.ID]
+			switch {
+			case isChosen:
+				t.Status = StatusPlanned
+				t.touchedAt = now
+				p := pos
+				t.planPosition = &p
+			case t.Status == StatusPlanned:
+				t.Status = StatusInbox
+				t.planPosition = nil
+			default:
+				continue
+			}
+			if err := s.repo.UpdateTaskTx(ctx, tx, t); err != nil {
+				return err
+			}
 		}
-		if err := s.repo.UpdateTask(ctx, t); err != nil {
-			return PlanToday{}, fmt.Errorf("whatnow: post plan today: %w", err)
-		}
+		return nil
+	})
+	if err != nil {
+		return PlanToday{}, fmt.Errorf("whatnow: post plan today: %w", err)
 	}
 	return s.GetPlanToday(ctx, userID)
 }

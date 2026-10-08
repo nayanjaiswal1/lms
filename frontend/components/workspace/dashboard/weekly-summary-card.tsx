@@ -6,6 +6,7 @@ import { Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getWeeklySummaryAction } from "@/lib/workspace/phase5-actions";
+import { useIdempotencyKey } from "@/hooks/use-idempotency-key";
 import type { WeeklySummary } from "@/lib/workspace/types";
 
 function Section({ title, items }: { title: string; items: string[] }) {
@@ -25,10 +26,11 @@ function Section({ title, items }: { title: string; items: string[] }) {
 export function WeeklySummaryCard({ workspaceId, initial }: { workspaceId: string; initial: WeeklySummary | null }) {
   const [summary, setSummary] = useState(initial);
   const [pending, startTransition] = useTransition();
+  const withKey = useIdempotencyKey();
 
   function regenerate() {
     startTransition(async () => {
-      const result = await getWeeklySummaryAction(workspaceId, true);
+      const result = await withKey((key) => getWeeklySummaryAction(workspaceId, true, key));
       if (result.error) {
         toast.error(result.error);
         return;
@@ -39,7 +41,7 @@ export function WeeklySummaryCard({ workspaceId, initial }: { workspaceId: strin
 
   function load() {
     startTransition(async () => {
-      const result = await getWeeklySummaryAction(workspaceId, false);
+      const result = await withKey((key) => getWeeklySummaryAction(workspaceId, false, key));
       if (result.error) {
         toast.error(result.error);
         return;

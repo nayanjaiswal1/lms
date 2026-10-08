@@ -23,6 +23,9 @@ const ROUTES = {
   VERIFY_EMAIL:        "/verify-email",
   ORG_SELECT:          "/org-select",
   AUTH_CALLBACK:       "/auth/callback",
+  // Invite-email landing pages (links built by backend jobs/handlers).
+  ORG_JOIN:            "/orgs/join",
+  BATCH_INVITATION:    "/invitations/accept",
 
   // Onboarding
   ONBOARDING:          "/onboarding",

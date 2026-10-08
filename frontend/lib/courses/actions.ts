@@ -282,7 +282,7 @@ export async function upsertCertificateRuleAction(
 ): Promise<ActionResult<CertificateRule>> {
   const result = await apiAction<CertificateRule>(
     "PUT",
-    `/api/courses/${courseId}/certificate-rule`,
+    `/api/courses/${courseId}/certificate-threshold`,
     { threshold_percent: thresholdPercent },
   );
   if (result.ok) revalidatePath("/courses/[slug]/edit", "page");

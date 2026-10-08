@@ -30,7 +30,7 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 // RegisterPlatformRoutes mounts the platform admin's (super_admin) plan
 // limits editor and tier-assignment endpoints.
 func (rt *Router) RegisterPlatformRoutes(r chi.Router) {
-	r.Route("/api/admin/plan-limits/{tier_id}", func(r chi.Router) {
+	r.Route("/api/admin/plan-limits/{tierID}", func(r chi.Router) {
 		r.Use(apimiddleware.RequirePlatformRole(rt.pool, apimiddleware.PlatformRoleSuperAdmin))
 
 		r.Get("/", rt.handler.AdminListPlanLimits)

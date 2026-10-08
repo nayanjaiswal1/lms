@@ -2,18 +2,30 @@ package middleware
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
+)
+
+const (
+	// idemPendingStatus marks a claimed key whose request is still running.
+	idemPendingStatus = 0
+	// idemPendingTimeout is how long a pending claim blocks retries before it
+	// is treated as abandoned (process died mid-request) and can be reclaimed.
+	idemPendingTimeout = 5 * time.Minute
+	idemMaxKeyLen      = 255
 )
 
 // responseCapture wraps http.ResponseWriter to capture status + body while
@@ -35,112 +47,146 @@ func (rc *responseCapture) Write(b []byte) (int, error) {
 	return rc.ResponseWriter.Write(b)
 }
 
-// Idempotency returns middleware that replays stored responses for duplicate
-// mutating requests that carry an Idempotency-Key header.
+// Idempotency returns middleware that runs a request carrying an
+// Idempotency-Key header at most once per (key, endpoint, user).
 //
 // Behaviour:
-//   - GET, DELETE, and OPTIONS are passed through unchanged.
-//   - POST, PUT, PATCH without an Idempotency-Key are passed through unchanged.
-//   - When a key is seen for the first time the downstream response is captured;
-//     only 2xx responses are persisted to idempotency_keys.
-//   - When a key is seen again the stored status + body are replayed immediately
-//     with the Idempotency-Replayed: true header set.
-//   - DB errors are logged and silently ignored — the request is never failed
-//     solely because of idempotency storage.
+//   - GET, DELETE, HEAD, OPTIONS, requests without a key, and unauthenticated
+//     requests (no user to scope the key to) pass through unchanged.
+//   - The key is claimed atomically before the handler runs, so a concurrent
+//     duplicate (double-click) gets 409 instead of a second execution.
+//   - A 2xx response is stored and replayed for later duplicates with
+//     Idempotency-Replayed: true; any other outcome releases the claim so a
+//     retry re-executes.
+//   - Reusing a key with a different body is 422.
+//   - Storage errors are logged and the request runs normally: idempotency
+//     storage never fails a request on its own.
 //
-// The middleware scopes keys per (idem_key, endpoint, user_id) so that two
-// different users can reuse the same opaque key without collision.
+// Rows are purged by the retention.purge cron.
 func Idempotency(pool *pgxpool.Pool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Only intercept mutating methods.
 			switch r.Method {
 			case http.MethodGet, http.MethodDelete, http.MethodOptions, http.MethodHead:
 				next.ServeHTTP(w, r)
 				return
 			}
-
-			idemKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
-			if idemKey == "" {
+			key := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+			claims, authed := auth.GetClaims(r.Context())
+			if key == "" || !authed {
 				next.ServeHTTP(w, r)
 				return
 			}
-
-			// Scope by user when authenticated; NULL for unauthenticated routes.
-			var userIDPtr *string
-			if claims, ok := auth.GetClaims(r.Context()); ok {
-				uid := claims.UserID
-				userIDPtr = &uid
+			if len(key) > idemMaxKeyLen {
+				httputil.WriteError(w, http.StatusUnprocessableEntity, "Idempotency-Key is too long.")
+				return
 			}
 
-			// Buffer and restore the request body so downstream handlers can
-			// read it, and hash it for future conflict detection.
-			bodyBytes, err := io.ReadAll(r.Body)
+			body, err := io.ReadAll(r.Body)
 			if err != nil {
 				httputil.WriteError(w, http.StatusInternalServerError, "Failed to read request body.")
 				return
 			}
-			r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+			r.Body = io.NopCloser(bytes.NewReader(body))
+			sum := sha256.Sum256(body)
+			rec := idemRecord{
+				pool: pool, key: key, endpoint: r.Method + " " + r.URL.Path,
+				userID: claims.UserID, hash: hex.EncodeToString(sum[:]),
+			}
 
-			sum := sha256.Sum256(bodyBytes)
-			reqHash := hex.EncodeToString(sum[:])
-			endpoint := r.Method + " " + r.URL.Path
-
-			// Check for an existing idempotency record.
-			var storedStatus int
-			var storedBody string
-			err = pool.QueryRow(r.Context(),
-				`SELECT status_code, response_body
-				 FROM idempotency_keys
-				 WHERE idem_key = $1
-				   AND endpoint = $2
-				   AND (user_id = $3 OR (user_id IS NULL AND $3 IS NULL))`,
-				idemKey, endpoint, userIDPtr,
-			).Scan(&storedStatus, &storedBody)
-
-			if err == nil {
-				// Replay the previously stored response.
-				w.Header().Set("Content-Type", "application/json")
-				w.Header().Set("Idempotency-Replayed", "true")
-				w.WriteHeader(storedStatus)
-				if _, werr := w.Write([]byte(storedBody)); werr != nil {
-					slog.ErrorContext(r.Context(), "Idempotency: failed to write replayed response", "err", werr)
-				}
+			id, err := rec.claim(r.Context())
+			if err != nil {
+				slog.ErrorContext(r.Context(), "idempotency: claim", "endpoint", rec.endpoint, "error", err)
+				next.ServeHTTP(w, r)
+				return
+			}
+			if id == "" {
+				rec.answerDuplicate(w, r)
 				return
 			}
 
-			if !errors.Is(err, pgx.ErrNoRows) {
-				// DB error on the lookup — log and fall through to process the
-				// request normally rather than failing the client.
-				slog.ErrorContext(r.Context(), "Idempotency: lookup query failed",
-					"idem_key", idemKey,
-					"endpoint", endpoint,
-					"err", err,
-				)
-			}
-
-			// Capture the downstream response.
 			rc := &responseCapture{ResponseWriter: w, status: http.StatusOK}
 			next.ServeHTTP(rc, r)
-
-			// Persist only successful responses so that retries after partial
-			// failures trigger a real re-execution rather than replaying an error.
-			if rc.status >= 200 && rc.status < 300 {
-				_, storeErr := pool.Exec(r.Context(),
-					`INSERT INTO idempotency_keys
-					   (idem_key, endpoint, user_id, request_hash, status_code, response_body)
-					 VALUES ($1, $2, $3, $4, $5, $6)
-					 ON CONFLICT (idem_key, endpoint, user_id) DO NOTHING`,
-					idemKey, endpoint, userIDPtr, reqHash, rc.status, rc.body.String(),
-				)
-				if storeErr != nil {
-					slog.ErrorContext(r.Context(), "Idempotency: failed to store response",
-						"idem_key", idemKey,
-						"endpoint", endpoint,
-						"err", storeErr,
-					)
-				}
+			// The client may have gone away; the claim must still be settled.
+			if err := rec.settle(context.WithoutCancel(r.Context()), id, rc); err != nil {
+				slog.ErrorContext(r.Context(), "idempotency: settle", "endpoint", rec.endpoint, "error", err)
 			}
 		})
 	}
+}
+
+type idemRecord struct {
+	pool                        *pgxpool.Pool
+	key, endpoint, userID, hash string
+}
+
+// claim inserts a pending row, or takes over an abandoned pending one. It
+// returns the row id, or "" when another request owns the key.
+func (rec idemRecord) claim(ctx context.Context) (string, error) {
+	var id string
+	err := rec.pool.QueryRow(ctx,
+		`INSERT INTO idempotency_keys (idem_key, endpoint, user_id, request_hash, status_code, response_body)
+		 VALUES ($1, $2, $3, $4, $5, '')
+		 ON CONFLICT (idem_key, endpoint, user_id) DO UPDATE
+		   SET request_hash = EXCLUDED.request_hash, created_at = now()
+		   WHERE idempotency_keys.status_code = $5
+		     AND idempotency_keys.created_at < now() - make_interval(secs => $6)
+		 RETURNING id`,
+		rec.key, rec.endpoint, rec.userID, rec.hash, idemPendingStatus, idemPendingTimeout.Seconds(),
+	).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("claim idempotency key: %w", err)
+	}
+	return id, nil
+}
+
+// answerDuplicate replays the stored response, or rejects a mismatched body
+// or a still-running original.
+func (rec idemRecord) answerDuplicate(w http.ResponseWriter, r *http.Request) {
+	var status int
+	var body, hash string
+	if err := rec.pool.QueryRow(r.Context(),
+		`SELECT status_code, response_body, request_hash FROM idempotency_keys
+		 WHERE idem_key = $1 AND endpoint = $2 AND user_id = $3`,
+		rec.key, rec.endpoint, rec.userID,
+	).Scan(&status, &body, &hash); err != nil {
+		// The original settled with a failure between our claim and this read.
+		slog.WarnContext(r.Context(), "idempotency: duplicate lookup", "endpoint", rec.endpoint, "error", err)
+		httputil.WriteError(w, http.StatusConflict, "This request was already submitted. Please retry.")
+		return
+	}
+	switch {
+	case hash != rec.hash:
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "Idempotency-Key was already used for a different request.")
+	case status == idemPendingStatus:
+		w.Header().Set("Retry-After", "2")
+		httputil.WriteError(w, http.StatusConflict, "This request is already being processed.")
+	default:
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Idempotency-Replayed", "true")
+		w.WriteHeader(status)
+		if _, err := w.Write([]byte(body)); err != nil {
+			slog.ErrorContext(r.Context(), "idempotency: write replay", "error", err)
+		}
+	}
+}
+
+// settle stores a successful response for replay, or releases the claim so a
+// retry runs again.
+func (rec idemRecord) settle(ctx context.Context, id string, rc *responseCapture) error {
+	if rc.status >= 200 && rc.status < 300 {
+		if _, err := rec.pool.Exec(ctx,
+			`UPDATE idempotency_keys SET status_code = $2, response_body = $3 WHERE id = $1`,
+			id, rc.status, rc.body.String()); err != nil {
+			return fmt.Errorf("store idempotent response: %w", err)
+		}
+		return nil
+	}
+	if _, err := rec.pool.Exec(ctx, `DELETE FROM idempotency_keys WHERE id = $1`, id); err != nil {
+		return fmt.Errorf("release idempotency key: %w", err)
+	}
+	return nil
 }

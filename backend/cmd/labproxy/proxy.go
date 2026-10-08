@@ -40,7 +40,7 @@ const ttydCredentialUser = "mindforge"
 // deriveContainerCredential must stay byte-for-byte identical to
 // labs.DeriveContainerCredential (internal/labs/credential.go): both
 // processes independently recompute the same per-session ttyd credential
-// from the session ID and the shared LABPROXY_JWT_SECRET (= JWT_SECRET),
+// from the session ID and the shared LAB_TOKEN_SECRET,
 // never stored in the database or handed to the browser. See that
 // function's doc comment for the full rationale (docs/labs.md "Proxy ↔
 // Container Channel Security"; docs/debug-labs.md Phase 0).
@@ -98,7 +98,7 @@ type ProxyHandler struct {
 	upgrader      websocket.Upgrader
 	wg            sync.WaitGroup
 	draining      atomic.Bool
-	conns         connLimiter
+	conns         *connLimiter
 }
 
 // NewProxyHandler constructs a ProxyHandler with all dependencies injected.
@@ -112,6 +112,7 @@ func NewProxyHandler(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer
 	return &ProxyHandler{
 		pool:          pool,
 		rdb:           rdb,
+		conns:         newConnLimiter(rdb),
 		jwtSecret:     jwtSecret,
 		jwtIssuer:     jwtIssuer,
 		previewDomain: previewDomain,
@@ -153,11 +154,17 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !h.conns.acquire(sess.UserID) {
+	lease, leaseErr := h.conns.acquire(r.Context(), sess.UserID)
+	if leaseErr != nil {
+		slog.Error("labproxy: terminal slot check", "error", leaseErr)
+		writeJSONError(w, http.StatusServiceUnavailable, "terminal service unavailable")
+		return
+	}
+	if lease == nil {
 		writeJSONError(w, http.StatusTooManyRequests, "too many open terminals")
 		return
 	}
-	defer h.conns.release(sess.UserID)
+	defer lease.Release()
 
 	browserConn, upgradeErr := h.upgrader.Upgrade(w, r, nil)
 	if upgradeErr != nil {

@@ -47,18 +47,18 @@ type Task struct {
 	Status      TaskStatus `json:"status"`
 	Rationale   string     `json:"rationale,omitempty"`
 	Trigger     string     `json:"trigger,omitempty"`
-	DurationMin *int       `json:"durationMin,omitempty"`
+	DurationMin *int       `json:"duration_min,omitempty"`
 	Deadline    string     `json:"deadline,omitempty"`
 	Category    string     `json:"category,omitempty"`
 	Vague       bool       `json:"vague,omitempty"`
 	Chips       []Chip     `json:"chips,omitempty"`
-	ResumeNote  string     `json:"resumeNote,omitempty"`
-	DependsOn   []string   `json:"dependsOn,omitempty"`
-	CreatedAt   string     `json:"createdAt,omitempty"`
-	CompletedAt string     `json:"completedAt,omitempty"`
+	ResumeNote  string     `json:"resume_note,omitempty"`
+	DependsOn   []string   `json:"depends_on,omitempty"`
+	CreatedAt   string     `json:"created_at,omitempty"`
+	CompletedAt string     `json:"completed_at,omitempty"`
 	// ScheduledStart is the RFC3339 start time of this task's time block on
 	// the Plan Day timeline. Empty when the task is unscheduled.
-	ScheduledStart string `json:"scheduledStart,omitempty"`
+	ScheduledStart string `json:"scheduled_start,omitempty"`
 
 	// Board fields (Linked Task Board): free-form tags, general notes (also
 	// holds template-instantiated Q&A), and the 2x2 matrix axes. Urgency and
@@ -89,9 +89,16 @@ type NowResponse struct {
 	Rationale    string `json:"rationale"`
 }
 
-// CompleteResponse is returned by POST /tasks/:id/complete.
-type CompleteResponse struct {
-	UnlockedTasks []Task `json:"unlockedTasks"`
+// PatchResult is the PATCH /tasks/{id} response: the updated task, plus —
+// when the patch completed it — the tasks that completion unblocked.
+type PatchResult struct {
+	Task
+	UnlockedTasks []Task `json:"unlocked_tasks,omitempty"`
+}
+
+var validStatuses = map[TaskStatus]bool{
+	StatusInbox: true, StatusPlanned: true, StatusActive: true,
+	StatusPaused: true, StatusDone: true, StatusDecayed: true,
 }
 
 // StuckReason is why the user is stuck on a task.
@@ -114,12 +121,12 @@ type StuckResolution struct {
 type BreakdownStep struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`
-	DurationMin *int   `json:"durationMin,omitempty"`
+	DurationMin *int   `json:"duration_min,omitempty"`
 }
 
 // BreakdownProposal is the fixed 3-step breakdown template for a task.
 type BreakdownProposal struct {
-	TaskID string          `json:"taskId"`
+	TaskID string          `json:"task_id"`
 	Steps  []BreakdownStep `json:"steps"`
 }
 
@@ -143,18 +150,18 @@ type TaskPatch struct {
 	Title       *string     `json:"title,omitempty"`
 	Status      *TaskStatus `json:"status,omitempty"`
 	Trigger     *string     `json:"trigger,omitempty"`
-	DurationMin *int        `json:"durationMin,omitempty"`
+	DurationMin *int        `json:"duration_min,omitempty"`
 	Deadline    *string     `json:"deadline,omitempty"`
 	Category    *string     `json:"category,omitempty"`
 	Chips       []Chip      `json:"chips,omitempty"`
-	ResumeNote  *string     `json:"resumeNote,omitempty"`
+	ResumeNote  *string     `json:"resume_note,omitempty"`
 	// Pinned promotes (true) or un-promotes (false) the task as the hard
 	// "do this now" override for PickNow. See service.go PickNow.
 	Pinned *bool `json:"pinned,omitempty"`
 	// ScheduledStart is an RFC3339 timestamp to schedule the task's time
 	// block; an empty string clears it (unschedules), same NULLIF convention
 	// as Deadline. Nil leaves it unchanged.
-	ScheduledStart *string `json:"scheduledStart,omitempty"`
+	ScheduledStart *string `json:"scheduled_start,omitempty"`
 
 	// Board fields — nil leaves unchanged, empty string on the pointer
 	// fields clears (same NULLIF convention as Deadline/ScheduledStart).
@@ -174,17 +181,12 @@ type DayPlan struct {
 
 // PlanTodayRequest is the body for POST /plan/today.
 type PlanTodayRequest struct {
-	TaskIDs []string `json:"taskIds"`
+	TaskIDs []string `json:"task_ids"`
 }
 
 // CaptureRequest is the body for POST /tasks.
 type CaptureRequest struct {
 	Raw string `json:"raw"`
-}
-
-// PauseRequest is the body for POST /tasks/:id/pause.
-type PauseRequest struct {
-	ResumeNote string `json:"resumeNote"`
 }
 
 // StuckRequest is the body for POST /tasks/:id/stuck.
@@ -247,18 +249,18 @@ func validLinkTargetType(t LinkTargetType) bool {
 // chip under the source task.
 type TaskLink struct {
 	ID           string         `json:"id"`
-	SourceTaskID string         `json:"sourceTaskId"`
-	TargetType   LinkTargetType `json:"targetType"`
-	TargetID     string         `json:"targetId"`
-	TargetLabel  string         `json:"targetLabel"`
-	CreatedAt    string         `json:"createdAt,omitempty"`
+	SourceTaskID string         `json:"source_task_id"`
+	TargetType   LinkTargetType `json:"target_type"`
+	TargetID     string         `json:"target_id"`
+	TargetLabel  string         `json:"target_label"`
+	CreatedAt    string         `json:"created_at,omitempty"`
 }
 
 // TaskLinkCreateRequest is the body for POST /whatnow/tasks/{id}/links.
 type TaskLinkCreateRequest struct {
-	TargetType  LinkTargetType `json:"targetType"`
-	TargetID    string         `json:"targetId"`
-	TargetLabel string         `json:"targetLabel"`
+	TargetType  LinkTargetType `json:"target_type"`
+	TargetID    string         `json:"target_id"`
+	TargetLabel string         `json:"target_label"`
 }
 
 // TemplateFieldKind is the input type rendered for one template field.
@@ -282,7 +284,7 @@ type TaskTemplate struct {
 	ID        string          `json:"id"`
 	Name      string          `json:"name"`
 	Fields    []TemplateField `json:"fields"`
-	CreatedAt string          `json:"createdAt,omitempty"`
+	CreatedAt string          `json:"created_at,omitempty"`
 }
 
 // TemplateCreateRequest is the body for POST /whatnow/templates.

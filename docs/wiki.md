@@ -51,7 +51,7 @@ Course-linked spaces — auto-created when instructor enables wiki for a course;
 
 - Pages nest to any depth via `parent_id`
 - Drag-and-drop reordering within siblings (updates `order_index`)
-- Drag onto another page to reparent (`POST /wiki/pages/:id/move`)
+- Drag onto another page to reparent (`PATCH /wiki/pages/:id` with `parent_id`/`clear_parent` + `order_index`; parent must be in the same space and not the page or a descendant)
 - Deleting a parent re-parents its children to the grandparent (no orphans)
 - Soft delete: `deleted_at` set, excluded from all queries unless explicitly included
 
@@ -135,14 +135,13 @@ PATCH  /api/wiki/spaces/:id                      (space creator | org_admin)
 DELETE /api/wiki/spaces/:id                      (org_admin) cascades to all pages
 
 -- Page tree
-GET    /api/wiki/spaces/:spaceId/pages           full nested tree (no content; metadata only)
+GET    /api/wiki/spaces/:spaceID/pages           full nested tree (no content; metadata only)
 
 -- Pages
-POST   /api/wiki/spaces/:spaceId/pages           body: {title, parent_id?, emoji?, template_id?}
+POST   /api/wiki/spaces/:spaceID/pages           body: {title, parent_id?, emoji?, template_id?}
 GET    /api/wiki/pages/:id                       page content + metadata + breadcrumb
-PATCH  /api/wiki/pages/:id                       body: {title?, content?, status?, emoji?, order_index?, parent_id?}
+PATCH  /api/wiki/pages/:id                       body: {title?, content?, status?, emoji?, order_index?, parent_id? | clear_parent?}
 DELETE /api/wiki/pages/:id                       soft delete; children re-parented
-POST   /api/wiki/pages/:id/move                  body: {parent_id, order_index}
 
 -- Version history
 GET    /api/wiki/pages/:id/versions              list [{version, title, saved_by, saved_at}]

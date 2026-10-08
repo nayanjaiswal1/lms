@@ -42,6 +42,9 @@ const (
 	lastGradeOutputMaxBytes   = 4096
 )
 
+// cleanRoomSem is deliberately per-replica, not a Redis semaphore: it protects
+// THIS node's container runtime/CPU from concurrent clean-room sandboxes, so
+// N replicas each running CleanRoomMaxConcurrent is the intended capacity.
 var cleanRoomSem = make(chan struct{}, CleanRoomMaxConcurrent)
 
 // GradeCheck is one named check in grade.sh's JSON output. Message is

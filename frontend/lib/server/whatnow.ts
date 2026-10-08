@@ -28,12 +28,12 @@ export interface PlanTask {
   id: string;
   title: string;
   status: PlanTaskStatus;
-  durationMin?: number;
+  duration_min?: number;
   deadline?: string;
   category?: string;
   chips?: PlanChip[];
   /** RFC3339 start time of this task's time block; absent when unscheduled. */
-  scheduledStart?: string;
+  scheduled_start?: string;
 }
 
 export interface DayPlan {
@@ -68,8 +68,8 @@ export async function getPlanInboxAction(): Promise<ActionResult<PlanTask[]>> {
 
 export interface SchedulePatch {
   /** RFC3339 start time to schedule the block; null clears it (unschedule). */
-  scheduledStart?: string | null;
-  durationMin?: number;
+  scheduled_start?: string | null;
+  duration_min?: number;
   /** Set to "planned" when promoting an inbox task straight onto the timeline. */
   status?: "planned";
 }
@@ -77,7 +77,7 @@ export interface SchedulePatch {
 export async function scheduleTaskAction(id: string, patch: SchedulePatch): Promise<ActionResult<PlanTask>> {
   const result = await apiAction<PlanTask>("PATCH", `/api/whatnow/tasks/${id}`, {
     ...patch,
-    scheduledStart: patch.scheduledStart === null ? "" : patch.scheduledStart,
+    scheduled_start: patch.scheduled_start === null ? "" : patch.scheduled_start,
   });
   if (result.ok) revalidatePath(ROUTES.PLAN);
   return result;
@@ -88,7 +88,7 @@ export async function scheduleTaskAction(id: string, patch: SchedulePatch): Prom
 // currently-planned task's ID, not just the ones being reordered — the
 // backend demotes any planned task omitted from this array back to inbox.
 export async function reorderBacklogAction(taskIds: string[]): Promise<ActionResult<PlanToday>> {
-  const result = await apiAction<PlanToday>("POST", "/api/whatnow/plan/today", { taskIds });
+  const result = await apiAction<PlanToday>("POST", "/api/whatnow/plan/today", { task_ids: taskIds });
   if (result.ok) revalidatePath(ROUTES.PLAN);
   return result;
 }
@@ -104,10 +104,10 @@ export type LinkTargetType = "task" | "diary_entry" | "journal_entry" | "project
 
 interface TaskLink {
   id: string;
-  sourceTaskId: string;
-  targetType: LinkTargetType;
-  targetId: string;
-  targetLabel: string;
+  source_task_id: string;
+  target_type: LinkTargetType;
+  target_id: string;
+  target_label: string;
 }
 
 export interface BoardTask {
@@ -175,9 +175,9 @@ export async function createLinkAction(
   targetLabel: string,
 ): Promise<ActionResult<TaskLink>> {
   const result = await apiAction<TaskLink>("POST", `/api/whatnow/tasks/${taskId}/links`, {
-    targetType,
-    targetId,
-    targetLabel,
+    target_type: targetType,
+    target_id: targetId,
+    target_label: targetLabel,
   });
   if (result.ok) revalidatePath(ROUTES.BOARD);
   return result;

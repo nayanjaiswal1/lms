@@ -34,6 +34,10 @@ func NewRetentionPurgeHandler(pool *pgxpool.Pool, cfg *config.Config) *Retention
 	return &RetentionPurgeHandler{pool: pool, cfg: cfg}
 }
 
+// idempotencyKeyRetentionDays bounds how long a stored Idempotency-Key
+// response can be replayed; clients retry within minutes, not days.
+const idempotencyKeyRetentionDays = 2
+
 // retentionSteps builds the enabled purge steps from cfg. Expired MCP tokens
 // have no window: they are useless once past expires_at. mcp_connections
 // (revoked, or refresh token expired) are kept for the audit window first.
@@ -59,6 +63,8 @@ func retentionSteps(cfg *config.Config) []retentionStep {
 			query: `DELETE FROM mcp_connections
 			        WHERE (status = 'revoked' AND revoked_at < now() - make_interval(days => $1))
 			           OR refresh_token_expires_at < now() - make_interval(days => $1)`},
+		{name: "idempotency_keys", days: idempotencyKeyRetentionDays, needsWindow: true,
+			query: `DELETE FROM idempotency_keys WHERE created_at` + olderThan},
 		{name: "mcp_tokens", days: 1,
 			query: `DELETE FROM auth_tokens WHERE purpose IN ('mcp_auth_code', 'mcp_access_token') AND expires_at < now()`},
 	}

@@ -63,6 +63,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrMaxResetsReached: {Status: http.StatusConflict, Code: CodeMaxResetsReached, Message: "Maximum resets reached."},
 	ErrMaxHintsReached: {Status: http.StatusTooManyRequests, Code: CodeMaxHintsReached, Message: "Maximum hints reached for this task."},
 	ErrTaskNotOptional: {Status: http.StatusConflict, Code: CodeTaskNotOptional, Message: "Task cannot be skipped."},
+	ErrSnippetQuotaExceeded: {Status: http.StatusTooManyRequests, Code: CodeSnippetDailyLimit, Message: "Daily code-run limit reached. Try again tomorrow."},
 	ErrExecutorUnavailable: {Status: http.StatusServiceUnavailable, Code: CodeExecutorUnavailable, Message: "Code executor is not configured on this server."},
 	ErrInvalidPath: {Status: http.StatusBadRequest, Code: CodeInvalidPath, Message: "Invalid file path."},
 	ErrImageNotAllowed: {Status: http.StatusForbidden, Code: CodeImageNotAllowed, Message: "This lab is not available for your organization."},

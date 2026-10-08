@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { redirect, notFound } from "next/navigation";
-import Link from "next/link";
+import { NextPageLink } from "@/components/shared/next-page-link";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { UserLink } from "@/components/shared/user-link";
 import { getAuditLogs, getOrgById } from "@/lib/orgs/server";
 import type { AuditLog } from "@/lib/orgs/types";
@@ -141,15 +140,7 @@ export default async function AuditLogPage({
               <AuditLogEntry key={log.id} log={log} orgId={orgId} orgName={org.name} />
             ))}
 
-            {next_cursor && (
-              <div className="pt-4 flex justify-center">
-                <Button asChild variant="secondary">
-                  <Link href={`?cursor=${encodeURIComponent(next_cursor)}`}>
-                    Load more
-                  </Link>
-                </Button>
-              </div>
-            )}
+            <NextPageLink nextCursor={next_cursor} />
           </div>
         )}
       </div>

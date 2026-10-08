@@ -99,10 +99,8 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 		r.Post("/api/mentor-change-requests/{requestID}/approve", rt.handler.ApproveChangeRequest)
 		r.Post("/api/mentor-change-requests/{requestID}/deny", rt.handler.DenyChangeRequest)
 
-		// Ticket detail — the single-page lifecycle view (change requests +
-		// reports) for staff. Same permission group as change-request review
-		// since it's the same "manages the ticket queue" audience.
-		r.Get("/api/mentor-tickets/{ticketID}/detail", rt.handler.GetTicketDetail)
+		// A ticket's change requests — the ticket itself is GET /api/tickets/{ticketID}.
+		r.Get("/api/mentor-tickets/{ticketID}/change-requests", rt.handler.ListTicketChangeRequests)
 	})
 
 	// Directory + reporting — any authenticated org member.
@@ -128,6 +126,7 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 	// Report moderation — gated by mentoring.manage_reports.
 	r.Group(func(r chi.Router) {
 		r.Use(manageReports)
+		r.Get("/api/mentor-tickets/{ticketID}/reports", rt.handler.ListTicketReports)
 		r.Get("/api/mentor-reports", rt.handler.ListReports)
 		r.Patch("/api/mentor-reports/{reportID}", rt.handler.ResolveReport)
 	})

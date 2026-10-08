@@ -32,10 +32,11 @@ import (
 // grader bundles live in (storage.PrivateStore) — nil is valid (a deploy
 // with no MinIO configured simply can't run lab-kind sessions; every other
 // lab type is unaffected).
-func New(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, pistonURL string, pistonTimeout time.Duration, coursesSvc *courses.Service, container ContainerRuntime, repoPreparer RepoPreparer, notifSvc *notifications.Service, entitlementsSvc *ent.Service, aiProvider ai.LLMProvider, bundleStore storage.PrivateStore) *Handler {
+func New(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, pistonURL string, pistonTimeout time.Duration, snippetDailyLimit int, coursesSvc *courses.Service, container ContainerRuntime, repoPreparer RepoPreparer, notifSvc *notifications.Service, entitlementsSvc *ent.Service, aiProvider ai.LLMProvider, bundleStore storage.PrivateStore) *Handler {
 	repo := NewRepo(pool)
 	piston := newLabPiston(pistonURL, pistonTimeout)
 	service := NewService(repo, container, rdb, pool, piston, coursesSvc, repoPreparer, notifSvc, entitlementsSvc, jwtSecret, aiProvider, bundleStore)
+	service.snippetDailyLimit = snippetDailyLimit
 	return NewHandler(repo, service, pool, rdb, jwtSecret, jwtIssuer, piston)
 }
 
@@ -43,38 +44,41 @@ func New(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, pistonURL 
 // The caller is responsible for applying RequireAuth and RequireCSRF middleware
 // before this; session ownership (IDOR) is enforced inside each handler.
 func (h *Handler) RegisterRoutes(r chi.Router) {
-	r.Get("/api/labs/{labId}", h.HandleGetLab)
-	r.Get("/api/modules/{moduleId}/lab", h.HandleGetLabByModule)
-	r.Post("/api/labs/{labId}/sessions", h.HandleStartSession)
+	r.Get("/api/labs/{labID}", h.HandleGetLab)
+	r.Get("/api/modules/{moduleID}/lab", h.HandleGetLabByModule)
+	r.Post("/api/labs/{labID}/sessions", h.HandleStartSession)
 	r.Get("/api/labs/sessions/active", h.HandleListActiveSessions)
-	r.Get("/api/labs/sessions/{sessionId}", h.HandleGetSession)
-	r.Get("/api/labs/sessions/{sessionId}/events", h.HandleSessionEvents)
-	r.Post("/api/labs/sessions/{sessionId}/ws-token", h.HandleMintWSToken)
-	r.Post("/api/labs/sessions/{sessionId}/reset", h.HandleResetSession)
-	r.Post("/api/labs/sessions/{sessionId}/end", h.HandleEndSession)
-	r.Post("/api/labs/sessions/{sessionId}/tasks/{taskId}/verify", h.HandleVerifyTask)
-	r.Post("/api/labs/sessions/{sessionId}/tasks/{taskId}/hint", h.HandleHint)
+	r.Get("/api/labs/sessions/{sessionID}", h.HandleGetSession)
+	r.Get("/api/labs/sessions/{sessionID}/events", h.HandleSessionEvents)
+	r.Post("/api/labs/sessions/{sessionID}/ws-token", h.HandleMintWSToken)
+	r.Post("/api/labs/sessions/{sessionID}/reset", h.HandleResetSession)
+	r.Post("/api/labs/sessions/{sessionID}/end", h.HandleEndSession)
+	r.Post("/api/labs/sessions/{sessionID}/tasks/{taskID}/verify", h.HandleVerifyTask)
+	r.Post("/api/labs/sessions/{sessionID}/tasks/{taskID}/hint", h.HandleHint)
 	r.Post("/api/labs/run", h.HandleRunSnippet)
 
 	// Pluggable lab kinds (backend/internal/labkinds): generic across kinds.
 	r.Get("/api/labs/catalog", h.HandleCatalog)
-	r.Get("/api/labs/sessions/{sessionId}/debrief", h.HandleDebrief)
-	r.Post("/api/labs/sessions/{sessionId}/writeup-review", h.HandleWriteupReview)
+	r.Get("/api/labs/sessions/{sessionID}/debrief", h.HandleDebrief)
+	r.Post("/api/labs/sessions/{sessionID}/writeup-review", h.HandleWriteupReview)
 
-	r.Get("/api/labs/sessions/{sessionId}/files", h.HandleListFiles)
-	r.Get("/api/labs/sessions/{sessionId}/files/read", h.HandleReadFile)
-	r.Put("/api/labs/sessions/{sessionId}/files", h.HandleWriteFile)
-	r.Post("/api/labs/sessions/{sessionId}/files/mkdir", h.HandleCreateDirectory)
-	r.Post("/api/labs/sessions/{sessionId}/files/rename", h.HandleRenameFile)
-	r.Delete("/api/labs/sessions/{sessionId}/files", h.HandleDeleteFile)
-	r.Post("/api/labs/sessions/{sessionId}/files/validate", h.HandleValidateFile)
-	r.Get("/api/labs/sessions/{sessionId}/resources", h.HandleGetResources)
+	r.Get("/api/labs/sessions/{sessionID}/files", h.HandleListFiles)
+	r.Get("/api/labs/sessions/{sessionID}/files/read", h.HandleReadFile)
+	r.Put("/api/labs/sessions/{sessionID}/files", h.HandleWriteFile)
+	r.Post("/api/labs/sessions/{sessionID}/files/mkdir", h.HandleCreateDirectory)
+	r.Post("/api/labs/sessions/{sessionID}/files/rename", h.HandleRenameFile)
+	r.Delete("/api/labs/sessions/{sessionID}/files", h.HandleDeleteFile)
+	r.Post("/api/labs/sessions/{sessionID}/files/validate", h.HandleValidateFile)
+	r.Get("/api/labs/sessions/{sessionID}/resources", h.HandleGetResources)
 
 	// Sandbox workspace: port discovery + HackerEarth-style Run/Submit.
-	r.Get("/api/labs/sessions/{sessionId}/ports", h.HandleListPorts)
-	r.Post("/api/labs/sessions/{sessionId}/run", h.HandleRunScript)
-	r.Post("/api/labs/sessions/{sessionId}/submit", h.HandleSubmitAll)
+	r.Get("/api/labs/sessions/{sessionID}/ports", h.HandleListPorts)
+	r.Post("/api/labs/sessions/{sessionID}/run", h.HandleRunScript)
+	r.Post("/api/labs/sessions/{sessionID}/submit", h.HandleSubmitAll)
 }
+
+// permManageOrg is the org-administration permission code gating the admin APIs.
+const permManageOrg = "admin.manage_org"
 
 // RegisterAdminRoutes mounts the /admin/labs/warm-pools and /admin/labs/usage
 // APIs. Gated on admin.manage_org, the same permission that already governs
@@ -88,7 +92,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 // LABS_WARM_POOL_OVERRIDES as the operator-level escape hatch — see
 // HandleListWarmPools.
 func (h *Handler) RegisterAdminRoutes(r chi.Router, authzSvc *authz.Service) {
-	r.With(authz.RequirePermission(authzSvc, "admin.manage_org")).Group(func(r chi.Router) {
+	r.With(authz.RequirePermission(authzSvc, permManageOrg)).Group(func(r chi.Router) {
 		r.Get("/api/admin/labs/warm-pools", h.HandleListWarmPools)
 		r.Get("/api/admin/labs/usage", h.HandleGetLabUsage)
 	})

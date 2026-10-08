@@ -59,9 +59,6 @@ export async function pauseJob(
   jobID: string,
   paused: boolean,
 ): Promise<void> {
-  const result = await apiAction(
-    "POST",
-    `/api/orgs/${orgID}/jobs/${jobID}/${paused ? "pause" : "resume"}`,
-  );
+  const result = await apiAction("PATCH", `/api/orgs/${orgID}/jobs/${jobID}`, { paused });
   if (!result.ok) throw new Error(result.error ?? "Failed to update job.");
 }

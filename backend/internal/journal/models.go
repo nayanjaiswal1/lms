@@ -65,19 +65,6 @@ type CategoryNode struct {
 	Subcategories []string `json:"subcategories"`
 }
 
-// SimilarPair is one edge in the graph view — two of the caller's own
-// entries whose titles cleared journalMatchThreshold against each other.
-type SimilarPair struct {
-	SourceID string `json:"source_id"`
-	TargetID string `json:"target_id"`
-}
-
-// GraphResponse is the payload for GET /api/journal/graph.
-type GraphResponse struct {
-	Entries []Entry       `json:"entries"`
-	Links   []SimilarPair `json:"links"`
-}
-
 // CreateEntryResponse wraps a newly created entry with any similarly-titled
 // entries already in the journal (see Repo.FindSimilarEntries), so the
 // caller can surface "you've learned something like this before" without a

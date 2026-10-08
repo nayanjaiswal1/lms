@@ -204,7 +204,7 @@ func (h *Handler) InstallationDelete(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "GitLab connection disconnected."})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // InstallationVerify handles POST /api/gitlab/installations/{id}/verify —

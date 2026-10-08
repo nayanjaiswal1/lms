@@ -18,6 +18,13 @@ func validSourceType(s SourceType) bool {
 
 // Highlight is a text selection anchored to a content resource by one user,
 // stored in learning_annotations with annotation_type='highlight'.
+// ListFilter narrows GET /api/highlights; nil fields don't filter.
+type ListFilter struct {
+	SourceType *string
+	SourceID   *string
+	SavedOnly  bool
+}
+
 type Highlight struct {
 	ID               string       `json:"id"`
 	UserID           string       `json:"user_id"`

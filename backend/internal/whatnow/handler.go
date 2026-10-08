@@ -1,6 +1,7 @@
 package whatnow
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -21,7 +22,9 @@ func NewHandler(pool *pgxpool.Pool) *Handler {
 
 var domainErrors = map[error]httputil.ErrSpec{
 	ErrNotFound:          {Status: http.StatusNotFound, Message: "Not found."},
-	ErrInvalidLinkTarget: {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"targetType": "must be one of task, diary_entry, journal_entry, project."}},
+	ErrInvalidLinkTarget: {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"target_type": "must be one of task, diary_entry, journal_entry, project."}},
+	ErrInvalidDate:       {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"date": "must be YYYY-MM-DD."}},
+	ErrInvalidStatus:     {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"status": "must be one of inbox, planned, active, paused, done, decayed."}},
 	ErrTemplateNameEmpty: {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"name": "is required."}},
 	ErrTemplateNoFields:  {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"fields": "at least one field is required."}},
 }
@@ -38,8 +41,14 @@ func (h *Handler) GetNow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := NowQuery{Energy: EnergySharp}
-	if v := r.URL.Query().Get("energy"); v == string(EnergyTired) {
-		q.Energy = EnergyTired
+	if v := r.URL.Query().Get("energy"); v != "" {
+		if Energy(v) != EnergySharp && Energy(v) != EnergyTired {
+			httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+				"energy": "energy must be 'sharp' or 'tired'.",
+			})
+			return
+		}
+		q.Energy = Energy(v)
 	}
 	if v := r.URL.Query().Get("availableMin"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
@@ -146,6 +155,12 @@ func (h *Handler) CaptureTask(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	if len(req.Raw) > maxCaptureLen {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+			"raw": fmt.Sprintf("raw must be %d characters or fewer.", maxCaptureLen),
+		})
+		return
+	}
 	task, err := h.service.CaptureTask(r.Context(), claims.UserID, req.Raw)
 	if err != nil {
 		writeDomainError(w, err)
@@ -164,46 +179,18 @@ func (h *Handler) PostPlanToday(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
+	if len(req.TaskIDs) > maxPlanTaskIDs {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+			"task_ids": fmt.Sprintf("at most %d tasks can be planned.", maxPlanTaskIDs),
+		})
+		return
+	}
 	plan, err := h.service.PostPlanToday(r.Context(), claims.UserID, req.TaskIDs)
 	if err != nil {
 		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, plan)
-}
-
-// CompleteTask handles POST /api/whatnow/tasks/{id}/complete.
-func (h *Handler) CompleteTask(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	id := chi.URLParam(r, "id")
-	res, err := h.service.CompleteTask(r.Context(), claims.UserID, id)
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, res)
-}
-
-// PauseTask handles POST /api/whatnow/tasks/{id}/pause.
-func (h *Handler) PauseTask(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	id := chi.URLParam(r, "id")
-	var req PauseRequest
-	if !httputil.DecodeJSON(w, r, &req) {
-		return
-	}
-	task, err := h.service.PauseTask(r.Context(), claims.UserID, id, req.ResumeNote)
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, task)
 }
 
 // StuckTask handles POST /api/whatnow/tasks/{id}/stuck.
@@ -231,21 +218,6 @@ func (h *Handler) StuckTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, res)
-}
-
-// ReviveTask handles POST /api/whatnow/tasks/{id}/revive.
-func (h *Handler) ReviveTask(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	id := chi.URLParam(r, "id")
-	task, err := h.service.ReviveTask(r.Context(), claims.UserID, id)
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, task)
 }
 
 // ProposeBreakdown handles POST /api/whatnow/tasks/{id}/breakdown.
@@ -357,13 +329,13 @@ func (h *Handler) CreateLink(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusCreated, link)
 }
 
-// DeleteLink handles DELETE /api/whatnow/links/{linkId}.
+// DeleteLink handles DELETE /api/whatnow/links/{linkID}.
 func (h *Handler) DeleteLink(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	linkID := chi.URLParam(r, "linkId")
+	linkID := chi.URLParam(r, "linkID")
 	if err := h.service.DeleteLink(r.Context(), claims.UserID, linkID); err != nil {
 		writeDomainError(w, err)
 		return

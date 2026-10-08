@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -71,8 +72,17 @@ func (s *Service) UpdateTask(ctx context.Context, orgID, userID, taskID string, 
 // SetTaskAssignee reassigns (or clears, when assigneeUserID is nil) a task —
 // same membership guard.
 func (s *Service) SetTaskAssignee(ctx context.Context, orgID, userID, taskID string, assigneeUserID *string) (*ProjectTask, error) {
-	if _, err := s.getOwnTask(ctx, orgID, userID, taskID); err != nil {
+	task, err := s.getOwnTask(ctx, orgID, userID, taskID)
+	if err != nil {
 		return nil, fmt.Errorf("gitlab.SetTaskAssignee: %w", err)
+	}
+	if assigneeUserID != nil {
+		if _, err := s.repo.GetTeamMember(ctx, task.TeamID, *assigneeUserID); err != nil {
+			if errors.Is(err, ErrNotFound) {
+				return nil, ErrAssigneeNotOnTeam
+			}
+			return nil, fmt.Errorf("gitlab.SetTaskAssignee: %w", err)
+		}
 	}
 	return s.repo.SetTaskAssignee(ctx, orgID, taskID, assigneeUserID)
 }

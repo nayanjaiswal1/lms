@@ -106,7 +106,46 @@ func (h *Handler) UpdateRequirement(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
-	updated, err := h.service.UpdateRequirement(r.Context(), claims.OrgID, chi.URLParam(r, "requirementID"), RequirementPatch{
+	requirementID := chi.URLParam(r, "requirementID")
+	current, err := h.service.GetRequirement(r.Context(), claims.OrgID, requirementID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	// Validate the post-merge state, not the patch alone: a partial patch is
+	// only valid if the resulting requirement is (e.g. a lone team_size_max
+	// must still be >= the stored team_size_min).
+	merged := requirementRequest{
+		Title:               current.Title,
+		Brief:               current.Brief,
+		RequiredSkills:      current.RequiredSkills,
+		TeamSizeMin:         current.TeamSizeMin,
+		TeamSizeMax:         current.TeamSizeMax,
+		ApplicationDeadline: current.ApplicationDeadline,
+	}
+	if body.Title != nil {
+		merged.Title = *body.Title
+	}
+	if body.Brief != nil {
+		merged.Brief = *body.Brief
+	}
+	if body.RequiredSkills != nil {
+		merged.RequiredSkills = *body.RequiredSkills
+	}
+	if body.TeamSizeMin != nil {
+		merged.TeamSizeMin = *body.TeamSizeMin
+	}
+	if body.TeamSizeMax != nil {
+		merged.TeamSizeMax = *body.TeamSizeMax
+	}
+	if body.ApplicationDeadline != nil {
+		merged.ApplicationDeadline = *body.ApplicationDeadline
+	}
+	if fields := validateRequirementRequest(&merged); len(fields) > 0 {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
+		return
+	}
+	updated, err := h.service.UpdateRequirement(r.Context(), claims.OrgID, requirementID, RequirementPatch{
 		Title:               body.Title,
 		Brief:               body.Brief,
 		RequiredSkills:      body.RequiredSkills,

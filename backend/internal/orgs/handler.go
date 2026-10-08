@@ -1,6 +1,7 @@
 package orgs
 
 import (
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"strconv"
@@ -15,6 +16,7 @@ import (
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/jobs"
 	apimiddleware "github.com/mindforge/backend/internal/middleware"
+	"github.com/mindforge/backend/internal/pagination"
 	"github.com/mindforge/backend/internal/secrets"
 	"github.com/mindforge/backend/internal/session"
 )
@@ -54,11 +56,12 @@ func NewHandler(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, va
 func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 	h.authzSvc = authzSvc
 	h.memSvc.invalidatePerms = authzSvc.InvalidateUser
+	// Idempotency-Key only on the resource-creating POSTs.
 	idem := apimiddleware.Idempotency(h.pool)
 
 	r.With(idem).Post("/api/orgs", h.handleCreate)
 	r.Get("/api/orgs/me", h.handleMe)
-	r.With(idem).Post("/api/orgs/switch", h.handleSwitch)
+	r.Post("/api/orgs/switch", h.handleSwitch)
 	r.With(idem).Post("/api/orgs/join", h.handleJoin)
 
 	r.With(apimiddleware.RequirePlatformRole(h.pool, apimiddleware.PlatformRoleSuperAdmin)).
@@ -66,7 +69,6 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 
 	r.Route("/api/orgs/{id}", func(r chi.Router) {
 		r.Use(apimiddleware.RequireOrgMember(h.pool))
-		r.Use(idem)
 
 		r.Get("/", h.handleGet)
 		r.Patch("/", h.handleUpdate)
@@ -82,22 +84,22 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 		r.Patch("/ai-connector-config", h.handleUpdateAIConnectorConfig)
 
 		r.Get("/domains", h.handleListDomains)
-		r.Post("/domains", h.handleAddDomain)
+		r.With(idem).Post("/domains", h.handleAddDomain)
 		r.Post("/domains/verify", h.handleVerifyDomain)
-		r.Post("/domains/{domain_id}/auto-join", h.handleSetAutoJoin)
-		r.Delete("/domains/{domain_id}", h.handleRemoveDomain)
+		r.Post("/domains/{domainID}/auto-join", h.handleSetAutoJoin)
+		r.Delete("/domains/{domainID}", h.handleRemoveDomain)
 
-		r.Post("/invites/batch", h.handleBatchCreateInvites)
+		r.With(idem).Post("/invites/batch", h.handleBatchCreateInvites)
 		r.Delete("/invites/batch", h.handleBatchRevokeInvites)
 		r.Post("/invites/batch/resend", h.handleBatchResendInvites)
-		r.Post("/invites", h.handleCreateInvite)
+		r.With(idem).Post("/invites", h.handleCreateInvite)
 		r.Get("/invites", h.handleListInvites)
-		r.Post("/invites/{invite_id}/resend", h.handleResendInvite)
-		r.Delete("/invites/{invite_id}", h.handleRevokeInvite)
+		r.Post("/invites/{inviteID}/resend", h.handleResendInvite)
+		r.Delete("/invites/{inviteID}", h.handleRevokeInvite)
 
 		r.Get("/members", h.handleListMembers)
-		r.Patch("/members/{member_id}", h.handleUpdateMember)
-		r.Delete("/members/{member_id}", h.handleRemoveMember)
+		r.Patch("/members/{memberID}", h.handleUpdateMember)
+		r.Delete("/members/{memberID}", h.handleRemoveMember)
 
 		r.Get("/audit-logs", h.handleListAuditLogs)
 	})
@@ -140,16 +142,37 @@ func (h *Handler) handleMe(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, orgs)
 }
 
+const (
+	adminOrgsDefaultLimit = 50
+	adminOrgsMaxLimit     = 100
+)
+
 // handleAdminListOrgs is the platform admin's cross-tenant org picker —
-// ?search= filters by name/slug substring.
+// ?search= filters by name/slug substring; ?limit=&cursor= paginate.
 func (h *Handler) handleAdminListOrgs(w http.ResponseWriter, r *http.Request) {
 	search := strings.TrimSpace(r.URL.Query().Get("search"))
-	orgs, err := h.orgSvc.ListAllOrgs(r.Context(), search)
+	limit := httputil.QueryLimit(r, adminOrgsDefaultLimit, adminOrgsMaxLimit)
+	var afterID string
+	if cursor := r.URL.Query().Get("cursor"); cursor != "" {
+		raw, err := base64.RawURLEncoding.DecodeString(cursor)
+		if err != nil {
+			httputil.WriteError(w, http.StatusBadRequest, "Invalid cursor.")
+			return
+		}
+		afterID = string(raw)
+	}
+
+	orgs, err := h.orgSvc.ListAllOrgs(r.Context(), search, afterID, limit)
 	if err != nil {
 		httputil.WriteError(w, http.StatusInternalServerError, "Failed to list organizations.")
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{"orgs": orgs})
+	nextCursor := ""
+	if len(orgs) > limit {
+		orgs = orgs[:limit]
+		nextCursor = base64.RawURLEncoding.EncodeToString([]byte(orgs[limit-1].ID))
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"items": orgs, "next_cursor": nextCursor})
 }
 
 func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request) {
@@ -523,14 +546,24 @@ func (h *Handler) handleUpdateAIConnectorConfig(w http.ResponseWriter, r *http.R
 
 // ─── domains ──────────────────────────────────────────────────────────────────
 
-func (h *Handler) handleListDomains(w http.ResponseWriter, r *http.Request) {
+// requireOrgAdmin returns the caller's OrgCtx when they are an owner or admin
+// of the org, otherwise writes the 403 and reports false.
+func requireOrgAdmin(w http.ResponseWriter, r *http.Request) (*apimiddleware.OrgCtx, bool) {
 	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
 	if !ok {
 		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
-		return
+		return nil, false
 	}
 	if orgCtx.CallerRole != RoleOwner && orgCtx.CallerRole != RoleAdmin {
 		httputil.WriteError(w, http.StatusForbidden, "Insufficient permissions.")
+		return nil, false
+	}
+	return orgCtx, true
+}
+
+func (h *Handler) handleListDomains(w http.ResponseWriter, r *http.Request) {
+	orgCtx, ok := requireOrgAdmin(w, r)
+	if !ok {
 		return
 	}
 
@@ -548,13 +581,8 @@ func (h *Handler) handleAddDomain(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
 		return
 	}
-	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
+	orgCtx, ok := requireOrgAdmin(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
-		return
-	}
-	if orgCtx.CallerRole != RoleOwner && orgCtx.CallerRole != RoleAdmin {
-		httputil.WriteError(w, http.StatusForbidden, "Insufficient permissions.")
 		return
 	}
 
@@ -581,9 +609,8 @@ func (h *Handler) handleAddDomain(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleVerifyDomain(w http.ResponseWriter, r *http.Request) {
-	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
+	orgCtx, ok := requireOrgAdmin(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
 		return
 	}
 
@@ -612,17 +639,12 @@ func (h *Handler) handleVerifyDomain(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleSetAutoJoin(w http.ResponseWriter, r *http.Request) {
-	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
+	orgCtx, ok := requireOrgAdmin(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
-		return
-	}
-	if orgCtx.CallerRole != RoleOwner && orgCtx.CallerRole != RoleAdmin {
-		httputil.WriteError(w, http.StatusForbidden, "Insufficient permissions.")
 		return
 	}
 
-	domainID := chi.URLParam(r, "domain_id")
+	domainID := chi.URLParam(r, "domainID")
 	var req struct {
 		Enabled bool `json:"enabled"`
 	}
@@ -644,17 +666,12 @@ func (h *Handler) handleSetAutoJoin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleRemoveDomain(w http.ResponseWriter, r *http.Request) {
-	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
+	orgCtx, ok := requireOrgAdmin(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
-		return
-	}
-	if orgCtx.CallerRole != RoleOwner && orgCtx.CallerRole != RoleAdmin {
-		httputil.WriteError(w, http.StatusForbidden, "Insufficient permissions.")
 		return
 	}
 
-	domainID := chi.URLParam(r, "domain_id")
+	domainID := chi.URLParam(r, "domainID")
 	if err := h.domSvc.Remove(r.Context(), orgCtx.OrgID, domainID); err != nil {
 		h.mapOrgError(w, err)
 		return
@@ -721,10 +738,7 @@ func (h *Handler) handleListInvites(w http.ResponseWriter, r *http.Request) {
 
 	status := r.URL.Query().Get("status")
 	cursor := r.URL.Query().Get("cursor")
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
+	limit := httputil.QueryLimit(r, pagination.DefaultLimit, pagination.MaxLimit)
 
 	page, err := h.invSvc.List(r.Context(), orgCtx.OrgID, status, cursor, limit)
 	if err != nil {
@@ -750,7 +764,7 @@ func (h *Handler) handleResendInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inviteID := chi.URLParam(r, "invite_id")
+	inviteID := chi.URLParam(r, "inviteID")
 	inv, token, err := h.invSvc.Resend(r.Context(), orgCtx.OrgID, claims.UserID, orgCtx.CallerRole, inviteID)
 	if err != nil {
 		switch {
@@ -788,7 +802,7 @@ func (h *Handler) handleRevokeInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inviteID := chi.URLParam(r, "invite_id")
+	inviteID := chi.URLParam(r, "inviteID")
 	if err := h.invSvc.Revoke(r.Context(), orgCtx.OrgID, claims.UserID, inviteID, orgCtx.CallerRole); err != nil {
 		switch {
 		case errors.Is(err, ErrNotFound):
@@ -1049,10 +1063,7 @@ func (h *Handler) handleListMembers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cursor := r.URL.Query().Get("cursor")
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
+	limit := httputil.QueryLimit(r, pagination.DefaultLimit, pagination.MaxLimit)
 
 	page, err := h.memSvc.List(r.Context(), orgCtx.OrgID, cursor, limit)
 	if err != nil {
@@ -1078,7 +1089,7 @@ func (h *Handler) handleUpdateMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	memberID := chi.URLParam(r, "member_id")
+	memberID := chi.URLParam(r, "memberID")
 	var req UpdateMemberRequest
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
@@ -1119,7 +1130,7 @@ func (h *Handler) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	memberID := chi.URLParam(r, "member_id")
+	memberID := chi.URLParam(r, "memberID")
 	if err := h.memSvc.Remove(r.Context(), orgCtx.OrgID, claims.UserID, orgCtx.CallerRole, memberID); err != nil {
 		switch {
 		case errors.Is(err, ErrNotFound):
@@ -1171,12 +1182,9 @@ func (h *Handler) handleListAuditLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cursor := r.URL.Query().Get("cursor")
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
+	limit := httputil.QueryLimit(r, pagination.DefaultLimit, pagination.MaxLimit)
 
-	cursorCreatedAt, cursorID, decErr := decodeCursor(cursor)
+	cursorCreatedAt, cursorID, decErr := pagination.DecodeCursor(cursor, "orgs")
 	if decErr != nil {
 		cursor = ""
 	}
@@ -1244,7 +1252,7 @@ func (h *Handler) handleListAuditLogs(w http.ResponseWriter, r *http.Request) {
 	if len(logs) > limit {
 		page.Logs = logs[:limit]
 		last := page.Logs[limit-1]
-		page.NextCursor = encodeCursor(last.CreatedAt, strconv.FormatInt(last.ID, 10))
+		page.NextCursor = pagination.EncodeCursor(last.CreatedAt, strconv.FormatInt(last.ID, 10))
 	}
 	httputil.WriteJSON(w, http.StatusOK, page)
 }

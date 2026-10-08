@@ -43,11 +43,11 @@ data:
   MINIO_PUBLIC_USE_SSL: "true"
 
   # Code execution — in-cluster Piston by default (piston.yaml runs in the
-  # mindforge-labs namespace, hence the cross-namespace Service DNS name).
+  # mindforge-piston namespace, hence the cross-namespace Service DNS name).
   # Point at an external instance instead (no code change needed) if this
   # cluster's Pod Security Admission forbids privileged Pods and piston.yaml
   # can't run here.
-  PISTON_URL: "http://piston.mindforge-labs.svc.cluster.local:2000"
+  PISTON_URL: "http://piston.mindforge-piston.svc.cluster.local:2000"
   PISTON_TIMEOUT: "30s"
 
   # Lab sandboxes run as Pods in mindforge-labs via the Kubernetes API

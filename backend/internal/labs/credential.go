@@ -37,7 +37,7 @@ const ttydCredentialFile = "/home/labuser/.mf-ttyd-cred"
 const CredentialWriteTimeoutSeconds = 10
 
 // DeriveContainerCredential computes the per-session container credential:
-// HMAC-SHA256(LAB_JWT_SECRET, sessionID), hex-encoded. Nothing about this
+// HMAC-SHA256(LAB_TOKEN_SECRET, sessionID), hex-encoded. Nothing about this
 // value is ever stored in the database or handed to the browser — both
 // sides (this process, writing it into the container at claim/start time,
 // and labproxy, presenting it on every upstream connection) independently

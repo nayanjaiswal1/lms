@@ -21,7 +21,7 @@ RUN pip3 install --no-cache-dir --break-system-packages \
       "requests>=2.31,<3.0" \
       "pytest>=8.0,<9.0"
 
-RUN useradd --create-home --shell /bin/bash labuser \
+RUN useradd --uid 1001 --create-home --shell /bin/bash labuser \
     && mkdir -p /var/log/mindforge-lab \
     && chown -R labuser:labuser /home/labuser /var/log/mindforge-lab \
     && chmod 777 /var/log/mindforge-lab

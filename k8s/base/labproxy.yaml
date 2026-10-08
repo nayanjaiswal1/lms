@@ -34,11 +34,27 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
+          # Explicit secret keys only: mindforge-secrets also holds JWT_SECRET
+          # and the app DB creds, which labproxy must never see (audit C4).
           envFrom:
             - configMapRef:
                 name: mindforge-config
-            - secretRef:
-                name: mindforge-secrets
+          env:
+            - name: LAB_TOKEN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mindforge-secrets
+                  key: LAB_TOKEN_SECRET
+            - name: LABPROXY_DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mindforge-secrets
+                  key: LABPROXY_DB_URL
+            - name: LABPROXY_REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mindforge-secrets
+                  key: LABPROXY_REDIS_URL
           readinessProbe:
             httpGet:
               path: /health

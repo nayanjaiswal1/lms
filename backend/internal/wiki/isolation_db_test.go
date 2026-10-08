@@ -54,11 +54,12 @@ func TestWiki_TenantIsolation(t *testing.T) {
 	if _, err := repo.GetPage(ctx, orgB, page.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("GetPage org B: err=%v, want ErrNotFound", err)
 	}
-	if _, err := repo.UpdatePage(ctx, orgB, page.ID, &hijack, nil, nil, nil, nil, nil, nil, nil, userID); !errors.Is(err, ErrNotFound) {
+	if _, err := repo.UpdatePage(ctx, orgB, page.ID, &hijack, nil, nil, nil, nil, false, nil, nil, nil, userID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("UpdatePage org B: err=%v, want ErrNotFound", err)
 	}
-	if _, err := repo.MovePage(ctx, orgB, page.ID, nil, 9); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("MovePage org B: err=%v, want ErrNotFound", err)
+	nine := 9
+	if _, err := repo.UpdatePage(ctx, orgB, page.ID, nil, nil, nil, nil, nil, true, nil, &nine, nil, userID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("move org B: err=%v, want ErrNotFound", err)
 	}
 	if err := repo.DeletePage(ctx, orgB, page.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("DeletePage org B: err=%v, want ErrNotFound", err)

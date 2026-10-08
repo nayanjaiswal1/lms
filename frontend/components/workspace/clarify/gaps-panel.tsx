@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { requirementGapsAction } from "@/lib/workspace/phase3-actions";
+import { useIdempotencyKey } from "@/hooks/use-idempotency-key";
 
 interface GapsPanelProps {
   workspaceId: string;
@@ -17,10 +18,11 @@ interface GapsPanelProps {
 export function GapsPanel({ workspaceId }: GapsPanelProps) {
   const [gaps, setGaps] = useState<string[] | null>(null);
   const [pending, startTransition] = useTransition();
+  const withKey = useIdempotencyKey();
 
   function check() {
     startTransition(async () => {
-      const result = await requirementGapsAction(workspaceId);
+      const result = await withKey((key) => requirementGapsAction(workspaceId, key));
       if (result.error) {
         toast.error(result.error);
         return;

@@ -39,11 +39,13 @@ export async function updatePageAction(
   return apiAction<WikiPage>("PATCH", `/api/wiki/pages/${id}`, payload);
 }
 
+/** Reparent/reorder via the page PATCH; a null parent moves it to the space root. */
 export async function movePageAction(
   id: string,
   payload: { parent_id: string | null; order_index: number },
 ): Promise<ActionResult<WikiPage>> {
-  return apiAction<WikiPage>("POST", `/api/wiki/pages/${id}/move`, payload);
+  const parent = payload.parent_id === null ? { clear_parent: true } : { parent_id: payload.parent_id };
+  return apiAction<WikiPage>("PATCH", `/api/wiki/pages/${id}`, { ...parent, order_index: payload.order_index });
 }
 
 
@@ -62,8 +64,8 @@ export async function updateCommentAction(id: string, content: string): Promise<
   return apiAction<WikiComment>("PATCH", `/api/wiki/comments/${id}`, { content });
 }
 
-export async function deleteCommentAction(id: string): Promise<ActionResult<{ deleted: boolean }>> {
-  return apiAction<{ deleted: boolean }>("DELETE", `/api/wiki/comments/${id}`);
+export async function deleteCommentAction(id: string): Promise<ActionResult> {
+  return apiAction("DELETE", `/api/wiki/comments/${id}`);
 }
 
 export async function createTemplateAction(payload: {

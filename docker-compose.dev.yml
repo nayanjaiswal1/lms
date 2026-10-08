@@ -134,7 +134,7 @@ services:
     command: sh -c "apk add --no-cache docker-cli && go mod download && go install github.com/air-verse/air@latest && air -c .air.toml"
 
   piston:
-    image: ghcr.io/engineer-man/piston
+    image: ghcr.io/engineer-man/piston@sha256:2f66b7456189c4d713aa986d98eccd0b6ee16d26c7ec5f21b30e942756fd127a
     container_name: mindforge_piston_dev
     restart: unless-stopped
     privileged: true
@@ -164,9 +164,9 @@ services:
       LABPROXY_PORT: "8081"
       # Same Neon DB as backend — labproxy verifies JWTs issued against it, so
       # both must be looking at the one database.
-      LABPROXY_DB_URL: ${DATABASE_URL}
+      LABPROXY_DB_URL: ${LABPROXY_DB_URL:-${DATABASE_URL}}
       LABPROXY_REDIS_URL: ${REDIS_URL}
-      LABPROXY_JWT_SECRET: ${JWT_SECRET}
+      LAB_TOKEN_SECRET: ${LAB_TOKEN_SECRET}
       LABPROXY_JWT_ISSUER: mindforge-labproxy
       # *.localhost — no DNS/TLS setup needed in dev; see Caddyfile.dev's
       # preview block and backend/cmd/labproxy/host.go.

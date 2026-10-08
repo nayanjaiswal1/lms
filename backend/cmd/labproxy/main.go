@@ -14,19 +14,22 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// minLabTokenSecretBytes matches the backend's requireSecret floor.
+const minLabTokenSecretBytes = 32
+
 func main() {
 	port := getEnv("LABPROXY_PORT", "8081")
 	dbURL := os.Getenv("LABPROXY_DB_URL")
 	redisURL := getEnv("LABPROXY_REDIS_URL", "redis://localhost:6379/0")
-	jwtSecret := os.Getenv("LABPROXY_JWT_SECRET")
+	jwtSecret := os.Getenv("LAB_TOKEN_SECRET")
 	jwtIssuer := getEnv("LABPROXY_JWT_ISSUER", "mindforge-labproxy")
 	previewDomain := os.Getenv("LABPROXY_PREVIEW_DOMAIN")
 
 	if dbURL == "" {
 		fatal("labproxy: LABPROXY_DB_URL is required")
 	}
-	if jwtSecret == "" {
-		fatal("labproxy: LABPROXY_JWT_SECRET is required")
+	if len(jwtSecret) < minLabTokenSecretBytes {
+		fatal("labproxy: LAB_TOKEN_SECRET is required (min 32 bytes; must differ from the platform JWT_SECRET)")
 	}
 	allowedOrigins := parseAllowedOrigins(os.Getenv("LABPROXY_ALLOWED_ORIGINS"))
 	if len(allowedOrigins) == 0 {
@@ -95,6 +98,8 @@ func newRootHandler(handler *ProxyHandler, previewDomain string) http.Handler {
 	mux.HandleFunc("/preview/", handler.ServePreview)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// The ws-token rides in /preview/<token>/... — never leak it via Referer.
+		w.Header().Set("Referrer-Policy", "no-referrer")
 		previewPort, sessionID, ok := splitPreviewHost(r.Host, previewDomain)
 		if !ok {
 			mux.ServeHTTP(w, r)

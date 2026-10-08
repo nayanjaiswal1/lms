@@ -2,17 +2,10 @@ package privacy
 
 import (
 	"context"
-	"errors"
 	"fmt"
-
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/mindforge/backend/internal/authz"
 )
-
-// ErrWrongPassword is returned when the password re-entry required to delete
-// a password-based account doesn't match.
-var ErrWrongPassword = errors.New("privacy: wrong password")
 
 // deletionReason is stored in users.status_reason — operator-facing context
 // for why the account is deactivated, same field admin-triggered lock/
@@ -34,26 +27,13 @@ func (s *Service) Export(ctx context.Context, userID string) (map[string]any, er
 }
 
 // DeleteAccount anonymizes userID's personal data and kills every active
-// session. password is required and verified when the account has one
-// (password_hash set); social/passkey-only accounts have nothing to verify
-// against, so the caller's already-authenticated session is the boundary —
-// the same posture the platform already takes for POST /api/auth/logout-all.
+// session. The handler has already re-verified the caller (auth.StepUp).
 //
 // Uses authz.AdminRepo.SetUserStatus directly rather than authz.AdminService
 // —AdminService.SetUserStatus refuses to act on the caller's own account (an
 // admin locking themselves out is never intended), but self-service deletion
 // is exactly that case, legitimately.
-func (s *Service) DeleteAccount(ctx context.Context, userID, password string) error {
-	hash, err := s.repo.PasswordHash(ctx, userID)
-	if err != nil {
-		return err
-	}
-	if hash != nil && *hash != "" {
-		if err := bcrypt.CompareHashAndPassword([]byte(*hash), []byte(password)); err != nil {
-			return ErrWrongPassword
-		}
-	}
-
+func (s *Service) DeleteAccount(ctx context.Context, userID string) error {
 	if err := s.repo.AnonymizeAndDeletePII(ctx, userID); err != nil {
 		return err
 	}

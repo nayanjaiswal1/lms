@@ -201,7 +201,7 @@ func applicationStatusNotification(requirementTitle, status string) (title strin
 // comment for why a notification failure never blocks the review itself.
 func (s *Service) ReviewApplication(ctx context.Context, orgID, id, status, reviewedBy string) (*ProjectApplication, error) {
 	if !validApplicationStatuses[status] {
-		return nil, fmt.Errorf("%w: status must be shortlisted, selected, or rejected", ErrConflict)
+		return nil, ErrInvalidStatus
 	}
 	updated, err := s.repo.SetApplicationStatus(ctx, orgID, id, status, reviewedBy)
 	if err != nil {
@@ -257,9 +257,8 @@ var ErrTooManySelected = errors.New("projectmarket: more applications are select
 // assignment itself: that still goes through the normal "New assignment"
 // flow, since it carries real GitLab provisioning choices (template repo,
 // visibility, branch protection) this package has no reason to decide.
-// Members that fail to add (e.g. already on another team for this
-// assignment) are skipped, not fatal — the caller gets back which user IDs
-// actually got added.
+// The team and every selected member are inserted in one transaction, so a
+// partial roster is never left behind.
 func (s *Service) CreateTeamFromSelection(ctx context.Context, orgID, userID, requirementID string, req TeamFromSelectionRequest) (*gitlab.ProjectTeam, []string, error) {
 	requirement, err := s.repo.GetRequirement(ctx, orgID, requirementID)
 	if err != nil {
@@ -276,17 +275,13 @@ func (s *Service) CreateTeamFromSelection(ctx context.Context, orgID, userID, re
 		return nil, nil, ErrTooManySelected
 	}
 
-	team, err := s.gitlabSvc.CreateTeam(ctx, orgID, userID, req.AssignmentID, req.TeamName, req.TeamSlug)
-	if err != nil {
-		return nil, nil, fmt.Errorf("projectmarket: create team from selection: %w", err)
-	}
-
 	added := make([]string, 0, len(selected))
 	for _, app := range selected {
-		if _, err := s.gitlabSvc.AddTeamMember(ctx, orgID, team.ID, app.UserID, gitlab.MemberRoleMember, gitlab.AccessLevelDeveloper, userID); err != nil {
-			continue
-		}
 		added = append(added, app.UserID)
+	}
+	team, err := s.gitlabSvc.CreateTeamWithMembers(ctx, orgID, userID, req.AssignmentID, req.TeamName, req.TeamSlug, added)
+	if err != nil {
+		return nil, nil, fmt.Errorf("projectmarket: create team from selection: %w", err)
 	}
 	return team, added, nil
 }

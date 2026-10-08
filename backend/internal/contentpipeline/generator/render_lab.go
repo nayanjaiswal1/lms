@@ -199,11 +199,10 @@ func renderLabRows(out *strings.Builder, courseID, moduleID, idKey, title string
 // multi-file starter projects exist in the container workdir at session
 // start) to the author's own setup_script.
 //
-// Lab containers run with --cap-drop ALL, which strips CAP_CHOWN and
-// CAP_DAC_OVERRIDE even from the root user this script runs as: root cannot
-// chown its writes over to labuser, and labuser cannot edit a root-owned
-// 0644 file. Every written file therefore gets chmod 666 (root owns it, so
-// plain-ownership chmod needs no capability) and every directory this script
+// Lab containers run with --cap-drop ALL and this script runs as the image
+// user (labuser), so files it writes are already labuser-owned; the explicit
+// chmod 666 / 777 keeps them editable even if a script runs as another user.
+// Every written file gets chmod 666 and every directory this script
 // creates gets chmod 777 — otherwise starter files are read-only to the
 // student in the terminal and the file-explorer PUT endpoint alike.
 func buildSetupScript(spec *canonical.LabSpec) string {

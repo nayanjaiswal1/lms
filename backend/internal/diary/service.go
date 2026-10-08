@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 	"strings"
 	"time"
 
@@ -109,16 +110,20 @@ func (s *Service) Apply(ctx context.Context, entry Entry, edited []Highlight) ([
 	if err != nil {
 		return nil, fmt.Errorf("diary.Apply: %w", err)
 	}
-	resolved, applyErr := s.applyHighlights(ctx, entry, edited, habits, openTasks)
-	// Save whatever succeeded even if a later highlight in the batch failed —
-	// habit/task mutations aren't wrapped in one cross-domain transaction, so
-	// losing the partial result here would silently redo already-applied
-	// mutations (relying only on title/date dedup) on the writer's retry.
-	if err := s.repo.SaveAnalysis(ctx, entry.ID, resolved, ContentHash(entry.Content)); err != nil {
-		return nil, fmt.Errorf("diary: apply: save: %w", err)
-	}
-	if applyErr != nil {
-		return resolved, fmt.Errorf("diary: apply: %w", applyErr)
+	// One transaction across the habit completions, captured tasks and the
+	// saved analysis: any failure rolls the whole batch back, so a retry
+	// never has to rely on dedup to avoid double-applying.
+	var resolved []Highlight
+	err = s.repo.WithTx(ctx, func(tx pgx.Tx) error {
+		var applyErr error
+		resolved, applyErr = s.applyHighlights(ctx, tx, entry, edited, habits, openTasks)
+		if applyErr != nil {
+			return applyErr
+		}
+		return s.repo.SaveAnalysisTx(ctx, tx, entry.ID, resolved, ContentHash(entry.Content))
+	})
+	if err != nil {
+		return nil, fmt.Errorf("diary: apply: %w", err)
 	}
 	return resolved, nil
 }
@@ -206,7 +211,7 @@ func cleanHighlights(detected []Highlight, habits []habit.Habit, openTasks []Tas
 // mention re-analyzed on a later day, or one the model files as the other
 // kind, links to the existing open todo/buy row instead of creating a
 // second one for the same errand.
-func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []Highlight, habits []habit.Habit, openTasks []Task) ([]Highlight, error) {
+func (s *Service) applyHighlights(ctx context.Context, tx pgx.Tx, entry Entry, detected []Highlight, habits []habit.Habit, openTasks []Task) ([]Highlight, error) {
 	habitByID := make(map[string]habit.Habit, len(habits))
 	for _, h := range habits {
 		habitByID[h.ID] = h
@@ -224,14 +229,12 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 	}
 
 	resolved := make([]Highlight, 0, len(detected))
-	var errs []error
 	for _, h := range detected {
 		h.Text = strings.TrimSpace(h.Text)
 		if h.Text == "" || h.End <= h.Start {
 			continue
 		}
 		prior, alreadyApplied := already[dedupKey(h.Kind, h.Text)]
-		failed := false
 
 		switch h.Kind {
 		case HighlightHabit:
@@ -241,10 +244,8 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 			}
 			period := alignPeriod(entryDate(entry), hab.Cadence)
 			if !alreadyApplied {
-				if err := s.habits.SetCompletion(ctx, entry.UserID, hab.ID, period.Format("2006-01-02")); err != nil {
-					errs = append(errs, fmt.Errorf("diary: analyze: set habit completion: %w", err))
-					failed = true
-					break
+				if err := s.habits.SetCompletionTx(ctx, tx, entry.UserID, hab.ID, period.Format("2006-01-02")); err != nil {
+					return nil, fmt.Errorf("diary: analyze: set habit completion: %w", err)
 				}
 			}
 			// Metadata is applied every pass, not just !alreadyApplied — an
@@ -252,9 +253,8 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 			// would create a duplicate), so a re-analysis with more detail in
 			// the same sentence keeps refining the stored fields.
 			if meta := allowedHabitMetadata(hab, h.Metadata); len(meta) > 0 {
-				if err := s.habits.SetCompletionMetadata(ctx, entry.UserID, hab.ID, period.Format("2006-01-02"), meta); err != nil {
-					errs = append(errs, fmt.Errorf("diary: analyze: set habit metadata: %w", err))
-					failed = true
+				if err := s.habits.SetCompletionMetadataTx(ctx, tx, entry.UserID, hab.ID, period.Format("2006-01-02"), meta); err != nil {
+					return nil, fmt.Errorf("diary: analyze: set habit metadata: %w", err)
 				}
 			}
 
@@ -263,9 +263,8 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 				continue
 			}
 			if !alreadyApplied {
-				if _, err := s.repo.SetTaskDone(ctx, entry.UserID, h.RefID, true); err != nil {
-					errs = append(errs, fmt.Errorf("diary: analyze: complete task: %w", err))
-					failed = true
+				if _, err := s.repo.SetTaskDoneTx(ctx, tx, entry.UserID, h.RefID, true); err != nil {
+					return nil, fmt.Errorf("diary: analyze: complete task: %w", err)
 				}
 			}
 
@@ -275,13 +274,11 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 			} else if existing, ok := openTaskByTitle[normalizeTaskText(h.Text)]; ok {
 				h.RefID = existing.ID
 			} else {
-				t, err := s.repo.CreateTask(ctx, entry.UserID, h.Text, "", string(TaskKindTodo), &entry.ID, nil)
+				t, err := s.repo.CreateTaskTx(ctx, tx, entry.UserID, h.Text, "", string(TaskKindTodo), &entry.ID, nil)
 				if err != nil {
-					errs = append(errs, fmt.Errorf("diary: analyze: capture task: %w", err))
-					failed = true
-				} else {
-					h.RefID = t.ID
+					return nil, fmt.Errorf("diary: analyze: capture task: %w", err)
 				}
+				h.RefID = t.ID
 			}
 
 		case HighlightBuyNew:
@@ -290,13 +287,11 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 			} else if existing, ok := openTaskByTitle[normalizeTaskText(h.Text)]; ok {
 				h.RefID = existing.ID
 			} else {
-				t, err := s.repo.CreateTask(ctx, entry.UserID, h.Text, "", string(TaskKindBuy), &entry.ID, nil)
+				t, err := s.repo.CreateTaskTx(ctx, tx, entry.UserID, h.Text, "", string(TaskKindBuy), &entry.ID, nil)
 				if err != nil {
-					errs = append(errs, fmt.Errorf("diary: analyze: capture buy task: %w", err))
-					failed = true
-				} else {
-					h.RefID = t.ID
+					return nil, fmt.Errorf("diary: analyze: capture buy task: %w", err)
 				}
+				h.RefID = t.ID
 			}
 
 		case HighlightGoal:
@@ -308,30 +303,23 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 				// server-side safety net against creating a duplicate.
 				h.RefID = match.ID
 			} else {
-				created, err := s.habits.Create(ctx, entry.UserID, habit.CreateRequest{
+				created, err := s.habits.CreateTx(ctx, tx, entry.UserID, habit.CreateRequest{
 					Name:    h.Title,
 					Cadence: habit.Cadence(h.Cadence),
 				})
 				if err != nil {
-					errs = append(errs, fmt.Errorf("diary: analyze: create goal habit: %w", err))
-					failed = true
-				} else {
-					h.RefID = created.ID
+					return nil, fmt.Errorf("diary: analyze: create goal habit: %w", err)
 				}
+				h.RefID = created.ID
 			}
 
 		default:
 			continue
 		}
 
-		if failed {
-			// Don't persist this highlight as resolved — it'll be retried
-			// (and, per the dedup rules above, won't double-apply) next pass.
-			continue
-		}
 		resolved = append(resolved, h)
 	}
-	return resolved, errors.Join(errs...)
+	return resolved, nil
 }
 
 // matchExistingHabit does a cheap case-insensitive substring match of title

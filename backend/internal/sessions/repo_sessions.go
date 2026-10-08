@@ -252,12 +252,13 @@ func (r *Repo) Reschedule(ctx context.Context, orgID, sessionID string, startsAt
 // ─── feedback ──────────────────────────────────────────────────────────────
 
 // UpsertFeedback writes one author's rating for a session, replacing their
-// previous one rather than stacking a second (see the unique index).
+// previous one rather than stacking a second (see the unique index). The
+// feedback row carries the session's org (feedback.org_id is NOT NULL).
 func (r *Repo) UpsertFeedback(ctx context.Context, f Feedback) (Feedback, error) {
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO feedback (subject_type, subject_id, user_id, kind, rating, comment)
-		 VALUES ($1, $2, $3, $4, $5, $6)
-		 ON CONFLICT (subject_type, subject_id, user_id) DO UPDATE
+		`INSERT INTO feedback (org_id, subject_type, subject_id, user_id, kind, rating, comment)
+		 SELECT s.org_id, $1, s.id, $3, $4, $5, $6 FROM mentor_sessions s WHERE s.id = $2
+		 ON CONFLICT (kind, subject_type, subject_id, user_id) DO UPDATE
 		   SET rating = EXCLUDED.rating, comment = EXCLUDED.comment, updated_at = now()
 		 RETURNING id, created_at, updated_at`,
 		"mentor_session", f.SessionID, f.AuthorID, "rating", f.Rating, f.Comment,

@@ -89,7 +89,7 @@ func (h *Handler) DeleteTeam(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Team deleted."})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ReprovisionTeam handles POST /api/projects/teams/{teamID}/reprovision —
@@ -154,7 +154,7 @@ func (h *Handler) RemoveTeamMember(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Member removed."})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ListTeamMembers handles GET /api/projects/teams/{teamID}/members.

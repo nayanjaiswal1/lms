@@ -110,3 +110,34 @@ func (h *Handler) ListCategories(w http.ResponseWriter, r *http.Request) {
 	}
 	httputil.WriteJSON(w, http.StatusOK, categories)
 }
+
+// CreateCategory handles POST /api/focus-wall/categories
+func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	var req CreateCategoryRequest
+	if !httputil.DecodeJSON(w, r, &req) {
+		return
+	}
+	category, err := h.service.CreateCategory(r.Context(), claims.UserID, req)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusCreated, category)
+}
+
+// DeleteCategory handles DELETE /api/focus-wall/categories/{categoryID}
+func (h *Handler) DeleteCategory(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	if err := h.service.DeleteCategory(r.Context(), claims.UserID, chi.URLParam(r, "categoryID")); err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

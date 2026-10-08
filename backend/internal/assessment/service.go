@@ -52,6 +52,7 @@ var (
 	ErrAttemptExpired      = errors.New("assessment: attempt time has expired")
 	ErrNotAttemptOwner     = errors.New("assessment: attempt belongs to another user")
 	ErrNoQuestions         = errors.New("assessment: assessment has no questions")
+	ErrInvalidStatus       = errors.New("assessment: invalid status transition")
 	ErrNotCodingQuestion   = errors.New("assessment: question is not a coding question")
 	ErrExecutorUnavailable = errors.New("assessment: code execution is not available right now")
 	ErrSessionSuperseded   = errors.New("assessment: this session has been superseded by another device")
@@ -70,6 +71,22 @@ func checkSession(att Attempt, sessionToken string) error {
 
 // Publish validates the assessment is takeable and transitions it. A scheduled
 // window (starts_at in the future) moves to 'scheduled'; otherwise 'published'.
+// SetStatus applies a lifecycle transition. "published" runs Publish's checks
+// (and may land on scheduled); the others are set directly.
+func (s *Service) SetStatus(ctx context.Context, orgID, assessmentID, status string) (Assessment, error) {
+	switch status {
+	case StatusPublished:
+		return s.Publish(ctx, orgID, assessmentID)
+	case StatusDraft, StatusActive, StatusCompleted, StatusArchived:
+		if err := s.repo.SetStatus(ctx, orgID, assessmentID, status, false); err != nil {
+			return Assessment{}, fmt.Errorf("assessment.SetStatus: %w", err)
+		}
+		return s.repo.GetAssessment(ctx, orgID, assessmentID)
+	default:
+		return Assessment{}, ErrInvalidStatus
+	}
+}
+
 func (s *Service) Publish(ctx context.Context, orgID, assessmentID string) (Assessment, error) {
 	a, err := s.repo.GetAssessment(ctx, orgID, assessmentID)
 	if err != nil {

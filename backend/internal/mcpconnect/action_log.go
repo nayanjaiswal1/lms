@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -144,19 +143,6 @@ func decodeBeforeState(entry ActionLogEntry, dst any) error {
 	return nil
 }
 
-// ─── cursor pagination ─────────────────────────────────────────────────────
-// Cursor encode/decode lives in internal/pagination (shared with orgs and
-// jobs); the "mcpconnect" prefix below keeps malformed-cursor errors
-// attributed to this domain.
-
-func encodeActionLogCursor(createdAt time.Time, id string) string {
-	return pagination.EncodeCursor(createdAt, id)
-}
-
-func decodeActionLogCursor(cursor string) (time.Time, string, error) {
-	return pagination.DecodeCursor(cursor, "mcpconnect")
-}
-
 // ─── HTTP handlers ──────────────────────────────────────────────────────────
 
 // ListMyActionLog handles GET /api/mcp-action-log — the activity-log page's
@@ -169,11 +155,8 @@ func (rt *Router) ListMyActionLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
-	cursorCreatedAt, cursorID, err := decodeActionLogCursor(r.URL.Query().Get("cursor"))
+	limit := httputil.QueryLimit(r, pagination.DefaultLimit, pagination.MaxLimit)
+	cursorCreatedAt, cursorID, err := pagination.DecodeCursor(r.URL.Query().Get("cursor"), "mcpconnect")
 	if err != nil {
 		cursorID = ""
 	}
@@ -191,7 +174,7 @@ func (rt *Router) ListMyActionLog(w http.ResponseWriter, r *http.Request) {
 	if len(entries) > limit {
 		page.Entries = entries[:limit]
 		last := page.Entries[limit-1]
-		page.NextCursor = encodeActionLogCursor(last.CreatedAt, last.ID)
+		page.NextCursor = pagination.EncodeCursor(last.CreatedAt, last.ID)
 	}
 	httputil.WriteJSON(w, http.StatusOK, page)
 }

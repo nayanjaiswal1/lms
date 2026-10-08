@@ -102,7 +102,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		// Bulk student import via Excel — explicitly excluded from mentor
 		r.Post("/api/batches/{batchID}/import/parse", h.HandleImportParse)
 		r.Post("/api/batches/{batchID}/import/validate", h.HandleImportValidate)
-		r.Post("/api/batches/{batchID}/import/confirm", h.HandleImportConfirm)
+		r.With(middleware.Idempotency(h.pool)).Post("/api/batches/{batchID}/import/confirm", h.HandleImportConfirm)
 		r.Get("/api/batches/{batchID}/import/report", h.HandleImportReport)
 
 		// Classroom Test Assessment Engine — entering/editing manual offline
@@ -124,7 +124,6 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/api/assessments/{assessmentID}/questions", h.AddAssessmentQuestion)
 		r.Post("/api/assessments/{assessmentID}/questions/auto-select", h.AutoSelectAssessmentQuestions)
 		r.Delete("/api/assessments/{assessmentID}/questions/{aqID}", h.RemoveAssessmentQuestion)
-		r.Post("/api/assessments/{assessmentID}/publish", h.PublishAssessment)
 		r.Post("/api/assessments/{assessmentID}/status", h.SetAssessmentStatus)
 
 		// Assignment (who takes the assessment) — authoring, not results review
@@ -168,9 +167,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.With(mentorAttemptScope(h.pool)).Get("/api/attempts/{attemptID}/proctoring", h.AttemptProctoringLog)
 		r.Get("/api/analytics/overview", h.OrgAnalytics)
 
-		// Interview evaluation — staff review queue (read) and queue health
+		// Interview evaluation — staff review queue
 		r.Get("/api/interview/review-queue", h.HandleReviewQueue)
-		r.Get("/health/eval-queue", h.HandleEvalQueueHealth)
 	})
 
 	// ─── Student: take tests ──────────────────────────────────────────────────
@@ -210,7 +208,4 @@ func (h *Handler) RegisterPublicRoutes(r chi.Router) {
 	r.Post("/api/p/{code}/start", h.StartPublicAttempt)
 	r.Post("/api/p/{code}/submit", h.SubmitPublicAttempt)
 	r.Get("/api/p/{code}/result", h.GetPublicResult)
-	// Deprecated token-in-path forms, kept for one release.
-	r.Post("/api/p/{code}/submit/{token}", h.SubmitPublicAttempt)
-	r.Get("/api/p/{code}/result/{token}", h.GetPublicResult)
 }

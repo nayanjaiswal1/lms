@@ -1,8 +1,7 @@
 // Package pagination holds the shared cursor-pagination helpers: a
-// (created_at, id) pair encoded as a base64url cursor string. Three domains
-// previously carried verbatim copies (orgs, jobs, mcpconnect's action log);
-// they now delegate here, passing their own error prefix so log messages
-// keep identifying the originating domain.
+// (created_at, id) pair encoded as a base64url cursor string. Callers pass
+// their own error prefix so log messages keep identifying the originating
+// domain.
 package pagination
 
 import (

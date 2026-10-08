@@ -14,6 +14,7 @@ export async function submitFeedbackAction(input: {
   return apiAction("POST", "/api/feedback", {
     subject_type: input.subjectType,
     subject_id: input.subjectId,
+    kind: "rating",
     rating: input.rating,
     comment: input.comment,
     skip: input.skip ?? false,

@@ -18,37 +18,63 @@ import {
 } from "@/components/ui/alert-dialog";
 import { exportMyDataAction, deleteMyAccountAction } from "@/app/(app)/settings/privacy/actions";
 
-export function PrivacySettings() {
-  const [exporting, setExporting] = useState(false);
-  const [deleteState, setDeleteState] = useState<{ open: boolean; password: string; pending: boolean }>({
-    open: false,
-    password: "",
-    pending: false,
-  });
+type SensitiveAction = "export" | "delete";
 
-  async function handleExport() {
-    setExporting(true);
-    const result = await exportMyDataAction();
-    setExporting(false);
-    if (result.error || !result.data) {
-      toast.error(result.error ?? "Could not export your data.");
+interface ConfirmState {
+  action: SensitiveAction | null;
+  password: string;
+  code: string;
+  pending: boolean;
+}
+
+const CLOSED: ConfirmState = { action: null, password: "", code: "", pending: false };
+
+const COPY: Record<SensitiveAction, { title: string; description: string; confirm: string }> = {
+  export: {
+    title: "Confirm it's you",
+    description: "Your export contains personal data, so confirm your identity before downloading it.",
+    confirm: "Download my data",
+  },
+  delete: {
+    title: "Delete your account?",
+    description:
+      "Your name, email, and avatar will be permanently anonymized and every session ends immediately.",
+    confirm: "Delete my account",
+  },
+};
+
+function downloadJson(data: Record<string, unknown>) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "mindforge-data-export.json";
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+export function PrivacySettings() {
+  const [state, setState] = useState<ConfirmState>(CLOSED);
+  const copy = state.action ? COPY[state.action] : null;
+
+  async function handleConfirm() {
+    const stepUp = { password: state.password, code: state.code };
+    setState((s) => ({ ...s, pending: true }));
+    if (state.action === "export") {
+      const result = await exportMyDataAction(stepUp);
+      if (result.error || !result.data) {
+        setState((s) => ({ ...s, pending: false }));
+        toast.error(result.error ?? "Could not export your data.");
+        return;
+      }
+      setState(CLOSED);
+      downloadJson(result.data);
       return;
     }
-    const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "mindforge-data-export.json";
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
-  async function handleDelete() {
-    setDeleteState((s) => ({ ...s, pending: true }));
-    const result = await deleteMyAccountAction(deleteState.password);
+    const result = await deleteMyAccountAction(stepUp);
     // A successful call redirects server-side and never returns here.
     if (result?.error) {
-      setDeleteState((s) => ({ ...s, pending: false }));
+      setState((s) => ({ ...s, pending: false }));
       toast.error(result.error);
     }
   }
@@ -64,8 +90,8 @@ export function PrivacySettings() {
             Download a copy of your profile, purchases, and activity as a JSON file.
           </p>
         </div>
-        <Button disabled={exporting} size="sm" onClick={handleExport}>
-          {exporting ? <Loader2 aria-hidden className="animate-spin" /> : <Download aria-hidden className="h-4 w-4" />}
+        <Button size="sm" onClick={() => setState({ ...CLOSED, action: "export" })}>
+          <Download aria-hidden className="h-4 w-4" />
           Download my data
         </Button>
       </section>
@@ -80,48 +106,50 @@ export function PrivacySettings() {
             undone.
           </p>
         </div>
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => setDeleteState({ open: true, password: "", pending: false })}
-        >
+        <Button size="sm" variant="destructive" onClick={() => setState({ ...CLOSED, action: "delete" })}>
           <Trash2 aria-hidden className="h-4 w-4" />
           Delete my account
         </Button>
       </section>
 
-      <AlertDialog
-        open={deleteState.open}
-        onOpenChange={(open) => setDeleteState((s) => ({ ...s, open }))}
-      >
+      <AlertDialog open={state.action !== null} onOpenChange={(open) => !open && setState(CLOSED)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+            <AlertDialogTitle>{copy?.title}</AlertDialogTitle>
             <AlertDialogDescription>
-              Your name, email, and avatar will be permanently anonymized and every session ends
-              immediately. If you sign in with a password, confirm it below. Leave it blank if you
-              only sign in with Google, GitHub, Microsoft, or a passkey.
+              {copy?.description} Enter your password if you sign in with one, and a code from your
+              authenticator app if two-factor authentication is on. Leave a field blank if it
+              doesn&apos;t apply to you.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <Input
+            aria-label="Current password"
             autoComplete="current-password"
-            disabled={deleteState.pending}
+            disabled={state.pending}
             placeholder="Current password (if you have one)"
             type="password"
-            value={deleteState.password}
-            onChange={(e) => setDeleteState((s) => ({ ...s, password: e.target.value }))}
+            value={state.password}
+            onChange={(e) => setState((s) => ({ ...s, password: e.target.value }))}
+          />
+          <Input
+            aria-label="Two-factor code"
+            autoComplete="one-time-code"
+            disabled={state.pending}
+            placeholder="Two-factor or recovery code (if enabled)"
+            value={state.code}
+            onChange={(e) => setState((s) => ({ ...s, code: e.target.value }))}
           />
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteState.pending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={state.pending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              disabled={deleteState.pending}
+              disabled={state.pending}
               onClick={(e) => {
                 e.preventDefault();
-                void handleDelete();
+                void handleConfirm();
               }}
             >
-              {deleteState.pending ? <Loader2 aria-hidden className="animate-spin" /> : null}
-              Delete my account
+              {state.pending ? <Loader2 aria-hidden className="animate-spin" /> : null}
+              {copy?.confirm}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

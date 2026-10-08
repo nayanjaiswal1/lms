@@ -60,7 +60,7 @@ type SheetItem struct {
 	ExternalURL *string         `json:"external_url,omitempty"`
 	OrderIndex  int             `json:"order_index"`
 	Metadata    json.RawMessage `json:"metadata,omitempty"` // free-form per-item JSON (e.g. {"day": 3}); only ListItemsWithProgress fills it
-	Status      string          `json:"status"` // "todo" | "done" | "revisit"
+	Status      string          `json:"status"`             // "todo" | "done" | "revisit"
 	SolvedAt    *time.Time      `json:"solved_at,omitempty"`
 	RevisionAt  *time.Time      `json:"revision_at,omitempty"`
 	ReviewCount int             `json:"review_count"` // successful "Reviewed" clicks since last freshly marked done
@@ -104,32 +104,17 @@ type UpdateItemRequest struct {
 	ExternalURL *string `json:"external_url,omitempty"`
 }
 
-// UpdateProgressRequest is the body for PATCH /api/progress/:topic_tag.
-// SheetID identifies which sheet's revision settings apply — required
-// whenever Status is "done", since a topic_tag's progress is shared across
-// every sheet that contains it but the growth scheme is per-sheet.
-type UpdateProgressRequest struct {
-	Status  string `json:"status"`
-	SheetID string `json:"sheet_id,omitempty"`
+// ProgressPatchRequest is the body for PATCH /api/progress/{topic_tag}; every
+// field is optional. SheetID picks the growth scheme when Status is "done".
+type ProgressPatchRequest struct {
+	Status     *string          `json:"status"`
+	SheetID    string           `json:"sheet_id"`
+	RevisionAt *time.Time       `json:"revision_at"`
+	Notes      *json.RawMessage `json:"notes"`
+	Starred    *bool            `json:"starred"`
 }
 
-// UpdateProgressNotesRequest is the body for PATCH /api/progress/:topic_tag/notes.
-type UpdateProgressNotesRequest struct {
-	Notes json.RawMessage `json:"notes"`
-}
-
-// UpdateProgressStarredRequest is the body for PATCH /api/progress/:topic_tag/star.
-type UpdateProgressStarredRequest struct {
-	Starred bool `json:"starred"`
-}
-
-// UpdateRevisionRequest is the body for PATCH /api/progress/:topic_tag/revision
-// — directly sets an already-scheduled revision date to a new one.
-type UpdateRevisionRequest struct {
-	RevisionAt time.Time `json:"revision_at"`
-}
-
-// MarkReviewedRequest is the body for PATCH /api/progress/:topic_tag/review
+// MarkReviewedRequest is the body for POST /api/progress/{topic_tag}/reviews
 // — the "I still remember this" action. SheetID selects whose growth scheme
 // computes the next, longer interval.
 type MarkReviewedRequest struct {

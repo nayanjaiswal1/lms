@@ -248,15 +248,6 @@ func (r *Repo) GetStats(ctx context.Context, userID string) (*Stats, error) {
 // transaction (e.g. when social links are also being written). Only non-nil
 // pointer fields are applied; existing values are preserved via COALESCE.
 // Returns ErrConflict when display_name or profile_slug is taken.
-// SetLastPage upserts user_profiles.last_page (the row may not exist yet).
-func (r *Repo) SetLastPage(ctx context.Context, userID, path string) error {
-	_, err := r.pool.Exec(ctx, `
-		INSERT INTO user_profiles (user_id, last_page) VALUES ($1, $2)
-		ON CONFLICT (user_id) DO UPDATE SET last_page = EXCLUDED.last_page`,
-		userID, path)
-	return err
-}
-
 func (r *Repo) UpsertProfile(ctx context.Context, tx pgx.Tx, userID string, input UpdateProfileInput) error {
 	var notifRaw []byte
 	if input.Notifications != nil {
@@ -293,7 +284,7 @@ func (r *Repo) UpsertProfile(ctx context.Context, tx pgx.Tx, userID string, inpu
 			language, timezone, weekly_goal_hrs, default_landing_page, notifications,
 			display_name, bio,
 			public_enabled, show_skills, show_achievements,
-			show_certificates, show_activity,
+			show_certificates, show_activity, last_page,
 			updated_at
 		) VALUES (
 			$1,
@@ -303,6 +294,7 @@ func (r *Repo) UpsertProfile(ctx context.Context, tx pgx.Tx, userID string, inpu
 			COALESCE($18, true),
 			COALESCE($19, true),
 			COALESCE($20, true),
+			$21,
 			now()
 		)
 		ON CONFLICT (user_id) DO UPDATE SET
@@ -325,6 +317,7 @@ func (r *Repo) UpsertProfile(ctx context.Context, tx pgx.Tx, userID string, inpu
 			show_achievements        = COALESCE($18, user_profiles.show_achievements),
 			show_certificates        = COALESCE($19, user_profiles.show_certificates),
 			show_activity            = COALESCE($20, user_profiles.show_activity),
+			last_page                = COALESCE($21, user_profiles.last_page),
 			updated_at               = now()`
 
 	err := exec(upsertQ,
@@ -348,6 +341,7 @@ func (r *Repo) UpsertProfile(ctx context.Context, tx pgx.Tx, userID string, inpu
 		input.ShowAchievements,
 		input.ShowCertificates,
 		input.ShowActivity,
+		input.LastPage,
 	)
 	if err != nil {
 		if db.IsUniqueViolation(err) {

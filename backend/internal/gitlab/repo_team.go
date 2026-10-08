@@ -248,9 +248,19 @@ func scanTeam(row pgx.Row) (*ProjectTeam, error) {
 	return &t, nil
 }
 
+// rowQuerier is satisfied by both *pgxpool.Pool and pgx.Tx, so single-row
+// inserts can run standalone or inside a caller's transaction.
+type rowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 // CreateTeam inserts a new team under an assignment, provision_status='pending'.
 func (r *Repo) CreateTeam(ctx context.Context, t ProjectTeam) (*ProjectTeam, error) {
-	row := r.pool.QueryRow(ctx,
+	return createTeam(ctx, r.pool, t)
+}
+
+func createTeam(ctx context.Context, q rowQuerier, t ProjectTeam) (*ProjectTeam, error) {
+	row := q.QueryRow(ctx,
 		`INSERT INTO project_teams (org_id, assignment_id, name, slug, created_by)
 		 VALUES ($1, $2, $3, $4, $5)
 		 RETURNING `+teamColumns,
@@ -528,7 +538,11 @@ func scanMember(row pgx.Row) (*ProjectTeamMember, error) {
 // team for this assignment), or ErrConflict for any other uniqueness
 // violation (e.g. re-adding the same user to the same team).
 func (r *Repo) AddTeamMember(ctx context.Context, m ProjectTeamMember) (*ProjectTeamMember, error) {
-	row := r.pool.QueryRow(ctx,
+	return addTeamMember(ctx, r.pool, m)
+}
+
+func addTeamMember(ctx context.Context, q rowQuerier, m ProjectTeamMember) (*ProjectTeamMember, error) {
+	row := q.QueryRow(ctx,
 		`INSERT INTO project_team_members (team_id, user_id, assignment_id, role, gitlab_access_level, added_by)
 		 VALUES ($1, $2, $3, $4, $5, $6)
 		 RETURNING `+memberColumns,
@@ -676,4 +690,28 @@ func (r *Repo) DeleteTeamMember(ctx context.Context, teamID, userID string) erro
 		return ErrNotFound
 	}
 	return nil
+}
+
+// CreateTeamWithMembers inserts a team and its initial roster in one
+// transaction — either every row lands or none does.
+func (r *Repo) CreateTeamWithMembers(ctx context.Context, t ProjectTeam, members []ProjectTeamMember) (*ProjectTeam, error) {
+	var team *ProjectTeam
+	err := r.tx(ctx, func(tx pgx.Tx) error {
+		var err error
+		if team, err = createTeam(ctx, tx, t); err != nil {
+			return err
+		}
+		for _, m := range members {
+			m.TeamID = team.ID
+			m.AssignmentID = team.AssignmentID
+			if _, err := addTeamMember(ctx, tx, m); err != nil {
+				return fmt.Errorf("member %s: %w", m.UserID, err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return team, nil
 }

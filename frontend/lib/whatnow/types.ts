@@ -26,15 +26,15 @@ export interface Task {
   status: TaskStatus;
   rationale?: string;
   trigger?: string;
-  durationMin?: number;
+  duration_min?: number;
   deadline?: string;
   category?: string;
   vague?: boolean;
   chips?: Chip[];
-  resumeNote?: string;
-  dependsOn?: string[];
-  createdAt?: string;
-  completedAt?: string;
+  resume_note?: string;
+  depends_on?: string[];
+  created_at?: string;
+  completed_at?: string;
 }
 
 export interface NowResponse {
@@ -43,9 +43,8 @@ export interface NowResponse {
   rationale: string;
 }
 
-export interface CompleteResponse {
-  unlockedTasks: Task[];
-}
+/** PATCH /tasks/{id} response: the task, plus the tasks a completion unblocked. */
+export type PatchResult = Task & { unlocked_tasks?: Task[] };
 
 export type StuckReason =
   | "too_big"
@@ -62,11 +61,11 @@ export interface StuckResolution {
 interface BreakdownStep {
   id: string;
   title: string;
-  durationMin?: number;
+  duration_min?: number;
 }
 
 export interface BreakdownProposal {
-  taskId: string;
+  task_id: string;
   steps: BreakdownStep[];
 }
 
@@ -90,11 +89,11 @@ export type TaskPatch = Partial<
     | "title"
     | "status"
     | "trigger"
-    | "durationMin"
+    | "duration_min"
     | "deadline"
     | "category"
     | "chips"
-    | "resumeNote"
+    | "resume_note"
   >
 > & {
   /** promote (true) or un-promote (false) this task as the hard "do this now" override */

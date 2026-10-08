@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiAction } from "@/lib/server/api";
+import { apiAction, idempotencyHeader } from "@/lib/server/api";
 import type { ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 import { classifyPrepInput, type PrepMode } from "@/lib/interview-prep/classify";
@@ -15,13 +15,16 @@ const JD_MAX_CHARS = 10000;
 // explicit "switch mode" click — otherwise the mode is always re-derived
 // from the text server-side, never trusted from the client, since the text
 // (and therefore the correct mode) can change after any client-side guess.
-export async function createPrepPlanAction(input: {
-  text: string;
-  modeOverride?: PrepMode;
-  difficulty?: string;
-  questionCount?: number;
-  category?: "technical" | "behavioral";
-}): Promise<ActionResult<PrepPlan>> {
+export async function createPrepPlanAction(
+  input: {
+    text: string;
+    modeOverride?: PrepMode;
+    difficulty?: string;
+    questionCount?: number;
+    category?: "technical" | "behavioral";
+  },
+  idempotencyKey: string,
+): Promise<ActionResult<PrepPlan>> {
   const text = input.text.trim();
   const mode = input.modeOverride ?? classifyPrepInput(text);
 
@@ -40,7 +43,7 @@ export async function createPrepPlanAction(input: {
           jd_text: text.length > TITLE_MAX_CHARS || text.includes("\n") ? text.slice(0, JD_MAX_CHARS) : undefined,
         };
 
-  const result = await apiAction<PrepPlan>("POST", "/api/interview-prep", body);
+  const result = await apiAction<PrepPlan>("POST", "/api/interview-prep", body, idempotencyHeader(idempotencyKey));
   if (result.ok) revalidatePath(ROUTES.INTERVIEW_PREP);
   return result;
 }

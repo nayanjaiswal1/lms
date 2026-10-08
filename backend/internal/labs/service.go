@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/mindforge/backend/internal/ratelimit"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -60,12 +61,14 @@ type Service struct {
 	repoPreparer  RepoPreparer
 	notifications *notifications.Service
 	entitlements  *ent.Service
-	// labJWTSecret is LABPROXY_JWT_SECRET (= JWT_SECRET, see WSTokenType's
-	// doc comment) — the same shared secret MintWSToken signs WS tokens
-	// with, reused as the HMAC key for DeriveContainerCredential so
-	// acquireSandbox can write each session's ttyd credential without a
-	// second secret to provision and rotate.
+	// labJWTSecret is LAB_TOKEN_SECRET — a secret distinct from JWT_SECRET
+	// that MintWSToken signs WS tokens with and that keys
+	// DeriveContainerCredential. labproxy holds it, so it must never be able
+	// to forge login tokens.
 	labJWTSecret string
+	// snippetLimiter/snippetDailyLimit meter POST /api/labs/run per user per day.
+	snippetLimiter    *ratelimit.Limiter
+	snippetDailyLimit int
 	// aiProvider backs RequestHint (hint.go) — the generic lab hint endpoint
 	// (docs/labs.md "AI Integration" § Hint System).
 	aiProvider ai.LLMProvider
@@ -89,12 +92,11 @@ type Service struct {
 // jwtSecret is LABPROXY_JWT_SECRET — see Service.labJWTSecret's doc comment.
 // aiProvider backs RequestHint — see Service.aiProvider's doc comment.
 func NewService(repo *Repo, container ContainerRuntime, rdb *redis.Client, pool *pgxpool.Pool, piston *labPiston, coursesSvc *courses.Service, repoPreparer RepoPreparer, notifSvc *notifications.Service, entitlementsSvc *ent.Service, jwtSecret string, aiProvider ai.LLMProvider, bundleStore storage.PrivateStore) *Service {
-	return &Service{repo: repo, container: container, closer: NewSandboxCloser(repo, container), rdb: rdb, pool: pool, piston: piston, coursesSvc: coursesSvc, repoPreparer: repoPreparer, notifications: notifSvc, entitlements: entitlementsSvc, labJWTSecret: jwtSecret, aiProvider: aiProvider, bundleStore: bundleStore}
+	return &Service{repo: repo, container: container, closer: NewSandboxCloser(repo, container), rdb: rdb, pool: pool, piston: piston, coursesSvc: coursesSvc, repoPreparer: repoPreparer, notifications: notifSvc, entitlements: entitlementsSvc, labJWTSecret: jwtSecret, snippetLimiter: ratelimit.New(rdb), snippetDailyLimit: DefaultSnippetDailyLimit, aiProvider: aiProvider, bundleStore: bundleStore}
 }
 
 // WSTokenType is the wsTokenClaims.Type value labproxy requires. labproxy
-// and the main API share one JWT signing secret (LABPROXY_JWT_SECRET =
-// JWT_SECRET) with only the Issuer string distinguishing a lab WS token from
+// and the main API share LAB_TOKEN_SECRET (distinct from JWT_SECRET) with only the Issuer string distinguishing a lab WS token from
 // a main-app access token — a config slip that points both processes at the
 // same issuer string would otherwise make an ordinary login token pass
 // validateWSToken. A dedicated `typ` claim, checked in addition to Issuer,
@@ -122,7 +124,7 @@ type wsTokenClaims struct {
 // moduleID, when non-nil, is the course_modules placement the student
 // launched this session from — recorded on the session so completion
 // resolves back to THIS placement (see finalizeTaskPass). Library "try"
-// starts and the standalone /api/labs/{labId}/sessions caller pass nil.
+// starts and the standalone /api/labs/{labID}/sessions caller pass nil.
 func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string, isTest bool, idempotencyKey string, moduleID *string) (*LabSession, error) {
 	// 1. Load lab. A course placement (moduleID, already validated by the
 	// handler to link to this lab in the caller's org) or an instructor
@@ -528,13 +530,7 @@ func (s *Service) prepareLabEnvironment(ctx context.Context, containerID string,
 	if lab.SetupScript == nil || strings.TrimSpace(*lab.SetupScript) == "" {
 		return nil
 	}
-	exec := s.container.ExecSetup
-	if s.container.Classify(lab.Environment).SetupAsImageUser {
-		exec = func(ctx context.Context, id, script string, timeoutSec int) (string, string, int, error) {
-			return s.container.Exec(ctx, id, script, timeoutSec)
-		}
-	}
-	stdout, stderr, exitCode, err := exec(ctx, containerID, *lab.SetupScript, SetupScriptTimeoutSeconds)
+	stdout, stderr, exitCode, err := s.container.ExecSetup(ctx, containerID, *lab.SetupScript, SetupScriptTimeoutSeconds)
 	if err != nil {
 		return fmt.Errorf("labs.Service.prepareLabEnvironment: exec setup_script: %w", err)
 	}

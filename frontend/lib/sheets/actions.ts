@@ -111,7 +111,7 @@ export async function markReviewedAction(
   topicTag: string,
   sheetId: string,
 ): Promise<ActionResult<SheetItem>> {
-  const result = await apiAction<SheetItem>("PATCH", `/api/progress/${encodeURIComponent(topicTag)}/review`, {
+  const result = await apiAction<SheetItem>("POST", `/api/progress/${encodeURIComponent(topicTag)}/reviews`, {
     sheet_id: sheetId,
   });
   if (result.ok) revalidatePath(ROUTES.SHEETS, "layout");
@@ -125,7 +125,7 @@ export async function updateProgressRevisionAction(
   topicTag: string,
   revisionAt: string,
 ): Promise<ActionResult<SheetItem>> {
-  const result = await apiAction<SheetItem>("PATCH", `/api/progress/${encodeURIComponent(topicTag)}/revision`, {
+  const result = await apiAction<SheetItem>("PATCH", `/api/progress/${encodeURIComponent(topicTag)}`, {
     revision_at: revisionAt,
   });
   if (result.ok) revalidatePath(ROUTES.SHEETS, "layout");
@@ -150,7 +150,7 @@ export async function updateProgressStarredAction(
   topicTag: string,
   starred: boolean,
 ): Promise<ActionResult<SheetItem>> {
-  const result = await apiAction<SheetItem>("PATCH", `/api/progress/${encodeURIComponent(topicTag)}/star`, {
+  const result = await apiAction<SheetItem>("PATCH", `/api/progress/${encodeURIComponent(topicTag)}`, {
     starred,
   });
   if (result.ok) revalidatePath(ROUTES.SHEETS, "layout");
@@ -164,5 +164,5 @@ export async function updateProgressNotesAction(
   topicTag: string,
   notes: JSONContent,
 ): Promise<ActionResult<SheetItem>> {
-  return apiAction<SheetItem>("PATCH", `/api/progress/${encodeURIComponent(topicTag)}/notes`, { notes });
+  return apiAction<SheetItem>("PATCH", `/api/progress/${encodeURIComponent(topicTag)}`, { notes });
 }

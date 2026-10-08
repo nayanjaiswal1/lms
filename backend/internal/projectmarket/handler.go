@@ -22,6 +22,7 @@ func NewHandler(service *Service) *Handler {
 var domainErrors = map[error]httputil.ErrSpec{
 	ErrNotFound:               {Status: http.StatusNotFound, Message: "Not found."},
 	ErrConflict:               {Status: http.StatusConflict, Message: "This action conflicts with the current state."},
+	ErrInvalidStatus:          {Status: http.StatusUnprocessableEntity, Message: "Status must be shortlisted, selected, or rejected."},
 	ErrRequirementClosed:      {Status: http.StatusConflict, Message: "This requirement is not accepting applications."},
 	ErrAlreadyApplied:         {Status: http.StatusConflict, Message: "You have already applied to this requirement."},
 	ErrAIUnavailable:          {Status: http.StatusServiceUnavailable, Message: "AI scoring is not available right now."},

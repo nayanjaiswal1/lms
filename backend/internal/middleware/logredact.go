@@ -8,7 +8,7 @@ import (
 
 // secretPathSegments matches routes whose last path segment is a bearer
 // credential: public attempt tokens and calendar invite tokens.
-var secretPathSegments = regexp.MustCompile(`^(/api/p/[^/]+/(?:submit|result)/)[^/?]+|^(/api/calendar/invites/)[^/?]+`)
+var secretPathSegments = regexp.MustCompile(`^(/api/p/[^/]+/(?:submit|result)/)[^/?]+|^(/api/calendar/invites/)[^/?]+|^(/preview/)[^/?]+`)
 
 // secretQueryParams are query parameters that carry credentials (the ICS feed
 // URL token).
@@ -23,7 +23,7 @@ func RedactedURI(requestURI string) string {
 	if err != nil {
 		return "REDACTED-URI"
 	}
-	path := secretPathSegments.ReplaceAllString(u.Path, "${1}${2}"+redacted)
+	path := secretPathSegments.ReplaceAllString(u.Path, "${1}${2}${3}"+redacted)
 	q := u.Query()
 	for _, k := range secretQueryParams {
 		if q.Has(k) {

@@ -98,22 +98,6 @@ func (h *Handler) ListMyProjects(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, projects)
 }
 
-// GetMyProject handles GET /api/my/projects/{teamID} — returns "not found"
-// (rather than "forbidden") for a team the caller doesn't belong to, so no
-// information about a team's existence leaks to a non-member.
-func (h *Handler) GetMyProject(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	team, err := h.service.GetMyProject(r.Context(), claims.OrgID, claims.UserID, chi.URLParam(r, "teamID"))
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, team)
-}
-
 // GetMyProjectContributions handles GET /api/my/projects/{teamID}/contributions.
 func (h *Handler) GetMyProjectContributions(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)

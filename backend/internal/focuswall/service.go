@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"unicode/utf8"
 )
 
 var (
@@ -81,17 +82,28 @@ func (s *Service) validCategoryForUser(ctx context.Context, userID string, c Cat
 	return true, nil
 }
 
-// ListCategories returns distinct categories used in the user's notes.
+// ListCategories returns the user's custom categories.
 func (s *Service) ListCategories(ctx context.Context, userID string) ([]FocusCategory, error) {
-	categories, err := s.repo.ListDistinctCategories(ctx, userID)
-	if err != nil {
-		return nil, err
+	return s.repo.ListCategories(ctx, userID)
+}
+
+// CreateCategory validates and stores a custom category name.
+func (s *Service) CreateCategory(ctx context.Context, userID string, req CreateCategoryRequest) (FocusCategory, error) {
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return FocusCategory{}, ErrCategoryNameEmpty
 	}
-	out := make([]FocusCategory, len(categories))
-	for i, cat := range categories {
-		out[i] = FocusCategory{Name: cat}
+	if utf8.RuneCountInString(name) > maxCategoryNameLength {
+		return FocusCategory{}, ErrCategoryTooLong
 	}
-	return out, nil
+	if isBuiltInCategory(Category(strings.ToLower(name))) {
+		return FocusCategory{}, ErrCategoryBuiltIn
+	}
+	return s.repo.CreateCategory(ctx, userID, name)
+}
+
+func (s *Service) DeleteCategory(ctx context.Context, userID, categoryID string) error {
+	return s.repo.DeleteCategory(ctx, userID, categoryID)
 }
 
 func (s *Service) Delete(ctx context.Context, userID, noteID string) error {

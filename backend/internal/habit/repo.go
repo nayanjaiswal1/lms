@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -15,6 +16,13 @@ var ErrNotFound = errors.New("habit: not found")
 
 type Repo struct {
 	pool *pgxpool.Pool
+}
+
+// DBTX is the query surface shared by the pool and an in-flight transaction,
+// so the *Tx repo variants run the same SQL inside a caller's transaction.
+type DBTX interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
 func NewRepo(pool *pgxpool.Pool) *Repo {
@@ -26,6 +34,11 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 // many habits the user already has) so a freshly added habit never lands on
 // the same color as the one before it.
 func (r *Repo) Create(ctx context.Context, userID string, req CreateRequest) (Habit, error) {
+	return r.CreateTx(ctx, r.pool, userID, req)
+}
+
+// CreateTx is Create inside the caller's transaction.
+func (r *Repo) CreateTx(ctx context.Context, db DBTX, userID string, req CreateRequest) (Habit, error) {
 	// Weekdays defaults to a non-nil empty slice so pgx encodes it as '{}'
 	// rather than NULL against the NOT NULL column.
 	weekdays := req.Weekdays
@@ -47,7 +60,7 @@ func (r *Repo) Create(ctx context.Context, userID string, req CreateRequest) (Ha
 
 	var h Habit
 	var customFieldsRaw []byte
-	err = r.pool.QueryRow(ctx,
+	err = db.QueryRow(ctx,
 		`WITH existing AS (
 		     SELECT COUNT(*) AS n, COALESCE(MAX(sort_order) + 1, 0) AS next_order
 		     FROM habits WHERE user_id = $1
@@ -72,9 +85,14 @@ func (r *Repo) Create(ctx context.Context, userID string, req CreateRequest) (Ha
 // Get returns a user-owned habit. Returns ErrNotFound if it doesn't exist or
 // belongs to another user.
 func (r *Repo) Get(ctx context.Context, habitID, userID string) (Habit, error) {
+	return r.GetTx(ctx, r.pool, habitID, userID)
+}
+
+// GetTx is Get inside the caller's transaction.
+func (r *Repo) GetTx(ctx context.Context, db DBTX, habitID, userID string) (Habit, error) {
 	var h Habit
 	var customFieldsRaw []byte
-	err := r.pool.QueryRow(ctx,
+	err := db.QueryRow(ctx,
 		`SELECT id, user_id, name, cadence, sort_order, color, target_count, weekdays, type, custom_fields, icon, tags, created_at
 		 FROM habits WHERE id = $1 AND user_id = $2`, habitID, userID,
 	).Scan(&h.ID, &h.UserID, &h.Name, &h.Cadence, &h.SortOrder, &h.Color, &h.TargetCount, &h.Weekdays, &h.Type, &customFieldsRaw, &h.Icon, &h.Tags, &h.CreatedAt)
@@ -198,8 +216,12 @@ func (r *Repo) ListForRange(ctx context.Context, userID string, rangeStart, rang
 
 // owned reports whether habitID exists and belongs to userID.
 func (r *Repo) owned(ctx context.Context, habitID, userID string) (bool, error) {
+	return r.ownedTx(ctx, r.pool, habitID, userID)
+}
+
+func (r *Repo) ownedTx(ctx context.Context, db DBTX, habitID, userID string) (bool, error) {
 	var exists bool
-	err := r.pool.QueryRow(ctx,
+	err := db.QueryRow(ctx,
 		`SELECT EXISTS(SELECT 1 FROM habits WHERE id = $1 AND user_id = $2)`,
 		habitID, userID,
 	).Scan(&exists)
@@ -216,14 +238,19 @@ func (r *Repo) owned(ctx context.Context, habitID, userID string) (bool, error) 
 // presence check always did. Returns ErrNotFound if the habit doesn't exist
 // or belongs to another user.
 func (r *Repo) SetCompletion(ctx context.Context, habitID, userID string, periodStart time.Time) error {
-	ok, err := r.owned(ctx, habitID, userID)
+	return r.SetCompletionTx(ctx, r.pool, habitID, userID, periodStart)
+}
+
+// SetCompletionTx is SetCompletion inside the caller's transaction.
+func (r *Repo) SetCompletionTx(ctx context.Context, db DBTX, habitID, userID string, periodStart time.Time) error {
+	ok, err := r.ownedTx(ctx, db, habitID, userID)
 	if err != nil {
 		return err
 	}
 	if !ok {
 		return ErrNotFound
 	}
-	if _, err := r.pool.Exec(ctx,
+	if _, err := db.Exec(ctx,
 		`INSERT INTO habit_completions (habit_id, period_start, count)
 		 VALUES ($1, $2, 1)
 		 ON CONFLICT (habit_id, period_start) DO UPDATE
@@ -262,7 +289,13 @@ func (r *Repo) ClearCompletion(ctx context.Context, habitID, userID string, peri
 // habit off for that day, same as clicking its grid cell would. Returns
 // ErrNotFound if the habit doesn't exist or belongs to another user.
 func (r *Repo) UpsertCompletionMetadata(ctx context.Context, habitID, userID string, periodStart time.Time, metadata map[string]any) error {
-	ok, err := r.owned(ctx, habitID, userID)
+	return r.UpsertCompletionMetadataTx(ctx, r.pool, habitID, userID, periodStart, metadata)
+}
+
+// UpsertCompletionMetadataTx is UpsertCompletionMetadata inside the caller's
+// transaction.
+func (r *Repo) UpsertCompletionMetadataTx(ctx context.Context, db DBTX, habitID, userID string, periodStart time.Time, metadata map[string]any) error {
+	ok, err := r.ownedTx(ctx, db, habitID, userID)
 	if err != nil {
 		return err
 	}
@@ -276,7 +309,7 @@ func (r *Repo) UpsertCompletionMetadata(ctx context.Context, habitID, userID str
 	if err != nil {
 		return fmt.Errorf("habit: encode completion metadata: %w", err)
 	}
-	if _, err := r.pool.Exec(ctx,
+	if _, err := db.Exec(ctx,
 		`INSERT INTO habit_completions (habit_id, period_start, count, metadata)
 		 VALUES ($1, $2, 1, $3::jsonb)
 		 ON CONFLICT (habit_id, period_start) DO UPDATE SET metadata = EXCLUDED.metadata`,

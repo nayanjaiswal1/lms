@@ -13,7 +13,7 @@ interface PageProps {
 }
 
 async function fetchOrg(orgId: string): Promise<AdminOrgSummary | null> {
-  const { orgs } = await apiGet<{ orgs: AdminOrgSummary[] }>(`/api/admin/orgs?search=${encodeURIComponent(orgId)}`);
+  const { items: orgs } = await apiGet<{ items: AdminOrgSummary[] }>(`/api/admin/orgs?search=${encodeURIComponent(orgId)}`);
   return orgs.find((o) => o.id === orgId) ?? null;
 }
 

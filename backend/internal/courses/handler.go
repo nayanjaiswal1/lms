@@ -393,7 +393,7 @@ func (h *Handler) DeleteCourse(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"status": "archived"})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) ForkCourse(w http.ResponseWriter, r *http.Request) {
@@ -478,7 +478,7 @@ func (h *Handler) DeleteSection(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Section deleted."})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) ReorderSections(w http.ResponseWriter, r *http.Request) {
@@ -644,7 +644,7 @@ func (h *Handler) DeleteModule(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Module deleted."})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) ReorderModules(w http.ResponseWriter, r *http.Request) {

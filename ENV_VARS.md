@@ -187,15 +187,16 @@ points at Caddy's port-80 `/mindforge/*` proxy (`Caddyfile.dev`) instead of
 
 ## Labs (terminal sandbox relay / labproxy)
 
-`labproxy` is a separate service/binary (`cmd/labproxy`). `LABPROXY_JWT_SECRET`
-must equal the main server's `JWT_SECRET` — the backend mints lab session
-tokens that labproxy verifies. In prod, `LABPROXY_DB_URL`/`LABPROXY_REDIS_URL`
-mirror `DATABASE_URL`/`REDIS_URL`.
+`labproxy` is a separate service/binary (`cmd/labproxy`). `LAB_TOKEN_SECRET`
+(shared with the backend, min 32 bytes, MUST differ from `JWT_SECRET`) signs the lab
+tokens labproxy verifies; labproxy never receives `JWT_SECRET`. `LABPROXY_DB_URL` uses
+the least-privilege `labproxy` role (see docs/infrastructure.md). `LABS_SNIPPET_DAILY_LIMIT`
+(default 200) caps `/api/labs/run` per user per day.
 
 ### Live app preview (`LABPROXY_PREVIEW_DOMAIN`)
 
 `LABPROXY_PREVIEW_DOMAIN` is required and fatal-at-boot if unset (`cmd/labproxy/main.go`,
-same pattern as `LABPROXY_DB_URL`/`LABPROXY_JWT_SECRET`). Every previewed app port+session
+same pattern as `LABPROXY_DB_URL`/`LAB_TOKEN_SECRET`). Every previewed app port+session
 gets its own real origin — `p<port>-<sessionID>.<LABPROXY_PREVIEW_DOMAIN>` — instead of
 sharing one origin with a port cookie, so two ports (or two students) previewed at once no
 longer fight over which one's absolute-path assets resolve; see `cmd/labproxy/host.go` and

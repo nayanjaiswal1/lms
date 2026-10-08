@@ -79,6 +79,27 @@ LABS_WARM_POOL_OVERRIDES=
 LABS_IMAGE_PROFILES=mindforge/lab-docker:27:nested-docker,mindforge/lab-k8s:1.31:nested-docker
 LABS_NESTED_DOCKER_RUNTIME=          # Optional — "sysbox-runc" switches the "nested-docker" profile's Docker mechanism (default: scoped rootless-dind)
 LABS_NESTED_DOCKER_RUNTIME_CLASS=    # Kubernetes only — RuntimeClassName (e.g. "sysbox-runc"/"kata-containers") REQUIRED for any image mapped to "nested-docker" under LABS_RUNTIME=kubernetes
+# Lab host / lab agent (production Docker runtime). The app host holds NO Docker
+# socket: when LABS_AGENT_URL is set the backend talks to backend/cmd/labagent on
+# the separate lab host over mTLS (docker-compose.labhost.yml). Unset = the
+# backend shells out to the local Docker daemon (local dev compose only).
+LABS_AGENT_URL=                      # https://<lab-host-private-ip>:8443 — selects the agent runtime
+LABS_AGENT_CA_FILE=                  # CA that signed the agent's server cert (required with LABS_AGENT_URL)
+LABS_AGENT_CERT_FILE=                # backend's client cert (required with LABS_AGENT_URL)
+LABS_AGENT_KEY_FILE=                 # backend's client key (required with LABS_AGENT_URL)
+LABPROXY_UPSTREAM=                   # Caddy only — labproxy host:port on the lab host (default labproxy:8081)
+LABS_NETWORK_PER_SESSION=true        # default true: one Docker network per session (no sibling reachability)
+LABS_NETWORK_INTERNAL=false          # true = per-session networks with no egress at all (breaks pip/npm installs)
+LABS_STORAGE_QUOTA_ENABLED=false     # direct-Docker path default false; the agent defaults TRUE and refuses to start if the host cannot enforce it (XFS pquota)
+# Lab agent process (backend/cmd/labagent, lab host only). It also reads
+# LABS_IMAGE_PROFILES, LABS_NESTED_DOCKER_RUNTIME, LABS_PIDS_LIMIT,
+# LABS_NETWORK_PER_SESSION, LABS_NETWORK_INTERNAL, LABS_PROXY_CONTAINER and
+# LABS_STORAGE_QUOTA_ENABLED with the meanings above.
+LABAGENT_LISTEN_ADDR=:8443           # bind to the private interface via compose port mapping
+LABAGENT_TLS_CERT_FILE=              # server cert
+LABAGENT_TLS_KEY_FILE=               # server key
+LABAGENT_CLIENT_CA_FILE=             # CA that must have signed the backend's client cert (mTLS, required)
+LABAGENT_ALLOWED_IMAGES=             # comma-separated exact image names the agent will start; anything else is a 400
 # LABS_IMAGE_REGISTRY (Kubernetes runtime only) — prepended as "<registry>/<image>"
 # when the Kubernetes runtime pulls a lab image; classification against
 # LABS_IMAGE_PROFILES always happens on the bare name first. Empty (default) =
@@ -101,6 +122,16 @@ LABPROXY_PREVIEW_DOMAIN=labs.yourdomain.com   # Required; dev uses "localhost". 
 CADDY_DNS_PROVIDER=cloudflare                 # Required (compose only) — caddy-dns module name, see Dockerfile.caddy
 CADDY_DNS_API_TOKEN=                          # Required (compose only) — zone-edit token for CADDY_DNS_PROVIDER
 ```
+
+### Lab proxy isolation (audit C4)
+
+labproxy runs on the lab network and must not be able to forge login tokens or read the app DB:
+
+- `LAB_TOKEN_SECRET` (backend + labproxy, min 32 bytes) signs lab ws-tokens and derives the per-session ttyd/IDE credentials. The backend refuses to start if it is empty or equal to `JWT_SECRET`. labproxy never receives `JWT_SECRET` (`LABPROXY_JWT_SECRET` is gone).
+- `LABPROXY_DB_URL` must use the `labproxy` role created (NOLOGIN) by migration `067_labproxy_role.sql`: `SELECT` on `lab_sessions`, `lab_definitions`, `lab_build_variants` and `UPDATE(last_active_at)` on `lab_sessions` only. Enable it once per environment, out of band:
+  `ALTER ROLE labproxy LOGIN PASSWORD '<value from secrets store>';` then set `LABPROXY_DB_URL=postgres://labproxy:<password>@<host>/<db>` (compose prod: `LABPROXY_DB_PASSWORD`).
+- `LABS_SNIPPET_DAILY_LIMIT` (backend, default 200) caps `POST /api/labs/run` executions per user per rolling 24h (Redis, 429 when exceeded).
+- Per-user terminal cap (5) is global across labproxy replicas via the Redis semaphore (`labproxy:conns:<user>` leases, 30s TTL, auto-renewed).
 
 ---
 

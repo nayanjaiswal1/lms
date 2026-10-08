@@ -50,9 +50,9 @@ export function NowStage({
   return (
     <section className="wn-stage">
       <article className="wn-primary">
-        {t.resumeNote && (
+        {t.resume_note && (
           <p className="wn-resume-note">
-            <span className="wn-resume-mark">↩</span> {t.resumeNote}
+            <span className="wn-resume-mark">↩</span> {t.resume_note}
           </p>
         )}
         <h2 className="wn-primary-title">{t.title}</h2>
@@ -61,7 +61,7 @@ export function NowStage({
         {t.trigger && <p className="wn-trigger">{t.trigger}</p>}
         <Button className="w-full" size="lg" onClick={() => onStart(t)}>
           Start
-          {t.durationMin ? <span className="wn-start-min"> · {t.durationMin}m</span> : null}
+          {t.duration_min ? <span className="wn-start-min"> · {t.duration_min}m</span> : null}
         </Button>
       </article>
 
@@ -71,7 +71,7 @@ export function NowStage({
             <Button className="wn-alt w-full" key={alt.id} variant="ghost" onClick={() => onStart(alt)}>
               <span className="wn-alt-or">or</span>
               <span className="wn-alt-title">{alt.title}</span>
-              {alt.durationMin ? <span className="wn-alt-min">{alt.durationMin}m</span> : null}
+              {alt.duration_min ? <span className="wn-alt-min">{alt.duration_min}m</span> : null}
             </Button>
           ))}
         </div>

@@ -54,6 +54,8 @@ var (
 	// is false, so an assignment create/update tried to set a non-nil
 	// InstallationID and was rejected.
 	ErrOverrideNotAllowed = errors.New("gitlab: this organization does not allow per-project GitLab overrides")
+	// ErrAssigneeNotOnTeam — a task assignee must be a member of the task's team.
+	ErrAssigneeNotOnTeam = errors.New("gitlab: assignee is not a member of this team")
 )
 
 // tx runs fn inside a transaction, committing on nil error and rolling back

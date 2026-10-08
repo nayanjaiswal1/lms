@@ -231,6 +231,9 @@ type UpdateProfileInput struct {
 	LinkedIn               *string                `json:"linkedin"`
 	GitHub                 *string                `json:"github"`
 	Portfolio              *string                `json:"portfolio"`
+	// LastPage is the browser route the user was last on ("resume where I
+	// left off"); the frontend proxy syncs it in the background.
+	LastPage *string `json:"last_page"`
 }
 
 // AddSkillInput is the payload for adding a new skill to a user's profile.

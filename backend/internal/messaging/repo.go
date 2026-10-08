@@ -253,23 +253,31 @@ func (r *Repo) SoftDeleteMessage(ctx context.Context, orgID, msgID, userID, orgR
 	return err
 }
 
-func (r *Repo) ToggleReaction(ctx context.Context, msgID, userID string, reaction Reaction) (bool, error) {
+func (r *Repo) ToggleReaction(ctx context.Context, orgID, msgID, userID string, reaction Reaction) (bool, error) {
 	tag, err := r.pool.Exec(ctx,
 		`INSERT INTO content_reactions (target_type, target_id, user_id, reaction)
-		 VALUES ('batch_message', $1, $2, $3)
+		 SELECT 'batch_message', m.id, $2, $3 FROM batch_messages m
+		 WHERE m.id = $1
+		   AND EXISTS(SELECT 1 FROM batches b WHERE b.id = m.batch_id AND b.org_id = $4)
 		 ON CONFLICT (target_type, target_id, user_id, reaction) DO NOTHING`,
-		msgID, userID, reaction)
+		msgID, userID, reaction, orgID)
 	if err != nil {
 		return false, fmt.Errorf("messaging: toggle reaction: %w", err)
 	}
 	if tag.RowsAffected() == 1 {
 		return true, nil
 	}
-	_, err = r.pool.Exec(ctx,
-		`DELETE FROM content_reactions WHERE target_type = 'batch_message' AND target_id = $1 AND user_id = $2 AND reaction = $3`,
-		msgID, userID, reaction)
+	tag, err = r.pool.Exec(ctx,
+		`DELETE FROM content_reactions cr
+		 WHERE cr.target_type = 'batch_message' AND cr.target_id = $1 AND cr.user_id = $2 AND cr.reaction = $3
+		   AND EXISTS(SELECT 1 FROM batch_messages m JOIN batches b ON b.id = m.batch_id
+		              WHERE m.id = cr.target_id AND b.org_id = $4)`,
+		msgID, userID, reaction, orgID)
 	if err != nil {
 		return false, fmt.Errorf("messaging: remove reaction: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return false, ErrNotFound
 	}
 	return false, nil
 }

@@ -83,7 +83,7 @@ func (h *Handler) AdminClearOrgFeatureFlag(w http.ResponseWriter, r *http.Reques
 		writeFeatureFlagError(w, err, "Could not clear feature flag.")
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ─── Org admin (owner/admin org role): per-member feature flags ──────────────
@@ -105,15 +105,15 @@ func requireOrgAdmin(w http.ResponseWriter, r *http.Request) (*apimiddleware.Org
 }
 
 // ListMemberFeatureFlags returns every user-toggleable feature the org has
-// enabled, resolved for the member in the {member_id} URL param.
+// enabled, resolved for the member in the {memberID} URL param.
 func (h *Handler) ListMemberFeatureFlags(w http.ResponseWriter, r *http.Request) {
 	orgCtx, ok := requireOrgAdmin(w, r)
 	if !ok {
 		return
 	}
-	// The {member_id} URL segment carries the target user's ID (not an
+	// The {memberID} URL segment carries the target user's ID (not an
 	// org_members row ID) — see routes.go's RegisterOrgAdminRoutes doc comment.
-	userID := chi.URLParam(r, "member_id")
+	userID := chi.URLParam(r, "memberID")
 
 	flags, err := h.service.ListUserFeatureFlags(r.Context(), orgCtx.OrgID, userID)
 	if err != nil {
@@ -124,7 +124,7 @@ func (h *Handler) ListMemberFeatureFlags(w http.ResponseWriter, r *http.Request)
 }
 
 // SetMemberFeatureFlag turns a feature on/off for the member in the
-// {member_id} URL param.
+// {memberID} URL param.
 func (h *Handler) SetMemberFeatureFlag(w http.ResponseWriter, r *http.Request) {
 	orgCtx, ok := requireOrgAdmin(w, r)
 	if !ok {
@@ -134,9 +134,9 @@ func (h *Handler) SetMemberFeatureFlag(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// The {member_id} URL segment carries the target user's ID (not an
+	// The {memberID} URL segment carries the target user's ID (not an
 	// org_members row ID) — see routes.go's RegisterOrgAdminRoutes doc comment.
-	userID := chi.URLParam(r, "member_id")
+	userID := chi.URLParam(r, "memberID")
 	key := chi.URLParam(r, "key")
 
 	var req setFeatureFlagRequest
@@ -152,22 +152,22 @@ func (h *Handler) SetMemberFeatureFlag(w http.ResponseWriter, r *http.Request) {
 }
 
 // ClearMemberFeatureFlag reverts a feature back to the org's default
-// entitlement for the member in the {member_id} URL param.
+// entitlement for the member in the {memberID} URL param.
 func (h *Handler) ClearMemberFeatureFlag(w http.ResponseWriter, r *http.Request) {
 	orgCtx, ok := requireOrgAdmin(w, r)
 	if !ok {
 		return
 	}
-	// The {member_id} URL segment carries the target user's ID (not an
+	// The {memberID} URL segment carries the target user's ID (not an
 	// org_members row ID) — see routes.go's RegisterOrgAdminRoutes doc comment.
-	userID := chi.URLParam(r, "member_id")
+	userID := chi.URLParam(r, "memberID")
 	key := chi.URLParam(r, "key")
 
 	if err := h.service.ClearUserFeatureFlag(r.Context(), orgCtx.OrgID, userID, key); err != nil {
 		writeFeatureFlagError(w, err, "Could not clear feature flag.")
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func writeFeatureFlagError(w http.ResponseWriter, err error, fallback string) {

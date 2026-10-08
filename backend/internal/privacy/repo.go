@@ -6,7 +6,6 @@ package privacy
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -22,21 +21,6 @@ type Repo struct {
 
 func NewRepo(pool *pgxpool.Pool, store storage.StorageClient) *Repo {
 	return &Repo{pool: pool, store: store}
-}
-
-// PasswordHash returns userID's password_hash, or nil if the account has none
-// (social/passkey-only). Used to gate account deletion behind a password
-// re-entry when one exists.
-func (r *Repo) PasswordHash(ctx context.Context, userID string) (*string, error) {
-	var hash *string
-	err := r.pool.QueryRow(ctx, `SELECT password_hash FROM users WHERE id = $1`, userID).Scan(&hash)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("privacy: user not found")
-		}
-		return nil, fmt.Errorf("privacy: password hash: %w", err)
-	}
-	return hash, nil
 }
 
 // exportQuery is one section of the export bundle: a label and the query

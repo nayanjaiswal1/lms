@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CreateItemDialog } from "@/components/workspace/items/create-item-dialog";
 import { suggestEpicsAction } from "@/lib/workspace/phase5-actions";
+import { useIdempotencyKey } from "@/hooks/use-idempotency-key";
 import type { SuggestedItem, Track } from "@/lib/workspace/types";
 
 interface SuggestEpicsButtonProps {
@@ -21,10 +22,11 @@ interface SuggestEpicsButtonProps {
 export function SuggestEpicsButton({ workspaceId, tracks }: SuggestEpicsButtonProps) {
   const [items, setItems] = useState<SuggestedItem[] | null>(null);
   const [pending, startTransition] = useTransition();
+  const withKey = useIdempotencyKey();
 
   function suggest() {
     startTransition(async () => {
-      const result = await suggestEpicsAction(workspaceId);
+      const result = await withKey((key) => suggestEpicsAction(workspaceId, key));
       if (result.error) {
         toast.error(result.error);
         return;

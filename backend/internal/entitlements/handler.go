@@ -63,9 +63,9 @@ func (h *Handler) GetMyUsage(w http.ResponseWriter, r *http.Request) {
 // ─── Platform admin (super_admin) ───────────────────────────────────────────
 
 // AdminListPlanLimits returns every editable plan_limits row (existing or
-// defaulted) for the tier in the {tier_id} URL param.
+// defaulted) for the tier in the {tierID} URL param.
 func (h *Handler) AdminListPlanLimits(w http.ResponseWriter, r *http.Request) {
-	tierID := chi.URLParam(r, "tier_id")
+	tierID := chi.URLParam(r, "tierID")
 	limits, err := h.service.ListPlanLimits(r.Context(), tierID)
 	if err != nil {
 		writeEntitlementsError(w, err, "Could not list plan limits.")
@@ -81,13 +81,13 @@ type upsertPlanLimitRequest struct {
 	Period       *string `json:"period,omitempty"`
 }
 
-// AdminSetPlanLimit writes one gate or quota row for {tier_id}/{key}.
+// AdminSetPlanLimit writes one gate or quota row for {tierID}/{key}.
 func (h *Handler) AdminSetPlanLimit(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	tierID := chi.URLParam(r, "tier_id")
+	tierID := chi.URLParam(r, "tierID")
 	key := chi.URLParam(r, "key")
 
 	var req upsertPlanLimitRequest

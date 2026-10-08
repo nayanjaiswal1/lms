@@ -23,79 +23,24 @@ var domainErrors = map[error]httputil.ErrSpec{
 
 var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.")
 
-// SubmitFeedback creates or updates the authenticated user's feedback
-// (rating/comment, or an explicit skip) for a course, assessment, lab, or mentor.
+// SubmitFeedback handles POST /api/feedback (body: SubmitRequest) — creates or
+// updates the caller's rating or experience report, or an explicit skip, for
+// a course, assessment, lab, mentor or mentor session.
 func (h *Handler) SubmitFeedback(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	var body struct {
-		SubjectType SubjectType `json:"subject_type"`
-		SubjectID   string      `json:"subject_id"`
-		Rating      *int        `json:"rating"`
-		Comment     *string     `json:"comment"`
-		Skip        bool        `json:"skip"`
-	}
-	if !httputil.DecodeJSON(w, r, &body) {
+	var req SubmitRequest
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	f, err := h.service.Submit(r.Context(), &claims.OrgID, body.SubjectType, body.SubjectID, claims.UserID, KindRating, body.Rating, body.Comment, body.Skip)
+	f, err := h.service.Submit(r.Context(), &claims.OrgID, claims.UserID, req)
 	if err != nil {
 		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, f)
-}
-
-// SubmitExperienceReport creates or updates the authenticated user's experience
-// report (a post-activity "did anything go wrong" feedback) for a subject.
-func (h *Handler) SubmitExperienceReport(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	var body struct {
-		SubjectType string  `json:"subject_type"`
-		SubjectID   string  `json:"subject_id"`
-		Comment     *string `json:"description"` // legacy key name
-		Skip        bool    `json:"skip"`
-	}
-	if !httputil.DecodeJSON(w, r, &body) {
-		return
-	}
-	// experience_reports used custom subject_type values (e.g. 'assessment');
-	// now they map to 'experience_subject' in the unified feedback table.
-	subjectType := SubjectTypeExperienceSubj
-	f, err := h.service.Submit(r.Context(), &claims.OrgID, subjectType, body.SubjectID, claims.UserID, KindExperience, nil, body.Comment, body.Skip)
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, f)
-}
-
-// GetMyExperienceReport returns the authenticated user's existing experience
-// report for a subject. Responds 200 with a null feedback field when the
-// user hasn't reported or skipped it yet.
-func (h *Handler) GetMyExperienceReport(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	subjectID := chi.URLParam(r, "subjectID")
-	// experience_reports used custom subject_type values; look up experience_subject.
-	subjectType := SubjectTypeExperienceSubj
-	f, err := h.service.GetMine(r.Context(), subjectType, subjectID, claims.UserID)
-	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			httputil.WriteJSON(w, http.StatusOK, map[string]any{"experience_report": nil})
-			return
-		}
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{"experience_report": f})
 }
 
 // ListFeedback returns recent public reviews (rating + comment) for a
@@ -122,18 +67,22 @@ func (h *Handler) ListFeedback(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"reviews": reviews})
 }
 
-// GetMyFeedback returns the authenticated user's existing feedback for a
-// subject. Responds 200 with a null feedback field (not 404) when the user
-// hasn't rated or skipped it yet, so the frontend can treat "null" as the
-// signal to show the completion prompt.
+// GetMyFeedback handles GET /api/feedback/{subjectType}/{subjectID}/me?kind=
+// (kind defaults to rating) — the caller's own answer. Responds 200 with a
+// null feedback field (not 404) when they haven't answered or skipped yet,
+// the frontend's signal to show the prompt.
 func (h *Handler) GetMyFeedback(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
+	kind := Kind(r.URL.Query().Get("kind"))
+	if kind == "" {
+		kind = KindRating
+	}
 	subjectType := SubjectType(chi.URLParam(r, "subjectType"))
 	subjectID := chi.URLParam(r, "subjectID")
-	f, err := h.service.GetMine(r.Context(), subjectType, subjectID, claims.UserID)
+	f, err := h.service.GetMine(r.Context(), kind, subjectType, subjectID, claims.UserID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			httputil.WriteJSON(w, http.StatusOK, map[string]any{"feedback": nil})

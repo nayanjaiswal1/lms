@@ -55,13 +55,9 @@ export async function removeAssessmentQuestionAction(assessmentId: string, aqId:
   return result;
 }
 
+/** Publishing is the "published" status transition (may land on scheduled). */
 export async function publishAssessmentAction(assessmentId: string): Promise<ActionResult> {
-  const result = await apiAction("POST", `/api/assessments/${assessmentId}/publish`);
-  if (result.ok) {
-    revalidatePath(ROUTES.assessmentEdit(assessmentId));
-    revalidatePath(ROUTES.ASSESSMENTS);
-  }
-  return result;
+  return setAssessmentStatusAction(assessmentId, "published");
 }
 
 export async function setAssessmentStatusAction(assessmentId: string, status: string): Promise<ActionResult> {

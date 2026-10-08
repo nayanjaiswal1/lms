@@ -29,8 +29,8 @@ export async function updateWhatsNewEntryAction(
   return result;
 }
 
-export async function deleteWhatsNewEntryAction(id: string): Promise<ActionResult<{ status: string }>> {
-  const result = await apiAction<{ status: string }>("DELETE", `/api/admin/whats-new/${id}`);
+export async function deleteWhatsNewEntryAction(id: string): Promise<ActionResult> {
+  const result = await apiAction("DELETE", `/api/admin/whats-new/${id}`);
   if (result.ok) revalidatePath(ROUTES.PLATFORM_WHATS_NEW);
   return result;
 }

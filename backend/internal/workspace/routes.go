@@ -4,6 +4,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/mindforge/backend/internal/authz"
+	"github.com/mindforge/backend/internal/middleware"
 )
 
 // RegisterRoutes mounts the authenticated workspace API. The caller (see
@@ -14,6 +15,9 @@ import (
 // and contract-phase1.md's route table.
 func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 	pool := h.service.repo.Pool()
+	// AI suggestion routes run once per Idempotency-Key, so a double click or
+	// retry never pays for a second LLM call.
+	idem := middleware.Idempotency(pool)
 	gate := func(r chi.Router, min string, allowedStatuses ...string) {
 		r.Use(RequireProjectRole(pool, h.perms, min))
 		if len(allowedStatuses) > 0 {
@@ -104,8 +108,8 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 		// manager+/track-lead for the AI ones and the editor rule for release
 		// targeting (contract-phase5.md's own route table).
 		r.Put("/api/workspaces/{workspaceID}/items/{itemID}/release", h.SetItemRelease)
-		r.Post("/api/workspaces/{workspaceID}/items/{itemID}/ai/breakdown", h.SuggestTaskBreakdown)
-		r.Post("/api/workspaces/{workspaceID}/items/{itemID}/ai/assignees", h.SuggestAssignees)
+		r.With(idem).Post("/api/workspaces/{workspaceID}/items/{itemID}/ai/breakdown", h.SuggestTaskBreakdown)
+		r.With(idem).Post("/api/workspaces/{workspaceID}/items/{itemID}/ai/assignees", h.SuggestAssignees)
 	})
 	// member, any non-terminal status — always the caller's own progress
 	r.Group(func(r chi.Router) {
@@ -165,8 +169,8 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 		r.Get("/api/workspaces/{workspaceID}/interests", h.ListInterests)
 
 		// Phase 5 — manager, no status gate (contract-phase5.md's route table).
-		r.Post("/api/workspaces/{workspaceID}/items/{itemID}/ai/why-late", h.ExplainLate)
-		r.Post("/api/workspaces/{workspaceID}/ai/weekly-summary", h.GetWeeklySummary)
+		r.With(idem).Post("/api/workspaces/{workspaceID}/items/{itemID}/ai/why-late", h.ExplainLate)
+		r.With(idem).Post("/api/workspaces/{workspaceID}/ai/weekly-summary", h.GetWeeklySummary)
 		r.Get("/api/workspaces/{workspaceID}/export/{kind}.csv", h.ExportCSV)
 	})
 	// manager, recruiting/active
@@ -190,18 +194,18 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 		// Phase 5 — manager, planning statuses (contract-phase5.md's route table).
 		r.Post("/api/workspaces/{workspaceID}/releases", h.CreateRelease)
 		r.Patch("/api/workspaces/{workspaceID}/releases/{releaseID}", h.UpdateRelease)
-		r.Post("/api/workspaces/{workspaceID}/ai/epics", h.SuggestEpics)
+		r.With(idem).Post("/api/workspaces/{workspaceID}/ai/epics", h.SuggestEpics)
 	})
 	// Phase 3 — manager, StatusesDiscuss (contract-phase3.md).
 	r.Group(func(r chi.Router) {
 		gate(r, RoleManager, StatusesDiscuss...)
 		r.Post("/api/workspaces/{workspaceID}/questions/{questionID}/answer", h.AnswerQuestion)
-		r.Post("/api/workspaces/{workspaceID}/requirement/gaps", h.RequirementGaps)
+		r.With(idem).Post("/api/workspaces/{workspaceID}/requirement/gaps", h.RequirementGaps)
 		r.Post("/api/workspaces/{workspaceID}/meetings", h.ScheduleMeeting)
 		r.Put("/api/workspaces/{workspaceID}/meetings/{eventID}/attendance", h.RecordAttendance)
 
 		// Phase 5 — manager, StatusesDiscuss (contract-phase5.md's route table).
-		r.Post("/api/workspaces/{workspaceID}/items/{itemID}/ai/change-impact", h.ChangeImpact)
+		r.With(idem).Post("/api/workspaces/{workspaceID}/items/{itemID}/ai/change-impact", h.ChangeImpact)
 	})
 
 	// owner, no status gate

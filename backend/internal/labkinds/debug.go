@@ -100,7 +100,7 @@ func (DebugKind) VerifyInput(payload json.RawMessage) VerifyInput {
 }
 
 // debugSetupScript runs the workspace's generated .mf/setup.sh. Both runtimes
-// run it as the lab user (the debug-ide profile sets SetupAsImageUser), so
+// run it as the lab user (ExecSetup runs as the image user), so
 // nothing student-writable ever executes privileged.
 const debugSetupScript = `cd /home/labuser/work && exec bash .mf/setup.sh`
 

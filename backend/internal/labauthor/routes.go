@@ -46,9 +46,9 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service, pool *pg
 			r.Get("/recipes/{id}", h.HandleGetRecipe)
 			r.Put("/recipes/{id}", h.HandleUpdateRecipe)
 			r.Delete("/recipes/{id}", h.HandleDeleteRecipe)
-			r.Post("/recipes/{id}/validate", h.HandleValidateRecipe)
+			r.Get("/recipes/{id}/analysis", h.HandleRecipeAnalysis)
 			r.Get("/recipes/{id}/candidates", h.HandleRecipeCandidates)
-			r.Post("/recipes/{id}/ticket-draft", h.HandleTicketDraft)
+			r.With(middleware.Idempotency(pool)).Post("/recipes/{id}/ticket-draft", h.HandleTicketDraft)
 		})
 		r.Group(func(r chi.Router) {
 			r.Use(manage)
@@ -58,7 +58,7 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service, pool *pg
 		})
 	})
 
-	r.Route("/api/admin/lab-authoring/blocks/{versionId}", func(r chi.Router) {
+	r.Route("/api/admin/lab-authoring/blocks/{versionID}", func(r chi.Router) {
 		r.Use(middleware.RequirePlatformRole(pool, middleware.PlatformRoleSuperAdmin))
 		r.Get("/affected-labs", h.HandleAffectedLabs)
 		r.Post("/yank", h.HandleYankVersion)

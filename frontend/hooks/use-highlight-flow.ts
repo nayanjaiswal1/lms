@@ -8,6 +8,7 @@ import {
   explainHighlightAction,
   toggleRevisionAction,
 } from "@/app/(app)/highlights/actions"
+import { useIdempotencyKey } from "@/hooks/use-idempotency-key"
 import { isMeaningfulSelection } from "@/lib/highlights/stop-words"
 import type { Highlight, ExplainResponse, HighlightSourceType } from "@/lib/server/highlights"
 
@@ -106,6 +107,7 @@ export function useHighlightFlow(
   const [highlights, setHighlights] = useState<Highlight[]>(initialHighlights)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
+  const withKey = useIdempotencyKey()
 
   const selection = flow.phase !== "idle" ? flow.anchor : null
   const existing = flow.phase === "selected" ? flow.existing : null
@@ -199,15 +201,20 @@ export function useHighlightFlow(
     if (flow.phase !== "selected") return
     const { anchor, existing: current } = flow
     startTransition(async () => {
-      const result = await explainHighlightAction({
-        source_type: sourceType,
-        source_id: sourceId,
-        selected_text: anchor.text,
-        position_start: anchor.positionStart ?? undefined,
-        position_end: anchor.positionEnd ?? undefined,
-        context_snippet: anchor.contextSnippet || undefined,
-        source_url: anchor.sourceUrl || undefined,
-      })
+      const result = await withKey((key) =>
+        explainHighlightAction(
+          {
+            source_type: sourceType,
+            source_id: sourceId,
+            selected_text: anchor.text,
+            position_start: anchor.positionStart ?? undefined,
+            position_end: anchor.positionEnd ?? undefined,
+            context_snippet: anchor.contextSnippet || undefined,
+            source_url: anchor.sourceUrl || undefined,
+          },
+          key,
+        ),
+      )
       if (result.ok && result.data) {
         setFlow({
           phase: "explained",

@@ -122,7 +122,7 @@ func (h *Handler) RemoveVote(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Vote removed."})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // DeleteDesignProposal handles DELETE /api/projects/proposals/{proposalID} —
@@ -136,7 +136,7 @@ func (h *Handler) DeleteDesignProposal(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Proposal withdrawn."})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // AcceptDesignProposal handles POST

@@ -137,7 +137,7 @@ COPY lab-debug/ide-user-settings.json /opt/ide/data/User/settings.json
 COPY lab-debug/bin/mf-seed-ide-state.py /tmp/mf-seed-ide-state.py
 RUN python3 /tmp/mf-seed-ide-state.py /opt/ide/data && rm -f /tmp/mf-seed-ide-state.py
 
-RUN useradd --create-home --shell /bin/bash labuser \
+RUN useradd --uid 1001 --create-home --shell /bin/bash labuser \
     && mkdir -p /var/log/mindforge-lab /var/lib/mindforge-pg /opt/ide/data \
     && chown -R labuser:labuser /home/labuser /var/log/mindforge-lab /var/lib/mindforge-pg /opt/ide \
     && chmod 777 /var/log/mindforge-lab \

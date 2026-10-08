@@ -226,29 +226,22 @@ func (s *Service) ListConversationMessages(ctx context.Context, orgID, conversat
 	return s.repo.ListDirectMessages(ctx, orgID, conversationID)
 }
 
-// GetTicketDetail returns the full staff-facing lifecycle for ticketID: the
-// ticket and every change request filed against it. Reports are included
-// only when canViewReports is true — the handler decides that via
-// authzSvc.HasPermission before calling in, since Service has no access to
-// the authz package's permission check.
-func (s *Service) GetTicketDetail(ctx context.Context, orgID, ticketID string, canViewReports bool) (TicketLifecycle, error) {
-	ticket, err := s.tickets.Get(ctx, orgID, ticketID)
-	if err != nil {
-		return TicketLifecycle{}, fmt.Errorf("mentoring.GetTicketDetail: %w", err)
+// ListTicketChangeRequests returns a mentorship ticket's change requests,
+// oldest first, after confirming the ticket belongs to orgID.
+func (s *Service) ListTicketChangeRequests(ctx context.Context, orgID, ticketID string) ([]ChangeRequest, error) {
+	if _, err := s.tickets.Get(ctx, orgID, ticketID); err != nil {
+		return nil, fmt.Errorf("mentoring.ListTicketChangeRequests: %w", err)
 	}
-	changeRequests, err := s.repo.ListChangeRequestsByTicket(ctx, ticketID)
-	if err != nil {
-		return TicketLifecycle{}, fmt.Errorf("mentoring.GetTicketDetail: %w", err)
+	return s.repo.ListChangeRequestsByTicket(ctx, ticketID)
+}
+
+// ListTicketReports returns the mentor reports filed on a ticket, after
+// confirming the ticket belongs to orgID.
+func (s *Service) ListTicketReports(ctx context.Context, orgID, ticketID string) ([]Report, error) {
+	if _, err := s.tickets.Get(ctx, orgID, ticketID); err != nil {
+		return nil, fmt.Errorf("mentoring.ListTicketReports: %w", err)
 	}
-	detail := TicketLifecycle{Ticket: ticket, ChangeRequests: changeRequests}
-	if canViewReports {
-		reports, err := s.repo.ListReportsByTicket(ctx, ticketID)
-		if err != nil {
-			return TicketLifecycle{}, fmt.Errorf("mentoring.GetTicketDetail: %w", err)
-		}
-		detail.Reports = reports
-	}
-	return detail, nil
+	return s.repo.ListReportsByTicket(ctx, ticketID)
 }
 
 // HasBeenMentoredBy implements feedback.MentorshipVerifier — it lets the

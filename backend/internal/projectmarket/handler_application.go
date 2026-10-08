@@ -90,5 +90,5 @@ func (h *Handler) WithdrawApplication(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Application withdrawn."})
+	w.WriteHeader(http.StatusNoContent)
 }

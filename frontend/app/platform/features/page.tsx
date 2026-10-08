@@ -22,11 +22,20 @@ function statusVariant(status: string): "default" | "secondary" | "destructive" 
 export default async function PlatformFeaturesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string }>;
+  searchParams: Promise<{ search?: string; cursor?: string }>;
 }) {
-  const { search } = await searchParams;
-  const qs = search?.trim() ? `?search=${encodeURIComponent(search.trim())}` : "";
-  const { orgs } = await apiGet<{ orgs: AdminOrgSummary[] }>(`/api/admin/orgs${qs}`);
+  const { search, cursor } = await searchParams;
+  const params = new URLSearchParams();
+  if (search?.trim()) params.set("search", search.trim());
+  if (cursor) params.set("cursor", cursor);
+  const qs = params.size ? `?${params}` : "";
+  const { items: orgs, next_cursor: nextCursor } = await apiGet<{
+    items: AdminOrgSummary[];
+    next_cursor?: string;
+  }>(`/api/admin/orgs${qs}`);
+
+  const nextParams = new URLSearchParams(params);
+  if (nextCursor) nextParams.set("cursor", nextCursor);
 
   return (
     <div className="page-container">
@@ -75,6 +84,11 @@ export default async function PlatformFeaturesPage({
               </tbody>
             </table>
           </ResponsiveTable>
+        )}
+        {nextCursor && (
+          <Link className="mt-4 inline-block text-sm font-medium hover:underline" href={`?${nextParams}`}>
+            Next page
+          </Link>
         )}
       </section>
     </div>

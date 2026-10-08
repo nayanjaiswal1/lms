@@ -46,5 +46,5 @@ func (rt *Router) RevokeConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	authevents.Emit(r.Context(), rt.pool, r, claims.UserID, authevents.MCPRevoked)
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{"revoked": true})
+	w.WriteHeader(http.StatusNoContent)
 }

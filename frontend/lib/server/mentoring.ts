@@ -1,6 +1,7 @@
 import "server-only";
 
-import { apiGet } from "@/lib/server/api";
+import { apiAction, apiGet } from "@/lib/server/api";
+import type { Page } from "@/lib/pagination";
 import type { MentorChangeRequestStatus, MentorReportReason, MentorReportStatus } from "@/lib/constants";
 import type { Ticket } from "@/lib/server/tickets";
 
@@ -180,12 +181,11 @@ interface MentorReport {
   created_at: string;
 }
 
-// The single source of truth for a ticket's full lifecycle — the ticket,
-// its change requests, and (only when the caller holds
+// A ticket's full staff-facing lifecycle, composed from three resources: the
+// ticket, its change requests, and (only when the caller holds
 // mentoring.manage_reports) reports. `reports` is undefined, not an empty
-// array, when the backend omitted it for lack of permission. The
-// detail page derives its "assigned" timeline event from ticket.assigned_to
-// directly.
+// array, when the caller may not see them. The detail page derives its
+// "assigned" timeline event from ticket.assigned_to directly.
 interface TicketLifecycle {
   ticket: Ticket;
   change_requests: MentorChangeRequest[];
@@ -193,5 +193,11 @@ interface TicketLifecycle {
 }
 
 export async function getMentorTicketDetail(ticketId: string): Promise<TicketLifecycle> {
-  return apiGet<TicketLifecycle>(`/api/mentor-tickets/${ticketId}/detail`);
+  const [ticket, changeRequests, reports] = await Promise.all([
+    apiGet<Ticket>(`/api/tickets/${ticketId}`),
+    apiGet<Page<MentorChangeRequest>>(`/api/mentor-tickets/${ticketId}/change-requests`),
+    apiAction<Page<MentorReport>>("GET", `/api/mentor-tickets/${ticketId}/reports`),
+  ]);
+  if (reports.error && reports.status !== 403) throw new Error(reports.error);
+  return { ticket, change_requests: changeRequests.items, reports: reports.data?.items };
 }

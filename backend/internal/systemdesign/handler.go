@@ -33,13 +33,13 @@ var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went 
 
 // ─── Attempts ─────────────────────────────────────────────────────────────────
 
-// ListAttempts handles GET /api/modules/{moduleId}/design/attempts
+// ListAttempts handles GET /api/modules/{moduleID}/design/attempts
 func (h *Handler) ListAttempts(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	moduleID := chi.URLParam(r, "moduleId")
+	moduleID := chi.URLParam(r, "moduleID")
 	attempts, err := h.service.ListAttempts(r.Context(), claims.OrgID, claims.UserID, moduleID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -48,13 +48,13 @@ func (h *Handler) ListAttempts(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, attempts)
 }
 
-// CreateAttempt handles POST /api/modules/{moduleId}/design/attempts
+// CreateAttempt handles POST /api/modules/{moduleID}/design/attempts
 func (h *Handler) CreateAttempt(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	moduleID := chi.URLParam(r, "moduleId")
+	moduleID := chi.URLParam(r, "moduleID")
 	attempt, err := h.service.CreateAttempt(r.Context(), claims.OrgID, claims.UserID, moduleID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -63,14 +63,14 @@ func (h *Handler) CreateAttempt(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusCreated, attempt)
 }
 
-// GetAttempt handles GET /api/modules/{moduleId}/design/attempts/{attemptId}
+// GetAttempt handles GET /api/modules/{moduleID}/design/attempts/{attemptID}
 func (h *Handler) GetAttempt(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	moduleID := chi.URLParam(r, "moduleId")
-	attemptID := chi.URLParam(r, "attemptId")
+	moduleID := chi.URLParam(r, "moduleID")
+	attemptID := chi.URLParam(r, "attemptID")
 	attempt, err := h.service.GetAttempt(r.Context(), claims.OrgID, claims.UserID, moduleID, attemptID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -79,7 +79,7 @@ func (h *Handler) GetAttempt(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, attempt)
 }
 
-// SaveScene handles PUT /api/modules/{moduleId}/design/attempts/{attemptId}/scene
+// SaveScene handles PUT /api/modules/{moduleID}/design/attempts/{attemptID}/scene
 func (h *Handler) SaveScene(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -89,8 +89,8 @@ func (h *Handler) SaveScene(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	moduleID := chi.URLParam(r, "moduleId")
-	attemptID := chi.URLParam(r, "attemptId")
+	moduleID := chi.URLParam(r, "moduleID")
+	attemptID := chi.URLParam(r, "attemptID")
 	attempt, err := h.service.SaveScene(r.Context(), claims.UserID, moduleID, attemptID, req.Scene)
 	if err != nil {
 		writeDomainError(w, err)
@@ -99,14 +99,14 @@ func (h *Handler) SaveScene(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, attempt)
 }
 
-// GenerateFeedback handles POST /api/modules/{moduleId}/design/attempts/{attemptId}/feedback
+// GenerateFeedback handles POST /api/modules/{moduleID}/design/attempts/{attemptID}/feedback
 func (h *Handler) GenerateFeedback(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	moduleID := chi.URLParam(r, "moduleId")
-	attemptID := chi.URLParam(r, "attemptId")
+	moduleID := chi.URLParam(r, "moduleID")
+	attemptID := chi.URLParam(r, "attemptID")
 	resp, err := h.service.GenerateFeedback(r.Context(), claims.OrgID, claims.UserID, moduleID, attemptID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -117,13 +117,13 @@ func (h *Handler) GenerateFeedback(w http.ResponseWriter, r *http.Request) {
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 
-// ListChat handles GET /api/modules/{moduleId}/design/chat
+// ListChat handles GET /api/modules/{moduleID}/design/chat
 func (h *Handler) ListChat(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	moduleID := chi.URLParam(r, "moduleId")
+	moduleID := chi.URLParam(r, "moduleID")
 	messages, err := h.service.ListChat(r.Context(), claims.OrgID, claims.UserID, moduleID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -132,7 +132,7 @@ func (h *Handler) ListChat(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, messages)
 }
 
-// SendChatMessage handles POST /api/modules/{moduleId}/design/chat
+// SendChatMessage handles POST /api/modules/{moduleID}/design/chat
 func (h *Handler) SendChatMessage(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -142,7 +142,7 @@ func (h *Handler) SendChatMessage(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	moduleID := chi.URLParam(r, "moduleId")
+	moduleID := chi.URLParam(r, "moduleID")
 	messages, err := h.service.SendChatMessage(r.Context(), claims.OrgID, claims.UserID, moduleID, req.Content)
 	if err != nil {
 		writeDomainError(w, err)

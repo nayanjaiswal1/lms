@@ -1,6 +1,6 @@
 import "server-only";
 
-import { apiGet } from "@/lib/server/api";
+import { apiAction, apiGet } from "@/lib/server/api";
 import { getCourses } from "@/lib/server/courses";
 
 // A bundle clubs several existing courses together in an order. Enrollment
@@ -57,9 +57,9 @@ export async function getBundles(): Promise<Bundle[]> {
   return data.bundles ?? [];
 }
 
-// Every bundle in the org, drafts included — instructor-only endpoint.
+// Every bundle in the org, drafts included — instructors+ only (403 otherwise).
 export async function getManagedBundles(): Promise<Bundle[]> {
-  const data = await apiGet<{ bundles: Bundle[] }>("/api/bundles/manage");
+  const data = await apiGet<{ bundles: Bundle[] }>("/api/bundles?include_drafts=true");
   return data.bundles ?? [];
 }
 
@@ -67,12 +67,12 @@ export async function getBundleBySlug(slug: string): Promise<BundleDetail> {
   return apiGet<BundleDetail>(`/api/bundles/by-slug/${slug}`);
 }
 
-// Editor view: resolves the slug through the managed listing (drafts are
-// invisible to the student by-slug endpoint), then loads the full detail.
+// Editor view: drafts and unpublished courses included; null when no bundle has the slug.
 export async function getManagedBundleBySlug(slug: string): Promise<BundleDetail | null> {
-  const bundle = (await getManagedBundles()).find((b) => b.slug === slug);
-  if (!bundle) return null;
-  return apiGet<BundleDetail>(`/api/bundles/${bundle.id}/manage`);
+  const res = await apiAction<BundleDetail>("GET", `/api/bundles/by-slug/${slug}?include_drafts=true`);
+  if (res.status === 404) return null;
+  if (!res.ok || !res.data) throw new Error(res.error ?? "Could not load the bundle.");
+  return res.data;
 }
 
 export interface PickableCourse {

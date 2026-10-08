@@ -47,8 +47,8 @@ import (
 	"github.com/mindforge/backend/internal/mistakes"
 	"github.com/mindforge/backend/internal/moderation"
 	"github.com/mindforge/backend/internal/notifications"
-	"github.com/mindforge/backend/internal/opsalert"
 	"github.com/mindforge/backend/internal/onboarding"
+	"github.com/mindforge/backend/internal/opsalert"
 	"github.com/mindforge/backend/internal/orgs"
 	"github.com/mindforge/backend/internal/payments"
 	"github.com/mindforge/backend/internal/practice"
@@ -258,7 +258,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// private one through, since account deletion calls AdminRepo.SetUserStatus
 	// directly (bypassing AdminService's self-action guard — see
 	// internal/privacy/service.go).
-	privacyRouter := privacy.New(pool, authz.NewAdminRepo(pool), store)
+	privacyRouter := privacy.New(pool, authz.NewAdminRepo(pool), store, authHandler.VerifyStepUp)
 
 	// AI Connector (MCP) — lets a student connect their own Claude/ChatGPT to
 	// their account via OAuth 2.1+PKCE. Built with coursesRepo/coursesSvc (not
@@ -427,9 +427,9 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// Protected routes — RequireAuth + RequireCSRF on all mutations
 	requireAuth := apimiddleware.RequireAuth(cfg, cache, pool)
 
-	// App-shell reads merged into one call (see bootstrap.go). Dispatches
+	// GET /api/me: the caller plus ?include= parts in one call (see me.go). Dispatches
 	// through the top-level router r, so it's registered on r, not a group.
-	r.With(requireAuth).Get("/api/me/bootstrap", bootstrapHandler(r))
+	r.With(requireAuth).Get("/api/me", meHandler(r))
 
 	r.Group(func(r chi.Router) {
 		r.Use(requireAuth)
@@ -495,7 +495,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 		// Interview Prep — paste a job title/JD, get a scored multi-round mock
 		// test (conceptual round via practice, coding round self-contained).
-		interviewPrepRouter.RegisterRoutes(r)
+		interviewPrepRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// Orgs — multi-tenant org management, members, invites, domains, onboarding.
 		orgsHandler.RegisterRoutes(r, authzHandler.Service())
@@ -506,7 +506,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// Mistakes — the Mistake & Progress Ledger: timestamped mistake events,
 		// per-category trend summary, resolve. Spaced revision for these rides
 		// the SRS engine above (source_type="mistake"), not a separate queue.
-		mistakesRouter.RegisterRoutes(r)
+		mistakesRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// Sheets — curated problem-list tracker: create/start a sheet, track
 		// per-problem progress (todo/done/revisit).
@@ -628,7 +628,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// never nil here since gitlab.Service always exists once an org has an
 		// installation; it's still a nil-safe optional dependency to labs
 		// itself (empty script -> skip) when no installation/connection exists.
-		labsHandler := labs.New(pool, rdb, cfg.JWTSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout, coursesSvc, labsRuntime, gitlabRouter.Service(), notificationsRouter.Service, entitlementsRouter.Service, aiProvider, labsPrivateStore)
+		labsHandler := labs.New(pool, rdb, cfg.LabTokenSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout, cfg.LabSnippetDailyLimit, coursesSvc, labsRuntime, gitlabRouter.Service(), notificationsRouter.Service, entitlementsRouter.Service, aiProvider, labsPrivateStore)
 		labsHandler.RegisterRoutes(r)
 		labsHandler.RegisterAdminRoutes(r, authzHandler.Service())
 

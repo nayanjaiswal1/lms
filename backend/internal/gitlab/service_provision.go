@@ -136,18 +136,35 @@ func (s *Service) PublishAssignment(ctx context.Context, orgID, assignmentID str
 // active, provisioning is enqueued immediately; otherwise the team just sits
 // pending until the assignment is published (see PublishAssignment).
 func (s *Service) CreateTeam(ctx context.Context, orgID, userID, assignmentID, name, slug string) (*ProjectTeam, error) {
+	return s.CreateTeamWithMembers(ctx, orgID, userID, assignmentID, name, slug, nil)
+}
+
+// CreateTeamWithMembers creates a team plus its initial roster atomically
+// (each user as a developer-level member added by userID), then enqueues
+// provisioning when the assignment is already active. A new team has no
+// GitLab project yet, so no member sync is needed.
+func (s *Service) CreateTeamWithMembers(ctx context.Context, orgID, userID, assignmentID, name, slug string, memberUserIDs []string) (*ProjectTeam, error) {
 	assignment, err := s.repo.GetAssignment(ctx, orgID, assignmentID)
 	if err != nil {
 		return nil, fmt.Errorf("gitlab.CreateTeam: %w", err)
 	}
 	createdBy := userID
-	team, err := s.repo.CreateTeam(ctx, ProjectTeam{
+	members := make([]ProjectTeamMember, 0, len(memberUserIDs))
+	for _, uid := range memberUserIDs {
+		members = append(members, ProjectTeamMember{
+			UserID:            uid,
+			Role:              MemberRoleMember,
+			GitlabAccessLevel: AccessLevelDeveloper,
+			AddedBy:           &createdBy,
+		})
+	}
+	team, err := s.repo.CreateTeamWithMembers(ctx, ProjectTeam{
 		OrgID:        orgID,
 		AssignmentID: assignmentID,
 		Name:         name,
 		Slug:         slug,
 		CreatedBy:    &createdBy,
-	})
+	}, members)
 	if err != nil {
 		return nil, fmt.Errorf("gitlab.CreateTeam: %w", err)
 	}

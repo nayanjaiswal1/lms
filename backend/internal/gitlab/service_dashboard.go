@@ -120,12 +120,6 @@ func (s *Service) ListMyProjects(ctx context.Context, orgID, userID string) ([]M
 	return s.repo.ListMyProjects(ctx, orgID, userID)
 }
 
-// GetMyProject returns one of the caller's own teams, or ErrNotFound if
-// teamID isn't one of theirs.
-func (s *Service) GetMyProject(ctx context.Context, orgID, userID, teamID string) (*ProjectTeam, error) {
-	return s.repo.GetMyProject(ctx, orgID, userID, teamID)
-}
-
 // GetMyProjectContributions returns a team's contribution breakdown for a
 // student who must themselves belong to that team — GetMyProject's
 // membership-scoped lookup gates the read before delegating to the same

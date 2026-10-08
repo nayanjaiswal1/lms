@@ -1,18 +1,22 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
+	"time"
+
+	"github.com/mindforge/backend/internal/ratelimit"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
 	// wsReadLimitBytes caps a single WebSocket message in either direction
 	// (audit M-21). Terminal keystrokes and ttyd frames are far smaller.
 	wsReadLimitBytes = 1 << 20
-	// maxConnsPerUser bounds concurrent terminal relays per user per proxy
-	// instance (audit M-21).
+	// maxConnsPerUser bounds concurrent terminal relays per user across all
+	// proxy replicas (audit M-21).
 	maxConnsPerUser = 5
 )
 
@@ -50,32 +54,22 @@ func originAllowed(r *http.Request, allowed []string) bool {
 	return false
 }
 
-// connLimiter counts live relays per user.
+// connLeaseTTL bounds how long a crashed replica can hold terminal slots; live
+// relays renew their lease every connLeaseTTL/3.
+const connLeaseTTL = 30 * time.Second
+
+// connLimiter caps live terminal relays per user across ALL labproxy replicas
+// via the shared Redis semaphore (leases lapse if a replica dies).
 type connLimiter struct {
-	mu sync.Mutex
-	n  map[string]int
+	sem *ratelimit.Semaphore
 }
 
-// acquire reserves a slot for userID, reporting false when at the cap.
-func (l *connLimiter) acquire(userID string) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if l.n == nil {
-		l.n = map[string]int{}
-	}
-	if l.n[userID] >= maxConnsPerUser {
-		return false
-	}
-	l.n[userID]++
-	return true
+func newConnLimiter(rdb *redis.Client) *connLimiter {
+	return &connLimiter{sem: ratelimit.NewSemaphore(rdb)}
 }
 
-func (l *connLimiter) release(userID string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if l.n[userID] <= 1 {
-		delete(l.n, userID)
-		return
-	}
-	l.n[userID]--
+// acquire reserves a slot for userID. A nil lease with nil error means the cap
+// is reached; callers must Release a non-nil lease.
+func (l *connLimiter) acquire(ctx context.Context, userID string) (*ratelimit.Lease, error) {
+	return l.sem.TryAcquire(ctx, "labproxy:conns:"+userID, maxConnsPerUser, connLeaseTTL)
 }

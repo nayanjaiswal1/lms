@@ -118,7 +118,7 @@ func (h *Handler) DeleteCheckpoint(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Checkpoint deleted."})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ListSubmissions handles GET /api/projects/checkpoints/{checkpointID}/submissions.

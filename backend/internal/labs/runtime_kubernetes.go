@@ -167,11 +167,19 @@ func (k *KubernetesContainerService) startPod(ctx context.Context, name string, 
 		return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: parse memory quantity: %w", err)
 	}
 
+	podLabels := make(map[string]string, len(labels)+1)
+	for lk, lv := range labels {
+		podLabels[lk] = lv
+	}
+	if profile.K8sInternetEgress {
+		podLabels[K8sEgressLabel] = K8sEgressInternet
+	}
+
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: k.namespace,
-			Labels:    labels,
+			Labels:    podLabels,
 		},
 		Spec: corev1.PodSpec{
 			RestartPolicy:                corev1.RestartPolicyNever,
@@ -196,6 +204,12 @@ func (k *KubernetesContainerService) startPod(ctx context.Context, name string, 
 				},
 			}},
 		},
+	}
+	if !profile.Elevated {
+		// Elevated (nested-docker) images run dockerd as root inside the
+		// sysbox user namespace; every standard image ends in USER labuser.
+		pod.Spec.Containers[0].SecurityContext.RunAsNonRoot = boolPtr(true)
+		pod.Spec.Containers[0].SecurityContext.RunAsUser = int64Ptr(LabUserUID)
 	}
 	if profile.K8sRuntimeClass != "" {
 		// The RuntimeClass (sysbox-runc/kata-containers) is the entire
@@ -420,3 +434,15 @@ func boolPtr(b bool) *bool { return &b }
 func requiresRuntimeClass(profile ImageProfile) bool {
 	return profile.Elevated && profile.K8sRuntimeClass == ""
 }
+
+const (
+	// K8sEgressLabel/K8sEgressInternet select the internet-egress
+	// NetworkPolicy in k8s/base/networkpolicy-labs.yaml.
+	K8sEgressLabel    = "mindforge.io/egress"
+	K8sEgressInternet = "internet"
+	// LabUserUID is labuser's uid, fixed in lab-images/*/Dockerfile
+	// (kubelet cannot verify runAsNonRoot for a non-numeric USER).
+	LabUserUID int64 = 1001
+)
+
+func int64Ptr(v int64) *int64 { return &v }

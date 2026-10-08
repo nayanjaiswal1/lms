@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/pagination"
 	"github.com/mindforge/backend/internal/session"
 )
 
@@ -62,7 +63,7 @@ func outranks(actorRole, targetRole, actorUserID, targetUserID string) bool {
 // List returns cursor-paginated members with user info joined.
 // Excludes members with status='removed'.
 func (s *MemberService) List(ctx context.Context, orgID, cursor string, limit int) (*MemberPage, error) {
-	cursorCreatedAt, cursorID, err := decodeCursor(cursor)
+	cursorCreatedAt, cursorID, err := pagination.DecodeCursor(cursor, "orgs")
 	if err != nil {
 		cursor = "" // treat bad cursor as no cursor
 	}
@@ -113,7 +114,7 @@ func (s *MemberService) List(ctx context.Context, orgID, cursor string, limit in
 	if len(members) > limit {
 		page.Members = members[:limit]
 		last := page.Members[limit-1]
-		page.NextCursor = encodeCursor(last.JoinedAt, last.ID)
+		page.NextCursor = pagination.EncodeCursor(last.JoinedAt, last.ID)
 	}
 	return page, nil
 }

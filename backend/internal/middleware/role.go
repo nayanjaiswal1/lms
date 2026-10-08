@@ -5,9 +5,11 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool" //nolint:staticcheck // shared pool type
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -59,10 +61,20 @@ func RequireOrgRole(pool *pgxpool.Pool, allowed ...string) func(http.Handler) ht
 				httputil.WriteError(w, http.StatusForbidden, "Not a member of this organization.")
 				return
 			}
-
 			if _, allowed := permitted[role]; !allowed {
 				httputil.WriteError(w, http.StatusForbidden, "You do not have permission to perform this action.")
 				return
+			}
+
+			// When RequireOrgMember resolved a different org (URL {id} or
+			// X-Org-Id), handlers act on that org, so the role must also
+			// qualify there; otherwise an admin of org A could operate on org B
+			// where they hold a lesser role.
+			if orgCtx, ok := GetOrgCtx(r.Context()); ok && orgCtx.OrgID != claims.OrgID {
+				if _, allowed := permitted[orgCtx.CallerRole]; !allowed {
+					httputil.WriteError(w, http.StatusForbidden, "You do not have permission to perform this action.")
+					return
+				}
 			}
 			next.ServeHTTP(w, r)
 		})
@@ -176,4 +188,12 @@ func RequirePlatformRole(pool *pgxpool.Pool, allowed ...string) func(http.Handle
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// HasLiveOrgRole reports whether userID currently holds one of allowed in
+// orgID — the in-handler counterpart of RequireOrgRole, for one endpoint that
+// returns more (e.g. drafts) to privileged callers instead of gating the route.
+func HasLiveOrgRole(ctx context.Context, pool *pgxpool.Pool, userID, orgID string, allowed ...string) bool {
+	role, ok := LiveOrgRole(ctx, pool, userID, orgID)
+	return ok && slices.Contains(allowed, role)
 }
