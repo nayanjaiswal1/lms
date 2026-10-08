@@ -18,7 +18,7 @@ services:
       - key: DEFAULT_ORG_ID
         value: 00000000-0000-0000-0000-000000000001
       - key: FRONTEND_URL
-        value: https://mindforge.vercel.app
+        value: https://mindforge-lms.vercel.app
       - key: BACKEND_URL
         value: https://mindforge-backend.onrender.com
       - key: LLM_PROVIDER
