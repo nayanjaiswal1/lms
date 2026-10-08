@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { apiAction, type ActionResult } from "@/lib/server/api";
 import type { WebAuthnCreationOptions } from "@/lib/webauthn";
 import ROUTES from "@/lib/routes";
@@ -99,4 +100,12 @@ export async function changePasswordAction(
     new_password: newPassword,
   });
   return result.ok ? { ok: true } : { error: result.error, fieldErrors: result.fieldErrors, status: result.status };
+}
+
+/** Signs out one device. Revoking the current device ends this session, so go to login. */
+export async function revokeSessionAction(id: string): Promise<ActionResult<{ revoked_current: boolean }>> {
+  const result = await apiAction<{ revoked_current: boolean }>("DELETE", `/api/auth/sessions/${id}`);
+  if (result.ok && result.data?.revoked_current) redirect(ROUTES.LOGIN);
+  if (result.ok) revalidatePath(ROUTES.SETTINGS_SECURITY);
+  return result;
 }

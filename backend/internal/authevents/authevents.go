@@ -26,6 +26,7 @@ const (
 	PasskeyAdded           = "passkey_added"
 	PasskeyRemoved         = "passkey_removed"
 	LogoutAll              = "logout_all"
+	SessionRevoked         = "session_revoked"
 	MCPConnected           = "mcp_connected"
 	MCPRevoked             = "mcp_revoked"
 	DataExport             = "data_export"

@@ -440,6 +440,8 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 		r.Get("/api/auth/me", authHandler.HandleMe)
 		r.Post("/api/auth/logout-all", authHandler.HandleLogoutAll)
+		r.Get("/api/auth/sessions", authHandler.HandleSessionsList)
+		r.Delete("/api/auth/sessions/{id}", authHandler.HandleSessionRevoke)
 		r.Post("/api/auth/change-password", authHandler.HandleChangePassword)
 		r.Get("/api/auth/mfa", authHandler.HandleMFAStatus)
 		r.Post("/api/auth/mfa/setup", authHandler.HandleMFASetup)
