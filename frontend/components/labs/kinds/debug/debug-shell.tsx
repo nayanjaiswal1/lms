@@ -23,7 +23,7 @@ interface DebugShellProps {
 /**
  * LeetCode-style split: description panel on the left, IDE on the right, a
  * draggable divider between them and no chrome of its own. The panel
- * collapses on lg+ and becomes a bottom sheet below lg (closed by default).
+ * collapses on md+ and becomes a bottom sheet below md (closed by default).
  */
 export function DebugShell({ notice, panel, children }: DebugShellProps) {
   const panelRef = usePanelRef()
@@ -44,11 +44,11 @@ export function DebugShell({ notice, panel, children }: DebugShellProps) {
       }}
     >
       {docked ? (
-        <PanelLeftClose aria-hidden className="h-4 w-4 max-lg:hidden" />
+        <PanelLeftClose aria-hidden className="h-4 w-4 max-md:hidden" />
       ) : (
-        <PanelLeftOpen aria-hidden className="h-4 w-4 max-lg:hidden" />
+        <PanelLeftOpen aria-hidden className="h-4 w-4 max-md:hidden" />
       )}
-      <PanelLeftOpen aria-hidden className="h-4 w-4 lg:hidden" />
+      <PanelLeftOpen aria-hidden className="h-4 w-4 md:hidden" />
     </Button>
   )
 
@@ -60,8 +60,8 @@ export function DebugShell({ notice, panel, children }: DebugShellProps) {
           collapsible
           className={cn(
             "bg-background",
-            "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-sticky max-lg:max-h-[70dvh] max-lg:border-t max-lg:border-border max-lg:pb-[env(safe-area-inset-bottom)] max-lg:shadow-modal",
-            sheetOpen ? "max-lg:block" : "max-lg:hidden",
+            "max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-sticky max-md:max-h-[70dvh] max-md:border-t max-md:border-border max-md:pb-[env(safe-area-inset-bottom)] max-md:shadow-modal",
+            sheetOpen ? "max-md:block" : "max-md:hidden",
           )}
           collapsedSize="0%"
           defaultSize="26%"
@@ -73,7 +73,7 @@ export function DebugShell({ notice, panel, children }: DebugShellProps) {
         >
           <div className="flex h-full min-h-0 flex-col">{panel}</div>
         </ResizablePanel>
-        <ResizableHandle className="max-lg:hidden" />
+        <ResizableHandle className="max-md:hidden" />
         <ResizablePanel id="debug-main" minSize="40%">
           {children(toggle)}
         </ResizablePanel>

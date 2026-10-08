@@ -14,6 +14,7 @@ interface DebugMainProps {
   /** Right end of the row: Check / Finish. */
   trailing: ReactNode
   sessionId: string
+  labId: string
   idePort: number
   appPorts: number[]
 }
@@ -23,7 +24,7 @@ interface DebugMainProps {
  * panes stay mounted (forceMount + hidden) so switching tabs never reloads
  * VS Code or the running app.
  */
-export function DebugMain({ leading, trailing, sessionId, idePort, appPorts }: DebugMainProps) {
+export function DebugMain({ leading, trailing, sessionId, labId, idePort, appPorts }: DebugMainProps) {
   const [appPort, setAppPort] = useState(appPorts[0] ?? 0)
   const [reloadKey, setReloadKey] = useState(0)
   const ide = useLabIde(sessionId, idePort)
@@ -53,12 +54,14 @@ export function DebugMain({ leading, trailing, sessionId, idePort, appPorts }: D
             <RefreshCw aria-hidden className="h-3.5 w-3.5" />
           </Button>
           {ide.popOutUrl && (
-            <Button asChild className="touch-target-dense gap-1.5" size="sm" variant="ghost">
-              {/* External labproxy origin — next/link is for internal routes. */}
-              <a href={ide.popOutUrl} rel="noreferrer" target="_blank">
-                <ExternalLink aria-hidden className="h-3.5 w-3.5" />
-                <span className="max-sm:sr-only">Pop out</span>
-              </a>
+            <Button
+              className="touch-target-dense gap-1.5"
+              size="sm"
+              variant="ghost"
+              onClick={() => void ide.popOut()}
+            >
+              <ExternalLink aria-hidden className="h-3.5 w-3.5" />
+              <span className="max-sm:sr-only">Pop out</span>
             </Button>
           )}
           <div className="ml-1 flex items-center gap-2 border-l border-border pl-2">{trailing}</div>
@@ -69,7 +72,13 @@ export function DebugMain({ leading, trailing, sessionId, idePort, appPorts }: D
         className="min-h-0 flex-1 data-[state=inactive]:hidden"
         value="ide"
       >
-        <DebugIdeFrame ide={ide} key={reloadKey} reloaded={reloadKey > 0} />
+        <DebugIdeFrame
+          ide={ide}
+          key={reloadKey}
+          labId={labId}
+          reloaded={reloadKey > 0}
+          sessionId={sessionId}
+        />
       </TabsContent>
       <TabsContent
         forceMount

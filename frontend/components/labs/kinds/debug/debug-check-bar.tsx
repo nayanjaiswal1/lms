@@ -26,7 +26,7 @@ export function DebugCheckBar({ isChecking, cooldownUntil, onCheck }: DebugCheck
       {isChecking ? (
         <>
           <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
-          Checking…
+          Checking in a clean room…
         </>
       ) : coolingDown ? (
         <>

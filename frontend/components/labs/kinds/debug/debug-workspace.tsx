@@ -116,6 +116,7 @@ function DebugWorkspaceBody({
           <DebugMain
             appPorts={kindBlock.app_ports}
             idePort={kindBlock.ide_port}
+            labId={session.lab_id}
             leading={panelToggle}
             sessionId={session.id}
             trailing={
