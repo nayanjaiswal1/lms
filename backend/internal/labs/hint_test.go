@@ -2,6 +2,7 @@ package labs
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,11 +32,11 @@ func TestBuildHintUserPrompt_IncludesContextAndNeverLeaksScript(t *testing.T) {
 	prompt := buildHintUserPrompt(task, 2, 4)
 
 	for _, want := range []string{task.Title, task.Description, task.HintContext, "2 of 3", "attempt count so far: 4"} {
-		if !contains(prompt, want) {
+		if !strings.Contains(prompt, want) {
 			t.Errorf("prompt missing expected content %q\nprompt:\n%s", want, prompt)
 		}
 	}
-	if contains(prompt, task.VerificationScript) {
+	if strings.Contains(prompt, task.VerificationScript) {
 		t.Fatal("prompt must never include the verification script")
 	}
 }
@@ -43,22 +44,9 @@ func TestBuildHintUserPrompt_IncludesContextAndNeverLeaksScript(t *testing.T) {
 func TestBuildHintUserPrompt_OmitsEmptyHintContext(t *testing.T) {
 	task := &TaskSnapshot{Title: "T", Description: "D", HintContext: ""}
 	prompt := buildHintUserPrompt(task, 1, 0)
-	if contains(prompt, "Instructor's hint context") {
+	if strings.Contains(prompt, "Instructor's hint context") {
 		t.Fatal("must not mention hint context section when none is authored")
 	}
-}
-
-func contains(haystack, needle string) bool {
-	return len(needle) == 0 || (len(haystack) >= len(needle) && indexOf(haystack, needle) >= 0)
-}
-
-func indexOf(haystack, needle string) int {
-	for i := 0; i+len(needle) <= len(haystack); i++ {
-		if haystack[i:i+len(needle)] == needle {
-			return i
-		}
-	}
-	return -1
 }
 
 // ─── AI circuit breaker (docs/labs.md "Runaway AI retry storms") ────────────

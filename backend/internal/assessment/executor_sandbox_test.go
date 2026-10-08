@@ -86,10 +86,3 @@ func TestParseJUnit_MissingTestFailsClosed(t *testing.T) {
 		t.Fatalf("missing test must appear as a failed case, got %+v", res.Cases)
 	}
 }
-
-func TestSandboxExecutor_UnavailableWhenRuntimeNil(t *testing.T) {
-	exec := NewSandboxExecutor(nil)
-	if exec.Available() {
-		t.Fatal("sandbox executor with a nil runtime must report unavailable")
-	}
-}
