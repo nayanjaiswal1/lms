@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -15,6 +16,16 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/config"
+)
+
+// emailSendHandler / emailPriorityHigh / inviteEmailType mirror
+// handlers.HandlerEmailSend, jobs.PriorityHigh and the EmailHandler "org_invite"
+// case; duplicated as constants because internal/jobs/handlers imports this
+// package (same reason as internal/auth's emailSendHandler).
+const (
+	emailSendHandler  = "email.send"
+	emailPriorityHigh = 2
+	inviteEmailType   = "org_invite"
 )
 
 // InviteService manages org invites.
@@ -64,11 +75,11 @@ func (s *InviteService) Create(ctx context.Context, orgID, actorUserID, actorRol
 	err = s.pool.QueryRow(ctx,
 		`INSERT INTO org_invites (org_id, email, role, invited_by_user_id, token_hash, expires_at)
 		 VALUES ($1, $2, $3, $4, 'pending', $5)
-		 RETURNING id, org_id, email, role, invited_by_user_id, expires_at, accepted_at, revoked_at, created_at`,
+		 RETURNING id, org_id, email, role, invited_by_user_id, expires_at, accepted_at, revoked_at, created_at, email_status, email_error`,
 		orgID, req.Email, req.Role, actorUserID, expiresAt,
 	).Scan(
 		&inv.ID, &inv.OrgID, &inv.Email, &inv.Role, &inv.InvitedByID,
-		&inv.ExpiresAt, &inv.AcceptedAt, &inv.RevokedAt, &inv.CreatedAt,
+		&inv.ExpiresAt, &inv.AcceptedAt, &inv.RevokedAt, &inv.CreatedAt, &inv.EmailStatus, &inv.EmailError,
 	)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -113,12 +124,12 @@ func (s *InviteService) Resend(ctx context.Context, orgID, actorUserID, actorRol
 	// Fetch existing invite to verify ownership and state.
 	var inv Invite
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, org_id, email, role, invited_by_user_id, expires_at, accepted_at, revoked_at, created_at
+		`SELECT id, org_id, email, role, invited_by_user_id, expires_at, accepted_at, revoked_at, created_at, email_status, email_error
 		 FROM org_invites WHERE id = $1 AND org_id = $2`,
 		inviteID, orgID,
 	).Scan(
 		&inv.ID, &inv.OrgID, &inv.Email, &inv.Role, &inv.InvitedByID,
-		&inv.ExpiresAt, &inv.AcceptedAt, &inv.RevokedAt, &inv.CreatedAt,
+		&inv.ExpiresAt, &inv.AcceptedAt, &inv.RevokedAt, &inv.CreatedAt, &inv.EmailStatus, &inv.EmailError,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, "", ErrNotFound
@@ -140,19 +151,34 @@ func (s *InviteService) Resend(ctx context.Context, orgID, actorUserID, actorRol
 	deliverableToken := inviteID + ":" + rawToken
 	tokenHash := hashInviteToken(deliverableToken)
 
+	// The token rotation and the job that mails the new link commit together:
+	// a rotated token whose email was never queued would leave the old link
+	// dead and the new one undelivered.
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, "", fmt.Errorf("orgs: resend invite: begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
 	newExpiry := time.Now().Add(7 * 24 * time.Hour)
-	err = s.pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`UPDATE org_invites
-		 SET token_hash = $1, expires_at = $2, updated_at = now()
+		 SET token_hash = $1, expires_at = $2, email_status = 'pending', email_error = NULL, updated_at = now()
 		 WHERE id = $3 AND org_id = $4
-		 RETURNING id, org_id, email, role, invited_by_user_id, expires_at, accepted_at, revoked_at, created_at`,
+		 RETURNING id, org_id, email, role, invited_by_user_id, expires_at, accepted_at, revoked_at, created_at, email_status, email_error`,
 		tokenHash, newExpiry, inviteID, orgID,
 	).Scan(
 		&inv.ID, &inv.OrgID, &inv.Email, &inv.Role, &inv.InvitedByID,
-		&inv.ExpiresAt, &inv.AcceptedAt, &inv.RevokedAt, &inv.CreatedAt,
+		&inv.ExpiresAt, &inv.AcceptedAt, &inv.RevokedAt, &inv.CreatedAt, &inv.EmailStatus, &inv.EmailError,
 	)
 	if err != nil {
 		return nil, "", fmt.Errorf("orgs: resend invite: update: %w", err)
+	}
+	if err := enqueueInviteEmail(ctx, tx, &inv, deliverableToken, tokenHash); err != nil {
+		return nil, "", err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, "", fmt.Errorf("orgs: resend invite: commit: %w", err)
 	}
 
 	writeAuditLog(ctx, s.pool, auditEntry{
@@ -164,6 +190,34 @@ func (s *InviteService) Resend(ctx context.Context, orgID, actorUserID, actorRol
 	})
 
 	return &inv, deliverableToken, nil
+}
+
+// enqueueInviteEmail queues the "org_invite" email.send job that delivers a
+// (re)issued invite link. Resend used to rotate the token and return it to a
+// caller that discarded it, so no email ever went out. Keyed on the token hash
+// so a retried request cannot queue the same link twice.
+func enqueueInviteEmail(ctx context.Context, tx pgx.Tx, inv *Invite, token, tokenHash string) error {
+	payload, err := json.Marshal(map[string]any{
+		"type": inviteEmailType,
+		"to":   inv.Email,
+		"template_data": map[string]any{
+			"token":     token,
+			"role":      inv.Role,
+			"invite_id": inv.ID,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("orgs: marshal invite email payload: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO jobs (handler, status, priority, payload, idempotency_key, org_id)
+		 VALUES ($1, 'queued', $2, $3, $4, $5)
+		 ON CONFLICT (idempotency_key) DO NOTHING`,
+		emailSendHandler, emailPriorityHigh, payload, inviteEmailType+":"+tokenHash, inv.OrgID,
+	); err != nil {
+		return fmt.Errorf("orgs: enqueue invite email (invite=%s): %w", inv.ID, err)
+	}
+	return nil
 }
 
 // List returns a cursor-paginated list of invites for an org, optionally filtered by status.
@@ -187,14 +241,14 @@ func (s *InviteService) List(ctx context.Context, orgID, status, cursor string, 
 	var rows pgx.Rows
 	if cursor == "" {
 		rows, err = s.pool.Query(ctx,
-			"SELECT id, org_id, email, role, invited_by_user_id, expires_at, accepted_at, revoked_at, created_at "+
+			"SELECT id, org_id, email, role, invited_by_user_id, expires_at, accepted_at, revoked_at, created_at, email_status, email_error "+
 				"FROM org_invites WHERE org_id = $1 "+filter+
 				" ORDER BY created_at ASC, id ASC LIMIT $2",
 			orgID, limit+1,
 		)
 	} else {
 		rows, err = s.pool.Query(ctx,
-			"SELECT id, org_id, email, role, invited_by_user_id, expires_at, accepted_at, revoked_at, created_at "+
+			"SELECT id, org_id, email, role, invited_by_user_id, expires_at, accepted_at, revoked_at, created_at, email_status, email_error "+
 				"FROM org_invites WHERE org_id = $1 "+filter+
 				" AND (created_at, id) > ($2, $3) ORDER BY created_at ASC, id ASC LIMIT $4",
 			orgID, cursorCreatedAt, cursorID, limit+1,
@@ -210,7 +264,7 @@ func (s *InviteService) List(ctx context.Context, orgID, status, cursor string, 
 		var inv Invite
 		if err := rows.Scan(
 			&inv.ID, &inv.OrgID, &inv.Email, &inv.Role, &inv.InvitedByID,
-			&inv.ExpiresAt, &inv.AcceptedAt, &inv.RevokedAt, &inv.CreatedAt,
+			&inv.ExpiresAt, &inv.AcceptedAt, &inv.RevokedAt, &inv.CreatedAt, &inv.EmailStatus, &inv.EmailError,
 		); err != nil {
 			return nil, fmt.Errorf("orgs: list invites: scan: %w", err)
 		}

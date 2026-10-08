@@ -68,6 +68,8 @@ export interface Invite {
   accepted_at: string | null;
   revoked_at: string | null;
   created_at: string;
+  email_status: "pending" | "sent" | "failed";
+  email_error?: string | null;
 }
 
 export interface InvitePage {

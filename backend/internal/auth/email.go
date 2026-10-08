@@ -45,41 +45,33 @@ func SendPasswordReset(cfg *config.Config, to, token string) error {
 	return sendSMTP(cfg, to, subject, body)
 }
 
-// SendDuplicateRegistration notifies an existing account holder that someone
-// attempted to register with their email. It is sent instead of revealing the
-// account's existence in the registration API response (anti-enumeration).
-// In local dev, logs to stdout instead of using SMTP unless `to` is in
-// config.Config.DevEmailAllowlist (see Config.ShouldSendRealEmail).
-func SendDuplicateRegistration(cfg *config.Config, to string) error {
-	if !cfg.ShouldSendRealEmail(to) {
-		slog.Info("DEV EMAIL: Duplicate registration attempt", "to", to)
-		return nil
-	}
-	subject := "You already have a MindForge account"
-	body := "Someone just tried to create a MindForge account with this email address.\n\n" +
+// DuplicateRegistrationMessage is the email sent to an existing account holder
+// when someone attempts to register with their address. It is sent instead of
+// revealing the account's existence in the registration API response
+// (anti-enumeration). Delivered by the email.send queue
+// (handlers.EmailHandler, type duplicate_registration).
+func DuplicateRegistrationMessage(cfg *config.Config) (subject, body string) {
+	subject = "You already have a MindForge account"
+	body = "Someone just tried to create a MindForge account with this email address.\n\n" +
 		"If this was you, you already have an account — simply sign in, or reset your " +
 		"password at " + cfg.FrontendURL + "/forgot-password if you've forgotten it.\n\n" +
 		"If this wasn't you, no action is needed; no new account was created."
-	return sendSMTP(cfg, to, subject, body)
+	return subject, body
 }
 
-// SendPasskeyCloneAlert notifies the user that a passkey sign-in produced a
+// PasskeyCloneAlertMessage notifies the user that a passkey sign-in produced a
 // signature-counter regression — a signal (not proof) that the credential's
 // private key may exist in more than one place. The login is allowed to
 // proceed (see webauthn.go); this is advisory, mirroring the existing
-// impossible-travel posture. In development it logs to stdout instead of
-// using SMTP.
-func SendPasskeyCloneAlert(cfg *config.Config, to string) error {
-	if !cfg.ShouldSendRealEmail(to) {
-		slog.Info("DEV EMAIL: Passkey clone warning", "to", to)
-		return nil
-	}
-	subject := "Unusual passkey activity on your MindForge account"
-	body := "We noticed unusual activity from a passkey on your account, which can happen if " +
+// impossible-travel posture. Delivered by the email.send queue
+// (type passkey_clone_alert).
+func PasskeyCloneAlertMessage(cfg *config.Config) (subject, body string) {
+	subject = "Unusual passkey activity on your MindForge account"
+	body = "We noticed unusual activity from a passkey on your account, which can happen if " +
 		"the passkey was copied or restored from a backup.\n\n" +
 		"If this was you, no action is needed. If you don't recognize this, review your " +
 		"passkeys at " + cfg.FrontendURL + "/settings/security and remove any you don't recognize."
-	return sendSMTP(cfg, to, subject, body)
+	return subject, body
 }
 
 // SendSecurityNotice tells the account owner that a credential changed, so a

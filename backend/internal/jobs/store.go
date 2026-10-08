@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"strings"
 	"time"
 
@@ -294,7 +295,11 @@ func Fail(ctx context.Context, pool *pgxpool.Pool, registry *Registry, jobID str
 
 	errMsg := jobErr.Error()
 	var permErr *PermanentError
-	wentDead := retryCount+1 >= maxRetries || errors.As(jobErr, &permErr)
+	// A RetryAfter deferral (throttle, open breaker, quota) never goes dead
+	// and does not consume a retry; it only lengthens the backoff.
+	var deferErr *RetryAfterError
+	deferred := errors.As(jobErr, &deferErr)
+	wentDead := !deferred && (retryCount+1 >= maxRetries || errors.As(jobErr, &permErr))
 
 	if !wentDead {
 		// Exponential backoff: 2^retryCount * 2s, capped at 5 minutes.
@@ -303,15 +308,19 @@ func Fail(ctx context.Context, pool *pgxpool.Pool, registry *Registry, jobID str
 		if backoffSeconds > maxBackoffSeconds {
 			backoffSeconds = maxBackoffSeconds
 		}
+		retryInc := 1
+		if deferred {
+			backoffSeconds, retryInc = int(math.Ceil(deferErr.After.Seconds())), 0
+		}
 		backoff := fmt.Sprintf("%d seconds", backoffSeconds)
 
 		_, err = tx.Exec(ctx,
 			`UPDATE jobs
-			 SET status = 'queued', retry_count = retry_count + 1,
+			 SET status = 'queued', retry_count = retry_count + $3,
 			     run_at = NOW() + $2::interval,
 			     worker_id = NULL, claimed_at = NULL, updated_at = NOW()
 			 WHERE id = $1`,
-			jobID, backoff,
+			jobID, backoff, retryInc,
 		)
 	} else {
 		_, err = tx.Exec(ctx,
@@ -341,8 +350,11 @@ func Fail(ctx context.Context, pool *pgxpool.Pool, registry *Registry, jobID str
 	}
 
 	if wentDead && registry != nil {
-		if hook, ok := registry.getDeadHook(handler); ok {
-			job := Job{ID: jobID, Handler: handler, Payload: payload, OrgID: orgID, LastError: &errMsg}
+		job := Job{
+			ID: jobID, Handler: handler, Status: StatusDead, Payload: payload, OrgID: orgID,
+			LastError: &errMsg, RetryCount: retryCount + 1, MaxRetries: maxRetries,
+		}
+		for _, hook := range registry.deadHooksFor(handler) {
 			go runDeadHook(hook, job)
 		}
 	}

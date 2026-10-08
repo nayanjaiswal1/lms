@@ -30,6 +30,10 @@ const (
 	// Batch 8: AI MR review (docs/project-marketplace.md Phase C).
 	HandlerGitlabAIReviewMR = "gitlab.ai_review_mr"
 
+	// Ops alerting (internal/opsalert): health checks and the daily digest.
+	HandlerOpsHealth = "ops.health"
+	HandlerOpsDigest = "ops.digest"
+
 	// Nightly AI revision digest (internal/digest).
 	HandlerDigestNightly = "digest.nightly"
 	HandlerDigestUser    = "digest.user"

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/config"
@@ -27,12 +28,11 @@ type BulkInvitePayload struct {
 // NewInviteDeadHook returns a DeadLetterHook for HandlerBulkInvite. A dead
 // chunk means the transient error path in Handle (org lookup, DB write) kept
 // failing across every retry — the individual invite rows for this chunk may
-// or may not exist depending on how far it got. This only logs; an org admin
-// has no way today to see which specific invites in a batch never went out
-// (see docs/email-job-resilience-checklist.md item 8) — that gap is still
-// open, this just makes the failure visible in logs instead of silent.
-func NewInviteDeadHook() jobs.DeadLetterHook {
-	return func(_ context.Context, job jobs.Job) {
+// or may not exist depending on how far it got. It logs the failure and marks
+// every invite of the chunk whose email never went out (email_status still
+// 'pending') as 'failed', so the org admin sees "Failed — resend".
+func NewInviteDeadHook(pool *pgxpool.Pool) jobs.DeadLetterHook {
+	return func(ctx context.Context, job jobs.Job) {
 		var p BulkInvitePayload
 		if err := json.Unmarshal(job.Payload, &p); err != nil {
 			slog.Error("invite.bulk dead hook: unmarshal payload", "job_id", job.ID, "error", err)
@@ -44,6 +44,20 @@ func NewInviteDeadHook() jobs.DeadLetterHook {
 		}
 		slog.Error("invite.bulk permanently failed — some invites in this chunk may not be created/emailed",
 			"job_id", job.ID, "org_id", p.OrgID, "email_count", len(p.Emails), "last_error", lastErr)
+
+		emails := make([]string, len(p.Emails))
+		for i, e := range p.Emails {
+			emails[i] = strings.ToLower(strings.TrimSpace(e))
+		}
+		reason := truncateErr("invite.bulk job failed: "+lastErr, maxEmailErrorLen)
+		if _, err := pool.Exec(ctx,
+			`UPDATE org_invites SET email_status = $4, email_error = $3, updated_at = now()
+			 WHERE org_id = $1 AND email = ANY($2::citext[]) AND email_status = $5
+			   AND accepted_at IS NULL AND revoked_at IS NULL`,
+			p.OrgID, emails, reason, inviteEmailFailed, inviteEmailPending,
+		); err != nil {
+			slog.Error("invite.bulk dead hook: mark invites failed", "job_id", job.ID, "org_id", p.OrgID, "error", err)
+		}
 	}
 }
 
@@ -60,6 +74,37 @@ func NewInviteHandler(pool *pgxpool.Pool, cfg *config.Config) *InviteHandler {
 		pool:   pool,
 		cfg:    cfg,
 		invSvc: orgs.NewInviteService(pool, cfg),
+	}
+}
+
+// newSender returns the per-chunk send function and its cleanup. SMTP sends
+// share one connection for the whole chunk (mailer.Session) instead of one
+// dial/handshake/auth per invite; the Brevo API path is connectionless.
+func (h *InviteHandler) newSender() (send func(context.Context, *orgs.Invite, string) error, closeFn func()) {
+	var sess *mailer.Session
+	if h.cfg.BrevoAPIKey == "" {
+		sess = mailer.NewSession(h.cfg.SMTPHost, h.cfg.SMTPPort, h.cfg.SMTPUser, h.cfg.SMTPPass, h.cfg.EmailFrom)
+	}
+	send = func(ctx context.Context, inv *orgs.Invite, token string) error {
+		return h.sendInviteEmail(ctx, sess, inv, token)
+	}
+	return send, func() {
+		if sess != nil {
+			sess.Close()
+		}
+	}
+}
+
+// pace sleeps for the configured inter-send delay, returning early on ctx cancel.
+func (h *InviteHandler) pace(ctx context.Context) {
+	if h.cfg.InviteSendDelay <= 0 {
+		return
+	}
+	t := time.NewTimer(h.cfg.InviteSendDelay)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+	case <-t.C:
 	}
 }
 
@@ -93,6 +138,9 @@ func (h *InviteHandler) Handle(ctx context.Context, job jobs.Job) error {
 	}
 
 	var firstTransientErr error
+	send, closeSend := h.newSender()
+	defer closeSend()
+	sentAny := false
 
 	for _, email := range p.Emails {
 		inv, token, createErr := h.invSvc.Create(ctx, p.OrgID, p.InviterID, inviterRole,
@@ -126,11 +174,20 @@ func (h *InviteHandler) Handle(ctx context.Context, job jobs.Job) error {
 			continue
 		}
 
-		// Send the invite email. Non-fatal: the invite row exists and can be resent manually.
-		if emailErr := h.sendInviteEmail(ctx, inv, token); emailErr != nil {
-			slog.WarnContext(ctx, "handlers.invite: send invite email failed (invite created, will need resend)",
-				"org_id", p.OrgID, "invite_id", inv.ID, "email", email, "error", emailErr)
+		// Send the invite email. Non-fatal: the invite row exists and can be
+		// resent manually; the outcome is recorded on the row so the admin can
+		// see which invites need that.
+		if sentAny {
+			h.pace(ctx)
 		}
+		sentAny = true
+		if emailErr := send(ctx, inv, token); emailErr != nil {
+			slog.WarnContext(ctx, "handlers.invite: send invite email failed (invite created, needs resend)",
+				"org_id", p.OrgID, "invite_id", inv.ID, "email", email, "error", emailErr)
+			setInviteEmailStatus(ctx, h.pool, inv.ID, inviteEmailFailed, truncateErr(emailErr.Error(), maxEmailErrorLen))
+			continue
+		}
+		setInviteEmailStatus(ctx, h.pool, inv.ID, inviteEmailSent, "")
 	}
 
 	if firstTransientErr != nil {
@@ -153,12 +210,13 @@ func (h *InviteHandler) fetchMemberRole(ctx context.Context, orgID, userID strin
 	return role, nil
 }
 
-// sendInviteEmail delivers the org invite email to the invitee.
-// In development it logs to stdout instead of using SMTP, unless inv.Email is
+// sendInviteEmail delivers the org invite email to the invitee, over sess when
+// non-nil (SMTP) or the Brevo API otherwise.
+// In development it logs to stdout instead of sending, unless inv.Email is
 // in DEV_EMAIL_ALLOWLIST — mirrors every other email path's
 // cfg.ShouldSendRealEmail gate (auth/email.go, EmailHandler.sendEvalComplete)
 // so org-invite emails can be tested against a real inbox in dev the same way.
-func (h *InviteHandler) sendInviteEmail(ctx context.Context, inv *orgs.Invite, token string) error {
+func (h *InviteHandler) sendInviteEmail(ctx context.Context, sess *mailer.Session, inv *orgs.Invite, token string) error {
 	if !h.cfg.ShouldSendRealEmail(inv.Email) {
 		// The token value is never logged: logs are routinely copied into
 		// tickets and chat, and an invite token is a credential.
@@ -167,23 +225,15 @@ func (h *InviteHandler) sendInviteEmail(ctx context.Context, inv *orgs.Invite, t
 		return nil
 	}
 
-	subject := "You've been invited to join an organization on MindForge"
-	link := h.cfg.FrontendURL + "/orgs/join?token=" + token
-	body := "You have been invited to join an organization on MindForge as " + inv.Role + ".\n\n" +
-		"Click the link below to accept your invitation:\n\n" + link + "\n\n" +
-		"This invitation expires in 7 days. If you did not expect this email, no action is needed."
+	subject, body := inviteEmailContent(h.cfg, inv.Role, token)
 
-	// Delegates to mailer.SendViaBrevoAPI/SendRaw (shared with internal/auth's
-	// transactional emails) instead of calling net/smtp directly, so this send
-	// is bounded by the job's own timeout context rather than left unbounded.
 	// The Brevo API path is used when configured — needed on hosts that block
 	// outbound SMTP ports (e.g. Render's free tier; see mailer.BrevoAPISender).
 	var err error
-	if h.cfg.BrevoAPIKey != "" {
+	if sess == nil {
 		err = mailer.SendViaBrevoAPI(ctx, h.cfg.BrevoAPIKey, h.cfg.EmailFrom, h.cfg.EmailFromName, inv.Email, subject, body)
 	} else {
-		msg := buildInviteMessage(h.cfg.EmailFromHeader(), inv.Email, subject, body)
-		err = mailer.SendRaw(ctx, h.cfg.SMTPHost, h.cfg.SMTPPort, h.cfg.SMTPUser, h.cfg.SMTPPass, h.cfg.EmailFrom, inv.Email, []byte(msg))
+		err = sess.Send(ctx, inv.Email, []byte(buildInviteMessage(h.cfg.EmailFromHeader(), inv.Email, subject, body)))
 	}
 	if err != nil {
 		return fmt.Errorf("smtp send to %s: %w", inv.Email, err)
