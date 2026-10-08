@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/config"
+	"github.com/mindforge/backend/internal/pagination"
 )
 
 // emailSendHandler / emailPriorityHigh / inviteEmailType mirror
@@ -233,7 +234,7 @@ func (s *InviteService) List(ctx context.Context, orgID, status, cursor string, 
 		return nil, fmt.Errorf("orgs: list invites: count: %w", err)
 	}
 
-	cursorCreatedAt, cursorID, err := decodeCursor(cursor)
+	cursorCreatedAt, cursorID, err := pagination.DecodeCursor(cursor, "orgs")
 	if err != nil {
 		cursor = ""
 	}
@@ -281,7 +282,7 @@ func (s *InviteService) List(ctx context.Context, orgID, status, cursor string, 
 	if len(invites) > limit {
 		page.Invites = invites[:limit]
 		last := page.Invites[limit-1]
-		page.NextCursor = encodeCursor(last.CreatedAt, last.ID)
+		page.NextCursor = pagination.EncodeCursor(last.CreatedAt, last.ID)
 	}
 	return page, nil
 }

@@ -3,11 +3,13 @@ package activity
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/pagination"
 )
 
 // Handler exposes the activity feed over HTTP.
@@ -47,10 +49,12 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		tzOffsetMin = 0
 	}
 
-	cursorAt, cursorKey, err := DecodeCursor(r.URL.Query().Get("cursor"))
+	var cursorAt *time.Time
+	at, cursorKey, err := pagination.DecodeCursor(r.URL.Query().Get("cursor"), "activity")
 	if err != nil {
 		cursorKey = ""
-		cursorAt = nil
+	} else if cursorKey != "" {
+		cursorAt = &at
 	}
 
 	entries, err := h.repo.List(r.Context(), claims.UserID, claims.OrgID, tzOffsetMin, cursorAt, cursorKey, limit+1)
@@ -63,7 +67,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	if len(entries) > limit {
 		page.Entries = entries[:limit]
 		last := page.Entries[limit-1]
-		page.NextCursor = EncodeCursor(last.OccurredAt, last.Key)
+		page.NextCursor = pagination.EncodeCursor(last.OccurredAt, last.Key)
 	}
 	httputil.WriteJSON(w, http.StatusOK, page)
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/jobs"
 	apimiddleware "github.com/mindforge/backend/internal/middleware"
+	"github.com/mindforge/backend/internal/pagination"
 	"github.com/mindforge/backend/internal/secrets"
 	"github.com/mindforge/backend/internal/session"
 )
@@ -1195,7 +1196,7 @@ func (h *Handler) handleListAuditLogs(w http.ResponseWriter, r *http.Request) {
 		limit = 50
 	}
 
-	cursorCreatedAt, cursorID, decErr := decodeCursor(cursor)
+	cursorCreatedAt, cursorID, decErr := pagination.DecodeCursor(cursor, "orgs")
 	if decErr != nil {
 		cursor = ""
 	}
@@ -1263,7 +1264,7 @@ func (h *Handler) handleListAuditLogs(w http.ResponseWriter, r *http.Request) {
 	if len(logs) > limit {
 		page.Logs = logs[:limit]
 		last := page.Logs[limit-1]
-		page.NextCursor = encodeCursor(last.CreatedAt, strconv.FormatInt(last.ID, 10))
+		page.NextCursor = pagination.EncodeCursor(last.CreatedAt, strconv.FormatInt(last.ID, 10))
 	}
 	httputil.WriteJSON(w, http.StatusOK, page)
 }

@@ -2,9 +2,7 @@ package activity
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -170,35 +168,4 @@ func scanEntries(rows pgx.Rows) ([]Entry, error) {
 		out = append(out, e)
 	}
 	return out, rows.Err()
-}
-
-// ─── cursor pagination ─────────────────────────────────────────────────────
-// Small, deliberate duplicate of mcpconnect's (created_at, id) cursor — that
-// helper is unexported to its own package, and this cursor's tiebreak field
-// is "key" (a synthetic "<kind>:<row id>" string), not a plain id, so it
-// isn't even the same shape. See mcpconnect/action_log.go for the precedent.
-
-func EncodeCursor(occurredAt time.Time, key string) string {
-	raw := fmt.Sprintf("%d:%s", occurredAt.UnixMicro(), key)
-	return base64.RawURLEncoding.EncodeToString([]byte(raw))
-}
-
-func DecodeCursor(cursor string) (*time.Time, string, error) {
-	if cursor == "" {
-		return nil, "", nil
-	}
-	b, err := base64.RawURLEncoding.DecodeString(cursor)
-	if err != nil {
-		return nil, "", fmt.Errorf("activity: decode cursor: base64: %w", err)
-	}
-	parts := strings.SplitN(string(b), ":", 2)
-	if len(parts) != 2 {
-		return nil, "", fmt.Errorf("activity: decode cursor: invalid format")
-	}
-	var micro int64
-	if _, err := fmt.Sscanf(parts[0], "%d", &micro); err != nil {
-		return nil, "", fmt.Errorf("activity: decode cursor: parse timestamp: %w", err)
-	}
-	at := time.UnixMicro(micro)
-	return &at, parts[1], nil
 }
