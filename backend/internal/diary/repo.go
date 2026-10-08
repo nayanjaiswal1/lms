@@ -10,11 +10,34 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Repo struct {
 	pool *pgxpool.Pool
+}
+
+// dbtx is the query surface shared by the pool and an in-flight transaction.
+type dbtx interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// WithTx runs fn inside a transaction, rolling back on error.
+func (r *Repo) WithTx(ctx context.Context, fn func(tx pgx.Tx) error) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("diary: begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	if err := fn(tx); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("diary: commit tx: %w", err)
+	}
+	return nil
 }
 
 // NewRepo constructs a Repo over the shared connection pool.
@@ -134,6 +157,15 @@ func (r *Repo) UpdateContent(ctx context.Context, userID, id, content string) (E
 // they were computed from, and stamps analyzed_at — called by Service.Apply
 // once habit/whatnow mutations have already been applied.
 func (r *Repo) SaveAnalysis(ctx context.Context, id string, highlights []Highlight, hash string) error {
+	return saveAnalysis(ctx, r.pool, id, highlights, hash)
+}
+
+// SaveAnalysisTx is SaveAnalysis inside the caller's transaction.
+func (r *Repo) SaveAnalysisTx(ctx context.Context, tx pgx.Tx, id string, highlights []Highlight, hash string) error {
+	return saveAnalysis(ctx, tx, id, highlights, hash)
+}
+
+func saveAnalysis(ctx context.Context, db dbtx, id string, highlights []Highlight, hash string) error {
 	if highlights == nil {
 		highlights = []Highlight{}
 	}
@@ -141,7 +173,7 @@ func (r *Repo) SaveAnalysis(ctx context.Context, id string, highlights []Highlig
 	if err != nil {
 		return fmt.Errorf("diary: marshal analysis: %w", err)
 	}
-	tag, err := r.pool.Exec(ctx,
+	tag, err := db.Exec(ctx,
 		`UPDATE diary_entries SET ai_analysis = $2, analyzed_hash = $3, analyzed_at = now() WHERE id = $1`,
 		id, raw, hash,
 	)
@@ -264,10 +296,19 @@ func (r *Repo) ListOpenTasks(ctx context.Context, userID string) ([]Task, error)
 // captured it from. description is "" for an AI-captured task — the
 // analyze pass only ever extracts a title, never a description.
 func (r *Repo) CreateTask(ctx context.Context, userID, title, description, kind string, sourceEntryID *string, tags []string) (Task, error) {
+	return createTask(ctx, r.pool, userID, title, description, kind, sourceEntryID, tags)
+}
+
+// CreateTaskTx is CreateTask inside the caller's transaction.
+func (r *Repo) CreateTaskTx(ctx context.Context, tx pgx.Tx, userID, title, description, kind string, sourceEntryID *string, tags []string) (Task, error) {
+	return createTask(ctx, tx, userID, title, description, kind, sourceEntryID, tags)
+}
+
+func createTask(ctx context.Context, db dbtx, userID, title, description, kind string, sourceEntryID *string, tags []string) (Task, error) {
 	if tags == nil {
 		tags = []string{}
 	}
-	row := r.pool.QueryRow(ctx,
+	row := db.QueryRow(ctx,
 		`INSERT INTO diary_tasks (user_id, title, description, kind, tags, source_entry_id)
 		 VALUES ($1, $2, $3, $4, $5, $6)
 		 RETURNING `+taskColumns,
@@ -283,7 +324,16 @@ func (r *Repo) CreateTask(ctx context.Context, userID, title, description, kind 
 // SetTaskDone updates id's done state. Ownership is enforced by the WHERE
 // clause.
 func (r *Repo) SetTaskDone(ctx context.Context, userID, id string, done bool) (Task, error) {
-	row := r.pool.QueryRow(ctx,
+	return setTaskDone(ctx, r.pool, userID, id, done)
+}
+
+// SetTaskDoneTx is SetTaskDone inside the caller's transaction.
+func (r *Repo) SetTaskDoneTx(ctx context.Context, tx pgx.Tx, userID, id string, done bool) (Task, error) {
+	return setTaskDone(ctx, tx, userID, id, done)
+}
+
+func setTaskDone(ctx context.Context, db dbtx, userID, id string, done bool) (Task, error) {
+	row := db.QueryRow(ctx,
 		`UPDATE diary_tasks SET done = $3, updated_at = now()
 		 WHERE id = $1 AND user_id = $2
 		 RETURNING `+taskColumns,

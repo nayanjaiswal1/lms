@@ -331,11 +331,8 @@ export interface Certificate {
 
 
 export interface CertificateRule {
-  id: string;
-  course_id: string;
-  threshold_percent: number;
-  created_at: string;
-  updated_at: string;
+  // null when the instructor has not configured a threshold yet.
+  threshold_percent: number | null;
 }
 
 export interface SubmitFinalTestAttemptResult {
@@ -386,11 +383,11 @@ export async function getMyCertificateForCourse(courseID: string): Promise<Certi
   }
 }
 
-// Instructor-only — returns null when the course has no threshold rule
-// configured yet (a normal, not-yet-set-up state).
+// Instructor-only — threshold_percent is null when the course has no
+// threshold configured yet (a normal, not-yet-set-up state).
 export async function getCertificateRule(courseID: string): Promise<CertificateRule | null> {
   try {
-    return await apiGet<CertificateRule | null>(`/api/courses/${courseID}/certificate-rule`);
+    return await apiGet<CertificateRule>(`/api/courses/${courseID}/certificate-threshold`);
   } catch {
     return null;
   }

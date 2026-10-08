@@ -86,44 +86,62 @@ func NewService(repo *Repo) *Service {
 }
 
 func (s *Service) Create(ctx context.Context, userID string, req CreateRequest) (Habit, error) {
+	req, err := validateCreate(req)
+	if err != nil {
+		return Habit{}, err
+	}
+	return s.repo.Create(ctx, userID, req)
+}
+
+// CreateTx is Create inside the caller's transaction.
+func (s *Service) CreateTx(ctx context.Context, db DBTX, userID string, req CreateRequest) (Habit, error) {
+	req, err := validateCreate(req)
+	if err != nil {
+		return Habit{}, err
+	}
+	return s.repo.CreateTx(ctx, db, userID, req)
+}
+
+// validateCreate normalizes and validates req at the input boundary.
+func validateCreate(req CreateRequest) (CreateRequest, error) {
 	req.Name = strings.TrimSpace(req.Name)
 	if req.Name == "" {
-		return Habit{}, ErrNameEmpty
+		return CreateRequest{}, ErrNameEmpty
 	}
 	if len(req.Name) > maxNameLength {
-		return Habit{}, ErrNameTooLong
+		return CreateRequest{}, ErrNameTooLong
 	}
 	if !validCadence(req.Cadence) {
-		return Habit{}, ErrInvalidCadence
+		return CreateRequest{}, ErrInvalidCadence
 	}
 	if req.TargetCount == 0 {
 		req.TargetCount = 1
 	}
 	if err := validateWeeklyOptions(req.Cadence, req.TargetCount, req.Weekdays); err != nil {
-		return Habit{}, err
+		return CreateRequest{}, err
 	}
 	if req.Type == "" {
 		req.Type = HabitTypeGeneric
 	}
 	if !validHabitType(req.Type) {
-		return Habit{}, ErrInvalidHabitType
+		return CreateRequest{}, ErrInvalidHabitType
 	}
 	if req.Type == HabitTypeCustom {
 		if err := validateCustomFields(req.CustomFields); err != nil {
-			return Habit{}, err
+			return CreateRequest{}, err
 		}
 	} else {
 		req.CustomFields = nil
 	}
 	if !validIcon(req.Icon) {
-		return Habit{}, ErrInvalidIcon
+		return CreateRequest{}, ErrInvalidIcon
 	}
 	cleanedTags, err := normalizeTags(req.Tags)
 	if err != nil {
-		return Habit{}, err
+		return CreateRequest{}, err
 	}
 	req.Tags = cleanedTags
-	return s.repo.Create(ctx, userID, req)
+	return req, nil
 }
 
 // normalizeTags trims each tag, drops empties, caps length, and dedupes
@@ -282,6 +300,15 @@ func (s *Service) SetCompletion(ctx context.Context, userID, habitID, period str
 	return s.repo.SetCompletion(ctx, habitID, userID, periodStart)
 }
 
+// SetCompletionTx is SetCompletion inside the caller's transaction.
+func (s *Service) SetCompletionTx(ctx context.Context, db DBTX, userID, habitID, period string) error {
+	periodStart, err := time.Parse("2006-01-02", period)
+	if err != nil {
+		return ErrInvalidPeriod
+	}
+	return s.repo.SetCompletionTx(ctx, db, habitID, userID, periodStart)
+}
+
 func (s *Service) ClearCompletion(ctx context.Context, userID, habitID, period string) error {
 	periodStart, err := time.Parse("2006-01-02", period)
 	if err != nil {
@@ -296,11 +323,21 @@ func (s *Service) ClearCompletion(ctx context.Context, userID, habitID, period s
 // custom) — the jsonb column itself doesn't constrain shape, so this is the
 // actual input-boundary validation.
 func (s *Service) SetCompletionMetadata(ctx context.Context, userID, habitID, period string, metadata map[string]any) error {
+	return s.setCompletionMetadata(ctx, s.repo.pool, userID, habitID, period, metadata)
+}
+
+// SetCompletionMetadataTx is SetCompletionMetadata inside the caller's
+// transaction.
+func (s *Service) SetCompletionMetadataTx(ctx context.Context, db DBTX, userID, habitID, period string, metadata map[string]any) error {
+	return s.setCompletionMetadata(ctx, db, userID, habitID, period, metadata)
+}
+
+func (s *Service) setCompletionMetadata(ctx context.Context, db DBTX, userID, habitID, period string, metadata map[string]any) error {
 	periodStart, err := time.Parse("2006-01-02", period)
 	if err != nil {
 		return ErrInvalidPeriod
 	}
-	h, err := s.repo.Get(ctx, habitID, userID)
+	h, err := s.repo.GetTx(ctx, db, habitID, userID)
 	if err != nil {
 		return err
 	}
@@ -313,7 +350,7 @@ func (s *Service) SetCompletionMetadata(ctx context.Context, userID, habitID, pe
 			return ErrInvalidMetadataField
 		}
 	}
-	return s.repo.UpsertCompletionMetadata(ctx, habitID, userID, periodStart, metadata)
+	return s.repo.UpsertCompletionMetadataTx(ctx, db, habitID, userID, periodStart, metadata)
 }
 
 // mondayOfWeek returns the Monday on or before d — the ISO week start. A

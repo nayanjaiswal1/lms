@@ -76,6 +76,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/api/labs/sessions/{sessionId}/submit", h.HandleSubmitAll)
 }
 
+// permManageOrg is the org-administration permission code gating the admin APIs.
+const permManageOrg = "admin.manage_org"
+
 // RegisterAdminRoutes mounts the /admin/labs/warm-pools and /admin/labs/usage
 // APIs. Gated on admin.manage_org, the same permission that already governs
 // org-wide operational settings — compute-usage reporting and warm-pool
@@ -88,7 +91,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 // LABS_WARM_POOL_OVERRIDES as the operator-level escape hatch — see
 // HandleListWarmPools.
 func (h *Handler) RegisterAdminRoutes(r chi.Router, authzSvc *authz.Service) {
-	r.With(authz.RequirePermission(authzSvc, "admin.manage_org")).Group(func(r chi.Router) {
+	r.With(authz.RequirePermission(authzSvc, permManageOrg)).Group(func(r chi.Router) {
 		r.Get("/api/admin/labs/warm-pools", h.HandleListWarmPools)
 		r.Get("/api/admin/labs/usage", h.HandleGetLabUsage)
 	})

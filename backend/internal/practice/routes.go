@@ -27,11 +27,15 @@ func New(pool *pgxpool.Pool, provider ai.LLMProvider) *Router {
 	return &Router{handler: &Handler{service: service, repo: repo}, Service: service}
 }
 
+// PermUse is the permission code gating the practice API and every flow that
+// spends practice/LLM quota (e.g. interview prep).
+const PermUse = "practice.use"
+
 // RegisterRoutes mounts the practice API, gated on practice.use — the same
 // permission code the frontend's nav entry and <AccessGate> already check,
 // enforced again here since UI gates are UX, not security.
 func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
-	r.With(authz.RequirePermission(authzSvc, "practice.use")).Group(func(r chi.Router) {
+	r.With(authz.RequirePermission(authzSvc, PermUse)).Group(func(r chi.Router) {
 		r.Get("/api/practice/technologies", rt.handler.ListTechnologies)
 		r.Get("/api/practice/sessions/{sessionID}", rt.handler.GetSession)
 		r.Patch("/api/practice/sessions/{sessionID}", rt.handler.UpdateSessionStatus)

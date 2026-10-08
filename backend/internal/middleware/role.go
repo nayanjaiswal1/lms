@@ -59,10 +59,20 @@ func RequireOrgRole(pool *pgxpool.Pool, allowed ...string) func(http.Handler) ht
 				httputil.WriteError(w, http.StatusForbidden, "Not a member of this organization.")
 				return
 			}
-
 			if _, allowed := permitted[role]; !allowed {
 				httputil.WriteError(w, http.StatusForbidden, "You do not have permission to perform this action.")
 				return
+			}
+
+			// When RequireOrgMember resolved a different org (URL {id} or
+			// X-Org-Id), handlers act on that org, so the role must also
+			// qualify there; otherwise an admin of org A could operate on org B
+			// where they hold a lesser role.
+			if orgCtx, ok := GetOrgCtx(r.Context()); ok && orgCtx.OrgID != claims.OrgID {
+				if _, allowed := permitted[orgCtx.CallerRole]; !allowed {
+					httputil.WriteError(w, http.StatusForbidden, "You do not have permission to perform this action.")
+					return
+				}
 			}
 			next.ServeHTTP(w, r)
 		})

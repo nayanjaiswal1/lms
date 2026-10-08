@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -288,6 +289,19 @@ func (r *Repo) InsertTask(ctx context.Context, userID string, t Task) (Task, err
 // Callers are expected to load, mutate, then call UpdateTask — no dynamic
 // SQL builder, matching the store.ts Object.assign merge pattern.
 func (r *Repo) UpdateTask(ctx context.Context, t Task) error {
+	return updateTask(ctx, r.pool, t)
+}
+
+// UpdateTaskTx is UpdateTask scoped to an in-flight transaction.
+func (r *Repo) UpdateTaskTx(ctx context.Context, tx pgx.Tx, t Task) error {
+	return updateTask(ctx, tx, t)
+}
+
+type execer interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}
+
+func updateTask(ctx context.Context, db execer, t Task) error {
 	chipsJSON, err := json.Marshal(t.Chips)
 	if err != nil {
 		return fmt.Errorf("whatnow: marshal chips: %w", err)
@@ -305,7 +319,7 @@ func (r *Repo) UpdateTask(ctx context.Context, t Task) error {
 		tags = []string{}
 	}
 
-	tag, err := r.pool.Exec(ctx,
+	tag, err := db.Exec(ctx,
 		`UPDATE whatnow_tasks SET
 			title = $2, status = $3, duration_min = $4,
 			deadline = NULLIF($5, '')::date, category = NULLIF($6, ''), vague = $7,

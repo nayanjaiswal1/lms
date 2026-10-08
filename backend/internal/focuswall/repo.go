@@ -7,6 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/mindforge/backend/internal/db"
 )
 
 var (
@@ -114,25 +116,58 @@ func (r *Repo) ListByUser(ctx context.Context, userID string) ([]Note, error) {
 	return out, rows.Err()
 }
 
-// ListDistinctCategories returns all distinct categories used by userID in
-// their notes, ordered alphabetically. This includes both built-in categories
-// (personal, study, urgent) and any custom categories assigned to notes.
-func (r *Repo) ListDistinctCategories(ctx context.Context, userID string) ([]string, error) {
+// ListCategories returns the user's custom categories, oldest first.
+func (r *Repo) ListCategories(ctx context.Context, userID string) ([]FocusCategory, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT DISTINCT category FROM focus_wall_notes WHERE user_id = $1 ORDER BY category ASC`,
-		userID)
+		`SELECT id, user_id, name, created_at FROM focus_wall_categories
+		 WHERE user_id = $1 ORDER BY created_at ASC, id ASC`,
+		userID,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("focuswall: list distinct categories: %w", err)
+		return nil, fmt.Errorf("focuswall: list categories: %w", err)
 	}
 	defer rows.Close()
 
-	var categories []string
+	categories := []FocusCategory{}
 	for rows.Next() {
-		var cat string
-		if err := rows.Scan(&cat); err != nil {
+		var c FocusCategory
+		if err := rows.Scan(&c.ID, &c.UserID, &c.Name, &c.CreatedAt); err != nil {
 			return nil, fmt.Errorf("focuswall: scan category: %w", err)
 		}
-		categories = append(categories, cat)
+		categories = append(categories, c)
 	}
 	return categories, rows.Err()
+}
+
+// CreateCategory inserts a custom category; the per-user case-insensitive
+// unique index maps to ErrCategoryDuplicate.
+func (r *Repo) CreateCategory(ctx context.Context, userID, name string) (FocusCategory, error) {
+	var c FocusCategory
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO focus_wall_categories (user_id, name) VALUES ($1, $2)
+		 RETURNING id, user_id, name, created_at`,
+		userID, name,
+	).Scan(&c.ID, &c.UserID, &c.Name, &c.CreatedAt)
+	if db.IsUniqueViolation(err) {
+		return FocusCategory{}, ErrCategoryDuplicate
+	}
+	if err != nil {
+		return FocusCategory{}, fmt.Errorf("focuswall: create category: %w", err)
+	}
+	return c, nil
+}
+
+// DeleteCategory removes a category owned by userID.
+func (r *Repo) DeleteCategory(ctx context.Context, userID, categoryID string) error {
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM focus_wall_categories WHERE id = $1 AND user_id = $2`,
+		categoryID, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("focuswall: delete category: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCategoryNotFound
+	}
+	return nil
 }

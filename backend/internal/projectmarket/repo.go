@@ -30,6 +30,8 @@ var (
 	ErrNotFound = errors.New("projectmarket: not found")
 	// ErrConflict — a uniqueness or state-transition rule was violated.
 	ErrConflict = errors.New("projectmarket: conflict")
+	// ErrInvalidStatus — a review status outside shortlisted/selected/rejected.
+	ErrInvalidStatus = errors.New("projectmarket: invalid application status")
 	// ErrRequirementClosed — the requirement is not accepting applications
 	// (not status=open, or past its application_deadline).
 	ErrRequirementClosed = errors.New("projectmarket: this requirement is not accepting applications")

@@ -195,18 +195,19 @@ func (s *OrgService) GetMyOrgs(ctx context.Context, userID string) ([]OrgSummary
 	return orgs, nil
 }
 
-// ListAllOrgs returns every org on the platform, optionally filtered by a
-// case-insensitive name/slug substring — the picker behind the platform
-// admin's (super_admin) cross-tenant tooling (e.g. the per-org feature-flags
-// page). Capped at 100 rows; there is no cursor pagination yet because the
-// picker is a search-as-you-type box, not a browsable list.
-func (s *OrgService) ListAllOrgs(ctx context.Context, search string) ([]AdminOrgSummary, error) {
+// ListAllOrgs returns one keyset page of platform orgs ordered by (name, id),
+// optionally filtered by a case-insensitive name/slug substring — the picker
+// behind the platform admin's (super_admin) cross-tenant tooling. afterID is
+// the last id of the previous page ("" for the first). It fetches limit+1 rows
+// so the caller can tell whether a next page exists.
+func (s *OrgService) ListAllOrgs(ctx context.Context, search, afterID string, limit int) ([]AdminOrgSummary, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT id, slug, name, status, tier_id FROM organizations
-		 WHERE $1 = '' OR name ILIKE '%' || $1 || '%' OR slug ILIKE '%' || $1 || '%' OR id::text = $1
-		 ORDER BY name ASC
-		 LIMIT 100`,
-		search,
+		 WHERE ($1 = '' OR name ILIKE '%' || $1 || '%' OR slug ILIKE '%' || $1 || '%' OR id::text = $1)
+		   AND ($2 = '' OR (name, id) > (SELECT name, id FROM organizations WHERE id::text = $2))
+		 ORDER BY name ASC, id ASC
+		 LIMIT $3`,
+		search, afterID, limit+1,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("orgs: list all orgs: %w", err)
@@ -221,7 +222,10 @@ func (s *OrgService) ListAllOrgs(ctx context.Context, search string) ([]AdminOrg
 		}
 		orgs = append(orgs, o)
 	}
-	return orgs, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("orgs: list all orgs: rows: %w", err)
+	}
+	return orgs, nil
 }
 
 // Update patches allowed fields on an org. actorRole must be owner or admin.

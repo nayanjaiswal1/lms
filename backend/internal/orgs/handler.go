@@ -1,6 +1,7 @@
 package orgs
 
 import (
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"strconv"
@@ -140,16 +141,40 @@ func (h *Handler) handleMe(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, orgs)
 }
 
+const (
+	adminOrgsDefaultLimit = 50
+	adminOrgsMaxLimit     = 100
+)
+
 // handleAdminListOrgs is the platform admin's cross-tenant org picker —
-// ?search= filters by name/slug substring.
+// ?search= filters by name/slug substring; ?limit=&cursor= paginate.
 func (h *Handler) handleAdminListOrgs(w http.ResponseWriter, r *http.Request) {
 	search := strings.TrimSpace(r.URL.Query().Get("search"))
-	orgs, err := h.orgSvc.ListAllOrgs(r.Context(), search)
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 || limit > adminOrgsMaxLimit {
+		limit = adminOrgsDefaultLimit
+	}
+	var afterID string
+	if cursor := r.URL.Query().Get("cursor"); cursor != "" {
+		raw, err := base64.RawURLEncoding.DecodeString(cursor)
+		if err != nil {
+			httputil.WriteError(w, http.StatusBadRequest, "Invalid cursor.")
+			return
+		}
+		afterID = string(raw)
+	}
+
+	orgs, err := h.orgSvc.ListAllOrgs(r.Context(), search, afterID, limit)
 	if err != nil {
 		httputil.WriteError(w, http.StatusInternalServerError, "Failed to list organizations.")
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{"orgs": orgs})
+	nextCursor := ""
+	if len(orgs) > limit {
+		orgs = orgs[:limit]
+		nextCursor = base64.RawURLEncoding.EncodeToString([]byte(orgs[limit-1].ID))
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"items": orgs, "next_cursor": nextCursor})
 }
 
 func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request) {
@@ -523,14 +548,24 @@ func (h *Handler) handleUpdateAIConnectorConfig(w http.ResponseWriter, r *http.R
 
 // ─── domains ──────────────────────────────────────────────────────────────────
 
-func (h *Handler) handleListDomains(w http.ResponseWriter, r *http.Request) {
+// requireOrgAdmin returns the caller's OrgCtx when they are an owner or admin
+// of the org, otherwise writes the 403 and reports false.
+func requireOrgAdmin(w http.ResponseWriter, r *http.Request) (*apimiddleware.OrgCtx, bool) {
 	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
 	if !ok {
 		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
-		return
+		return nil, false
 	}
 	if orgCtx.CallerRole != RoleOwner && orgCtx.CallerRole != RoleAdmin {
 		httputil.WriteError(w, http.StatusForbidden, "Insufficient permissions.")
+		return nil, false
+	}
+	return orgCtx, true
+}
+
+func (h *Handler) handleListDomains(w http.ResponseWriter, r *http.Request) {
+	orgCtx, ok := requireOrgAdmin(w, r)
+	if !ok {
 		return
 	}
 
@@ -548,13 +583,8 @@ func (h *Handler) handleAddDomain(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
 		return
 	}
-	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
+	orgCtx, ok := requireOrgAdmin(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
-		return
-	}
-	if orgCtx.CallerRole != RoleOwner && orgCtx.CallerRole != RoleAdmin {
-		httputil.WriteError(w, http.StatusForbidden, "Insufficient permissions.")
 		return
 	}
 
@@ -581,9 +611,8 @@ func (h *Handler) handleAddDomain(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleVerifyDomain(w http.ResponseWriter, r *http.Request) {
-	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
+	orgCtx, ok := requireOrgAdmin(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
 		return
 	}
 
@@ -612,13 +641,8 @@ func (h *Handler) handleVerifyDomain(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleSetAutoJoin(w http.ResponseWriter, r *http.Request) {
-	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
+	orgCtx, ok := requireOrgAdmin(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
-		return
-	}
-	if orgCtx.CallerRole != RoleOwner && orgCtx.CallerRole != RoleAdmin {
-		httputil.WriteError(w, http.StatusForbidden, "Insufficient permissions.")
 		return
 	}
 
@@ -644,13 +668,8 @@ func (h *Handler) handleSetAutoJoin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleRemoveDomain(w http.ResponseWriter, r *http.Request) {
-	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
+	orgCtx, ok := requireOrgAdmin(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
-		return
-	}
-	if orgCtx.CallerRole != RoleOwner && orgCtx.CallerRole != RoleAdmin {
-		httputil.WriteError(w, http.StatusForbidden, "Insufficient permissions.")
 		return
 	}
 

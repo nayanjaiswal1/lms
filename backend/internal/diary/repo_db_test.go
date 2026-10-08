@@ -6,6 +6,7 @@ import (
 	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mindforge/backend/internal/ai"
@@ -89,7 +90,7 @@ func TestServiceApplyHighlights_HabitAndDedup(t *testing.T) {
 		{Start: 25, End: 45, Text: "pick up fresh coffee beans", Kind: HighlightTaskNew},
 	}
 
-	first, err := svc.applyHighlights(ctx, entry, detected, []habit.Habit{h}, nil)
+	first, err := applyInTx(t, svc, ctx, entry, detected, []habit.Habit{h}, nil)
 	if err != nil {
 		t.Fatalf("applyHighlights first pass: %v", err)
 	}
@@ -123,7 +124,7 @@ func TestServiceApplyHighlights_HabitAndDedup(t *testing.T) {
 	// first pass's resolved output — the dedup path a real re-analysis after
 	// a content edit would take.
 	entry.Highlights = first
-	second, err := svc.applyHighlights(ctx, entry, detected, []habit.Habit{h}, nil)
+	second, err := applyInTx(t, svc, ctx, entry, detected, []habit.Habit{h}, nil)
 	if err != nil {
 		t.Fatalf("applyHighlights second pass: %v", err)
 	}
@@ -236,7 +237,7 @@ func TestServiceApplyHighlights_GoalCreatesHabit(t *testing.T) {
 	habitSvc := habit.NewService(habit.NewRepo(pool))
 	svc := NewService(NewRepo(pool), &ai.NoopProvider{}, habitSvc)
 
-	resolved, err := svc.applyHighlights(ctx, Entry{UserID: userID, EntryDate: "2026-08-11"}, []Highlight{
+	resolved, err := applyInTx(t, svc, ctx, Entry{UserID: userID, EntryDate: "2026-08-11"}, []Highlight{
 		{Start: 0, End: 30, Text: "I want to start stretching every morning.", Kind: HighlightGoal, Title: "Stretching", Cadence: "daily"},
 	}, nil, nil)
 	if err != nil {
@@ -255,7 +256,7 @@ func TestServiceApplyHighlights_GoalCreatesHabit(t *testing.T) {
 
 	// A second detection whose title closely matches the habit just created
 	// must not create a duplicate.
-	again, err := svc.applyHighlights(ctx, Entry{UserID: userID, EntryDate: "2026-08-12"}, []Highlight{
+	again, err := applyInTx(t, svc, ctx, Entry{UserID: userID, EntryDate: "2026-08-12"}, []Highlight{
 		{Start: 0, End: 20, Text: "Stretched again today.", Kind: HighlightGoal, Title: "stretching", Cadence: "daily"},
 	}, []habit.Habit{created}, nil)
 	if err != nil {
@@ -290,4 +291,17 @@ func TestServiceAI_RefusesWithoutConsent(t *testing.T) {
 	if _, err := svc.FixEnglish(ctx, userID, "i goed to gym"); !errors.Is(err, privacy.ErrAIConsentRequired) {
 		t.Fatalf("FixEnglish: expected ErrAIConsentRequired, got %v", err)
 	}
+}
+
+// applyInTx runs Service.applyHighlights inside a committed transaction, the
+// way Service.Apply does.
+func applyInTx(t *testing.T, svc *Service, ctx context.Context, entry Entry, detected []Highlight, habits []habit.Habit, openTasks []Task) ([]Highlight, error) {
+	t.Helper()
+	var resolved []Highlight
+	err := svc.repo.WithTx(ctx, func(tx pgx.Tx) error {
+		var err error
+		resolved, err = svc.applyHighlights(ctx, tx, entry, detected, habits, openTasks)
+		return err
+	})
+	return resolved, err
 }

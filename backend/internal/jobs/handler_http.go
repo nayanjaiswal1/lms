@@ -30,7 +30,7 @@ func NewHTTPHandler(pool *pgxpool.Pool, rdb *redis.Client, cfg *config.Config, r
 // RequireAuth and RequireCSRF applied.
 func (h *HTTPHandler) RegisterRoutes(r chi.Router) {
 	// ── Org admin routes ─────────────────────────────────────────────────────
-	r.Route("/api/orgs/{orgID}/jobs", func(r chi.Router) {
+	r.Route("/api/orgs/{id}/jobs", func(r chi.Router) {
 		r.Use(apimiddleware.RequireOrgMember(h.pool))
 		r.Use(apimiddleware.RequireOrgRole(h.pool, apimiddleware.RoleOwner, apimiddleware.RoleAdmin, apimiddleware.RoleInstructor))
 
@@ -54,7 +54,7 @@ func (h *HTTPHandler) RegisterRoutes(r chi.Router) {
 		r.Post("/{jobID}/force-retry", h.handleAdminForceRetry)
 	})
 
-	r.Route("/api/admin/orgs/{orgID}", func(r chi.Router) {
+	r.Route("/api/admin/orgs/{id}", func(r chi.Router) {
 		r.Use(apimiddleware.RequirePlatformRole(h.pool, apimiddleware.PlatformRoleSuperAdmin))
 
 		r.Patch("/job-quotas", h.handleAdminUpdateQuota)
@@ -64,7 +64,7 @@ func (h *HTTPHandler) RegisterRoutes(r chi.Router) {
 
 // ─── Org admin handlers ───────────────────────────────────────────────────────
 
-// GET /api/orgs/{orgID}/jobs
+// GET /api/orgs/{id}/jobs
 func (h *HTTPHandler) handleOrgListJobs(w http.ResponseWriter, r *http.Request) {
 	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
 	if !ok {
@@ -72,7 +72,7 @@ func (h *HTTPHandler) handleOrgListJobs(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	urlOrgID := chi.URLParam(r, "orgID")
+	urlOrgID := chi.URLParam(r, "id")
 	if urlOrgID != orgCtx.OrgID {
 		httputil.WriteError(w, http.StatusForbidden, "Organization mismatch.")
 		return
@@ -109,7 +109,7 @@ func (h *HTTPHandler) handleOrgListJobs(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// GET /api/orgs/{orgID}/jobs/{jobID}
+// GET /api/orgs/{id}/jobs/{jobID}
 func (h *HTTPHandler) handleOrgGetJob(w http.ResponseWriter, r *http.Request) {
 	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
 	if !ok {
@@ -117,7 +117,7 @@ func (h *HTTPHandler) handleOrgGetJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	urlOrgID := chi.URLParam(r, "orgID")
+	urlOrgID := chi.URLParam(r, "id")
 	if urlOrgID != orgCtx.OrgID {
 		httputil.WriteError(w, http.StatusForbidden, "Organization mismatch.")
 		return
@@ -143,7 +143,7 @@ func (h *HTTPHandler) handleOrgGetJob(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// POST /api/orgs/{orgID}/jobs/{jobID}/cancel
+// POST /api/orgs/{id}/jobs/{jobID}/cancel
 func (h *HTTPHandler) handleOrgCancelJob(w http.ResponseWriter, r *http.Request) {
 	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
 	if !ok {
@@ -151,7 +151,7 @@ func (h *HTTPHandler) handleOrgCancelJob(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	urlOrgID := chi.URLParam(r, "orgID")
+	urlOrgID := chi.URLParam(r, "id")
 	if urlOrgID != orgCtx.OrgID {
 		httputil.WriteError(w, http.StatusForbidden, "Organization mismatch.")
 		return
@@ -174,7 +174,7 @@ func (h *HTTPHandler) handleOrgCancelJob(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-// POST /api/orgs/{orgID}/jobs/{jobID}/retry
+// POST /api/orgs/{id}/jobs/{jobID}/retry
 func (h *HTTPHandler) handleOrgRetryJob(w http.ResponseWriter, r *http.Request) {
 	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
 	if !ok {
@@ -182,7 +182,7 @@ func (h *HTTPHandler) handleOrgRetryJob(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	urlOrgID := chi.URLParam(r, "orgID")
+	urlOrgID := chi.URLParam(r, "id")
 	if urlOrgID != orgCtx.OrgID {
 		httputil.WriteError(w, http.StatusForbidden, "Organization mismatch.")
 		return
@@ -217,7 +217,7 @@ func (h *HTTPHandler) handleOrgRetryJob(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// PATCH /api/orgs/{orgID}/jobs/{jobID}
+// PATCH /api/orgs/{id}/jobs/{jobID}
 func (h *HTTPHandler) handleOrgPatchJob(w http.ResponseWriter, r *http.Request) {
 	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
 	if !ok {
@@ -225,7 +225,7 @@ func (h *HTTPHandler) handleOrgPatchJob(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	urlOrgID := chi.URLParam(r, "orgID")
+	urlOrgID := chi.URLParam(r, "id")
 	if urlOrgID != orgCtx.OrgID {
 		httputil.WriteError(w, http.StatusForbidden, "Organization mismatch.")
 		return
@@ -273,7 +273,7 @@ func (h *HTTPHandler) handleOrgPatchJob(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// GET /api/orgs/{orgID}/jobs/stats
+// GET /api/orgs/{id}/jobs/stats
 func (h *HTTPHandler) handleOrgStats(w http.ResponseWriter, r *http.Request) {
 	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
 	if !ok {
@@ -281,7 +281,7 @@ func (h *HTTPHandler) handleOrgStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	urlOrgID := chi.URLParam(r, "orgID")
+	urlOrgID := chi.URLParam(r, "id")
 	if urlOrgID != orgCtx.OrgID {
 		httputil.WriteError(w, http.StatusForbidden, "Organization mismatch.")
 		return
@@ -365,9 +365,9 @@ func (h *HTTPHandler) handleAdminStats(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// PATCH /api/admin/orgs/{orgID}/job-quotas
+// PATCH /api/admin/orgs/{id}/job-quotas
 func (h *HTTPHandler) handleAdminUpdateQuota(w http.ResponseWriter, r *http.Request) {
-	orgID := chi.URLParam(r, "orgID")
+	orgID := chi.URLParam(r, "id")
 
 	var req struct {
 		MaxConcurrent int `json:"max_concurrent"`
@@ -393,9 +393,9 @@ func (h *HTTPHandler) handleAdminUpdateQuota(w http.ResponseWriter, r *http.Requ
 	})
 }
 
-// POST /api/admin/orgs/{orgID}/jobs/pause-all
+// POST /api/admin/orgs/{id}/jobs/pause-all
 func (h *HTTPHandler) handleAdminPauseAll(w http.ResponseWriter, r *http.Request) {
-	orgID := chi.URLParam(r, "orgID")
+	orgID := chi.URLParam(r, "id")
 
 	tag, err := h.pool.Exec(r.Context(),
 		`UPDATE jobs

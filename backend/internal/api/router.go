@@ -47,8 +47,8 @@ import (
 	"github.com/mindforge/backend/internal/mistakes"
 	"github.com/mindforge/backend/internal/moderation"
 	"github.com/mindforge/backend/internal/notifications"
-	"github.com/mindforge/backend/internal/opsalert"
 	"github.com/mindforge/backend/internal/onboarding"
+	"github.com/mindforge/backend/internal/opsalert"
 	"github.com/mindforge/backend/internal/orgs"
 	"github.com/mindforge/backend/internal/payments"
 	"github.com/mindforge/backend/internal/practice"
@@ -495,7 +495,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 		// Interview Prep — paste a job title/JD, get a scored multi-round mock
 		// test (conceptual round via practice, coding round self-contained).
-		interviewPrepRouter.RegisterRoutes(r)
+		interviewPrepRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// Orgs — multi-tenant org management, members, invites, domains, onboarding.
 		orgsHandler.RegisterRoutes(r, authzHandler.Service())

@@ -30,6 +30,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrInsufficientApprovals: {Status: http.StatusConflict},
 	ErrCannotDeleteDefault:   {Status: http.StatusConflict, Message: "This is the default GitLab connection. Set another one as default before deleting it."},
 	ErrOverrideNotAllowed:    {Status: http.StatusForbidden, Message: "This organization does not allow per-project GitLab overrides."},
+	ErrAssigneeNotOnTeam:     {Status: http.StatusUnprocessableEntity, Message: "The assignee must be a member of this team."},
 }
 
 var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong. Please try again.")

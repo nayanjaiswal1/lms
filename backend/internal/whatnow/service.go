@@ -18,12 +18,17 @@ import (
 const (
 	planCap     = 3
 	pinDuration = 4 * time.Hour
+	// maxPlanTaskIDs bounds POST /plan/today (the cap plus room for reorder slack).
+	maxPlanTaskIDs = planCap + 2
+	// maxCaptureLen bounds the raw quick-capture text.
+	maxCaptureLen = 1000
 )
 
 var (
 	ErrInvalidLinkTarget = errors.New("whatnow: invalid link target type")
 	ErrTemplateNameEmpty = errors.New("whatnow: template name is required")
 	ErrTemplateNoFields  = errors.New("whatnow: template must have at least one field")
+	ErrInvalidDate       = errors.New("whatnow: date must be YYYY-MM-DD")
 )
 
 // Service holds the deterministic What Now? business logic — a direct port
@@ -629,9 +634,13 @@ func (s *Service) GetPlanToday(ctx context.Context, userID string) (PlanToday, e
 // vanishes from the day it was created on.
 func (s *Service) GetDayPlan(ctx context.Context, userID, dateStr string, tzOffsetMin int) (DayPlan, error) {
 	loc := time.FixedZone("client", tzOffsetMin*60)
-	day, err := time.ParseInLocation("2006-01-02", dateStr, loc)
-	if err != nil {
-		day = time.Now().In(loc)
+	day := time.Now().In(loc)
+	if dateStr != "" {
+		parsed, err := time.ParseInLocation("2006-01-02", dateStr, loc)
+		if err != nil {
+			return DayPlan{}, ErrInvalidDate
+		}
+		day = parsed
 	}
 	dayStart := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, loc)
 	dayEnd := dayStart.AddDate(0, 0, 1)
@@ -654,10 +663,6 @@ func (s *Service) GetDayPlan(ctx context.Context, userID, dateStr string, tzOffs
 // from array order, per Part 3 reorder support) and demotes any
 // previously-planned task that was dropped from the selection.
 func (s *Service) PostPlanToday(ctx context.Context, userID string, taskIDs []string) (PlanToday, error) {
-	limit := planCap + 2
-	if len(taskIDs) > limit {
-		taskIDs = taskIDs[:limit]
-	}
 	chosen := make(map[string]int, len(taskIDs))
 	for i, id := range taskIDs {
 		chosen[id] = i
@@ -668,23 +673,29 @@ func (s *Service) PostPlanToday(ctx context.Context, userID string, taskIDs []st
 		return PlanToday{}, fmt.Errorf("whatnow: post plan today: %w", err)
 	}
 	now := time.Now()
-	for _, t := range all {
-		pos, isChosen := chosen[t.ID]
-		switch {
-		case isChosen:
-			t.Status = StatusPlanned
-			t.touchedAt = now
-			p := pos
-			t.planPosition = &p
-		case t.Status == StatusPlanned:
-			t.Status = StatusInbox
-			t.planPosition = nil
-		default:
-			continue
+	err = s.repo.WithTx(ctx, func(tx pgx.Tx) error {
+		for _, t := range all {
+			pos, isChosen := chosen[t.ID]
+			switch {
+			case isChosen:
+				t.Status = StatusPlanned
+				t.touchedAt = now
+				p := pos
+				t.planPosition = &p
+			case t.Status == StatusPlanned:
+				t.Status = StatusInbox
+				t.planPosition = nil
+			default:
+				continue
+			}
+			if err := s.repo.UpdateTaskTx(ctx, tx, t); err != nil {
+				return err
+			}
 		}
-		if err := s.repo.UpdateTask(ctx, t); err != nil {
-			return PlanToday{}, fmt.Errorf("whatnow: post plan today: %w", err)
-		}
+		return nil
+	})
+	if err != nil {
+		return PlanToday{}, fmt.Errorf("whatnow: post plan today: %w", err)
 	}
 	return s.GetPlanToday(ctx, userID)
 }
