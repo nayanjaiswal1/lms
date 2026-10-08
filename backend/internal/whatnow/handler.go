@@ -11,12 +11,10 @@ import (
 	"github.com/mindforge/backend/internal/httputil"
 )
 
-// Handler exposes the What Now? domain over HTTP.
 type Handler struct {
 	service *Service
 }
 
-// NewHandler constructs the What Now? handler from a connection pool.
 func NewHandler(pool *pgxpool.Pool) *Handler {
 	return &Handler{service: NewService(NewRepo(pool))}
 }

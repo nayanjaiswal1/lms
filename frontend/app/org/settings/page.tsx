@@ -66,7 +66,6 @@ export default async function OrgSettingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Org identity card */}
       <div className="card-base p-6">
         <div className="flex items-start gap-4">
           <div className="h-14 w-14 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
@@ -99,7 +98,6 @@ export default async function OrgSettingsPage() {
           </div>
         </div>
 
-        {/* Seat usage */}
         <div className="mt-6 border-t border-border pt-5">
           <div className="flex-between mb-2">
             <span className="text-sm font-medium text-foreground">Members</span>
@@ -116,7 +114,6 @@ export default async function OrgSettingsPage() {
           )}
         </div>
 
-        {/* Activate button for onboarding orgs */}
         {org.status === "onboarding" && role === "owner" && (
           <div className="mt-5 p-4 rounded-lg bg-muted border border-border">
             <p className="text-sm text-muted-foreground mb-3">
@@ -136,7 +133,6 @@ export default async function OrgSettingsPage() {
         </>
       )}
 
-      {/* Quick links */}
       <div className="grid-responsive-2 gap-4">
         <Link
           className="card-interactive p-5 flex items-center gap-4"

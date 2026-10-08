@@ -17,7 +17,6 @@ type Repo struct {
 	pool *pgxpool.Pool
 }
 
-// NewRepo builds a Repo over pool.
 func NewRepo(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool} }
 
 // DBTX is satisfied by both *pgxpool.Pool and pgx.Tx, so read helpers can

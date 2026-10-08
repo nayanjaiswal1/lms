@@ -47,7 +47,6 @@ var emailRE = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{
 // password. The cost MUST match the cost used by GenerateFromPassword elsewhere.
 const dummyBcryptHash = "$2a$12$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
 
-// Handler holds dependencies for all auth HTTP handlers.
 type Handler struct {
 	cfg     *config.Config
 	pool    *pgxpool.Pool
@@ -1007,9 +1006,7 @@ func (h *Handler) HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Burn a fixed bcrypt's worth of time on every path so the response time does
-	// not distinguish a known address from an unknown one. This was previously a
-	// deferred call, which ran *after* the response had already been written and
-	// so equalized nothing.
+	// not distinguish a known address from an unknown one.
 	_ = bcrypt.CompareHashAndPassword([]byte(dummyBcryptHash), []byte("dummy"))
 
 	var userID string
@@ -1467,10 +1464,7 @@ func (h *Handler) mintSession(w http.ResponseWriter, r *http.Request, sub sessio
 // ─── cookie helpers ───────────────────────────────────────────────────────────
 
 // Cookie lifetimes derive from the configured token TTLs rather than being
-// written out as literals. They used to be hardcoded at 15m and 30d, so raising
-// ACCESS_TOKEN_TTL left the browser discarding a cookie whose JWT was still
-// valid, and lowering it left the browser sending a JWT that had already
-// expired — the two only agreed at their default values.
+// written out as literals, so the cookie and the JWT cannot drift apart.
 //
 // Exported because org-switch (internal/orgs) re-issues the access cookie too;
 // every caller must go through here so the cookie and the token cannot pick up

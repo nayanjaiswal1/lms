@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Repo is the data-access layer for the notifications domain.
 type Repo struct {
 	pool *pgxpool.Pool
 }

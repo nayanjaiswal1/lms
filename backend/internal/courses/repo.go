@@ -122,7 +122,6 @@ func (r *Repo) GetCourse(ctx context.Context, orgID, id string) (Course, error) 
 	return c, nil
 }
 
-// CourseFilter is used by ListCourses.
 type CourseFilter struct {
 	Status     string
 	Difficulty string

@@ -15,9 +15,7 @@ import type {
 // `subject_type` widened to `work_item` | `requirement_question`, but
 // types.ts (lead-owned) has no response shape for it — WikiComment
 // (lib/server/wiki.ts) is page-scoped and threaded, which this flat,
-// unthreaded contract doesn't ask for. Declared here per the brief's
-// "add a local type in your own file" instruction; flag for the lead to
-// fold into types.ts if another agent needs the same shape.
+// unthreaded contract doesn't ask for.
 export interface WorkspaceComment {
   id: string;
   subject_type: "work_item" | "requirement_question";

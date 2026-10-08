@@ -13,7 +13,6 @@ import (
 	"github.com/mindforge/backend/internal/config"
 )
 
-// Claims is the JWT payload for MindForge access tokens.
 type Claims struct {
 	UserID         string `json:"user_id"`
 	OrgID          string `json:"org_id"`

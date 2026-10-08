@@ -129,14 +129,11 @@ export function CodingQuestion({
     <div className="h-full overflow-hidden rounded-lg border border-border">
       <ResizablePanelGroup orientation="horizontal">
 
-        {/* ── Left panel: problem description ────────────────────────────── */}
         <ResizablePanel defaultSize="42%" id="coding-question-prompt" maxSize="65%" minSize="25%">
           <div className="flex h-full flex-col gap-5 overflow-y-auto p-5">
 
-            {/* Problem statement */}
             <PromptRenderer text={content.prompt} textClassName="text-sm leading-relaxed" />
 
-            {/* Sample cases */}
             {content.sample_cases.length > 0 && (
               <div className="flex flex-col gap-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -158,7 +155,6 @@ export function CodingQuestion({
               </div>
             )}
 
-            {/* Constraints */}
             <div className="flex flex-col gap-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Constraints
@@ -187,13 +183,11 @@ export function CodingQuestion({
 
         <ResizableHandle withHandle orientation="horizontal" />
 
-        {/* ── Right panel: editor + run console ──────────────────────────── */}
         <ResizablePanel defaultSize="58%" id="coding-question-editor" minSize="35%">
           <ResizablePanelGroup orientation="vertical">
             <ResizablePanel defaultSize="70%" id="coding-question-editor-pane" minSize="30%">
               <div className="flex h-full flex-col">
 
-                {/* Editor toolbar: language tabs + Run button + line count */}
                 <div className="flex-between border-b border-border bg-muted/50 px-3 py-1.5">
                   <div className="flex gap-0.5">
                     {content.languages.map((lang) => (
@@ -233,7 +227,6 @@ export function CodingQuestion({
                   </div>
                 </div>
 
-                {/* Dark code editor with gutter */}
                 <div className={styles.editorWrap}>
                   <div aria-hidden className={styles.lineNums} ref={lineNumRef}>
                     {lineNumbers}
@@ -256,7 +249,6 @@ export function CodingQuestion({
             <ResizableHandle withHandle orientation="vertical" />
 
             <ResizablePanel defaultSize="30%" id="coding-question-console" minSize="15%">
-              {/* Run console — Testcase / Result tabs */}
               <CodingConsole
                 error={run.error}
                 result={run.result}

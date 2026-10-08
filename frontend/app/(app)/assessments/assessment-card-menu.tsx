@@ -39,8 +39,7 @@ interface AssessmentCardMenuProps {
   batches: Batch[];
 }
 
-// Row-level actions for the assessment list — everything here used to require
-// opening the assessment's own manage page first. "Edit settings" jumps
+// Row-level actions for the assessment list. "Edit settings" jumps
 // straight to the config editor (not the question builder, which stays a
 // click on the card title); status moves and batch assignment happen inline.
 export function AssessmentCardMenu({ assessment, batches }: AssessmentCardMenuProps) {

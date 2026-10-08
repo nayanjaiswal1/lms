@@ -11,9 +11,7 @@ import { cookies } from "next/headers";
  * caller is not entitled to, so nothing here decides access — it only decides
  * what gets drawn.
  *
- * The decode used to be copy-pasted into a dozen pages, which made the
- * unverified-JWT pattern look like an ordinary way to read a claim and left no
- * single place to state the caveat. It lives here now, and `no-restricted-syntax`
+ * The decode lives here so the caveat is stated once; `no-restricted-syntax`
  * in eslint.config.mjs blocks new hand-rolled copies.
  *
  * Never branch on these values for authorization — in a server action or route

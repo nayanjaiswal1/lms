@@ -283,7 +283,7 @@ func (r *Repo) ListFileOwnership(ctx context.Context, teamID string) ([]FileOwne
 // ─── gitlab_mr_reviews ──────────────────────────────────────────────────────
 
 // UpsertMRReview inserts (or refreshes) a mirrored MR note by updating the
-// gitlab_merge_requests.reviews jsonb array (previously stored in gitlab_mr_reviews table).
+// gitlab_merge_requests.reviews jsonb array.
 // Reviewswith the same note_id replace the existing one in the array.
 func (r *Repo) UpsertMRReview(ctx context.Context, rev GitlabMRReview) error {
 	reviewJSON, err := json.Marshal(map[string]interface{}{
@@ -321,7 +321,7 @@ func (r *Repo) UpsertMRReview(ctx context.Context, rev GitlabMRReview) error {
 }
 
 // RecomputeMRApprovals recounts gitlab_merge_requests.approvals_count from
-// distinct approving reviewers in the reviews jsonb array (previously stored in gitlab_mr_reviews).
+// distinct approving reviewers in the reviews jsonb array.
 func (r *Repo) RecomputeMRApprovals(ctx context.Context, mrID string) error {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE gitlab_merge_requests

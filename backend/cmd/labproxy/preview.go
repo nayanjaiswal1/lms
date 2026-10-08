@@ -22,15 +22,11 @@ const ttydPort = 7681
 // ever sends one for multi-port labs), anything else is passed straight
 // through as the initial path to hand off as ServePreviewAuth's "next".
 //
-// This used to be ambiguous (ponytail: an all-digits app path segment could
-// be misread as a port) because the old design re-entered this same parser
-// on every relative link the previewed app followed. That's no longer true:
-// ServePreview now redirects to a preview subdomain exactly once per token,
-// and every request after that — including the app's own relative-link
-// navigation — resolves directly against the subdomain via ordinary
-// host-based routing (ServePreviewPassthrough in preview_host.go) and never
-// re-enters this function. Subdomain-per-port routing was the named upgrade;
-// this is it.
+// ServePreview redirects to a preview subdomain exactly once per token, and
+// every request after that — including the app's own relative-link
+// navigation — resolves directly against the subdomain via host-based
+// routing (ServePreviewPassthrough in preview_host.go) and never re-enters
+// this function, so an all-digits app path segment is not misread as a port.
 func splitEntryPort(path string) (int, string) {
 	seg, rest, _ := strings.Cut(path, "/")
 	port, err := strconv.Atoi(seg)

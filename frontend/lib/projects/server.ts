@@ -41,9 +41,7 @@ export async function getProjectTeams(assignmentId: string): Promise<ProjectTeam
 // Each team row embeds its own member roster and activity feed (see
 // TeamDashboardSummary in lib/projects/types.ts) — the assignment detail
 // page reads members/activity straight off this response instead of a
-// getProjectTeamMembers/getTeamActivity call per team (the N+1 those two
-// single-team endpoints used to require; both endpoints still exist on the
-// backend for any other single-team caller, just unused by this page now).
+// getProjectTeamMembers/getTeamActivity call per team.
 export async function getAssignmentDashboard(assignmentId: string): Promise<AssignmentDashboardView> {
   return apiGet<AssignmentDashboardView>(`/api/projects/assignments/${assignmentId}/dashboard`);
 }
@@ -81,8 +79,7 @@ export async function getMyProjectDetail(teamId: string): Promise<MyProjectDetai
 // Each checkpoint row embeds every team's submission against it
 // (ProjectCheckpointWithSubmissions — see lib/projects/types.ts) — the
 // assignment detail page reads submissions straight off this response
-// instead of a getCheckpointSubmissions call per checkpoint (the N+1
-// Promise.all(checkpoints.map(getCheckpointSubmissions)) used to make).
+// instead of a getCheckpointSubmissions call per checkpoint.
 export async function getAssignmentCheckpoints(assignmentId: string): Promise<ProjectCheckpointWithSubmissions[]> {
   return apiGet<ProjectCheckpointWithSubmissions[]>(`/api/projects/assignments/${assignmentId}/checkpoints`);
 }

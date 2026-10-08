@@ -146,9 +146,8 @@ func (s *Service) enqueueSyncMembers(ctx context.Context, orgID, teamID string) 
 // GitLab project membership: adds/edits members not yet synced, and removes
 // (both on GitLab and locally) members flagged sync_status='removing'.
 // Members whose MindForge user has no gitlab_connections row are marked
-// sync_status='failed' — there's no GitLab identity to add them with, and no
-// notifications package exists yet (that's Batch 5) to prompt them to
-// connect, so the failure just sits visible on the roster for now.
+// sync_status='failed' — there's no GitLab identity to add them with, so the
+// failure just sits visible on the roster.
 func (s *Service) SyncTeamMembers(ctx context.Context, teamID string) error {
 	team, err := s.repo.GetTeamByID(ctx, teamID)
 	if err != nil {

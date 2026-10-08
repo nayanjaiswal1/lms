@@ -400,11 +400,6 @@ type StaleWarmContainer struct {
 //     lifecycle owns that container)
 //   - warming rows stuck longer than stuckAfter (delete row; the orphan
 //     cleanup job removes any half-started container by name)
-//
-// The first case used to also fire whenever a lab was republished, because a
-// warm container pinned one task_version_id. It no longer can: a container
-// carries no lab or version, so it goes stale only when its image genuinely
-// leaves the published catalog.
 func (r *Repo) ListStaleWarmContainers(ctx context.Context, stuckAfter time.Duration) ([]StaleWarmContainer, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT w.id, w.container_id, w.status,

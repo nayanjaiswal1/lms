@@ -70,7 +70,6 @@ export function PublicProfileCard({ profile }: Props) {
 
   return (
     <article aria-label={`${name}'s public profile`} className="card-base p-6 space-y-6">
-      {/* Header */}
       <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start sm:gap-5">
         <ProfileAvatar avatarUrl={avatar_url} editable={false} name={name} size="lg" />
 
@@ -98,7 +97,6 @@ export function PublicProfileCard({ profile }: Props) {
         </div>
       </div>
 
-      {/* Skills */}
       {skills && skills.length > 0 && (
         <section aria-label="Skills">
           <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
@@ -118,7 +116,6 @@ export function PublicProfileCard({ profile }: Props) {
         </section>
       )}
 
-      {/* Quick stats — 4 key values */}
       {stats && (
         <section aria-label="Key stats">
           <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
@@ -172,7 +169,6 @@ export function PublicProfileCard({ profile }: Props) {
         </section>
       )}
 
-      {/* Social Links */}
       {social_links &&
         (social_links.linkedin || social_links.github || social_links.portfolio) && (
           <section aria-label="Social links">
@@ -220,7 +216,6 @@ export function PublicProfileCard({ profile }: Props) {
           </section>
         )}
 
-      {/* Share */}
       <section aria-label="Share profile">
         <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
           Share this profile

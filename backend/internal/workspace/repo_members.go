@@ -369,7 +369,6 @@ func (r *Repo) TrackNameTaken(ctx context.Context, db DBTX, projectID, name, exc
 	return taken, nil
 }
 
-// InsertTrack creates a track.
 func (r *Repo) InsertTrack(ctx context.Context, db DBTX, projectID, name string, leadUserID *string, createdBy string) (*Track, error) {
 	var id string
 	if err := db.QueryRow(ctx,
@@ -444,7 +443,6 @@ func (r *Repo) ApproveTrackMember(ctx context.Context, db DBTX, trackID, userID,
 	return nil
 }
 
-// DeleteTrackMember removes one user from one track.
 func (r *Repo) DeleteTrackMember(ctx context.Context, db DBTX, trackID, userID string) error {
 	tag, err := db.Exec(ctx, `DELETE FROM project_track_members WHERE track_id = $1 AND user_id = $2`, trackID, userID)
 	if err != nil {

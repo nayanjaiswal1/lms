@@ -91,7 +91,6 @@ export async function RoundList({ plan }: RoundListProps) {
         </div>
       </div>
 
-      {/* Round 1 — conceptual */}
       <Link className="card-interactive flex items-center gap-4 p-5" href={primaryHref}>
         {primaryDone ? (
           <CheckCircle2 aria-hidden className="h-6 w-6 shrink-0 text-primary" />
@@ -107,7 +106,6 @@ export async function RoundList({ plan }: RoundListProps) {
         <Badge variant="outline">{primaryDone ? "Completed" : "In progress"}</Badge>
       </Link>
 
-      {/* Round 2 — coding */}
       {primaryDone ? (
         <Link className="card-interactive flex items-center gap-4 p-5" href={ROUTES.interviewPrepCoding(plan.id)}>
           {secondaryDone ? (

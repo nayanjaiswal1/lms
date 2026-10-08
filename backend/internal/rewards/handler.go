@@ -10,7 +10,6 @@ import (
 	"github.com/mindforge/backend/internal/httputil"
 )
 
-// Handler exposes reward endpoints over HTTP.
 type Handler struct {
 	svc *Service
 }

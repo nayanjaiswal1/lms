@@ -11,11 +11,9 @@ export function LandingIllustration({ className }: { className?: string }) {
     <svg aria-hidden className={className} fill="none" viewBox="0 0 420 360" xmlns="http://www.w3.org/2000/svg">
       <rect className="fill-muted/40" height="300" rx="28" width="330" x="30" y="40" />
 
-      {/* connector lines tying the pieces into one system */}
       <path className="stroke-border" d="M110 210 L84 244" strokeDasharray="4 5" strokeWidth="1.5" />
       <path className="stroke-border" d="M300 130 L268 108" strokeDasharray="4 5" strokeWidth="1.5" />
 
-      {/* lab / terminal card */}
       <g className={styles.cardShadow}>
         <rect className="fill-card stroke-border" height="140" rx="14" strokeWidth="1.5" width="200" x="50" y="66" />
         <circle className="fill-muted-foreground/30" cx="68" cy="86" r="3.5" />
@@ -29,7 +27,6 @@ export function LandingIllustration({ className }: { className?: string }) {
         <rect className="fill-border" height="6" rx="3" width="70" x="66" y="178" />
       </g>
 
-      {/* course card with progress */}
       <g className={styles.cardShadow}>
         <rect className="fill-card stroke-border" height="128" rx="14" strokeWidth="1.5" width="190" x="172" y="150" />
         <rect className="fill-primary/15" height="32" rx="9" width="32" x="192" y="170" />
@@ -40,7 +37,6 @@ export function LandingIllustration({ className }: { className?: string }) {
         <rect className="fill-primary" height="8" rx="4" width="98" x="192" y="234" />
       </g>
 
-      {/* mentor chat bubble */}
       <g className={styles.cardShadow}>
         <rect className="fill-ai/10 stroke-ai/30" height="54" rx="16" strokeWidth="1.5" width="92" x="298" y="46" />
         <path className="fill-ai/10 stroke-ai/30" d="M316 100 L316 116 L332 100 Z" strokeWidth="1.5" />
@@ -49,7 +45,6 @@ export function LandingIllustration({ className }: { className?: string }) {
         <circle className="fill-ai" cx="354" cy="73" r="4" />
       </g>
 
-      {/* certificate badge */}
       <g className={styles.cardShadow}>
         <path className="fill-primary/20" d="M64 292 L80 322 L96 292 Z" />
         <path className="fill-primary/25" d="M64 292 L48 322 L64 322 Z" />

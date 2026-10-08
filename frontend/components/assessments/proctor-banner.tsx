@@ -32,7 +32,6 @@ export function ProctorBanner({
     <div className="shrink-0 border-b border-border bg-background/95 backdrop-blur-sm">
       <div className="flex h-12 items-center gap-3 px-4 sm:px-6">
 
-        {/* Monitoring status */}
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {violations > 0 ? (
             <ShieldAlert aria-hidden className="h-4 w-4 shrink-0 text-destructive" />
@@ -52,7 +51,6 @@ export function ProctorBanner({
           )}
         </div>
 
-        {/* Progress — centre */}
         <div className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground">
           <span className="tabular-nums">
             <span className="font-semibold text-foreground">{answered}</span>
@@ -62,7 +60,6 @@ export function ProctorBanner({
           <span className="hidden text-xs sm:inline">answered</span>
         </div>
 
-        {/* Timer + exit */}
         <div className="flex flex-1 items-center justify-end gap-2">
           <span
             aria-label={`${formatCountdown(secondsLeft)} remaining`}

@@ -38,7 +38,6 @@ export default async function PlatformOrgQuotasPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Current snapshot */}
       <section className="mt-8">
         <h2 className="section-title mb-4">Current Usage</h2>
         <div className="grid-stats">
@@ -49,7 +48,6 @@ export default async function PlatformOrgQuotasPage({ params }: PageProps) {
         </div>
       </section>
 
-      {/* Quota edit form */}
       <section className="mt-8">
         <h2 className="section-title mb-4">Quota Settings</h2>
         <QuotaForm current={orgStats.quota} orgID={orgID} />

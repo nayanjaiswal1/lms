@@ -66,7 +66,6 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
     <div className="space-y-6">
       <Breadcrumb items={[{ href: ROUTES.ORG_SETTINGS_JOBS, label: "Jobs" }, { label: job.handler }]} />
 
-      {/* Job metadata */}
       <div className="card-base p-6 space-y-5">
         <div className="page-header mb-0">
           <div>
@@ -126,7 +125,6 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         )}
       </div>
 
-      {/* Run history */}
       <div className="card-base p-6">
         <h3 className="text-base font-semibold text-foreground mb-4">
           Run History

@@ -157,7 +157,6 @@ func (r *Repo) UpdateTimeLog(ctx context.Context, tx pgx.Tx, id string, minutes 
 	return nil
 }
 
-// DeleteTimeLog removes one row scoped to its project.
 func (r *Repo) DeleteTimeLog(ctx context.Context, db DBTX, projectID, id string) error {
 	tag, err := db.Exec(ctx, `DELETE FROM work_item_time_logs WHERE id = $1 AND project_id = $2`, id, projectID)
 	if err != nil {

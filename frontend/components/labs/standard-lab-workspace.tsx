@@ -189,7 +189,6 @@ export function StandardLabWorkspace({
         </IconMessage>
       )}
 
-      {/* Mobile layout */}
       <div className="relative flex flex-col flex-1 md:hidden overflow-auto">
         {isAuthExpired && <SessionExpiredOverlay onLogin={onLogin} />}
         <IconMessage className="bg-muted/50" icon={MonitorOff} variant="strip">

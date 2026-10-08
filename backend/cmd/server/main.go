@@ -237,9 +237,8 @@ func main() {
 		emailSender = mailer.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.EmailFrom)
 	}
 	jobsRegistry.Register(handlers.HandlerEmailSend, handlers.NewEmailHandler(cfg, emailSender))
-	// A dead email.send job used to leave nothing but last_error on the jobs
-	// row — nobody was told a user-facing email (e.g. a password reset) will
-	// never arrive. This turns that into a structured, alertable log line.
+	// A dead email.send job otherwise leaves only last_error on the jobs row;
+	// the hook turns it into a structured, alertable log line.
 	jobsRegistry.OnDead(handlers.HandlerEmailSend, handlers.NewEmailDeadHook())
 	jobsRegistry.Register(handlers.HandlerBulkInvite, handlers.NewInviteHandler(pool, cfg))
 	jobsRegistry.OnDead(handlers.HandlerBulkInvite, handlers.NewInviteDeadHook())
@@ -354,13 +353,10 @@ func main() {
 	slog.Info("server stopped cleanly")
 }
 
-// cronJobs is the scheduler's job table.
 func cronJobs() []jobs.CronJobDef {
 	return []jobs.CronJobDef{
-		// srs.review_reminder's standalone "Cards due for review" email was
-		// folded into digest.nightly (internal/digest) — due flashcards now
-		// ride along in the one nightly digest email instead of arriving as
-		// their own separate message. No cron entry for it here anymore.
+		// Due flashcards ride along in the digest.nightly email (internal/digest);
+		// there is no separate review-reminder cron entry.
 		{Handler: handlers.HandlerAnalytics, Schedule: "0 2 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 300000},
 		{Handler: handlers.HandlerAnalytics, Schedule: "0 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 		{Handler: handlers.HandlerRetentionPurge, Schedule: "15 3 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 300000},
@@ -434,7 +430,6 @@ func cronJobs() []jobs.CronJobDef {
 	}
 }
 
-// fatal logs err and exits non-zero.
 func fatal(msg string, err error) {
 	slog.Error(msg, "error", err)
 	os.Exit(1)

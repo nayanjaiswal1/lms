@@ -183,11 +183,9 @@ interface MentorReport {
 // The single source of truth for a ticket's full lifecycle — the ticket,
 // its change requests, and (only when the caller holds
 // mentoring.manage_reports) reports. `reports` is undefined, not an empty
-// array, when the backend omitted it for lack of permission. Mentor-ticket
-// assignment history was dropped from the backend (it was synthetic — see
-// backend/internal/mentoring/models.go's TicketLifecycle doc comment) — the
+// array, when the backend omitted it for lack of permission. The
 // detail page derives its "assigned" timeline event from ticket.assigned_to
-// directly instead of a separate assignments list.
+// directly.
 interface TicketLifecycle {
   ticket: Ticket;
   change_requests: MentorChangeRequest[];

@@ -48,7 +48,6 @@ type RepoPreparer interface {
 	PrepareLabRepo(ctx context.Context, sessionID, userID, labID string) (script string, err error)
 }
 
-// Service holds the business logic for the labs domain.
 type Service struct {
 	repo      *Repo
 	container ContainerRuntime

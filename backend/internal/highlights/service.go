@@ -22,7 +22,6 @@ var (
 
 const maxNoteLength = 1000
 
-// Service holds the highlight domain's business logic.
 type Service struct {
 	repo     *Repo
 	provider ai.LLMProvider

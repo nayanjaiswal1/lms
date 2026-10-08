@@ -364,7 +364,6 @@ func (h *Handler) SubmitFeedback(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, feedback)
 }
 
-// SaveNotes writes the mentor's write-up of a session.
 func (h *Handler) SaveNotes(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {

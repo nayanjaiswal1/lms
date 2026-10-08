@@ -37,8 +37,6 @@ export async function CourseCard({ course, enrolled, owned, canEdit, canViewAnal
           />
         </div>
       )}
-      {/* Full-bleed media — card corners clip it, no inner frame */}
-      {/* 2:1 cover — shorter than 16:9, keeps the grid row compact */}
       <div className="relative aspect-[2/1] w-full bg-muted">
         {course.cover_url ? (
           // eslint-disable-next-line @next/next/no-img-element -- dynamic remote cover, no known dimensions (same convention as course detail page)

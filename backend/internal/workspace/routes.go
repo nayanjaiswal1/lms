@@ -26,7 +26,7 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 	r.Get("/api/workspaces/invitations", h.ListMyInvitations)
 	r.Post("/api/workspaces/{workspaceID}/membership/respond", h.RespondToInvite)
 
-	// Planning & task board (formerly gitlab's embedded fixtures) — any
+	// Planning & task board — any
 	// authenticated caller, built from their own assigned open work items
 	// across every workspace they're an active member of. No project-role
 	// gate: this aggregates across projects rather than acting on one.

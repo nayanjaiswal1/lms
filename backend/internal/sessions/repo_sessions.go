@@ -306,7 +306,6 @@ func (r *Repo) ListFeedback(ctx context.Context, sessionID string) ([]Feedback, 
 
 // ─── mentor notes ──────────────────────────────────────────────────────────
 
-// UpsertNotes writes the mentor's write-up for a session.
 func (r *Repo) UpsertNotes(ctx context.Context, n Notes) (Notes, error) {
 	err := r.pool.QueryRow(ctx,
 		`UPDATE mentor_sessions

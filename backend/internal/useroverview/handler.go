@@ -17,7 +17,6 @@ import (
 	"github.com/mindforge/backend/internal/httputil"
 )
 
-// Handler serves the admin user-overview endpoint.
 type Handler struct {
 	authzSvc     *authz.Service
 	adminRepo    *authz.AdminRepo

@@ -265,9 +265,8 @@ func scanPage(row pgx.Row) (Page, error) {
 }
 
 // CreatePage inserts the page and its v1 content_versions row in one
-// transaction (00-decisions D10: CreatePage previously wrote no v1 row at
-// all, which left "diff against the approved v1" with nothing to diff
-// against the first time a page was ever edited).
+// transaction (00-decisions D10), so "diff against the approved v1" always
+// has a baseline the first time a page is edited.
 func (r *Repo) CreatePage(ctx context.Context, spaceID, title, slug string, parentID, emoji *string, content json.RawMessage, searchText, createdBy string) (Page, error) {
 	var out Page
 	err := r.tx(ctx, func(tx pgx.Tx) error {

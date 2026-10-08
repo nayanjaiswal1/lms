@@ -19,7 +19,6 @@ const (
 	maxTarEntries    = 20000
 )
 
-// tarEntry is one file to write into a tar.
 type tarEntry struct {
 	Name string
 	Data []byte

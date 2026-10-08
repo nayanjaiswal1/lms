@@ -166,7 +166,6 @@ export default async function JobsPage({
 
   return (
     <div className="space-y-6">
-      {/* Stats quota bar */}
       {stats && (
         <div className="card-base p-4 flex flex-wrap items-center gap-4 text-sm">
           <span className="text-muted-foreground">
@@ -197,7 +196,6 @@ export default async function JobsPage({
       )}
 
       <div className="card-base p-6">
-        {/* Header */}
         <div className="page-header mb-4">
           <div>
             <h2 className="subsection-title text-foreground">Background Jobs</h2>
@@ -212,7 +210,6 @@ export default async function JobsPage({
           )}
         </div>
 
-        {/* Status filter tabs */}
         <div
           aria-label="Filter jobs by status"
           className="flex gap-2 overflow-x-auto pb-2 mb-6"
@@ -242,7 +239,6 @@ export default async function JobsPage({
           })}
         </div>
 
-        {/* Jobs table */}
         {jobs.length === 0 ? (
           <div className="empty-state py-12">
             <p className="text-sm text-muted-foreground">No jobs found for the selected filter.</p>

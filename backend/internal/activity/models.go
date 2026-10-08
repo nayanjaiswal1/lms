@@ -23,7 +23,6 @@ const (
 	KindCardReviewed    = "card_reviewed"
 )
 
-// Entry is one row in the timeline.
 type Entry struct {
 	Key        string    `json:"key"` // "<kind>:<source row id>" — unique, cursor tiebreak, React key
 	Kind       string    `json:"kind"`
@@ -36,7 +35,6 @@ type Entry struct {
 	RefSlug    string    `json:"ref_slug,omitempty"` // course slug, for deep links
 }
 
-// Page is one paginated response.
 type Page struct {
 	Entries    []Entry `json:"entries"`
 	NextCursor string  `json:"next_cursor,omitempty"`

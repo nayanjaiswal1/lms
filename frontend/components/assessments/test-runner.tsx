@@ -256,7 +256,6 @@ export function TestRunner({ payload }: TestRunnerProps) {
         </div>
       )}
 
-      {/* ── Camera pre-flight stage ──────────────────────────────────────── */}
       {stage === "camera" && (
         <div className="h-full overflow-y-auto">
           <ProctorPreflight
@@ -271,11 +270,9 @@ export function TestRunner({ payload }: TestRunnerProps) {
         </div>
       )}
 
-      {/* ── Active test stage — three-zone layout ────────────────────────── */}
       {stage === "active" && (
         <div className="relative flex h-full flex-col">
 
-          {/* Zone 1: ProctorBanner — shrink-0 at top */}
           <ProctorBanner
             answered={answeredCount}
             secondsLeft={proctor.secondsLeft}
@@ -287,10 +284,8 @@ export function TestRunner({ payload }: TestRunnerProps) {
             onSubmit={() => setConfirming("submit")}
           />
 
-          {/* Zone 2: Question content + right question palette */}
           <div className="relative flex flex-1 overflow-hidden">
 
-            {/* Exit confirmation overlay — covers question area + palette */}
             {confirming === "exit" && (
               <div className="absolute inset-0 z-overlay flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
                 <div className="w-full max-w-sm card-raised shadow-raised">
@@ -419,7 +414,6 @@ export function TestRunner({ payload }: TestRunnerProps) {
               </div>
             )}
 
-            {/* Left panel — section navigator (desktop only) */}
             <SectionSidebar currentType={current.type} sections={sectionsWithProgress} onJump={goto} />
 
             {/* Scrollable question content — coding gets a full-bleed, non-scrolling
@@ -437,7 +431,6 @@ export function TestRunner({ payload }: TestRunnerProps) {
                       "page-container py-6"
                 }
               >
-                {/* Section navigator — mobile/tablet horizontal tabs */}
                 <SectionTabs currentType={current.type} sections={sectionsWithProgress} onJump={goto} />
 
                 {/* Question meta — select-none prevents students from copy-pasting
@@ -500,7 +493,6 @@ export function TestRunner({ payload }: TestRunnerProps) {
                   <p className="text-sm font-medium text-muted-foreground">{current.title}</p>
                 </div>
 
-                {/* Question content */}
                 {isMCQQuestion(current) || isSubjectiveQuestion(current) ? (
                   <div className="card-base select-none p-6">
                     {isMCQQuestion(current) ? (
@@ -571,7 +563,6 @@ export function TestRunner({ payload }: TestRunnerProps) {
               </div>
             </div>
 
-            {/* Right panel — question palette (desktop only, collapsible) */}
             <QuestionPalette
               allowBacktrack={meta.allow_backtrack}
               answeredCount={answeredCount}

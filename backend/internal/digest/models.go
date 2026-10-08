@@ -6,8 +6,7 @@
 // digest_date) in migration 002_revision_digest.sql). It reads from — and
 // never duplicates — internal/activity (notes, reflections, mistakes,
 // completions), internal/sheets (spaced-repetition problem tracker), and
-// internal/srs (spaced-repetition flashcards; formerly its own separate
-// "Cards due for review" email, folded in here so a student gets one nightly
+// internal/srs (spaced-repetition flashcards; folded in here so a student gets one nightly
 // email, not two) rather than owning its own copy of that data.
 package digest
 

@@ -50,7 +50,6 @@ type Semaphore struct {
 	renew   *redis.Script
 }
 
-// NewSemaphore returns a Semaphore over rdb.
 func NewSemaphore(rdb *redis.Client) *Semaphore {
 	return &Semaphore{rdb: rdb, acquire: redis.NewScript(acquireScript), renew: redis.NewScript(renewScript)}
 }

@@ -102,11 +102,9 @@ export function ProctorPreflight({
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
 
-      {/* ── Left panel ────────────────────────────────────────────────────── */}
       <div className="flex flex-col items-center justify-center gap-4 bg-muted p-6 lg:sticky-rail lg:top-0 lg:h-dvh lg:w-2/5 lg:p-10">
         {proctoring.require_camera ? (
           <>
-            {/* Camera preview */}
             <div className="relative w-full max-w-sm overflow-hidden rounded-xl border border-border shadow-raised">
               <div className="aspect-video bg-background">
                 {setup.stream ? (
@@ -150,7 +148,6 @@ export function ProctorPreflight({
           </div>
         )}
 
-        {/* Quick stats row (desktop) */}
         <div className="hidden w-full max-w-sm grid-cols-3 gap-3 lg:grid">
           <div className="flex flex-col items-center gap-1 rounded-lg border border-border/60 bg-card p-3">
             <Clock aria-hidden className="h-4 w-4 text-muted-foreground" />
@@ -170,10 +167,8 @@ export function ProctorPreflight({
         </div>
       </div>
 
-      {/* ── Right panel: setup steps ──────────────────────────────────────── */}
       <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-6 lg:p-10">
 
-        {/* Header */}
         <div className="flex flex-col gap-1">
           <h1 className="page-title leading-tight">{meta.title}</h1>
           <p className="text-sm text-muted-foreground">
@@ -183,7 +178,6 @@ export function ProctorPreflight({
           </p>
         </div>
 
-        {/* Quick stats row (mobile only) */}
         <div className="grid grid-cols-3 gap-3 lg:hidden">
           <div className="flex flex-col items-center gap-1 rounded-lg border border-border bg-muted p-3">
             <Clock aria-hidden className="h-4 w-4 text-muted-foreground" />
@@ -202,7 +196,6 @@ export function ProctorPreflight({
           </div>
         </div>
 
-        {/* ── Step 1: Camera & Mic ─────────────────────────────────────────── */}
         {proctoring.require_camera && (
           <section aria-labelledby="step-camera">
             <div className="mb-3 flex items-center gap-2">
@@ -259,7 +252,6 @@ export function ProctorPreflight({
           </section>
         )}
 
-        {/* ── Step 2: Secondary camera ─────────────────────────────────────── */}
         {proctoring.allow_secondary_camera && (
           <section aria-labelledby="step-phone">
             <div className="mb-3 flex items-center gap-2">
@@ -292,7 +284,6 @@ export function ProctorPreflight({
               )}
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                {/* QR placeholder */}
                 <div
                   aria-label="QR code to connect phone as secondary camera"
                   className="relative flex h-36 w-36 shrink-0 flex-col items-center justify-center self-center overflow-hidden rounded-lg border-2 border-dashed border-border bg-background p-2 sm:self-auto"
@@ -307,7 +298,6 @@ export function ProctorPreflight({
                   </span>
                 </div>
 
-                {/* Instructions */}
                 <div className="flex flex-col gap-3">
                   <p className="text-sm text-muted-foreground">
                     Open your phone camera and scan to join as a rear-facing secondary camera.
@@ -343,7 +333,6 @@ export function ProctorPreflight({
           </section>
         )}
 
-        {/* ── Test rules (compact) ──────────────────────────────────────────── */}
         {(proctoring.require_fullscreen ||
           proctoring.block_copy_paste ||
           proctoring.block_devtools ||
@@ -408,7 +397,6 @@ export function ProctorPreflight({
           </section>
         )}
 
-        {/* ── CTA ───────────────────────────────────────────────────────────── */}
         <div className="mt-auto flex flex-col gap-2 pb-6 lg:pb-0">
           <Button
             className="w-full gap-2 font-semibold"

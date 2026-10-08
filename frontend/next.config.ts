@@ -85,7 +85,6 @@ const nextConfig: NextConfig = {
   // Catch TypeScript errors at build time
   typescript: { ignoreBuildErrors: false },
 
-  // Opt into React 19 strict mode
   reactStrictMode: true,
 
   // Client router cache: Next 15+ defaults dynamic pages to 0s, so every

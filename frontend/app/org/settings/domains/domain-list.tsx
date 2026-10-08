@@ -36,7 +36,6 @@ function DomainCard({ domain, orgId }: DomainCardProps) {
 
   return (
     <div className="card-base p-5 space-y-4">
-      {/* Header row */}
       <div className="flex flex-wrap items-center gap-3 justify-between">
         <div className="flex items-center gap-2">
           <span className="font-mono text-sm font-medium text-foreground">{domain.domain}</span>
@@ -51,7 +50,6 @@ function DomainCard({ domain, orgId }: DomainCardProps) {
           )}
         </div>
 
-        {/* Auto-join toggle */}
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Auto-join:</span>
           <form action={toggleAction}>
@@ -86,7 +84,6 @@ function DomainCard({ domain, orgId }: DomainCardProps) {
         </div>
       </div>
 
-      {/* Verification token */}
       {!domain.verified && (
         <div className="rounded-md bg-muted p-3 space-y-1">
           <p className="text-xs font-medium text-muted-foreground">
@@ -103,7 +100,6 @@ function DomainCard({ domain, orgId }: DomainCardProps) {
         </div>
       )}
 
-      {/* Actions */}
       <div className="flex items-center gap-2 flex-wrap">
         {!domain.verified && (
           <form action={verifyAction}>

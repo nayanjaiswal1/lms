@@ -17,8 +17,7 @@ interface LandingCtaButtonsProps {
 
 /**
  * Primary + optional secondary CTA pair shared by the hero and the closing CTA.
- * Phones: stacked, full-width, equal buttons. `flex-wrap` used to wrap them into
- * two rows of different widths, which read as uneven. sm+: side by side, auto width.
+ * Phones: stacked, full-width, equal buttons. sm+: side by side, auto width.
  */
 export function LandingCtaButtons({ primaryCta, secondaryCta, className }: LandingCtaButtonsProps) {
   return (

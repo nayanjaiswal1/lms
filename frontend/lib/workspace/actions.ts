@@ -19,9 +19,7 @@ import type {
 } from "@/lib/workspace/types";
 
 // ── Request-body shapes the contract names but that types.ts (lead-owned)
-// doesn't declare — kept local per the brief's "add a local type in your own
-// file" instruction. Flagged in the final report for the lead to fold into
-// types.ts if another agent needs the same shape. ──────────────────────────
+// doesn't declare. ──────────────────────────
 
 interface SetStatusInput {
   status: ProjectStatus;

@@ -54,13 +54,11 @@ function AuditLogEntry({ log, orgId, orgName }: { log: AuditLog; orgId: string; 
 
   return (
     <div className="flex gap-4 py-4 border-b border-border last:border-0">
-      {/* Timeline indicator */}
       <div className="flex flex-col items-center gap-1 flex-shrink-0 pt-0.5">
         <div className="h-2 w-2 rounded-full bg-border mt-1" />
         <div className="w-px flex-1 bg-border" />
       </div>
 
-      {/* Content */}
       <div className="flex-1 min-w-0 pb-2">
         <div className="flex flex-wrap items-center gap-2 mb-1">
           <Badge variant={actionBadgeVariant(log.action)}>

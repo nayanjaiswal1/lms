@@ -10,7 +10,6 @@ interface DashboardHeaderProps {
 export function DashboardHeader({ title, subtitle, initial }: DashboardHeaderProps) {
   return (
     <header className="safe-top sticky top-0 z-sticky flex h-14 items-center justify-between border-b border-border/80 bg-card/90 px-4 shadow-card backdrop-blur-sm lg:h-16 lg:bg-card/80 lg:px-7 lg:shadow-none">
-      {/* Mobile brand */}
       <div className="flex items-center gap-2.5 lg:hidden">
         <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-bold text-(--ae-card) shadow-card">
           {initial}
@@ -24,7 +23,6 @@ export function DashboardHeader({ title, subtitle, initial }: DashboardHeaderPro
         </div>
       </div>
 
-      {/* Desktop title */}
       <div className="hidden lg:block">
         <h1 className="text-lg font-bold tracking-tight text-foreground">{title}</h1>
         <p className="text-xs font-medium text-muted-foreground">{subtitle}</p>

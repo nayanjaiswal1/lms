@@ -48,7 +48,6 @@ func NewDrafter(provider ai.LLMProvider, limiter *ratelimit.Limiter, max int, wi
 	return &Drafter{provider: provider, limiter: limiter, max: max, window: window}
 }
 
-// TicketDraft is the ticket-draft response.
 type TicketDraft struct {
 	Draft      string `json:"draft"`
 	Persona    string `json:"persona"`

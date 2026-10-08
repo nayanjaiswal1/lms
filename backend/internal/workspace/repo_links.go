@@ -54,7 +54,6 @@ func (r *Repo) InsertLink(ctx context.Context, tx pgx.Tx, projectID, fromID, toI
 	return nil
 }
 
-// DeleteLink removes one link row.
 func (r *Repo) DeleteLink(ctx context.Context, db DBTX, projectID, fromID, toID, kind string) error {
 	tag, err := db.Exec(ctx,
 		`DELETE FROM work_item_links WHERE project_id = $1 AND from_id = $2 AND to_id = $3 AND kind = $4`,

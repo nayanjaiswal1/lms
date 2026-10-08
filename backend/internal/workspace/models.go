@@ -317,7 +317,6 @@ type Interest struct {
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
-// RequirementVersion is one requirement_versions row.
 type RequirementVersion struct {
 	Version        int       `json:"version"`
 	RawRequirement string    `json:"raw_requirement"`

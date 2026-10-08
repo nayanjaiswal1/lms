@@ -325,12 +325,9 @@ func (s *Service) RunSample(ctx context.Context, userID, attemptID, sessionToken
 }
 
 // SubmitPublicAttempt grades a no-auth hiring candidate's answers and
-// persists the result. MCQ is graded inline (as before); coding questions are
-// now graded through the same per-question executor selection the
-// authenticated flow uses (executorFor) — previously this path silently
-// skipped coding questions entirely (counted toward max_score, never
-// awarded), which meant DSA/FastAPI/React sandbox questions on a public
-// hiring link always scored zero regardless of the candidate's answer.
+// persists the result. MCQ is graded inline; coding questions are
+// graded through the same per-question executor selection the
+// authenticated flow uses (executorFor).
 // Subjective questions remain unsupported here (no AI eval queue for
 // candidates without accounts — cost control, see docs/anonymous.md) and are
 // still excluded from scoring, counted only toward max_score.

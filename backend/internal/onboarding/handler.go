@@ -11,7 +11,6 @@ import (
 	"github.com/mindforge/backend/internal/httputil"
 )
 
-// Handler holds dependencies for onboarding HTTP handlers.
 type Handler struct {
 	pool *pgxpool.Pool
 }

@@ -6,7 +6,6 @@ import (
 	apimiddleware "github.com/mindforge/backend/internal/middleware"
 )
 
-// Router wires the whatsnew domain into the main chi router.
 type Router struct {
 	handler *Handler
 	pool    *pgxpool.Pool

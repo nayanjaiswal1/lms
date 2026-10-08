@@ -183,7 +183,6 @@ func (r *Repo) ToggleRevision(ctx context.Context, highlightID, userID string, s
 	}
 
 	// Note: text_hash is computed from selected_text, not stored in learning_annotations
-	// For now, leave it empty as the explanation lookup happens separately
 	h.TextHash = textHash
 	return h, nil
 }

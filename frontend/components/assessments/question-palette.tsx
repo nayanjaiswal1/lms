@@ -75,7 +75,6 @@ export function QuestionPalette({
         </Button>
       </div>
 
-      {/* Progress summary */}
       <div className="flex flex-col gap-2">
         <div className="flex-between">
           <span className="text-xs font-medium text-muted-foreground">Answered</span>
@@ -92,7 +91,6 @@ export function QuestionPalette({
         )}
       </div>
 
-      {/* Question number grid */}
       <div className="flex flex-col gap-2">
         <span className="text-xs font-medium text-muted-foreground">Questions</span>
         <div className="grid grid-cols-4 gap-1.5">
@@ -136,7 +134,6 @@ export function QuestionPalette({
         </div>
       )}
 
-      {/* Legend */}
       <div className="flex flex-col gap-1.5 border-t border-border pt-3">
         <div className="flex items-center gap-2">
           <span className="h-3 w-3 shrink-0 rounded-sm bg-primary" />

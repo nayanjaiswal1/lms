@@ -21,9 +21,7 @@ import type {
 
 // ── Request-body shapes the contract names (MoveWorkItemRequest,
 // SetAssigneesRequest, CreateLinkRequest) but that types.ts (lead-owned)
-// doesn't declare — same "local type in your own file" convention actions.ts
-// already uses for SetStatusInput etc. Flagged in the final report for the
-// lead to fold into types.ts if another Phase 2+ agent needs the same shape. ──
+// doesn't declare. ──
 
 
 interface SetAssigneesInput {

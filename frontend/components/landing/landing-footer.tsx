@@ -18,8 +18,7 @@ const FOOTER_LINKS = [
 ] as const;
 
 // Phones: centred stack with the links in an even 2-col grid (44px tap targets,
-// odd last link spans both columns). flex-wrap used to leave ragged, left-hugging
-// rows. md+: the original single row, brand left, links right.
+// odd last link spans both columns). md+: the original single row, brand left, links right.
 export function LandingFooter() {
   return (
     <footer className="border-t border-border py-8">

@@ -7,7 +7,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Repo is the data-access layer for the Learn hub aggregator.
 type Repo struct {
 	pool *pgxpool.Pool
 }

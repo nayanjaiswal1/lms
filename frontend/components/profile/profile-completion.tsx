@@ -38,11 +38,9 @@ export function ProfileCompletion({ score, breakdown }: Props) {
       </div>
 
       <div className="flex flex-col items-center sm:flex-row sm:items-start gap-6">
-        {/* SVG ring */}
         <div aria-hidden="true" className="shrink-0">
           <svg height="88" role="img" viewBox="0 0 88 88" width="88">
             <title>Profile completion: {pct}%</title>
-            {/* Track */}
             <circle
               className="stroke-muted"
               cx="44"
@@ -51,7 +49,6 @@ export function ProfileCompletion({ score, breakdown }: Props) {
               r="36"
               strokeWidth="8"
             />
-            {/* Fill */}
             <circle
               className="stroke-primary transition-all duration-slow"
               cx="44"
@@ -67,7 +64,6 @@ export function ProfileCompletion({ score, breakdown }: Props) {
           </svg>
         </div>
 
-        {/* Checklist */}
         <ul className="flex-1 grid grid-cols-1 gap-2 w-full">
           {CHECKLIST.map(({ key, label }) => {
             const done = breakdown[key]
