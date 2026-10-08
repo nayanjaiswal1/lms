@@ -5,6 +5,8 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/mindforge/backend/internal/pagination"
 )
 
 // URLParam reads a chi path parameter. Thin wrapper kept for call-site
@@ -105,4 +107,15 @@ func QueryFloatPositive(r *http.Request, key string, def float64) float64 {
 		return def
 	}
 	return f
+}
+
+// PageParams parses ?limit=&cursor= (see internal/pagination), answering 422
+// for a malformed cursor.
+func PageParams(w http.ResponseWriter, r *http.Request) (pagination.Params, bool) {
+	p, err := pagination.ParseParams(r.URL.Query())
+	if err != nil {
+		WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"cursor": "invalid cursor"})
+		return pagination.Params{}, false
+	}
+	return p, true
 }

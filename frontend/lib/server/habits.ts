@@ -50,6 +50,9 @@ interface HabitMonthView {
   completions: HabitCompletion[]
 }
 
+/** Habits plus the completions overlapping one month (YYYY-MM). */
 export async function getHabitMonth(month: string): Promise<HabitMonthView> {
-  return apiGet<HabitMonthView>(`/api/habits?month=${month}`)
+  const [year, mon] = month.split("-").map(Number)
+  const lastDay = new Date(Date.UTC(year, mon, 0)).getUTCDate()
+  return apiGet<HabitMonthView>(`/api/habits?from=${month}-01&to=${month}-${String(lastDay).padStart(2, "0")}`)
 }

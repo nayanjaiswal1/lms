@@ -1,6 +1,6 @@
 package ai
 
-// CourseOutlineSystemPrompt is used by the generate-outline endpoint.
+// CourseOutlineSystemPrompt is used by POST /api/course-outlines and the outline job.
 const CourseOutlineSystemPrompt = `You are an expert curriculum designer specializing in technical education.
 Given a topic, difficulty level, and desired number of modules, generate a structured course outline.
 

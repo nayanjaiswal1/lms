@@ -156,22 +156,6 @@ type ChangeRequest struct {
 	CreatedAt  time.Time  `json:"created_at"`
 }
 
-// TicketLifecycle is the full staff-facing lifecycle view of a ticket —
-// change requests and (for callers holding mentoring.manage_reports)
-// complaint reports — the single aggregate the ticket detail page renders
-// instead of piecing history together from separate list endpoints. Reports
-// is nil (omitted from the JSON response) for callers who lack that
-// permission; the frontend independently gates its Reports section on the
-// same permission, so the omission and the UI gate agree without the caller
-// needing an explicit "can view reports" flag. Named TicketLifecycle rather
-// than TicketDetail to avoid ambiguity next to tickets.TicketDetail (ticket
-// + message thread) — this is a different aggregate entirely.
-type TicketLifecycle struct {
-	Ticket         tickets.Ticket  `json:"ticket"`
-	ChangeRequests []ChangeRequest `json:"change_requests"`
-	Reports        []Report        `json:"reports,omitempty"`
-}
-
 // MentorDirectoryEntry is one row of the org-wide mentor directory: a
 // mentor's live assigned-mentee count and aggregated rating pulled from the
 // generic feedback table (subject_type = 'mentor'), plus the bio/title a

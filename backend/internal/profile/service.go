@@ -87,21 +87,16 @@ func (s *Service) GetMyProfile(ctx context.Context, userID string) (*Profile, er
 	return prof, nil
 }
 
-// ─── SetLastPage ──────────────────────────────────────────────────────────────
+// ─── last page ────────────────────────────────────────────────────────────────
 
 // ErrInvalidLastPage is returned for a path that is not a same-origin app path.
 var ErrInvalidLastPage = errors.New("profile: last page must be a relative path of at most 512 characters")
 
-// SetLastPage records the last app page the user viewed. Mirrors the
+// validLastPage accepts only a same-site absolute path — no scheme-relative
+// "//host", no backslashes or line breaks, at most 512 bytes. Mirrors the
 // user_profiles_last_page_check DB constraint.
-func (s *Service) SetLastPage(ctx context.Context, userID, path string) error {
-	if !strings.HasPrefix(path, "/") || strings.HasPrefix(path, "//") || len(path) > 512 || strings.ContainsAny(path, "\\\r\n") {
-		return ErrInvalidLastPage
-	}
-	if err := s.repo.SetLastPage(ctx, userID, path); err != nil {
-		return fmt.Errorf("profile: set last page: %w", err)
-	}
-	return nil
+func validLastPage(path string) bool {
+	return strings.HasPrefix(path, "/") && !strings.HasPrefix(path, "//") && len(path) <= 512 && !strings.ContainsAny(path, "\\\r\n")
 }
 
 // ─── UpdateProfile ────────────────────────────────────────────────────────────
@@ -638,6 +633,9 @@ func resizeNearest(src image.Image, dstW, dstH int) image.Image {
 // ─── validateProfileInput ────────────────────────────────────────────────────
 
 func validateProfileInput(input UpdateProfileInput) error {
+	if input.LastPage != nil && !validLastPage(*input.LastPage) {
+		return ErrInvalidLastPage
+	}
 	if input.ExperienceLevel != nil && !slices.Contains(ValidExperienceLevels, *input.ExperienceLevel) {
 		return fmt.Errorf("profile: experience_level must be one of: %s", strings.Join(ValidExperienceLevels, ", "))
 	}

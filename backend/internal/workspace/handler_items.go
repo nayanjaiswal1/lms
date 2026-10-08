@@ -142,7 +142,7 @@ func (h *Handler) DeleteWorkItem(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // TransitionWorkItem is POST .../items/{itemID}/transition.
@@ -210,7 +210,7 @@ func (h *Handler) DeleteItemLink(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ListItemEvents is GET .../items/{itemID}/events.

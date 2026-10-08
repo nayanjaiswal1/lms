@@ -70,5 +70,5 @@ func (h *Handler) DeleteTimeLog(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{})
+	w.WriteHeader(http.StatusNoContent)
 }

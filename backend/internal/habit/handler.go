@@ -24,6 +24,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrInvalidCadence:       {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"cadence": "must be one of: daily, weekly, monthly"}},
 	ErrInvalidMonth:         {Status: http.StatusBadRequest, Message: "month must be formatted YYYY-MM."},
 	ErrInvalidPeriod:        {Status: http.StatusBadRequest, Message: "period must be formatted YYYY-MM-DD."},
+	ErrInvalidRange:         {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"from": "from/to must be YYYY-MM-DD, from <= to, at most a year apart."}},
 	ErrInvalidColor:         {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"color": "must be one of the habit palette colors"}},
 	ErrInvalidTarget:        {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"target_count": "must be between 1 and 7"}},
 	ErrInvalidWeekday:       {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"weekdays": "must be unique values between 0 and 6"}},
@@ -92,18 +93,15 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// MonthView handles GET /api/habits?month=2026-08
-func (h *Handler) MonthView(w http.ResponseWriter, r *http.Request) {
+// List handles GET /api/habits?from=YYYY-MM-DD&to=YYYY-MM-DD — the caller's
+// habits plus every completion whose period overlaps the range.
+func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	month := r.URL.Query().Get("month")
-	if month == "" {
-		httputil.WriteError(w, http.StatusBadRequest, "month query param is required (YYYY-MM).")
-		return
-	}
-	view, err := h.service.MonthView(r.Context(), claims.UserID, month)
+	q := r.URL.Query()
+	view, err := h.service.ListRange(r.Context(), claims.UserID, q.Get("from"), q.Get("to"))
 	if err != nil {
 		writeDomainError(w, err)
 		return

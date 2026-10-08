@@ -55,11 +55,12 @@ func NewHandler(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, va
 func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 	h.authzSvc = authzSvc
 	h.memSvc.invalidatePerms = authzSvc.InvalidateUser
+	// Idempotency-Key only on the resource-creating POSTs.
 	idem := apimiddleware.Idempotency(h.pool)
 
 	r.With(idem).Post("/api/orgs", h.handleCreate)
 	r.Get("/api/orgs/me", h.handleMe)
-	r.With(idem).Post("/api/orgs/switch", h.handleSwitch)
+	r.Post("/api/orgs/switch", h.handleSwitch)
 	r.With(idem).Post("/api/orgs/join", h.handleJoin)
 
 	r.With(apimiddleware.RequirePlatformRole(h.pool, apimiddleware.PlatformRoleSuperAdmin)).
@@ -67,7 +68,6 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 
 	r.Route("/api/orgs/{id}", func(r chi.Router) {
 		r.Use(apimiddleware.RequireOrgMember(h.pool))
-		r.Use(idem)
 
 		r.Get("/", h.handleGet)
 		r.Patch("/", h.handleUpdate)
@@ -83,22 +83,22 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 		r.Patch("/ai-connector-config", h.handleUpdateAIConnectorConfig)
 
 		r.Get("/domains", h.handleListDomains)
-		r.Post("/domains", h.handleAddDomain)
+		r.With(idem).Post("/domains", h.handleAddDomain)
 		r.Post("/domains/verify", h.handleVerifyDomain)
-		r.Post("/domains/{domain_id}/auto-join", h.handleSetAutoJoin)
-		r.Delete("/domains/{domain_id}", h.handleRemoveDomain)
+		r.Post("/domains/{domainID}/auto-join", h.handleSetAutoJoin)
+		r.Delete("/domains/{domainID}", h.handleRemoveDomain)
 
-		r.Post("/invites/batch", h.handleBatchCreateInvites)
+		r.With(idem).Post("/invites/batch", h.handleBatchCreateInvites)
 		r.Delete("/invites/batch", h.handleBatchRevokeInvites)
 		r.Post("/invites/batch/resend", h.handleBatchResendInvites)
-		r.Post("/invites", h.handleCreateInvite)
+		r.With(idem).Post("/invites", h.handleCreateInvite)
 		r.Get("/invites", h.handleListInvites)
-		r.Post("/invites/{invite_id}/resend", h.handleResendInvite)
-		r.Delete("/invites/{invite_id}", h.handleRevokeInvite)
+		r.Post("/invites/{inviteID}/resend", h.handleResendInvite)
+		r.Delete("/invites/{inviteID}", h.handleRevokeInvite)
 
 		r.Get("/members", h.handleListMembers)
-		r.Patch("/members/{member_id}", h.handleUpdateMember)
-		r.Delete("/members/{member_id}", h.handleRemoveMember)
+		r.Patch("/members/{memberID}", h.handleUpdateMember)
+		r.Delete("/members/{memberID}", h.handleRemoveMember)
 
 		r.Get("/audit-logs", h.handleListAuditLogs)
 	})
@@ -646,7 +646,7 @@ func (h *Handler) handleSetAutoJoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	domainID := chi.URLParam(r, "domain_id")
+	domainID := chi.URLParam(r, "domainID")
 	var req struct {
 		Enabled bool `json:"enabled"`
 	}
@@ -673,7 +673,7 @@ func (h *Handler) handleRemoveDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	domainID := chi.URLParam(r, "domain_id")
+	domainID := chi.URLParam(r, "domainID")
 	if err := h.domSvc.Remove(r.Context(), orgCtx.OrgID, domainID); err != nil {
 		h.mapOrgError(w, err)
 		return
@@ -769,7 +769,7 @@ func (h *Handler) handleResendInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inviteID := chi.URLParam(r, "invite_id")
+	inviteID := chi.URLParam(r, "inviteID")
 	inv, token, err := h.invSvc.Resend(r.Context(), orgCtx.OrgID, claims.UserID, orgCtx.CallerRole, inviteID)
 	if err != nil {
 		switch {
@@ -807,7 +807,7 @@ func (h *Handler) handleRevokeInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inviteID := chi.URLParam(r, "invite_id")
+	inviteID := chi.URLParam(r, "inviteID")
 	if err := h.invSvc.Revoke(r.Context(), orgCtx.OrgID, claims.UserID, inviteID, orgCtx.CallerRole); err != nil {
 		switch {
 		case errors.Is(err, ErrNotFound):
@@ -1097,7 +1097,7 @@ func (h *Handler) handleUpdateMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	memberID := chi.URLParam(r, "member_id")
+	memberID := chi.URLParam(r, "memberID")
 	var req UpdateMemberRequest
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
@@ -1138,7 +1138,7 @@ func (h *Handler) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	memberID := chi.URLParam(r, "member_id")
+	memberID := chi.URLParam(r, "memberID")
 	if err := h.memSvc.Remove(r.Context(), orgCtx.OrgID, claims.UserID, orgCtx.CallerRole, memberID); err != nil {
 		switch {
 		case errors.Is(err, ErrNotFound):

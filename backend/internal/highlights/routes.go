@@ -3,6 +3,7 @@ package highlights
 import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/mindforge/backend/internal/ai"
 	apimiddleware "github.com/mindforge/backend/internal/middleware"
 )
@@ -25,9 +26,8 @@ func New(pool *pgxpool.Pool, provider ai.LLMProvider) *Router {
 func (rt *Router) RegisterRoutes(r chi.Router) {
 	// Student-accessible — any authenticated user.
 	r.Post("/api/highlights", rt.handler.Create)
-	r.Post("/api/highlights/explain", rt.handler.Explain)
-	r.Get("/api/highlights", rt.handler.ListBySource) // ?source_type=&source_id=
-	r.Get("/api/highlights/me", rt.handler.ListMine)
+	r.With(apimiddleware.Idempotency(rt.pool)).Post("/api/highlights/explain", rt.handler.Explain)
+	r.Get("/api/highlights", rt.handler.List)
 	r.Patch("/api/highlights/{highlightID}/revision", rt.handler.ToggleRevision)
 
 	// Analytics — super_admin only (platform-level role, requires a DB lookup).

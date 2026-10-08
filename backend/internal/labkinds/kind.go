@@ -229,7 +229,7 @@ type Kind interface {
 	// verification planner: how many issues, which are masked, which cheats.
 	VerifyInput(payload json.RawMessage) VerifyInput
 	// SetupScript is the lab_definitions.setup_script published labs of this
-	// kind run (as root, via ExecSetup) right after the pristine workspace is
+	// kind run (as the image user, via ExecSetup) right after the pristine workspace is
 	// seeded: it must prepare the dev environment the way the grader does.
 	SetupScript() string
 	// Image is the sandbox image builds render and verify in (the same image

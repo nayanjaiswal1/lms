@@ -145,8 +145,11 @@ GET    /api/sheets/view?ids=a,b,c          union of items from selected sheet ID
                                            filter params: category, difficulty, status, overlap_only
 
 -- Progress (upsert by topic_tag — cross-sheet)
-PATCH  /api/progress/:topic_tag            body: {status}
-PATCH  /api/progress/:topic_tag/notes      body: {notes}  -- TipTap JSON
+PATCH  /api/progress/:topic_tag            partial body, one transaction: {status?, sheet_id?, revision_at?, notes?, starred?}
+                                           status "done" without revision_at needs sheet_id (its growth scheme sets
+                                           the first interval); revision_at alone reschedules a done/revisit item;
+                                           notes = TipTap JSON (<= 100 KB)
+POST   /api/progress/:topic_tag/reviews    body: {sheet_id}  -- "still remember it": advance to the next interval
 ```
 
 ### Notes View

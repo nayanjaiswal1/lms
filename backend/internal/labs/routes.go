@@ -43,37 +43,37 @@ func New(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, pistonURL 
 // The caller is responsible for applying RequireAuth and RequireCSRF middleware
 // before this; session ownership (IDOR) is enforced inside each handler.
 func (h *Handler) RegisterRoutes(r chi.Router) {
-	r.Get("/api/labs/{labId}", h.HandleGetLab)
-	r.Get("/api/modules/{moduleId}/lab", h.HandleGetLabByModule)
-	r.Post("/api/labs/{labId}/sessions", h.HandleStartSession)
+	r.Get("/api/labs/{labID}", h.HandleGetLab)
+	r.Get("/api/modules/{moduleID}/lab", h.HandleGetLabByModule)
+	r.Post("/api/labs/{labID}/sessions", h.HandleStartSession)
 	r.Get("/api/labs/sessions/active", h.HandleListActiveSessions)
-	r.Get("/api/labs/sessions/{sessionId}", h.HandleGetSession)
-	r.Get("/api/labs/sessions/{sessionId}/events", h.HandleSessionEvents)
-	r.Post("/api/labs/sessions/{sessionId}/ws-token", h.HandleMintWSToken)
-	r.Post("/api/labs/sessions/{sessionId}/reset", h.HandleResetSession)
-	r.Post("/api/labs/sessions/{sessionId}/end", h.HandleEndSession)
-	r.Post("/api/labs/sessions/{sessionId}/tasks/{taskId}/verify", h.HandleVerifyTask)
-	r.Post("/api/labs/sessions/{sessionId}/tasks/{taskId}/hint", h.HandleHint)
+	r.Get("/api/labs/sessions/{sessionID}", h.HandleGetSession)
+	r.Get("/api/labs/sessions/{sessionID}/events", h.HandleSessionEvents)
+	r.Post("/api/labs/sessions/{sessionID}/ws-token", h.HandleMintWSToken)
+	r.Post("/api/labs/sessions/{sessionID}/reset", h.HandleResetSession)
+	r.Post("/api/labs/sessions/{sessionID}/end", h.HandleEndSession)
+	r.Post("/api/labs/sessions/{sessionID}/tasks/{taskID}/verify", h.HandleVerifyTask)
+	r.Post("/api/labs/sessions/{sessionID}/tasks/{taskID}/hint", h.HandleHint)
 	r.Post("/api/labs/run", h.HandleRunSnippet)
 
 	// Pluggable lab kinds (backend/internal/labkinds): generic across kinds.
 	r.Get("/api/labs/catalog", h.HandleCatalog)
-	r.Get("/api/labs/sessions/{sessionId}/debrief", h.HandleDebrief)
-	r.Post("/api/labs/sessions/{sessionId}/writeup-review", h.HandleWriteupReview)
+	r.Get("/api/labs/sessions/{sessionID}/debrief", h.HandleDebrief)
+	r.Post("/api/labs/sessions/{sessionID}/writeup-review", h.HandleWriteupReview)
 
-	r.Get("/api/labs/sessions/{sessionId}/files", h.HandleListFiles)
-	r.Get("/api/labs/sessions/{sessionId}/files/read", h.HandleReadFile)
-	r.Put("/api/labs/sessions/{sessionId}/files", h.HandleWriteFile)
-	r.Post("/api/labs/sessions/{sessionId}/files/mkdir", h.HandleCreateDirectory)
-	r.Post("/api/labs/sessions/{sessionId}/files/rename", h.HandleRenameFile)
-	r.Delete("/api/labs/sessions/{sessionId}/files", h.HandleDeleteFile)
-	r.Post("/api/labs/sessions/{sessionId}/files/validate", h.HandleValidateFile)
-	r.Get("/api/labs/sessions/{sessionId}/resources", h.HandleGetResources)
+	r.Get("/api/labs/sessions/{sessionID}/files", h.HandleListFiles)
+	r.Get("/api/labs/sessions/{sessionID}/files/read", h.HandleReadFile)
+	r.Put("/api/labs/sessions/{sessionID}/files", h.HandleWriteFile)
+	r.Post("/api/labs/sessions/{sessionID}/files/mkdir", h.HandleCreateDirectory)
+	r.Post("/api/labs/sessions/{sessionID}/files/rename", h.HandleRenameFile)
+	r.Delete("/api/labs/sessions/{sessionID}/files", h.HandleDeleteFile)
+	r.Post("/api/labs/sessions/{sessionID}/files/validate", h.HandleValidateFile)
+	r.Get("/api/labs/sessions/{sessionID}/resources", h.HandleGetResources)
 
 	// Sandbox workspace: port discovery + HackerEarth-style Run/Submit.
-	r.Get("/api/labs/sessions/{sessionId}/ports", h.HandleListPorts)
-	r.Post("/api/labs/sessions/{sessionId}/run", h.HandleRunScript)
-	r.Post("/api/labs/sessions/{sessionId}/submit", h.HandleSubmitAll)
+	r.Get("/api/labs/sessions/{sessionID}/ports", h.HandleListPorts)
+	r.Post("/api/labs/sessions/{sessionID}/run", h.HandleRunScript)
+	r.Post("/api/labs/sessions/{sessionID}/submit", h.HandleSubmitAll)
 }
 
 // permManageOrg is the org-administration permission code gating the admin APIs.

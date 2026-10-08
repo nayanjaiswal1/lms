@@ -11,7 +11,7 @@ import (
 
 // HandleListFiles returns every file/directory under the session's workdir.
 //
-//	GET /api/labs/sessions/{sessionId}/files
+//	GET /api/labs/sessions/{sessionID}/files
 //
 // Response: {"data": [{"path": "deployment.yaml", "type": "file"}, ...]}
 func (h *Handler) HandleListFiles(w http.ResponseWriter, r *http.Request) {
@@ -19,7 +19,7 @@ func (h *Handler) HandleListFiles(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "sessionId")
+	sessionID := chi.URLParam(r, "sessionID")
 
 	entries, err := h.service.ListFiles(r.Context(), sessionID, claims.UserID)
 	if err != nil {
@@ -31,7 +31,7 @@ func (h *Handler) HandleListFiles(w http.ResponseWriter, r *http.Request) {
 
 // HandleReadFile returns the content of one file.
 //
-//	GET /api/labs/sessions/{sessionId}/files/read?path=deployment.yaml
+//	GET /api/labs/sessions/{sessionID}/files/read?path=deployment.yaml
 //
 // Response: {"data": {"content": "..."}}
 func (h *Handler) HandleReadFile(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +39,7 @@ func (h *Handler) HandleReadFile(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "sessionId")
+	sessionID := chi.URLParam(r, "sessionID")
 	path := r.URL.Query().Get("path")
 
 	content, err := h.service.ReadFile(r.Context(), sessionID, claims.UserID, path)
@@ -52,7 +52,7 @@ func (h *Handler) HandleReadFile(w http.ResponseWriter, r *http.Request) {
 
 // HandleWriteFile creates or overwrites a file.
 //
-//	PUT /api/labs/sessions/{sessionId}/files
+//	PUT /api/labs/sessions/{sessionID}/files
 //	Body: {"path": "deployment.yaml", "content": "..."}
 //
 // Response: {"data": {"ok": true}}
@@ -61,7 +61,7 @@ func (h *Handler) HandleWriteFile(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "sessionId")
+	sessionID := chi.URLParam(r, "sessionID")
 
 	// Bound the request body before it's ever decoded — WriteFile itself
 	// rejects content over MaxWriteFileBytes too, but that check only runs
@@ -87,7 +87,7 @@ func (h *Handler) HandleWriteFile(w http.ResponseWriter, r *http.Request) {
 
 // HandleCreateDirectory creates an empty directory.
 //
-//	POST /api/labs/sessions/{sessionId}/files/mkdir
+//	POST /api/labs/sessions/{sessionID}/files/mkdir
 //	Body: {"path": "manifests"}
 //
 // Response: {"data": {"ok": true}}
@@ -96,7 +96,7 @@ func (h *Handler) HandleCreateDirectory(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "sessionId")
+	sessionID := chi.URLParam(r, "sessionID")
 
 	var body struct {
 		Path string `json:"path"`
@@ -114,7 +114,7 @@ func (h *Handler) HandleCreateDirectory(w http.ResponseWriter, r *http.Request) 
 
 // HandleRenameFile moves/renames a file.
 //
-//	POST /api/labs/sessions/{sessionId}/files/rename
+//	POST /api/labs/sessions/{sessionID}/files/rename
 //	Body: {"from": "old.yaml", "to": "new.yaml"}
 //
 // Response: {"data": {"ok": true}}
@@ -123,7 +123,7 @@ func (h *Handler) HandleRenameFile(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "sessionId")
+	sessionID := chi.URLParam(r, "sessionID")
 
 	var body struct {
 		From string `json:"from"`
@@ -142,7 +142,7 @@ func (h *Handler) HandleRenameFile(w http.ResponseWriter, r *http.Request) {
 
 // HandleDeleteFile removes a file.
 //
-//	DELETE /api/labs/sessions/{sessionId}/files?path=deployment.yaml
+//	DELETE /api/labs/sessions/{sessionID}/files?path=deployment.yaml
 //
 // Response: {"data": {"ok": true}}
 func (h *Handler) HandleDeleteFile(w http.ResponseWriter, r *http.Request) {
@@ -150,20 +150,20 @@ func (h *Handler) HandleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "sessionId")
+	sessionID := chi.URLParam(r, "sessionID")
 	path := r.URL.Query().Get("path")
 
 	if err := h.service.DeleteFile(r.Context(), sessionID, claims.UserID, path); err != nil {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // HandleValidateFile runs `kubectl apply --dry-run=server` against a
 // manifest already in the workdir.
 //
-//	POST /api/labs/sessions/{sessionId}/files/validate
+//	POST /api/labs/sessions/{sessionID}/files/validate
 //	Body: {"path": "deployment.yaml"}
 //
 // Response: {"data": {"valid": bool, "stdout": "...", "stderr": "..."}}
@@ -172,7 +172,7 @@ func (h *Handler) HandleValidateFile(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "sessionId")
+	sessionID := chi.URLParam(r, "sessionID")
 
 	var body struct {
 		Path string `json:"path"`
@@ -192,7 +192,7 @@ func (h *Handler) HandleValidateFile(w http.ResponseWriter, r *http.Request) {
 // HandleGetResources runs a broad `kubectl get -A -o json` and returns the
 // raw result — refresh-on-demand only, no watch/stream.
 //
-//	GET /api/labs/sessions/{sessionId}/resources
+//	GET /api/labs/sessions/{sessionID}/resources
 //
 // Response: {"data": <raw kubectl List JSON as returned by the apiserver>}
 func (h *Handler) HandleGetResources(w http.ResponseWriter, r *http.Request) {
@@ -200,7 +200,7 @@ func (h *Handler) HandleGetResources(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "sessionId")
+	sessionID := chi.URLParam(r, "sessionID")
 
 	resources, err := h.service.GetResources(r.Context(), sessionID, claims.UserID)
 	if err != nil {

@@ -9,6 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/mindforge/backend/internal/pagination"
 )
 
 var (
@@ -187,49 +189,9 @@ func (r *Repo) ToggleRevision(ctx context.Context, highlightID, userID string, s
 	return h, nil
 }
 
-// ListByUser returns all highlights for a user, newest first.
-// When savedOnly is true, only revision-saved highlights are returned.
-func (r *Repo) ListByUser(ctx context.Context, userID string, savedOnly bool, limit int) ([]Highlight, error) {
-	query := `SELECT id, user_id, source_type, source_id, text, saved_for_revision, meta, created_at, updated_at
-	          FROM learning_annotations WHERE user_id = $1 AND annotation_type = 'highlight'`
-	if savedOnly {
-		query += ` AND saved_for_revision = TRUE`
-	}
-	query += ` ORDER BY created_at DESC LIMIT $2`
-
-	rows, err := r.pool.Query(ctx, query, userID, limit)
-	if err != nil {
-		return nil, fmt.Errorf("highlights: list by user: %w", err)
-	}
-	defer rows.Close()
-
-	out := []Highlight{}
-	for rows.Next() {
-		var h Highlight
-		var metaRaw []byte
-		if err := rows.Scan(
-			&h.ID, &h.UserID, &h.SourceType, &h.SourceID, &h.SelectedText, &h.SavedForRevision, &metaRaw, &h.CreatedAt, &h.UpdatedAt,
-		); err != nil {
-			return nil, fmt.Errorf("highlights: scan highlight: %w", err)
-		}
-		if len(metaRaw) > 0 {
-			var metaObj map[string]interface{}
-			if err := json.Unmarshal(metaRaw, &metaObj); err == nil {
-				if noteVal, ok := metaObj["note"]; ok {
-					if noteStr, ok := noteVal.(string); ok {
-						h.Note = &noteStr
-					}
-				}
-			}
-		}
-		out = append(out, h)
-	}
-	return out, rows.Err()
-}
-
-// ListBySource returns a user's highlights for a specific content resource,
-// newest first, with the cached explanation LEFT JOINed in where available.
-func (r *Repo) ListBySource(ctx context.Context, userID, sourceType, sourceID string) ([]Highlight, error) {
+// List returns the caller's highlights, newest first, filtered by f, with the
+// cached explanation LEFT JOINed in where available.
+func (r *Repo) List(ctx context.Context, userID string, f ListFilter, p pagination.Params) ([]Highlight, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT la.id, la.user_id, la.source_type, la.source_id, la.text, la.saved_for_revision, la.meta,
 		        la.created_at, la.updated_at,
@@ -237,11 +199,16 @@ func (r *Repo) ListBySource(ctx context.Context, userID, sourceType, sourceID st
 		        he.model_used, he.serve_count, he.created_at, he.updated_at
 		 FROM learning_annotations la
 		 LEFT JOIN highlight_explanations he ON he.text_hash = la.id
-		 WHERE la.user_id = $1 AND la.source_type = $2 AND la.source_id = $3 AND la.annotation_type = 'highlight'
-		 ORDER BY la.created_at DESC`,
-		userID, sourceType, sourceID)
+		 WHERE la.user_id = $1 AND la.annotation_type = 'highlight'
+		   AND ($2::text IS NULL OR la.source_type = $2)
+		   AND ($3::uuid IS NULL OR la.source_id = $3::uuid)
+		   AND (NOT $4 OR la.saved_for_revision)
+		   AND ($5::timestamptz IS NULL OR (la.created_at, la.id) < ($5, $6::uuid))
+		 ORDER BY la.created_at DESC, la.id DESC
+		 LIMIT $7`,
+		userID, f.SourceType, f.SourceID, f.SavedOnly, p.After, p.AfterID, p.Fetch())
 	if err != nil {
-		return nil, fmt.Errorf("highlights: list by source: %w", err)
+		return nil, fmt.Errorf("highlights: list: %w", err)
 	}
 	defer rows.Close()
 
@@ -260,7 +227,7 @@ func (r *Repo) ListBySource(ctx context.Context, userID, sourceType, sourceID st
 			&h.CreatedAt, &h.UpdatedAt,
 			&eID, &eHash, &eText, &eSrcType, &eExpl, &eDiagram, &eModel, &eServe, &eCreatedAt, &eUpdatedAt,
 		); err != nil {
-			return nil, fmt.Errorf("highlights: scan list by source: %w", err)
+			return nil, fmt.Errorf("highlights: scan list: %w", err)
 		}
 		if len(metaRaw) > 0 {
 			var metaObj map[string]interface{}

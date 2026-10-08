@@ -7,6 +7,7 @@ import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CreateItemDialog } from "@/components/workspace/items/create-item-dialog";
 import { changeImpactAction, explainLateAction, suggestTaskBreakdownAction } from "@/lib/workspace/phase5-actions";
+import { useIdempotencyKey } from "@/hooks/use-idempotency-key";
 import type { ItemDetail, SuggestedItem, Track } from "@/lib/workspace/types";
 
 type AIResult =
@@ -28,21 +29,22 @@ interface AIToolsPanelProps {
 export function AIToolsPanel({ workspaceId, item, tracks, canManage }: AIToolsPanelProps) {
   const [result, setResult] = useState<AIResult | null>(null);
   const [pending, startTransition] = useTransition();
+  const withKey = useIdempotencyKey();
 
   if (!canManage || item.type !== "feature") return null;
 
   function run(kind: AIResult["kind"]) {
     startTransition(async () => {
       if (kind === "breakdown") {
-        const r = await suggestTaskBreakdownAction(workspaceId, item.id);
+        const r = await withKey((key) => suggestTaskBreakdownAction(workspaceId, item.id, key));
         if (r.error) { toast.error(r.error); return; }
         setResult({ kind: "breakdown", items: r.data?.items ?? [] });
       } else if (kind === "why-late") {
-        const r = await explainLateAction(workspaceId, item.id);
+        const r = await withKey((key) => explainLateAction(workspaceId, item.id, key));
         if (r.error) { toast.error(r.error); return; }
         setResult({ kind: "why-late", text: r.data?.explanation ?? "" });
       } else {
-        const r = await changeImpactAction(workspaceId, item.id);
+        const r = await withKey((key) => changeImpactAction(workspaceId, item.id, key));
         if (r.error) { toast.error(r.error); return; }
         setResult({ kind: "change-impact", text: r.data?.summary ?? "", affectedCount: r.data?.affected_item_ids.length ?? 0 });
       }

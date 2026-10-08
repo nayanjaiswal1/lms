@@ -107,7 +107,7 @@ func (h *Handler) ArchiveCohortGroup(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Group archived."})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 type moveBatchToGroupRequest struct {

@@ -1,6 +1,6 @@
 "use server"
 
-import { apiAction } from "@/lib/server/api"
+import { apiAction, idempotencyHeader } from "@/lib/server/api"
 import type { ActionResult } from "@/lib/server/api"
 import type { Highlight, ExplainResponse, HighlightSourceType } from "@/lib/server/highlights"
 
@@ -34,8 +34,9 @@ export async function createHighlightAction(
 
 export async function explainHighlightAction(
   payload: ExplainPayload,
+  idempotencyKey: string,
 ): Promise<ActionResult<ExplainResponse>> {
-  return apiAction<ExplainResponse>("POST", "/api/highlights/explain", payload)
+  return apiAction<ExplainResponse>("POST", "/api/highlights/explain", payload, idempotencyHeader(idempotencyKey))
 }
 
 export async function toggleRevisionAction(

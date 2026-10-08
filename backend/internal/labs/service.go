@@ -122,7 +122,7 @@ type wsTokenClaims struct {
 // moduleID, when non-nil, is the course_modules placement the student
 // launched this session from — recorded on the session so completion
 // resolves back to THIS placement (see finalizeTaskPass). Library "try"
-// starts and the standalone /api/labs/{labId}/sessions caller pass nil.
+// starts and the standalone /api/labs/{labID}/sessions caller pass nil.
 func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string, isTest bool, idempotencyKey string, moduleID *string) (*LabSession, error) {
 	// 1. Load lab. A course placement (moduleID, already validated by the
 	// handler to link to this lab in the caller's org) or an instructor

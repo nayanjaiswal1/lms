@@ -869,7 +869,7 @@ func (r *Repo) UpsertReview(ctx context.Context, rev CourseReview) (CourseReview
 	err := r.pool.QueryRow(ctx,
 		`INSERT INTO feedback (org_id, subject_type, subject_id, user_id, rating, kind)
 		 VALUES ($1,'course',$2,$3,$4,'rating')
-		 ON CONFLICT (subject_type, subject_id, user_id) DO UPDATE
+		 ON CONFLICT (kind, subject_type, subject_id, user_id) DO UPDATE
 		   SET rating = EXCLUDED.rating, updated_at = now()
 		 RETURNING id, created_at, updated_at`,
 		orgID, rev.CourseID, rev.UserID, rev.Rating,

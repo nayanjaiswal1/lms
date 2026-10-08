@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createPrepPlanAction } from "@/lib/interview-prep/actions";
+import { useIdempotencyKey } from "@/hooks/use-idempotency-key";
 import ROUTES from "@/lib/routes";
 
 interface PracticeAgainButtonProps {
@@ -16,17 +17,19 @@ interface State { error?: string }
 
 export function PracticeAgainButton({ jobTitle, weakSkills }: PracticeAgainButtonProps) {
   const router = useRouter();
+  const withKey = useIdempotencyKey();
 
   const [state, formAction, pending] = useActionState(
     async (_prev: State | null): Promise<State | null> => {
-      const result = await createPrepPlanAction({
+      const input = {
         text:
           jobTitle +
           (weakSkills.length > 0 ? `\n\nFocus specifically on: ${weakSkills.join(", ")}` : ""),
         // Force targeted — a short job title alone could otherwise misclassify
         // as quick, and "practice again" must always regenerate a full mock test.
-        modeOverride: "targeted",
-      });
+        modeOverride: "targeted" as const,
+      };
+      const result = await withKey((key) => createPrepPlanAction(input, key));
       if (!result.ok || !result.data) return { error: result.error };
       router.push(ROUTES.interviewPrepPlan(result.data.id));
       return null;

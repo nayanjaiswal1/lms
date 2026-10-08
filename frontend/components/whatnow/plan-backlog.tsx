@@ -81,7 +81,7 @@ export function PlanBacklog({ tasks, inbox, onReorder, onPlanInboxTask, onUnsche
               }}
             >
               <p className="font-medium text-foreground">{task.title}</p>
-              {task.durationMin ? <p className="text-xs text-muted-foreground">{task.durationMin}m</p> : null}
+              {task.duration_min ? <p className="text-xs text-muted-foreground">{task.duration_min}m</p> : null}
             </li>
           ))}
         </ul>

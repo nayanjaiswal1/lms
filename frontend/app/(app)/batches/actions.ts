@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiAction, apiUpload } from "@/lib/server/api";
+import { apiAction, apiUpload, idempotencyHeader } from "@/lib/server/api";
 import type { ActionResult } from "@/lib/server/api";
 import { getBatchImportReport, getOrgId } from "@/lib/server/batches";
 import type { ImportMemberRow, ImportReport } from "@/lib/server/batches";
@@ -75,8 +75,14 @@ interface ConfirmImportInput {
 export async function confirmImportAction(
   batchId: string,
   input: ConfirmImportInput,
+  idempotencyKey: string,
 ): Promise<ActionResult<{ job_id: string }>> {
-  const result = await apiAction<{ job_id: string }>("POST", `/api/batches/${batchId}/import/confirm`, input);
+  const result = await apiAction<{ job_id: string }>(
+    "POST",
+    `/api/batches/${batchId}/import/confirm`,
+    input,
+    idempotencyHeader(idempotencyKey),
+  );
   if (result.ok) {
     revalidatePath(ROUTES.batch(batchId));
   }

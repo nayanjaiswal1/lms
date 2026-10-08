@@ -34,7 +34,7 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 // path segment ("user-features") from internal/orgs's own "/members/..."
 // routes so this package needs no dependency on internal/orgs.
 func (rt *Router) RegisterOrgAdminRoutes(r chi.Router) {
-	r.Route("/api/orgs/{id}/user-features/{member_id}", func(r chi.Router) {
+	r.Route("/api/orgs/{id}/user-features/{memberID}", func(r chi.Router) {
 		r.Use(apimiddleware.RequireOrgMember(rt.pool))
 
 		r.Get("/", rt.handler.ListMemberFeatureFlags)

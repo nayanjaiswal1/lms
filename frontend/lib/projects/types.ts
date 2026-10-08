@@ -210,7 +210,7 @@ export interface MyProjectSummary {
   pages_url: string | null;
 }
 
-// GET /api/my/projects/{teamID}/detail — the full ProjectTeam row plus
+// GET /api/my/projects/{teamID}?include=contributions,checkpoints — the full ProjectTeam row plus
 // assignment_title/role (normally only on MyProjectSummary) and the team's
 // contributions + checkpoints, all in one response for the team detail page.
 export interface MyProjectDetailView extends ProjectTeam {

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiAction } from "@/lib/server/api";
+import { apiAction, idempotencyHeader } from "@/lib/server/api";
 import type { ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 import type { WorkspaceComment } from "@/lib/workspace/phase3-server";
@@ -83,8 +83,8 @@ export async function answerQuestionAction(
   return result;
 }
 
-export async function requirementGapsAction(workspaceId: string): Promise<ActionResult<RequirementGaps>> {
-  return apiAction<RequirementGaps>("POST", `/api/workspaces/${workspaceId}/requirement/gaps`);
+export async function requirementGapsAction(workspaceId: string, idempotencyKey: string): Promise<ActionResult<RequirementGaps>> {
+  return apiAction<RequirementGaps>("POST", `/api/workspaces/${workspaceId}/requirement/gaps`, undefined, idempotencyHeader(idempotencyKey));
 }
 
 // ── Brief ────────────────────────────────────────────────────────────────────

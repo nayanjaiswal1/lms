@@ -2,7 +2,8 @@ import Link from "next/link"
 import { BookmarkCheck, ExternalLink, FileX, Sparkles } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { getMyHighlights } from "@/lib/server/highlights"
+import { NextPageLink } from "@/components/shared/next-page-link"
+import { getSavedHighlights } from "@/lib/server/highlights"
 import type { Highlight } from "@/lib/server/highlights"
 import { getCurrentUser } from "@/lib/server/auth"
 import ROUTES from "@/lib/routes"
@@ -137,8 +138,16 @@ function HighlightCard({ highlight }: { highlight: Highlight }) {
   )
 }
 
-export default async function SavedHighlightsPage() {
-  const [highlights, user] = await Promise.all([getMyHighlights(true), getCurrentUser()])
+interface SavedHighlightsPageProps {
+  searchParams: Promise<{ cursor?: string }>
+}
+
+export default async function SavedHighlightsPage({ searchParams }: SavedHighlightsPageProps) {
+  const { cursor } = await searchParams
+  const [{ items: highlights, next_cursor: nextCursor }, user] = await Promise.all([
+    getSavedHighlights(cursor),
+    getCurrentUser(),
+  ])
   const isSuperAdmin = user?.platform_role === "super_admin"
 
   return (
@@ -149,7 +158,8 @@ export default async function SavedHighlightsPage() {
           <h1 className="page-title">Saved Highlights</h1>
         </div>
         <span className="text-sm text-muted-foreground">
-          {highlights.length} saved
+          {highlights.length}
+          {nextCursor ? "+" : ""} saved
         </span>
       </div>
 
@@ -190,6 +200,7 @@ export default async function SavedHighlightsPage() {
           {highlights.map((h) => (
             <HighlightCard highlight={h} key={h.id} />
           ))}
+          <NextPageLink nextCursor={nextCursor} />
         </div>
       )}
     </main>

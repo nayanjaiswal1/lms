@@ -153,5 +153,5 @@ func (h *Handler) Deactivate(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"status": "deactivated"})
+	w.WriteHeader(http.StatusNoContent)
 }

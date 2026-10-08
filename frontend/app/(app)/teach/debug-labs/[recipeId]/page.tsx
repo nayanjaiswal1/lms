@@ -4,7 +4,7 @@ import { BuildStatusBadge } from "@/components/labs/builder/build-status-badge";
 import { BuilderStepper } from "@/components/labs/builder/builder-stepper";
 import { StepBody } from "@/components/labs/builder/step-body";
 import { ValidationPanel } from "@/components/labs/builder/validation-panel";
-import { getRecipeView, requireLabAuthor, validateRecipe } from "@/lib/labs/builder/server";
+import { getRecipeView, requireLabAuthor, getRecipeAnalysis } from "@/lib/labs/builder/server";
 import { currentVerifiedBuild } from "@/lib/labs/builder/build";
 import { completedSteps, findStep } from "@/lib/labs/builder/steps";
 import ROUTES from "@/lib/routes";
@@ -22,7 +22,7 @@ export default async function RecipeBuilderPage({ params, searchParams }: Recipe
   await requireLabAuthor();
   const [{ recipeId }, { step: stepKey, course }] = await Promise.all([params, searchParams]);
   const step = findStep(stepKey);
-  const [view, analysis] = await Promise.all([getRecipeView(recipeId), validateRecipe(recipeId)]);
+  const [view, analysis] = await Promise.all([getRecipeView(recipeId), getRecipeAnalysis(recipeId)]);
 
   const recipe = view.recipe;
   const done = completedSteps(view.blocks, currentVerifiedBuild(recipe, analysis) !== null, Boolean(recipe.lab_id));

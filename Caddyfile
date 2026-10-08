@@ -8,7 +8,7 @@
 	# labproxy only serves "/ws" and "/health", so the "/lab-ws" prefix is
 	# stripped before proxying.
 	handle_path /lab-ws/* {
-		reverse_proxy labproxy:8081
+		reverse_proxy {$LABPROXY_UPSTREAM:labproxy:8081}
 	}
 
 	# MinIO S3 API — presigned PUT/GET URLs and public-read object fetches are
@@ -33,5 +33,5 @@
 	tls {
 		dns {$CADDY_DNS_PROVIDER} {$CADDY_DNS_API_TOKEN}
 	}
-	reverse_proxy labproxy:8081
+	reverse_proxy {$LABPROXY_UPSTREAM:labproxy:8081}
 }

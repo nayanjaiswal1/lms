@@ -7,9 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/mindforge/backend/internal/ai"
+	"github.com/mindforge/backend/internal/pagination"
 )
 
 var (
@@ -117,13 +120,6 @@ func (s *Service) Explain(ctx context.Context, userID string, req ExplainRequest
 
 // GetForSource returns a user's highlights for a specific content resource,
 // with cached explanations joined in. Used by the "see all highlights" panel.
-func (s *Service) GetForSource(ctx context.Context, userID string, sourceType SourceType, sourceID string) ([]Highlight, error) {
-	if !validSourceType(sourceType) {
-		return nil, ErrInvalidSource
-	}
-	return s.repo.ListBySource(ctx, userID, string(sourceType), sourceID)
-}
-
 // ToggleRevision flips the saved_for_revision flag on a user-owned highlight,
 // and updates its note when one is supplied.
 func (s *Service) ToggleRevision(ctx context.Context, userID, highlightID string, save bool, note *string) (Highlight, error) {
@@ -133,15 +129,16 @@ func (s *Service) ToggleRevision(ctx context.Context, userID, highlightID string
 	return s.repo.ToggleRevision(ctx, highlightID, userID, save, note)
 }
 
-const maxHighlightsListLimit = 200
-const defaultHighlightsListLimit = 100
-
-// ListMine returns the caller's highlights, optionally filtered to revision-saved only.
-func (s *Service) ListMine(ctx context.Context, userID string, savedOnly bool, limit int) ([]Highlight, error) {
-	if limit <= 0 || limit > maxHighlightsListLimit {
-		limit = defaultHighlightsListLimit
+// List returns one page of the caller's highlights matching f.
+func (s *Service) List(ctx context.Context, userID string, f ListFilter, p pagination.Params) (pagination.Page[Highlight], error) {
+	if f.SourceType != nil && !validSourceType(SourceType(*f.SourceType)) {
+		return pagination.Page[Highlight]{}, ErrInvalidSource
 	}
-	return s.repo.ListByUser(ctx, userID, savedOnly, limit)
+	rows, err := s.repo.List(ctx, userID, f, p)
+	if err != nil {
+		return pagination.Page[Highlight]{}, err
+	}
+	return pagination.NewPage(rows, p, func(h Highlight) (time.Time, string) { return h.CreatedAt, h.ID }), nil
 }
 
 // OrphanBySource is a package-level function for other domains to call when

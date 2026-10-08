@@ -5,9 +5,11 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool" //nolint:staticcheck // shared pool type
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -186,4 +188,12 @@ func RequirePlatformRole(pool *pgxpool.Pool, allowed ...string) func(http.Handle
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// HasLiveOrgRole reports whether userID currently holds one of allowed in
+// orgID — the in-handler counterpart of RequireOrgRole, for one endpoint that
+// returns more (e.g. drafts) to privileged callers instead of gating the route.
+func HasLiveOrgRole(ctx context.Context, pool *pgxpool.Pool, userID, orgID string, allowed ...string) bool {
+	role, ok := LiveOrgRole(ctx, pool, userID, orgID)
+	return ok && slices.Contains(allowed, role)
 }

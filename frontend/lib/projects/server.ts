@@ -67,7 +67,7 @@ export async function listMyProjects(): Promise<MyProjectSummary[]> {
 // (see handler_my_project.go). Row-scoped to the caller: 404, not 403, for
 // non-members.
 export async function getMyProjectDetail(teamId: string): Promise<MyProjectDetailView> {
-  return apiGet<MyProjectDetailView>(`/api/my/projects/${teamId}/detail`);
+  return apiGet<MyProjectDetailView>(`/api/my/projects/${teamId}?include=contributions,checkpoints`);
 }
 
 

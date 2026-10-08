@@ -7,13 +7,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mindforge/backend/internal/auth"
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/middleware"
 )
 
 type Handler struct {
-	service *Service
-	pool    *pgxpool.Pool
+	service  *Service
+	pool     *pgxpool.Pool
+	authzSvc *authz.Service // set by RegisterRoutes
 }
 
 func newHandler(service *Service, pool *pgxpool.Pool) *Handler {
@@ -56,28 +58,35 @@ func (h *Handler) UpsertFinalTest(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, ft)
 }
 
-// GetFinalTestForEdit handles GET /api/courses/{courseID}/final-test/edit
-func (h *Handler) GetFinalTestForEdit(w http.ResponseWriter, r *http.Request) {
+// GetFinalTest handles GET /api/courses/{courseID}/final-test — one resource
+// whose fields depend on the caller: instructors+ get the authoring view
+// (answers included); anyone else needs content.certificates and gets the
+// student view.
+func (h *Handler) GetFinalTest(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
 	courseID := chi.URLParam(r, "courseID")
-	ft, err := h.service.GetFinalTestForEdit(r.Context(), claims.OrgID, courseID)
+	if middleware.HasLiveOrgRole(r.Context(), h.pool, claims.UserID, claims.OrgID,
+		middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor) {
+		ft, err := h.service.GetFinalTestForEdit(r.Context(), claims.OrgID, courseID)
+		if err != nil {
+			writeDomainError(w, err)
+			return
+		}
+		httputil.WriteJSON(w, http.StatusOK, ft)
+		return
+	}
+	allowed, err := h.authzSvc.HasPermission(r.Context(), claims.UserID, claims.OrgID, PermCertificates)
 	if err != nil {
-		writeDomainError(w, err)
+		httputil.WriteError(w, http.StatusInternalServerError, "Permission check failed.")
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, ft)
-}
-
-// GetFinalTestForStudent handles GET /api/courses/{courseID}/final-test
-func (h *Handler) GetFinalTestForStudent(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
+	if !allowed {
+		httputil.WriteError(w, http.StatusForbidden, "You do not have permission to do that.")
 		return
 	}
-	courseID := chi.URLParam(r, "courseID")
 	ft, err := h.service.GetFinalTestForStudent(r.Context(), claims.UserID, courseID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -182,11 +191,11 @@ func (h *Handler) IssueCertificate(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusCreated, cert)
 }
 
-// CheckThresholdCertificate handles POST
-// /api/courses/{courseID}/certificates/check-threshold — evaluates and, if
-// eligible, issues the caller's own threshold-based certificate. Called by
-// the course page on every load; idempotent no-op once issued.
-func (h *Handler) CheckThresholdCertificate(w http.ResponseWriter, r *http.Request) {
+// ClaimCertificate handles POST /api/courses/{courseID}/certificates — creates
+// the caller's own threshold-based certificate if they are eligible.
+// Idempotent: returns the existing certificate once issued, null while not
+// yet eligible.
+func (h *Handler) ClaimCertificate(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return

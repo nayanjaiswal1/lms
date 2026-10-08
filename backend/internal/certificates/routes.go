@@ -3,6 +3,7 @@ package certificates
 import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/mindforge/backend/internal/assessment"
 	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/courses"
@@ -32,15 +33,18 @@ func New(pool *pgxpool.Pool, coursesRepo *courses.Repo, executor assessment.Code
 // directly, the same accessor pattern gitlab.Router/workspace.Handler use.
 func (rt *Router) Service() *Service { return rt.handler.service }
 
+// PermCertificates gates the student-facing certificate routes.
+const PermCertificates = "content.certificates"
+
 // RegisterRoutes mounts the authenticated routes under the caller's group.
 // Authoring is role-gated the same way courses' own module CRUD is (courses
 // doesn't use permission codes for authoring); student-facing reads/writes
 // are gated on content.certificates — the same permission code the
 // frontend's nav entry and <AccessGate> already check.
 func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
+	rt.handler.authzSvc = authzSvc
 	instructor := middleware.RequireOrgRole(rt.pool, middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor)
 	r.With(instructor).Group(func(r chi.Router) {
-		r.Get("/api/courses/{courseID}/final-test/edit", rt.handler.GetFinalTestForEdit)
 		r.Put("/api/courses/{courseID}/final-test", rt.handler.UpsertFinalTest)
 		r.Get("/api/courses/{courseID}/certificate-threshold", rt.handler.GetCertificateThreshold)
 		r.Put("/api/courses/{courseID}/certificate-threshold", rt.handler.UpsertCertificateThreshold)
@@ -54,12 +58,15 @@ func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 		r.Post("/api/courses/{courseID}/certificates/issue", rt.handler.IssueCertificate)
 	})
 
-	r.With(authz.RequirePermission(authzSvc, "content.certificates")).Group(func(r chi.Router) {
-		r.Get("/api/courses/{courseID}/final-test", rt.handler.GetFinalTestForStudent)
+	// Readable by instructors (authoring view) and content.certificates holders
+	// (student view); the handler picks the view.
+	r.Get("/api/courses/{courseID}/final-test", rt.handler.GetFinalTest)
+
+	r.With(authz.RequirePermission(authzSvc, PermCertificates)).Group(func(r chi.Router) {
 		r.Post("/api/courses/{courseID}/final-test/attempt", rt.handler.SubmitAttempt)
 		r.Get("/api/certificates/me", rt.handler.ListMyCertificates)
 		r.Get("/api/courses/{courseID}/certificates/me", rt.handler.GetMyCertificateForCourse)
-		r.Post("/api/courses/{courseID}/certificates/check-threshold", rt.handler.CheckThresholdCertificate)
+		r.Post("/api/courses/{courseID}/certificates", rt.handler.ClaimCertificate)
 	})
 }
 

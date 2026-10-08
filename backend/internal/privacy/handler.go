@@ -1,7 +1,6 @@
 package privacy
 
 import (
-	"errors"
 	"log/slog"
 	"net/http"
 
@@ -15,13 +14,26 @@ import (
 type Handler struct {
 	service *Service
 	pool    *pgxpool.Pool
+	stepUp  auth.StepUp
+}
+
+// stepUpRequest is the re-verification body shared by export and deletion.
+type stepUpRequest struct {
+	Password string `json:"password"`
+	Code     string `json:"code"`
+}
+
+// verified decodes the step-up body and re-verifies the caller.
+func (h *Handler) verified(w http.ResponseWriter, r *http.Request, userID string) bool {
+	var req stepUpRequest
+	return httputil.DecodeJSON(w, r, &req) && h.stepUp(w, r, userID, req.Password, req.Code)
 }
 
 // HandleExport returns the caller's full exportable data bundle as a JSON
-// download.
+// download. Body: stepUpRequest.
 func (h *Handler) HandleExport(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
+	if !ok || !h.verified(w, r, claims.UserID) {
 		return
 	}
 	data, err := h.service.Export(r.Context(), claims.UserID)
@@ -35,24 +47,14 @@ func (h *Handler) HandleExport(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleDeleteAccount anonymizes the caller's account and ends every
-// session. Body: {"password": "..."} — required only for password-based
-// accounts, ignored (may be omitted) for social/passkey-only accounts.
+// session. Body: stepUpRequest.
 func (h *Handler) HandleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
+	if !ok || !h.verified(w, r, claims.UserID) {
 		return
 	}
-	var req struct {
-		Password string `json:"password"`
-	}
-	if !httputil.DecodeJSON(w, r, &req) {
-		return
-	}
-	if err := h.service.DeleteAccount(r.Context(), claims.UserID, req.Password); err != nil {
-		if errors.Is(err, ErrWrongPassword) {
-			httputil.WriteError(w, http.StatusUnprocessableEntity, "Incorrect password.")
-			return
-		}
+	if err := h.service.DeleteAccount(r.Context(), claims.UserID); err != nil {
+		slog.Error("privacy: delete account", "error", err)
 		httputil.WriteError(w, http.StatusInternalServerError, "Could not delete your account.")
 		return
 	}

@@ -156,30 +156,6 @@ func (h *Handler) ListCategories(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, categories)
 }
 
-// GetGraph handles GET /api/journal/graph — every entry plus the pairs whose
-// titles matched, for the mind-map view. Unfiltered by category/search; the
-// frontend fetches this once and dims non-matching nodes client-side rather
-// than re-fetching (and re-laying-out the canvas) on every keystroke.
-func (h *Handler) GetGraph(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	// The graph needs every node to lay out correctly, not a recent-first
-	// page, so it asks for the safety-net ceiling rather than the feed default.
-	entries, err := h.repo.ListEntries(r.Context(), claims.UserID, ListEntriesFilter{Limit: MaxListLimit})
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	links, err := h.repo.ListSimilarPairs(r.Context(), claims.UserID)
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, GraphResponse{Entries: entries, Links: links})
-}
-
 // GetEntry handles GET /api/journal/:id.
 func (h *Handler) GetEntry(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)

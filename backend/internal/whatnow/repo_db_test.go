@@ -2,9 +2,10 @@ package whatnow
 
 import (
 	"context"
-	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 	"time"
+
+	"github.com/mindforge/backend/internal/testdomain"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 

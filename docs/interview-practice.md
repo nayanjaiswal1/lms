@@ -515,14 +515,9 @@ ORDER BY aq.position;
 
 Candidate context is loaded in a second query (one row from `user_onboarding_profiles` joined with profile skills). Total: 2 queries per evaluation job regardless of question count.
 
-### Queue Health Endpoint
+### Queue Health
 
-```
-GET /health/eval-queue
-→ { "pending": 4, "processing": 1, "workers": 3, "stuck_threshold_minutes": 10 }
-```
-
-Used by Docker Compose healthcheck and any future monitoring. Not auth-protected — returns only counts, no job data.
+No dedicated endpoint: eval jobs run on the shared jobs table, so stale or dead-lettered `eval.subjective` jobs are caught by the `ops.health` cron (see [ops-alerts.md](ops-alerts.md)).
 
 ### New Config Values
 

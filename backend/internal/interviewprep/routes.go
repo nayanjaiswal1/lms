@@ -7,6 +7,7 @@ import (
 	"github.com/mindforge/backend/internal/assessment"
 	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/config"
+	"github.com/mindforge/backend/internal/middleware"
 	"github.com/mindforge/backend/internal/practice"
 )
 
@@ -28,7 +29,7 @@ func New(pool *pgxpool.Pool, cfg *config.Config, aiProvider ai.LLMProvider, prac
 // burns the same LLM and code-executor quota the practice domain does.
 func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 	r = r.With(authz.RequirePermission(authzSvc, practice.PermUse))
-	r.Post("/api/interview-prep", h.CreatePlan)
+	r.With(middleware.Idempotency(h.repo.pool)).Post("/api/interview-prep", h.CreatePlan)
 	r.Get("/api/interview-prep", h.ListPlans)
 	r.Get("/api/interview-prep/{planID}", h.GetPlan)
 	r.Get("/api/interview-prep/{planID}/report", h.GetReport)

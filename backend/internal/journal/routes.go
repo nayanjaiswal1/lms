@@ -20,7 +20,6 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 	r.With(authz.RequirePermission(authzSvc, "content.learning_journal")).Group(func(r chi.Router) {
 		r.Get("/api/journal", h.ListEntries)
 		r.Get("/api/journal/categories", h.ListCategories)
-		r.Get("/api/journal/graph", h.GetGraph)
 		r.Post("/api/journal", h.CreateEntry)
 		r.Post("/api/journal/structure", h.StructureEntry)
 		r.Get("/api/journal/{id}", h.GetEntry)

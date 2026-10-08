@@ -32,13 +32,13 @@ func New(pool *pgxpool.Pool, coursesRepo *courses.Repo, provider ai.LLMProvider)
 // again here since UI gates are UX, not security.
 func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 	r.With(authz.RequirePermission(authzSvc, "content.system_design")).Group(func(r chi.Router) {
-		r.Get("/api/modules/{moduleId}/design/attempts", rt.handler.ListAttempts)
-		r.Post("/api/modules/{moduleId}/design/attempts", rt.handler.CreateAttempt)
-		r.Get("/api/modules/{moduleId}/design/attempts/{attemptId}", rt.handler.GetAttempt)
-		r.Put("/api/modules/{moduleId}/design/attempts/{attemptId}/scene", rt.handler.SaveScene)
-		r.Post("/api/modules/{moduleId}/design/attempts/{attemptId}/feedback", rt.handler.GenerateFeedback)
+		r.Get("/api/modules/{moduleID}/design/attempts", rt.handler.ListAttempts)
+		r.Post("/api/modules/{moduleID}/design/attempts", rt.handler.CreateAttempt)
+		r.Get("/api/modules/{moduleID}/design/attempts/{attemptID}", rt.handler.GetAttempt)
+		r.Put("/api/modules/{moduleID}/design/attempts/{attemptID}/scene", rt.handler.SaveScene)
+		r.Post("/api/modules/{moduleID}/design/attempts/{attemptID}/feedback", rt.handler.GenerateFeedback)
 
-		r.Get("/api/modules/{moduleId}/design/chat", rt.handler.ListChat)
-		r.Post("/api/modules/{moduleId}/design/chat", rt.handler.SendChatMessage)
+		r.Get("/api/modules/{moduleID}/design/chat", rt.handler.ListChat)
+		r.Post("/api/modules/{moduleID}/design/chat", rt.handler.SendChatMessage)
 	})
 }

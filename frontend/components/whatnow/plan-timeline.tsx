@@ -85,7 +85,7 @@ export function PlanTimeline({
   function makeResizeHandlers(task: PlanTask) {
     return {
       onPointerDown: (e: React.PointerEvent) => {
-        resizeOrigin.current = { clientY: e.clientY, originDurationMin: task.durationMin ?? 30 };
+        resizeOrigin.current = { clientY: e.clientY, originDurationMin: task.duration_min ?? 30 };
         onResizeStart(task.id);
       },
       onPointerMove: (e: React.PointerEvent) => {
@@ -96,7 +96,7 @@ export function PlanTimeline({
         if (!resizeOrigin.current) return;
         const deltaMinutes = snapMinutes(((e.clientY - resizeOrigin.current.clientY) / PX_PER_HOUR) * 60);
         const durationMin = Math.max(15, resizeOrigin.current.originDurationMin + deltaMinutes);
-        onSchedule(task.id, { durationMin });
+        onSchedule(task.id, { duration_min: durationMin });
         resizeOrigin.current = null;
         onResizeEnd();
       },
@@ -148,7 +148,7 @@ export function PlanTimeline({
               const source = e.dataTransfer.getData(TASK_SOURCE_MIME);
               const minutes = minutesFromPointer(e.currentTarget, e.clientY);
               onSchedule(taskId, {
-                scheduledStart: dateAtMinutes(dayStart, minutes).toISOString(),
+                scheduled_start: dateAtMinutes(dayStart, minutes).toISOString(),
                 ...(source === "inbox" ? { status: "planned" as const } : {}),
               });
             }}
@@ -167,9 +167,9 @@ export function PlanTimeline({
               }}
             />
             {tasks.map((task) => {
-              const start = task.scheduledStart ? new Date(task.scheduledStart) : dayStart;
+              const start = task.scheduled_start ? new Date(task.scheduled_start) : dayStart;
               const startMinutes = minutesSinceMidnight(start);
-              let durationMinutes = task.durationMin ?? 30;
+              let durationMinutes = task.duration_min ?? 30;
               if (resizePreview?.taskId === task.id) {
                 durationMinutes = Math.max(15, durationMinutes + resizePreview.deltaMinutes);
               }
@@ -189,7 +189,7 @@ export function PlanTimeline({
                     e.dataTransfer.setData(TASK_SOURCE_MIME, "scheduled");
                     e.dataTransfer.effectAllowed = "move";
                   }}
-                  onUnschedule={() => onSchedule(task.id, { scheduledStart: null })}
+                  onUnschedule={() => onSchedule(task.id, { scheduled_start: null })}
                 />
               );
             })}

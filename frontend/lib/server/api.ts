@@ -210,6 +210,12 @@ export async function apiActionPublic<T = undefined>(
   }
 }
 
+/** extraHeaders for a POST the backend runs at most once per key
+ *  (middleware.Idempotency) — the key comes from hooks/use-idempotency-key. */
+export function idempotencyHeader(key: string): Record<string, string> {
+  return { "Idempotency-Key": key };
+}
+
 export async function apiAction<T = undefined>(
   method: string,
   path: string,

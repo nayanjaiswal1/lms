@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
-import { apiGet, apiPost } from "@/lib/server/api";
+import { apiGet } from "@/lib/server/api";
 import { getCurrentUser } from "@/lib/server/auth";
 import { getMyPermissions } from "@/lib/server/permissions";
 import type {
@@ -26,9 +26,11 @@ export async function requireLabAuthor(): Promise<string[]> {
   return perms;
 }
 
-/** Whether the caller may author org text blocks (the API enforces it too). */
+/** Whether the caller may author org text blocks. Mirrors the API gate, which
+ *  requires both compose and manage_blocks. */
 export async function canManageBlocks(): Promise<boolean> {
-  return (await getMyPermissions()).includes(PERMISSIONS.LABAUTHOR.MANAGE_BLOCKS);
+  const perms = await getMyPermissions();
+  return perms.includes(PERMISSIONS.LABAUTHOR.COMPOSE) && perms.includes(PERMISSIONS.LABAUTHOR.MANAGE_BLOCKS);
 }
 
 /** Page guard for the text-block editor. */
@@ -49,9 +51,8 @@ export async function getRecipeView(id: string): Promise<RecipeView> {
   return apiGet<RecipeView>(`${BASE}/recipes/${id}`);
 }
 
-/** Side-effect free on the backend; POST only because validation is an action verb there. */
-export async function validateRecipe(id: string): Promise<RecipeAnalysis> {
-  return apiPost<RecipeAnalysis>(`${BASE}/recipes/${id}/validate`, {});
+export async function getRecipeAnalysis(id: string): Promise<RecipeAnalysis> {
+  return apiGet<RecipeAnalysis>(`${BASE}/recipes/${id}/analysis`);
 }
 
 export async function getCandidates(id: string, kind: string): Promise<Candidate[]> {

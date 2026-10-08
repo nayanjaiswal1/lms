@@ -177,35 +177,6 @@ func (r *Repo) FindSimilarEntries(ctx context.Context, userID, title, excludeID 
 // doesn't need real pagination, but an unbounded self-join deserves a floor.
 const similarPairsLimit = 500
 
-// ListSimilarPairs returns every pair of userID's own entries whose titles
-// clear journalMatchThreshold against each other — the graph view's
-// cross-branch edges. a.id < b.id keeps each pair once (not twice, reversed).
-func (r *Repo) ListSimilarPairs(ctx context.Context, userID string) ([]SimilarPair, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT a.id, b.id
-		 FROM learning_journal_entries a
-		 JOIN learning_journal_entries b
-		   ON b.user_id = a.user_id AND b.id > a.id AND similarity(a.title, b.title) > $2
-		 WHERE a.user_id = $1
-		 LIMIT $3`,
-		userID, journalMatchThreshold, similarPairsLimit,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("journal: list similar pairs: %w", err)
-	}
-	defer rows.Close()
-
-	out := []SimilarPair{}
-	for rows.Next() {
-		var p SimilarPair
-		if err := rows.Scan(&p.SourceID, &p.TargetID); err != nil {
-			return nil, fmt.Errorf("journal: scan similar pair: %w", err)
-		}
-		out = append(out, p)
-	}
-	return out, rows.Err()
-}
-
 // CreateEntry inserts a new entry. req.EntryDate nil defaults to today via
 // the SQL COALESCE — the handler is responsible for turning an empty string
 // into nil before this is called.

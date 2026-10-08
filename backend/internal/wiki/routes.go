@@ -75,13 +75,12 @@ func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 		r.Patch("/api/wiki/spaces/{id}", rt.handler.UpdateSpace)
 		r.With(middleware.RequireOrgRole(rt.pool, middleware.RoleOwner, middleware.RoleAdmin)).Delete("/api/wiki/spaces/{id}", rt.handler.DeleteSpace)
 
-		r.Get("/api/wiki/spaces/{spaceId}/pages", rt.handler.GetPageTree)
-		r.Post("/api/wiki/spaces/{spaceId}/pages", rt.handler.CreatePage)
+		r.Get("/api/wiki/spaces/{spaceID}/pages", rt.handler.GetPageTree)
+		r.Post("/api/wiki/spaces/{spaceID}/pages", rt.handler.CreatePage)
 
 		r.Get("/api/wiki/pages/{id}", rt.handler.GetPage)
 		r.Patch("/api/wiki/pages/{id}", rt.handler.UpdatePage)
 		r.Delete("/api/wiki/pages/{id}", rt.handler.DeletePage)
-		r.Post("/api/wiki/pages/{id}/move", rt.handler.MovePage)
 
 		// OKF (github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
 		// export/import — same pages, same RBAC, a markdown+frontmatter

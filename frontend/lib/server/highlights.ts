@@ -1,4 +1,5 @@
 import { apiGet } from "@/lib/server/api"
+import { fetchAllPages, withCursor, type Page } from "@/lib/pagination"
 
 export type HighlightSourceType = "wiki_page" | "lesson" | "problem"
 
@@ -49,18 +50,20 @@ interface AnalyticsEntry {
   created_at: string
 }
 
+/** Every highlight the caller made on one content resource (bounded per lesson/page). */
 export async function getHighlightsForSource(
   sourceType: HighlightSourceType,
   sourceId: string,
 ): Promise<Highlight[]> {
-  return apiGet<Highlight[]>(
+  return fetchAllPages(
+    apiGet<Page<Highlight>>,
     `/api/highlights?source_type=${encodeURIComponent(sourceType)}&source_id=${encodeURIComponent(sourceId)}`,
   )
 }
 
-export async function getMyHighlights(savedOnly = false): Promise<Highlight[]> {
-  const qs = savedOnly ? "?saved_only=true" : ""
-  return apiGet<Highlight[]>(`/api/highlights/me${qs}`)
+/** One page of the caller's revision-saved highlights, newest first. */
+export async function getSavedHighlights(cursor?: string): Promise<Page<Highlight>> {
+  return apiGet<Page<Highlight>>(withCursor("/api/highlights?saved_only=true", cursor))
 }
 
 export async function getHighlightAnalytics(limit = 50): Promise<AnalyticsEntry[]> {

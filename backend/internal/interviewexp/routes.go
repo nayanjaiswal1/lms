@@ -42,7 +42,7 @@ func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 		r.Post("/api/interview-exp/vote", rt.handler.Vote)
 
 		r.Get("/api/interview-exp/faq", rt.handler.GetFaq)
-		r.Patch("/api/interview-exp/faq/{qnaId}/progress", rt.handler.UpdateFaqStatus)
-		r.Patch("/api/interview-exp/faq/{qnaId}/star", rt.handler.UpdateFaqStarred)
+		r.Patch("/api/interview-exp/faq/{qnaID}/progress", rt.handler.UpdateFaqStatus)
+		r.Patch("/api/interview-exp/faq/{qnaID}/star", rt.handler.UpdateFaqStarred)
 	})
 }

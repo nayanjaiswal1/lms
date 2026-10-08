@@ -113,13 +113,13 @@ func BuildStudentPreview(lab *LabDefinition, tasks []TaskSnapshot) any {
 
 // HandleGetLab returns lab metadata and a student-safe task list.
 //
-//	GET /api/labs/{labId}
+//	GET /api/labs/{labID}
 func (h *Handler) HandleGetLab(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	labID := chi.URLParam(r, "labId")
+	labID := chi.URLParam(r, "labID")
 
 	lab, err := h.repo.GetLab(r.Context(), labID, claims.OrgID)
 	if err != nil {
@@ -147,13 +147,13 @@ func (h *Handler) HandleGetLab(w http.ResponseWriter, r *http.Request) {
 
 // HandleGetLabByModule returns the published lab linked to a course module.
 //
-//	GET /api/modules/{moduleId}/lab
+//	GET /api/modules/{moduleID}/lab
 func (h *Handler) HandleGetLabByModule(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	moduleID := chi.URLParam(r, "moduleId")
+	moduleID := chi.URLParam(r, "moduleID")
 
 	lab, err := h.repo.GetLabByModuleID(r.Context(), moduleID, claims.OrgID)
 	if err != nil {
@@ -181,7 +181,7 @@ func (h *Handler) HandleGetLabByModule(w http.ResponseWriter, r *http.Request) {
 
 // HandleStartSession starts (or resumes) a lab session for the authenticated user.
 //
-//	POST /api/labs/{labId}/sessions
+//	POST /api/labs/{labID}/sessions
 //
 // Idempotency-Key is optional and passed through verbatim — StartSession only
 // treats it as a cache hit while the cached session is still non-terminal
@@ -197,7 +197,7 @@ func (h *Handler) HandleStartSession(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	labID := chi.URLParam(r, "labId")
+	labID := chi.URLParam(r, "labID")
 
 	idempotencyKey := r.Header.Get("Idempotency-Key")
 
@@ -254,13 +254,13 @@ func (h *Handler) HandleListActiveSessions(w http.ResponseWriter, r *http.Reques
 
 // HandleGetSession returns a session and its task completion records.
 //
-//	GET /api/labs/sessions/{sessionId}
+//	GET /api/labs/sessions/{sessionID}
 func (h *Handler) HandleGetSession(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "sessionId")
+	sessionID := chi.URLParam(r, "sessionID")
 
 	session, completions, err := h.service.GetSession(r.Context(), sessionID, claims.UserID)
 	if err != nil {
@@ -290,13 +290,13 @@ func (h *Handler) HandleGetSession(w http.ResponseWriter, r *http.Request) {
 
 // HandleSessionEvents streams Server-Sent Events for container readiness.
 //
-//	GET /api/labs/sessions/{sessionId}/events
+//	GET /api/labs/sessions/{sessionID}/events
 func (h *Handler) HandleSessionEvents(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "sessionId")
+	sessionID := chi.URLParam(r, "sessionID")
 
 	// IDOR check: ensure the session belongs to this user.
 	if _, err := h.repo.GetSession(r.Context(), sessionID, claims.UserID); err != nil {
@@ -309,13 +309,13 @@ func (h *Handler) HandleSessionEvents(w http.ResponseWriter, r *http.Request) {
 
 // HandleMintWSToken issues a short-lived JWT for the in-browser terminal WebSocket.
 //
-//	POST /api/labs/sessions/{sessionId}/ws-token
+//	POST /api/labs/sessions/{sessionID}/ws-token
 func (h *Handler) HandleMintWSToken(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "sessionId")
+	sessionID := chi.URLParam(r, "sessionID")
 
 	token, err := h.service.MintWSToken(r.Context(), sessionID, claims.UserID, h.jwtSecret, h.jwtIssuer)
 	if err != nil {
@@ -334,14 +334,14 @@ func (h *Handler) HandleMintWSToken(w http.ResponseWriter, r *http.Request) {
 // Terminal/guided/playground labs run the verification script inside the
 // session's Docker container and ignore the request body entirely.
 //
-//	POST /api/labs/sessions/{sessionId}/tasks/{taskId}/verify
+//	POST /api/labs/sessions/{sessionID}/tasks/{taskID}/verify
 func (h *Handler) HandleVerifyTask(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "sessionId")
-	taskID := chi.URLParam(r, "taskId")
+	sessionID := chi.URLParam(r, "sessionID")
+	taskID := chi.URLParam(r, "taskID")
 
 	var body struct {
 		Code string `json:"code"`
@@ -386,8 +386,8 @@ func (h *Handler) HandleHint(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "sessionId")
-	taskID := chi.URLParam(r, "taskId")
+	sessionID := chi.URLParam(r, "sessionID")
+	taskID := chi.URLParam(r, "taskID")
 
 	result, err := h.service.RequestHint(r.Context(), sessionID, taskID, claims.UserID, r.Header.Get("Idempotency-Key"))
 	if err != nil {
@@ -401,13 +401,13 @@ func (h *Handler) HandleHint(w http.ResponseWriter, r *http.Request) {
 // HandleResetSession clears all task completions and zeroes the score,
 // consuming one of the session's allowed resets.
 //
-//	POST /api/labs/sessions/{sessionId}/reset
+//	POST /api/labs/sessions/{sessionID}/reset
 func (h *Handler) HandleResetSession(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "sessionId")
+	sessionID := chi.URLParam(r, "sessionID")
 
 	session, completions, err := h.service.ResetSession(r.Context(), sessionID, claims.UserID)
 	if err != nil {
@@ -423,13 +423,13 @@ func (h *Handler) HandleResetSession(w http.ResponseWriter, r *http.Request) {
 
 // HandleEndSession terminates an active session and resolves its final status.
 //
-//	POST /api/labs/sessions/{sessionId}/end
+//	POST /api/labs/sessions/{sessionID}/end
 func (h *Handler) HandleEndSession(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "sessionId")
+	sessionID := chi.URLParam(r, "sessionID")
 
 	if err := h.service.EndSession(r.Context(), sessionID, claims.UserID); err != nil {
 		writeDomainError(w, err)

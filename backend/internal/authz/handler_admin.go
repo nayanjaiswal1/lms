@@ -178,7 +178,7 @@ func (h *Handler) HandleDisableRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{"message": "Role disabled."})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // HandleEnableRole re-activates a previously disabled role.
@@ -410,7 +410,7 @@ func (h *Handler) HandleRevokeRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{"message": "Role revoked."})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // HandleGetUserPermissions returns the effective permission codes for any user
@@ -520,7 +520,7 @@ func (h *Handler) HandleRevokeUserPermission(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{"message": "Permission revoked."})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ─── Account status ───────────────────────────────────────────────────────────

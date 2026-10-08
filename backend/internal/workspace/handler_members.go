@@ -98,7 +98,7 @@ func (h *Handler) RemoveMember(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ─── tracks ─────────────────────────────────────────────────────────────────
@@ -159,7 +159,7 @@ func (h *Handler) DeleteTrack(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) JoinTrack(w http.ResponseWriter, r *http.Request) {
@@ -203,7 +203,7 @@ func (h *Handler) LeaveTrack(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ─── onboarding ─────────────────────────────────────────────────────────────
@@ -264,7 +264,7 @@ func (h *Handler) DeleteOnboardingStep(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) SetOnboardingStepDone(w http.ResponseWriter, r *http.Request) {

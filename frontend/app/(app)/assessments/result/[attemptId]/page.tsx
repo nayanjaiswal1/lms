@@ -10,7 +10,6 @@ import { RefreshPoller } from "@/components/shared/refresh-poller";
 import { RewardResultNotifier } from "@/components/rewards/reward-result-notifier";
 import { getAttemptResult, getEvaluation } from "@/lib/assessments/server";
 import { getMyFeedback } from "@/lib/server/feedback";
-import { getMyExperienceReport } from "@/lib/server/experience";
 import ROUTES from "@/lib/routes";
 import { PostAttemptPrompts } from "./_components/post-attempt-prompts";
 import type { ReviewItem } from "@/lib/assessments/types";
@@ -46,7 +45,7 @@ export default async function ResultPage({ params }: PageProps) {
   const [myFeedback, myExperienceReport] = showPostAttemptPrompts
     ? await Promise.all([
         getMyFeedback("assessment", attempt.assessment_id).catch(() => null),
-        getMyExperienceReport("assessment", attemptId).catch(() => null),
+        getMyFeedback("assessment", attemptId, "experience").catch(() => null),
       ])
     : [null, null];
 

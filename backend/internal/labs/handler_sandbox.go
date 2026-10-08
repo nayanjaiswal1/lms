@@ -12,13 +12,13 @@ import (
 // HandleListPorts returns the TCP ports currently listening inside the
 // session's container (sandbox workspace port list / preview picker).
 //
-//	GET /api/labs/sessions/{sessionId}/ports
+//	GET /api/labs/sessions/{sessionID}/ports
 func (h *Handler) HandleListPorts(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "sessionId")
+	sessionID := chi.URLParam(r, "sessionID")
 
 	ports, err := h.service.ListPorts(r.Context(), sessionID, claims.UserID)
 	if err != nil {
@@ -31,13 +31,13 @@ func (h *Handler) HandleListPorts(w http.ResponseWriter, r *http.Request) {
 // HandleRunScript executes the lab's student-visible run_script (sample
 // tests) inside the session container. Unscored, rate-limited.
 //
-//	POST /api/labs/sessions/{sessionId}/run
+//	POST /api/labs/sessions/{sessionID}/run
 func (h *Handler) HandleRunScript(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "sessionId")
+	sessionID := chi.URLParam(r, "sessionID")
 
 	result, err := h.service.RunScript(r.Context(), sessionID, claims.UserID)
 	if err != nil {
@@ -50,13 +50,13 @@ func (h *Handler) HandleRunScript(w http.ResponseWriter, r *http.Request) {
 // HandleSubmitAll runs every task's hidden verification script in one batch
 // and returns per-task pass/fail plus the resulting score/completion state.
 //
-//	POST /api/labs/sessions/{sessionId}/submit
+//	POST /api/labs/sessions/{sessionID}/submit
 func (h *Handler) HandleSubmitAll(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "sessionId")
+	sessionID := chi.URLParam(r, "sessionID")
 
 	result, err := h.service.SubmitAll(r.Context(), sessionID, claims.UserID)
 	if err != nil {

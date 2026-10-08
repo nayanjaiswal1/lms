@@ -2,7 +2,6 @@ package assessment
 
 import (
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"net/mail"
 	"strings"
@@ -60,14 +59,7 @@ const (
 // attemptToken reads the candidate token from the X-Attempt-Token header. The
 // legacy URL-path form is still accepted for one release and logged.
 func attemptToken(r *http.Request) string {
-	if t := strings.TrimSpace(r.Header.Get(attemptTokenHeader)); t != "" {
-		return t
-	}
-	if t := httputil.URLParam(r, "token"); t != "" {
-		slog.Warn("deprecated public attempt token in URL path; send X-Attempt-Token", "path_prefix", "/api/p/")
-		return t
-	}
-	return ""
+	return strings.TrimSpace(r.Header.Get(attemptTokenHeader))
 }
 
 // tokenExpired reports whether the attempt token has outlived started_at +
@@ -148,7 +140,7 @@ type submitPublicAttemptRequest struct {
 }
 
 // SubmitPublicAttempt grades MCQ answers and marks the session complete.
-// POST /api/p/{code}/submit with X-Attempt-Token (legacy: /submit/{token})
+// POST /api/p/{code}/submit with X-Attempt-Token
 func (h *Handler) SubmitPublicAttempt(w http.ResponseWriter, r *http.Request) {
 	code := httputil.URLParam(r, "code")
 	token := attemptToken(r)
@@ -200,7 +192,7 @@ func (h *Handler) SubmitPublicAttempt(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetPublicResult returns the scored result for a candidate session.
-// GET /api/p/{code}/result with X-Attempt-Token (legacy: /result/{token})
+// GET /api/p/{code}/result with X-Attempt-Token
 func (h *Handler) GetPublicResult(w http.ResponseWriter, r *http.Request) {
 	a, err := h.repo.GetAssessmentByShortCode(r.Context(), httputil.URLParam(r, "code"))
 	if err != nil {

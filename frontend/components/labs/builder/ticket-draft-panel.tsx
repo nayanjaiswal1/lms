@@ -13,6 +13,7 @@ import { FormSelectField } from "@/components/ui/form-select-field";
 import { FormTextareaField } from "@/components/ui/form-textarea-field";
 import { useSaveSpec, type RecipeRef } from "@/components/labs/builder/use-save-spec";
 import { createTextBlockAction, draftTicketAction } from "@/lib/labs/builder/actions";
+import { useIdempotencyKey } from "@/hooks/use-idempotency-key";
 import { TICKET_PERSONA_OPTIONS } from "@/lib/labs/builder/options";
 import { withBlock } from "@/lib/labs/builder/spec";
 
@@ -38,6 +39,7 @@ export function TicketDraftPanel({ recipe, ticketVersionIds, canDraft, canSave }
   const { save, pending: saving } = useSaveSpec(recipe);
   const [drafting, startDraft] = useTransition();
   const [creating, startCreate] = useTransition();
+  const withKey = useIdempotencyKey();
   const form = useForm<DraftValues>({
     resolver: zodResolver(DraftSchema),
     defaultValues: { persona: TICKET_PERSONA_OPTIONS[0].value, title: `${recipe.title} ticket`, body: "" },
@@ -45,7 +47,7 @@ export function TicketDraftPanel({ recipe, ticketVersionIds, canDraft, canSave }
 
   const draft = () =>
     startDraft(async () => {
-      const res = await draftTicketAction(recipe.id, form.getValues("persona"));
+      const res = await withKey((key) => draftTicketAction(recipe.id, form.getValues("persona"), key));
       if (!res.ok || !res.data) {
         toast.error(
           res.code === "rate_limited"

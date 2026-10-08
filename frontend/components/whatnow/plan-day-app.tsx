@@ -61,10 +61,10 @@ function planReducer(state: PlanState, action: PlanAction): PlanState {
       // state.plan.date — that lags at the server-guessed day until the mount
       // refetch resolves, and a mismatch here silently wiped the task from
       // every list even though the PATCH persisted fine.
-      if (task.scheduledStart && isoDateParam(new Date(task.scheduledStart)) === action.viewDate) {
+      if (task.scheduled_start && isoDateParam(new Date(task.scheduled_start)) === action.viewDate) {
         scheduled.push(task);
-        scheduled.sort((a, b) => (a.scheduledStart ?? "").localeCompare(b.scheduledStart ?? ""));
-      } else if (!task.scheduledStart) {
+        scheduled.sort((a, b) => (a.scheduled_start ?? "").localeCompare(b.scheduled_start ?? ""));
+      } else if (!task.scheduled_start) {
         unscheduled.push(task);
       }
       // else: scheduled for a different day — it belongs to that day's view, not this one.
@@ -201,7 +201,7 @@ export function PlanDayApp({
     try {
       const task = await whatnowApi.captureTask(title);
       await scheduleTask(task.id, {
-        scheduledStart: dateAtMinutes(startOfDay(new Date(`${date}T00:00:00`)), minutes).toISOString(),
+        scheduled_start: dateAtMinutes(startOfDay(new Date(`${date}T00:00:00`)), minutes).toISOString(),
         status: "planned",
       });
     } catch (err) {
@@ -217,7 +217,7 @@ export function PlanDayApp({
           tasks={state.plan.unscheduled}
           onPlanInboxTask={(task) => void planInboxTask(task)}
           onReorder={(next) => void reorderUnscheduled(next)}
-          onUnschedule={(taskId) => void scheduleTask(taskId, { scheduledStart: null })}
+          onUnschedule={(taskId) => void scheduleTask(taskId, { scheduled_start: null })}
         />
         <CaptureSheet onCaptured={() => void refreshInbox()} />
       </div>

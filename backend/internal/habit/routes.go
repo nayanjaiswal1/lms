@@ -21,7 +21,7 @@ func New(pool *pgxpool.Pool) *Router {
 // group. The caller must have already applied requireAuth + requireCSRF middleware.
 func (rt *Router) RegisterRoutes(r chi.Router) {
 	r.Post("/api/habits", rt.handler.Create)
-	r.Get("/api/habits", rt.handler.MonthView)
+	r.Get("/api/habits", rt.handler.List)
 	r.Patch("/api/habits/{habitID}", rt.handler.Update)
 	r.Delete("/api/habits/{habitID}", rt.handler.Delete)
 

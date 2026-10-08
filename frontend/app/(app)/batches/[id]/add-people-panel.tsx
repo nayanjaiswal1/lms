@@ -15,6 +15,7 @@ import { addBatchMembersAction, importValidateAction, confirmImportAction } from
 import { addBatchMentorAction } from "@/lib/batches/actions";
 import type { BatchInvitation, OrgMemberSummary } from "@/lib/server/batches";
 import { InviteHistory } from "@/app/(app)/batches/[id]/invite-history";
+import { useIdempotencyKey } from "@/hooks/use-idempotency-key";
 
 type Role = "member" | "mentor";
 type View = "people" | "history";
@@ -73,6 +74,7 @@ export function AddPeoplePanel({ batchId, orgMembers, currentMemberIds, currentM
   const [view, setView] = useQueryState("view", parseAsStringEnum<View>([...VIEWS]).withDefault("people"));
   const { query, setQuery, submitting, setSubmitting, roleByUser, setRole, selected, toggleSelected, setSelected } =
     useAddPeopleForm();
+  const withKey = useIdempotencyKey();
 
   function openBulkImport() {
     void setOpen(false);
@@ -142,12 +144,13 @@ export function AddPeoplePanel({ batchId, orgMembers, currentMemberIds, currentM
       return;
     }
 
-    const confirmed = await confirmImportAction(batchId, {
-      rows: [validatedRow],
-      course_ids: [],
-      mentor_ids: [],
-      locked_fields: ["full_name"],
-    });
+    const confirmed = await withKey((key) =>
+      confirmImportAction(
+        batchId,
+        { rows: [validatedRow], course_ids: [], mentor_ids: [], locked_fields: ["full_name"] },
+        key,
+      ),
+    );
     setSubmitting(false);
     if (confirmed.error) {
       toast.error(confirmed.error);

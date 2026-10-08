@@ -7,7 +7,7 @@
 
 import type {
   BreakdownProposal,
-  CompleteResponse,
+  PatchResult,
   Energy,
   NowResponse,
   PlanToday,
@@ -63,13 +63,12 @@ export const whatnowApi = {
   // inbox / edits
   getInbox: () => request<Task[]>("GET", "/tasks/inbox"),
   patchTask: (id: string, patch: TaskPatch) =>
-    request<Task>("PATCH", `/tasks/${id}`, patch),
+    request<PatchResult>("PATCH", `/tasks/${id}`, patch),
 
-  // focus lifecycle
-  completeTask: (id: string) =>
-    request<CompleteResponse>("POST", `/tasks/${id}/complete`),
+  // focus lifecycle — status transitions are PATCHes of the task's status
+  completeTask: (id: string) => request<PatchResult>("PATCH", `/tasks/${id}`, { status: "done" }),
   pauseTask: (id: string, resumeNote: string) =>
-    request<Task>("POST", `/tasks/${id}/pause`, { resumeNote }),
+    request<PatchResult>("PATCH", `/tasks/${id}`, { status: "paused", resume_note: resumeNote }),
   stuckTask: (id: string, reason: StuckReason) =>
     request<StuckResolution>("POST", `/tasks/${id}/stuck`, { reason }),
 
@@ -82,11 +81,11 @@ export const whatnowApi = {
   // plan
   getPlanToday: () => request<PlanToday>("GET", "/plan/today"),
   postPlanToday: (taskIds: string[]) =>
-    request<PlanToday>("POST", "/plan/today", { taskIds }),
+    request<PlanToday>("POST", "/plan/today", { task_ids: taskIds }),
 
   // archive / amnesty
   getDecayed: () => request<Task[]>("GET", "/archive/decayed"),
-  reviveTask: (id: string) => request<Task>("POST", `/tasks/${id}/revive`),
+  reviveTask: (id: string) => request<PatchResult>("PATCH", `/tasks/${id}`, { status: "inbox" }),
   getWeeklyRecap: () => request<WeeklyRecap>("GET", "/recap/weekly"),
 
   // energy

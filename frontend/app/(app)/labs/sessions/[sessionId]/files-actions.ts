@@ -43,8 +43,8 @@ export async function renameLabFileAction(
 export async function deleteLabFileAction(
   sessionId: string,
   path: string,
-): Promise<ActionResult<{ ok: boolean }>> {
-  return apiAction<{ ok: boolean }>(
+): Promise<ActionResult> {
+  return apiAction(
     "DELETE",
     `/api/labs/sessions/${sessionId}/files?path=${encodeURIComponent(path)}`,
   )

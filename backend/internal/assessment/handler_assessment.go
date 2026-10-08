@@ -323,28 +323,16 @@ func (h *Handler) RemoveAssessmentQuestion(w http.ResponseWriter, r *http.Reques
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Question removed."})
-}
-
-func (h *Handler) PublishAssessment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	a, err := h.service.Publish(r.Context(), claims.OrgID, httputil.URLParam(r, "assessmentID"))
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, a)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 type statusRequest struct {
 	Status string `json:"status"`
 }
 
-// SetAssessmentStatus performs lifecycle transitions other than publish
-// (active, completed, archived). Draft→published goes through PublishAssessment.
+// SetAssessmentStatus handles POST /api/assessments/{assessmentID}/status —
+// every lifecycle transition, publishing included (Service.SetStatus).
+// Returns the updated assessment.
 func (h *Handler) SetAssessmentStatus(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -354,16 +342,12 @@ func (h *Handler) SetAssessmentStatus(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	allowed := map[string]bool{StatusActive: true, StatusCompleted: true, StatusArchived: true, StatusDraft: true}
-	if !allowed[req.Status] {
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"status": "Invalid status transition."})
-		return
-	}
-	if err := h.repo.SetStatus(r.Context(), claims.OrgID, httputil.URLParam(r, "assessmentID"), req.Status, false); err != nil {
+	a, err := h.service.SetStatus(r.Context(), claims.OrgID, httputil.URLParam(r, "assessmentID"), req.Status)
+	if err != nil {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Status updated.", "status": req.Status})
+	httputil.WriteJSON(w, http.StatusOK, a)
 }
 
 // ─── Assignments ─────────────────────────────────────────────────────────────
@@ -424,7 +408,7 @@ func (h *Handler) DeleteAssignment(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Assignment removed."})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ─── Batches ─────────────────────────────────────────────────────────────────
@@ -590,5 +574,5 @@ func (h *Handler) RemoveBatchMember(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Member removed."})
+	w.WriteHeader(http.StatusNoContent)
 }

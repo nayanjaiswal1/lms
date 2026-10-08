@@ -13,6 +13,7 @@ var (
 	ErrInvalidCadence       = errors.New("habit: invalid cadence")
 	ErrInvalidMonth         = errors.New("habit: month must be formatted YYYY-MM")
 	ErrInvalidPeriod        = errors.New("habit: period must be formatted YYYY-MM-DD")
+	ErrInvalidRange         = errors.New("habit: from/to must be YYYY-MM-DD, from <= to, at most a year apart")
 	ErrFuturePeriod         = errors.New("habit: cannot log a completion for a period that hasn't happened yet")
 	ErrInvalidColor         = errors.New("habit: invalid color")
 	ErrInvalidTarget        = errors.New("habit: target_count must be between 1 and 7")
@@ -282,10 +283,27 @@ func (s *Service) MonthView(ctx context.Context, userID, month string) (MonthVie
 	if err != nil {
 		return MonthView{}, ErrInvalidMonth
 	}
-	monthEnd := monthStart.AddDate(0, 1, -1)
-	rangeStart := mondayOfWeek(monthStart)
+	return s.listRange(ctx, userID, monthStart, monthStart.AddDate(0, 1, -1))
+}
 
-	habits, completions, err := s.repo.ListForRange(ctx, userID, rangeStart, monthEnd)
+// maxRangeDays bounds GET /api/habits?from=&to= so one read stays small.
+const maxRangeDays = 366
+
+// ListRange returns the user's habits plus every completion whose period
+// overlaps [from, to] (YYYY-MM-DD, inclusive).
+func (s *Service) ListRange(ctx context.Context, userID, from, to string) (MonthView, error) {
+	start, err1 := time.Parse("2006-01-02", from)
+	end, err2 := time.Parse("2006-01-02", to)
+	if err1 != nil || err2 != nil || end.Before(start) || end.Sub(start) > maxRangeDays*24*time.Hour {
+		return MonthView{}, ErrInvalidRange
+	}
+	return s.listRange(ctx, userID, start, end)
+}
+
+// listRange widens the start to that week's Monday so a weekly completion
+// whose period began before start but overlaps it is included.
+func (s *Service) listRange(ctx context.Context, userID string, start, end time.Time) (MonthView, error) {
+	habits, completions, err := s.repo.ListForRange(ctx, userID, mondayOfWeek(start), end)
 	if err != nil {
 		return MonthView{}, err
 	}

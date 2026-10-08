@@ -81,5 +81,5 @@ func (h *Handler) DeleteModuleTranslation(w http.ResponseWriter, r *http.Request
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Translation deleted."})
+	w.WriteHeader(http.StatusNoContent)
 }

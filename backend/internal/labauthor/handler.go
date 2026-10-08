@@ -189,14 +189,14 @@ func (h *Handler) HandleDeleteBlock(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// HandleYankVersion: POST /api/admin/lab-authoring/blocks/{versionId}/yank
+// HandleYankVersion: POST /api/admin/lab-authoring/blocks/{versionID}/yank
 // (platform super_admin). Blocks new builds from the version; never touches
 // live labs, and lists the ones built from it.
 func (h *Handler) HandleYankVersion(w http.ResponseWriter, r *http.Request) {
 	if _, ok := auth.RequireClaims(w, r); !ok {
 		return
 	}
-	id, ok := pathID(w, r, "versionId")
+	id, ok := pathID(w, r, "versionID")
 	if !ok {
 		return
 	}
@@ -218,14 +218,14 @@ func (h *Handler) HandleYankVersion(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"affected_labs": labs})
 }
 
-// HandleAffectedLabs: GET /api/admin/lab-authoring/blocks/{versionId}/affected-labs
+// HandleAffectedLabs: GET /api/admin/lab-authoring/blocks/{versionID}/affected-labs
 // (platform super_admin) — the published labs built from a version, so the
 // yank dialog can show its blast radius before it is confirmed.
 func (h *Handler) HandleAffectedLabs(w http.ResponseWriter, r *http.Request) {
 	if _, ok := auth.RequireClaims(w, r); !ok {
 		return
 	}
-	id, ok := pathID(w, r, "versionId")
+	id, ok := pathID(w, r, "versionID")
 	if !ok {
 		return
 	}
@@ -330,10 +330,10 @@ func (h *Handler) HandleDeleteRecipe(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// HandleValidateRecipe: POST /api/instructor/lab-authoring/recipes/{id}/validate
-// — synchronous, no side effects. Always 200; an invalid composition is a
-// normal result with issues, not an HTTP error.
-func (h *Handler) HandleValidateRecipe(w http.ResponseWriter, r *http.Request) {
+// HandleRecipeAnalysis: GET /api/instructor/lab-authoring/recipes/{id}/analysis
+// — the validator's verdict on the saved recipe. Always 200; an invalid
+// composition is a normal result with issues, not an HTTP error.
+func (h *Handler) HandleRecipeAnalysis(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return

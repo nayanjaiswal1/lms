@@ -1,6 +1,6 @@
 import "server-only";
 
-import { apiGet, apiGetPublic, apiPost } from "@/lib/server/api";
+import { apiAction, apiGet, apiGetPublic, apiPost } from "@/lib/server/api";
 import type { BundleRef } from "@/lib/server/bundles";
 
 export interface Course {
@@ -360,14 +360,13 @@ export interface FinalTestConfig {
   max_attempts: number;
 }
 
-// Instructor-only — includes correct answers, for the authoring form. Returns
-// null when the course has no final test yet (fresh authoring form).
+// For instructors the final-test resource includes correct answers (the
+// authoring form). Null when the course has no final test yet.
 export async function getFinalTestForEdit(courseID: string): Promise<FinalTestConfig | null> {
-  try {
-    return await apiGet<FinalTestConfig>(`/api/courses/${courseID}/final-test/edit`);
-  } catch {
-    return null;
-  }
+  const res = await apiAction<FinalTestConfig>("GET", `/api/courses/${courseID}/final-test`);
+  if (res.status === 404) return null;
+  if (!res.ok || !res.data) throw new Error(res.error ?? "Could not load the final test.");
+  return res.data;
 }
 
 
@@ -399,7 +398,7 @@ export async function getCertificateRule(courseID: string): Promise<CertificateR
 // Never throws: an unreachable backend just means no certificate this load.
 export async function checkThresholdCertificate(courseID: string): Promise<Certificate | null> {
   try {
-    return await apiPost<Certificate | null>(`/api/courses/${courseID}/certificates/check-threshold`);
+    return await apiPost<Certificate | null>(`/api/courses/${courseID}/certificates`);
   } catch {
     return null;
   }

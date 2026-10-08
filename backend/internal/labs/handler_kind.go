@@ -29,14 +29,14 @@ func (h *Handler) HandleCatalog(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, entries)
 }
 
-// HandleDebrief serves GET /api/labs/sessions/{sessionId}/debrief (completed
+// HandleDebrief serves GET /api/labs/sessions/{sessionID}/debrief (completed
 // sessions only; IDOR via GetSession(userID)).
 func (h *Handler) HandleDebrief(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	out, err := h.service.GetDebrief(r.Context(), chi.URLParam(r, "sessionId"), claims.UserID)
+	out, err := h.service.GetDebrief(r.Context(), chi.URLParam(r, "sessionID"), claims.UserID)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -44,13 +44,13 @@ func (h *Handler) HandleDebrief(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, out)
 }
 
-// HandleWriteupReview serves POST /api/labs/sessions/{sessionId}/writeup-review.
+// HandleWriteupReview serves POST /api/labs/sessions/{sessionID}/writeup-review.
 func (h *Handler) HandleWriteupReview(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	out, err := h.service.ReviewWriteup(r.Context(), chi.URLParam(r, "sessionId"), claims.UserID)
+	out, err := h.service.ReviewWriteup(r.Context(), chi.URLParam(r, "sessionID"), claims.UserID)
 	if err != nil {
 		writeDomainError(w, err)
 		return

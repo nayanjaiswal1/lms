@@ -468,7 +468,7 @@ func (h *Handler) HandleWebAuthnCredentialDelete(w http.ResponseWriter, r *http.
 
 	authevents.Emit(r.Context(), h.pool, r, claims.UserID, authevents.PasskeyRemoved)
 	h.notifyUserSecurityChange(r.Context(), claims.UserID, "a passkey was removed")
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Passkey removed."})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ─── HandleWebAuthnLoginBegin / Finish ────────────────────────────────────────

@@ -267,7 +267,7 @@ CREATE TABLE course_bundle_items (
 ```
 
 Rules:
-- **Visibility** — students only see `published` bundles, and only the `published` courses inside them. Instructors see drafts through the `/manage` endpoints.
+- **Visibility** — students only see `published` bundles, and only the `published` courses inside them. Instructors see drafts by passing `?include_drafts=true` (403 for anyone below instructor).
 - **Enroll in all** (`POST /api/bundles/{bundleID}/enroll`) enrolls the student in every published **free** course in one statement (`ON CONFLICT DO NOTHING`, so existing enrollments are untouched). Paid courses are never granted here — they come back in `requires_purchase_course_ids` and the student buys each through its own checkout. There is no bundle price yet; a single bundle checkout would need its own purchase/coupon/refund path.
 - **Course list** is replaced wholesale by `PUT /api/bundles/{bundleID}/courses` (`{course_ids: [...]}`, max 50, distinct, all in the caller's org) — one call covers add, remove and reorder.
 - **Deleting** a bundle removes only the grouping; courses and student data are unaffected. Deleting a course drops it from every bundle (FK cascade).
@@ -319,10 +319,10 @@ An instructor authors a course as `draft`, builds out sections/modules, then `PO
 | `POST` | `/api/sections/{sectionID}/library-items` | Attach a library item into a section |
 | `POST` | `/api/upload` | Upload a course asset (video/PDF) |
 | `POST` | `/api/upload/course-asset` | Get a signed upload URL |
-| `POST` | `/api/courses/generate-outline` | AI-generated course outline draft |
+| `POST` | `/api/course-outlines` | AI-generated course outline draft (nothing persisted; honours `Idempotency-Key`) |
 | `POST` | `/api/bundles` | Create a bundle (`draft` by default) |
-| `GET` | `/api/bundles/manage` | Every bundle in the org, drafts included |
-| `GET` | `/api/bundles/{bundleID}/manage` | Bundle detail for the editor (drafts + unpublished courses included) |
+| `GET` | `/api/bundles?include_drafts=true` | Every bundle in the org, drafts included (instructor+) |
+| `GET` | `/api/bundles/by-slug/{slug}?include_drafts=true` | Bundle detail for the editor (drafts + unpublished courses included; instructor+) |
 | `PATCH` | `/api/bundles/{bundleID}` | Update title/description/cover/status |
 | `DELETE` | `/api/bundles/{bundleID}` | Delete a bundle (courses untouched) |
 | `PUT` | `/api/bundles/{bundleID}/courses` | Replace the ordered course list |

@@ -8,12 +8,9 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// MyProjectDetailView is GET /api/my/projects/{teamID}/detail's response
-// body — the caller's own team plus its assignment context, contribution
-// breakdown, and checkpoint list, embedded in one response so the team
-// detail page needs a single round trip instead of four separate ones
-// (GetMyProject + ListMyProjects + GetMyProjectContributions +
-// GetMyProjectCheckpoints).
+// MyProjectDetailView is GET /api/my/projects/{teamID}: the caller's own
+// team plus its assignment context and their role, with Contributions and
+// Checkpoints filled only when requested via ?include= (null otherwise).
 type MyProjectDetailView struct {
 	ProjectTeam
 	AssignmentTitle string `json:"assignment_title"`

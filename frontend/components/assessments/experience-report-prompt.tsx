@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { submitExperienceReportAction } from "@/lib/assessments/actions";
-import type { ExperienceValue } from "@/lib/server/experience";
+import type { ExperienceValue } from "@/lib/server/feedback";
 
 interface ExperienceReportPromptProps {
   attemptId: string;
@@ -48,7 +48,7 @@ export function ExperienceReportPrompt({ attemptId, alreadyResponded, onDone }: 
 
   function handleSkip() {
     startTransition(async () => {
-      const result = await submitExperienceReportAction({ subjectType: "assessment", subjectId: attemptId, skip: true });
+      const result = await submitExperienceReportAction({ subjectId: attemptId, skip: true });
       if (!result.ok) {
         toast.error(result.error ?? "Something went wrong. Please try again.");
         return;
@@ -62,7 +62,6 @@ export function ExperienceReportPrompt({ attemptId, alreadyResponded, onDone }: 
     startTransition(async () => {
       const description = descriptionRef.current?.value.trim() || undefined;
       const result = await submitExperienceReportAction({
-        subjectType: "assessment",
         subjectId: attemptId,
         experience: selected,
         description,

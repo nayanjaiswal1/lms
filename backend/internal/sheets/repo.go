@@ -579,8 +579,12 @@ func NextRevisionDays(scheme string, base, reviewCount int) int {
 // other status. Progressing to a *later* interval after a "done" item comes
 // due is MarkReviewed's job, not this one.
 func (r *Repo) UpsertProgress(ctx context.Context, userID, topicTag, status string, revisionAt *time.Time) (SheetItem, error) {
+	return upsertProgress(ctx, r.pool, userID, topicTag, status, revisionAt)
+}
+
+func upsertProgress(ctx context.Context, q rowQuerier, userID, topicTag, status string, revisionAt *time.Time) (SheetItem, error) {
 	var it SheetItem
-	err := r.pool.QueryRow(ctx,
+	err := q.QueryRow(ctx,
 		`INSERT INTO user_problem_progress (user_id, topic_tag, status, solved_at, revision_at, review_count)
 		 VALUES (
 		   $1, $2, $3,
@@ -671,8 +675,12 @@ func (r *Repo) MarkReviewed(ctx context.Context, userID, topicTag, sheetID strin
 // interval picker on the mark-solved transition and MarkReviewed. No-ops
 // (ErrNotFound) on a "todo" item since those have no revision_at to move.
 func (r *Repo) UpdateRevision(ctx context.Context, userID, topicTag string, revisionAt time.Time) (SheetItem, error) {
+	return updateRevision(ctx, r.pool, userID, topicTag, revisionAt)
+}
+
+func updateRevision(ctx context.Context, q rowQuerier, userID, topicTag string, revisionAt time.Time) (SheetItem, error) {
 	var it SheetItem
-	err := r.pool.QueryRow(ctx,
+	err := q.QueryRow(ctx,
 		`UPDATE user_problem_progress
 		 SET revision_at = $3
 		 WHERE user_id = $1 AND topic_tag = $2 AND status IN ('done', 'revisit')
@@ -740,8 +748,12 @@ func (r *Repo) UpsertSheetSettings(ctx context.Context, userID, sheetID string, 
 // autosaved from the sheet tracker's note editor without disturbing solved
 // state. Creates a "todo" progress row if the user has never touched status.
 func (r *Repo) UpsertNotes(ctx context.Context, userID, topicTag string, notes json.RawMessage) (SheetItem, error) {
+	return upsertNotes(ctx, r.pool, userID, topicTag, notes)
+}
+
+func upsertNotes(ctx context.Context, q rowQuerier, userID, topicTag string, notes json.RawMessage) (SheetItem, error) {
 	var it SheetItem
-	err := r.pool.QueryRow(ctx,
+	err := q.QueryRow(ctx,
 		`INSERT INTO user_problem_progress (user_id, topic_tag, notes)
 		 VALUES ($1, $2, $3)
 		 ON CONFLICT (user_id, topic_tag) DO UPDATE SET notes = EXCLUDED.notes
@@ -758,8 +770,12 @@ func (r *Repo) UpsertNotes(ctx context.Context, userID, topicTag string, notes j
 // status — same shape as UpsertNotes. Creates a "todo" progress row if the
 // user has never touched status.
 func (r *Repo) SetStarred(ctx context.Context, userID, topicTag string, starred bool) (SheetItem, error) {
+	return setStarred(ctx, r.pool, userID, topicTag, starred)
+}
+
+func setStarred(ctx context.Context, q rowQuerier, userID, topicTag string, starred bool) (SheetItem, error) {
 	var it SheetItem
-	err := r.pool.QueryRow(ctx,
+	err := q.QueryRow(ctx,
 		`INSERT INTO user_problem_progress (user_id, topic_tag, is_starred)
 		 VALUES ($1, $2, $3)
 		 ON CONFLICT (user_id, topic_tag) DO UPDATE SET is_starred = EXCLUDED.is_starred
@@ -768,6 +784,58 @@ func (r *Repo) SetStarred(ctx context.Context, userID, topicTag string, starred 
 	).Scan(&it.TopicTag, &it.Status, &it.SolvedAt, &it.RevisionAt, &it.ReviewCount, &it.IsStarred)
 	if err != nil {
 		return SheetItem{}, fmt.Errorf("sheets: set starred: %w", err)
+	}
+	return it, nil
+}
+
+// rowQuerier is satisfied by both *pgxpool.Pool and pgx.Tx.
+type rowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// ProgressPatch is a partial update of the caller's progress on one topic.
+// RevisionAt with Status "done" overrides the computed first interval;
+// without a Status it reschedules an already-done/revisit item.
+type ProgressPatch struct {
+	Status     *string
+	RevisionAt *time.Time
+	Notes      *json.RawMessage
+	Starred    *bool
+}
+
+// PatchProgress applies every field of p to userID's progress on topicTag in
+// one transaction and returns the resulting row.
+func (r *Repo) PatchProgress(ctx context.Context, userID, topicTag string, p ProgressPatch) (SheetItem, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return SheetItem{}, fmt.Errorf("sheets: patch progress: begin: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	switch {
+	case p.Status != nil:
+		_, err = upsertProgress(ctx, tx, userID, topicTag, *p.Status, p.RevisionAt)
+	case p.RevisionAt != nil:
+		_, err = updateRevision(ctx, tx, userID, topicTag, *p.RevisionAt)
+	}
+	if err == nil && p.Notes != nil {
+		_, err = upsertNotes(ctx, tx, userID, topicTag, *p.Notes)
+	}
+	if err == nil && p.Starred != nil {
+		_, err = setStarred(ctx, tx, userID, topicTag, *p.Starred)
+	}
+	if err != nil {
+		return SheetItem{}, err
+	}
+	var it SheetItem
+	if err := tx.QueryRow(ctx,
+		`SELECT topic_tag, status, solved_at, revision_at, review_count, notes, is_starred
+		 FROM user_problem_progress WHERE user_id = $1 AND topic_tag = $2`,
+		userID, topicTag,
+	).Scan(&it.TopicTag, &it.Status, &it.SolvedAt, &it.RevisionAt, &it.ReviewCount, &it.Notes, &it.IsStarred); err != nil {
+		return SheetItem{}, fmt.Errorf("sheets: patch progress: reload: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return SheetItem{}, fmt.Errorf("sheets: patch progress: commit: %w", err)
 	}
 	return it, nil
 }

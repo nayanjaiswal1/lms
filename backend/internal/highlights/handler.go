@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
@@ -96,46 +97,34 @@ func (h *Handler) ToggleRevision(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, highlight)
 }
 
-// ListBySource handles GET /api/highlights?source_type=&source_id=
-// Returns the caller's highlights for a specific content resource with
-// explanations joined in — used by the page-level "see all highlights" panel.
-func (h *Handler) ListBySource(w http.ResponseWriter, r *http.Request) {
+// List handles GET /api/highlights?source_type=&source_id=&saved_only=&limit=&cursor=
+// — the caller's own highlights, newest first, explanations joined in. Every
+// filter is optional; one content resource's highlights pass both source
+// params, the revision list passes saved_only=true.
+func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	sourceType := SourceType(r.URL.Query().Get("source_type"))
-	sourceID := r.URL.Query().Get("source_id")
-	if sourceID == "" {
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
-			"source_id": "required",
-		})
-		return
-	}
-	highlights, err := h.service.GetForSource(r.Context(), claims.UserID, sourceType, sourceID)
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, highlights)
-}
-
-// ListMine handles GET /api/highlights/me
-// Returns the caller's highlights, newest first.
-// Query param: ?saved_only=true filters to revision-saved highlights only.
-func (h *Handler) ListMine(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
+	p, ok := httputil.PageParams(w, r)
 	if !ok {
 		return
 	}
-	savedOnly, _ := strconv.ParseBool(r.URL.Query().Get("saved_only"))
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	highlights, err := h.service.ListMine(r.Context(), claims.UserID, savedOnly, limit)
+	q := r.URL.Query()
+	f := ListFilter{SourceType: httputil.QueryStrPtr(r, "source_type"), SourceID: httputil.QueryStrPtr(r, "source_id")}
+	if f.SourceID != nil {
+		if _, err := uuid.Parse(*f.SourceID); err != nil {
+			httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"source_id": "must be a UUID"})
+			return
+		}
+	}
+	f.SavedOnly, _ = strconv.ParseBool(q.Get("saved_only"))
+	page, err := h.service.List(r.Context(), claims.UserID, f, p)
 	if err != nil {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, highlights)
+	httputil.WriteJSON(w, http.StatusOK, page)
 }
 
 // Analytics handles GET /api/admin/highlights/analytics

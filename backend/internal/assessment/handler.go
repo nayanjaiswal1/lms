@@ -48,6 +48,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrAttemptClosed:       {Status: http.StatusConflict, Message: "This attempt has already been submitted."},
 	ErrAttemptExpired:      {Status: http.StatusConflict, Message: "Your time for this attempt has expired."},
 	ErrNoQuestions:         {Status: http.StatusUnprocessableEntity, Message: "Add at least one question first."},
+	ErrInvalidStatus:       {Status: http.StatusUnprocessableEntity, Message: "Invalid status transition."},
 	ErrNotCodingQuestion:   {Status: http.StatusUnprocessableEntity, Message: "This question does not support running code."},
 	ErrExecutorUnavailable: {Status: http.StatusServiceUnavailable, Message: "Code execution is not available right now."},
 	ErrSessionSuperseded:   {Status: http.StatusConflict, Message: "Your session moved to another device or tab. This window is no longer active."},
@@ -402,7 +403,7 @@ func (h *Handler) ArchiveQuestion(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Question archived."})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func normaliseTags(tags []string) []string {

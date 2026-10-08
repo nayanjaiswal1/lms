@@ -152,29 +152,3 @@ func (h *Handler) HandleReviewQueue(w http.ResponseWriter, r *http.Request) {
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
 }
-
-// HandleEvalQueueHealth returns the number of queued and in-flight eval.subjective jobs.
-// Intended for ops dashboards and alerting; requires staff role.
-func (h *Handler) HandleEvalQueueHealth(w http.ResponseWriter, r *http.Request) {
-	_, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-
-	var pending, processing int
-	row := h.pool.QueryRow(r.Context(), `
-		SELECT
-			COUNT(*) FILTER (WHERE status = 'queued')  AS pending,
-			COUNT(*) FILTER (WHERE status = 'running') AS processing
-		FROM jobs
-		WHERE handler = 'eval.subjective' AND deleted_at IS NULL`,
-	)
-	if err := row.Scan(&pending, &processing); err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, "Failed to read queue depth.")
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{
-		"pending":    pending,
-		"processing": processing,
-	})
-}

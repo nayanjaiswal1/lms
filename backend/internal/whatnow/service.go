@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,6 +30,7 @@ var (
 	ErrTemplateNameEmpty = errors.New("whatnow: template name is required")
 	ErrTemplateNoFields  = errors.New("whatnow: template must have at least one field")
 	ErrInvalidDate       = errors.New("whatnow: date must be YYYY-MM-DD")
+	ErrInvalidStatus     = errors.New("whatnow: invalid task status")
 )
 
 // Service holds the deterministic What Now? business logic — a direct port
@@ -399,53 +401,63 @@ func applyPatch(t *Task, patch TaskPatch) {
 	t.touchedAt = time.Now()
 }
 
-func (s *Service) PatchTask(ctx context.Context, userID, id string, patch TaskPatch) (Task, error) {
+// PatchTask applies a partial update. A status change runs that transition's
+// side effects: done stamps completed_at and reports the tasks it unblocked,
+// paused/done drop any pin, and leaving decayed marks the task revived.
+func (s *Service) PatchTask(ctx context.Context, userID, id string, patch TaskPatch) (PatchResult, error) {
+	if patch.Status != nil && !validStatuses[*patch.Status] {
+		return PatchResult{}, ErrInvalidStatus
+	}
 	t, err := s.repo.GetTask(ctx, id, userID)
 	if err != nil {
-		return Task{}, err
+		return PatchResult{}, err
 	}
+	from := t.Status
 	applyPatch(&t, patch)
-	if err := s.repo.UpdateTask(ctx, t); err != nil {
-		return Task{}, err
+	if patch.Status != nil && *patch.Status != from {
+		applyTransition(&t, from)
 	}
-	return t, nil
-}
-
-func containsString(list []string, target string) bool {
-	for _, v := range list {
-		if v == target {
-			return true
+	if err := s.repo.UpdateTask(ctx, t); err != nil {
+		return PatchResult{}, err
+	}
+	res := PatchResult{Task: t}
+	if t.Status == StatusDone && from != StatusDone {
+		if res.UnlockedTasks, err = s.unlockedBy(ctx, userID, id); err != nil {
+			return PatchResult{}, err
 		}
 	}
-	return false
+	return res, nil
 }
 
-func (s *Service) CompleteTask(ctx context.Context, userID, id string) (CompleteResponse, error) {
-	t, err := s.repo.GetTask(ctx, id, userID)
-	if err != nil {
-		return CompleteResponse{}, err
+// applyTransition stamps the side effects of moving t out of status from.
+func applyTransition(t *Task, from TaskStatus) {
+	now := t.touchedAt
+	switch t.Status {
+	case StatusDone:
+		t.CompletedAt = now.Format(time.RFC3339)
+		t.pinnedUntil = nil
+	case StatusPaused:
+		t.pinnedUntil = nil
 	}
-	now := time.Now()
-	t.Status = StatusDone
-	t.CompletedAt = now.Format(time.RFC3339)
-	t.touchedAt = now
-	t.pinnedUntil = nil
-	if err := s.repo.UpdateTask(ctx, t); err != nil {
-		return CompleteResponse{}, err
+	if from == StatusDecayed {
+		t.revivedAt = &now
 	}
+}
 
+// unlockedBy returns the open tasks that depended on doneID and now have
+// every dependency done.
+func (s *Service) unlockedBy(ctx context.Context, userID, doneID string) ([]Task, error) {
 	doneIDs, err := s.repo.ListDoneIDs(ctx, userID)
 	if err != nil {
-		return CompleteResponse{}, fmt.Errorf("whatnow: complete task: %w", err)
+		return nil, fmt.Errorf("whatnow: unlocked tasks: %w", err)
 	}
 	candidates, err := s.repo.ListByStatuses(ctx, userID, []TaskStatus{StatusInbox, StatusPlanned, StatusActive, StatusPaused})
 	if err != nil {
-		return CompleteResponse{}, fmt.Errorf("whatnow: complete task: %w", err)
+		return nil, fmt.Errorf("whatnow: unlocked tasks: %w", err)
 	}
-
 	unlocked := make([]Task, 0)
 	for _, x := range candidates {
-		if !containsString(x.DependsOn, id) {
+		if !slices.Contains(x.DependsOn, doneID) {
 			continue
 		}
 		allDone := true
@@ -459,22 +471,7 @@ func (s *Service) CompleteTask(ctx context.Context, userID, id string) (Complete
 			unlocked = append(unlocked, x)
 		}
 	}
-	return CompleteResponse{UnlockedTasks: unlocked}, nil
-}
-
-func (s *Service) PauseTask(ctx context.Context, userID, id, resumeNote string) (Task, error) {
-	t, err := s.repo.GetTask(ctx, id, userID)
-	if err != nil {
-		return Task{}, err
-	}
-	t.Status = StatusPaused
-	t.ResumeNote = resumeNote
-	t.touchedAt = time.Now()
-	t.pinnedUntil = nil
-	if err := s.repo.UpdateTask(ctx, t); err != nil {
-		return Task{}, err
-	}
-	return t, nil
+	return unlocked, nil
 }
 
 // StuckTask applies one of the 4 canned resolutions from store.ts's
@@ -525,21 +522,6 @@ func (s *Service) StuckTask(ctx context.Context, userID, id string, reason Stuck
 		return StuckResolution{}, err
 	}
 	return res, nil
-}
-
-func (s *Service) ReviveTask(ctx context.Context, userID, id string) (Task, error) {
-	t, err := s.repo.GetTask(ctx, id, userID)
-	if err != nil {
-		return Task{}, err
-	}
-	now := time.Now()
-	t.Status = StatusInbox
-	t.revivedAt = &now
-	t.touchedAt = now
-	if err := s.repo.UpdateTask(ctx, t); err != nil {
-		return Task{}, err
-	}
-	return t, nil
 }
 
 // ProposeBreakdown returns a fixed 3-step template — not an AI call.

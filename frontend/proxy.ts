@@ -106,15 +106,15 @@ function syncLastPage(request: NextRequest, page: string, event: NextFetchEvent)
   if (!backendUrl || !accessToken) return
   const csrfToken = request.cookies.get("csrf_token")?.value ?? ""
   event.waitUntil(
-    fetch(`${backendUrl}/api/profile/me/last-page`, {
-      method: "PUT",
+    fetch(`${backendUrl}/api/profile/me`, {
+      method: "PATCH",
       headers: {
         "Content-Type": "application/json",
         // eslint-disable-next-line no-restricted-syntax -- Proxy can't import lib/server/api.ts (next/headers-backed); same precedent as the refresh call below.
         Cookie: `access_token=${accessToken}; csrf_token=${csrfToken}`,
         "X-CSRF-Token": csrfToken,
       },
-      body: JSON.stringify({ path: page }),
+      body: JSON.stringify({ last_page: page }),
       cache: "no-store",
       signal: AbortSignal.timeout(5000),
     }).catch(() => undefined),

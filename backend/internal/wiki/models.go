@@ -182,12 +182,10 @@ type UpdatePageRequest struct {
 	Emoji       *string          `json:"emoji"`
 	OrderIndex  *int             `json:"order_index"`
 	ParentID    *string          `json:"parent_id"`
+	// ClearParent moves the page to the space root (parent_id: null cannot be
+	// told apart from an omitted field). Mutually exclusive with ParentID.
+	ClearParent bool             `json:"clear_parent"`
 	OKFMetadata *json.RawMessage `json:"okf_metadata"`
-}
-
-type MovePageRequest struct {
-	ParentID   *string `json:"parent_id"`
-	OrderIndex int     `json:"order_index"`
 }
 
 type CreateCommentRequest struct {

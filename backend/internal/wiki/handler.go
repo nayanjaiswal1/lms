@@ -139,7 +139,7 @@ func (h *Handler) DeleteSpace(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]bool{"deleted": true})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ─── Page tree ────────────────────────────────────────────────────────────────
@@ -149,7 +149,7 @@ func (h *Handler) GetPageTree(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	tree, err := h.service.GetPageTree(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "spaceId"))
+	tree, err := h.service.GetPageTree(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "spaceID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -168,7 +168,7 @@ func (h *Handler) CreatePage(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	p, err := h.service.CreatePage(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "spaceId"), req)
+	p, err := h.service.CreatePage(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "spaceID"), req)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -215,24 +215,7 @@ func (h *Handler) DeletePage(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]bool{"deleted": true})
-}
-
-func (h *Handler) MovePage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
-	if !ok {
-		return
-	}
-	var req MovePageRequest
-	if !httputil.DecodeJSON(w, r, &req) {
-		return
-	}
-	p, err := h.service.MovePage(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id"), req)
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, p)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ─── Version history ─────────────────────────────────────────────────────────
@@ -344,7 +327,7 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]bool{"deleted": true})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ─── Templates ────────────────────────────────────────────────────────────────
@@ -388,7 +371,7 @@ func (h *Handler) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]bool{"deleted": true})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ─── OKF export/import ────────────────────────────────────────────────────────

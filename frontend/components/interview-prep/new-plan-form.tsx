@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { createPrepPlanAction } from "@/lib/interview-prep/actions";
+import { useIdempotencyKey } from "@/hooks/use-idempotency-key";
 import { classifyPrepInput, type PrepMode } from "@/lib/interview-prep/classify";
 import { PRACTICE_CATEGORY_OPTIONS, PRACTICE_DIFFICULTY_OPTIONS, PRACTICE_QUESTION_COUNT_OPTIONS } from "@/lib/constants";
 import ROUTES from "@/lib/routes";
@@ -29,6 +30,7 @@ const OTHER_MODE: Record<PrepMode, PrepMode> = { quick: "targeted", targeted: "q
 // extraction on the pasted text, not a manual picker.
 export function NewPlanForm() {
   const router = useRouter();
+  const withKey = useIdempotencyKey();
   const [text, setText] = useState("");
   const [modeOverride, setModeOverride] = useQueryState("mode", parseAsStringEnum<PrepMode>(["quick", "targeted"]));
   const [advancedOpen, setAdvancedOpen] = useQueryState("advanced", parseAsStringEnum<"open">(["open"]));
@@ -40,13 +42,14 @@ export function NewPlanForm() {
       const value = (fd.get("text") as string).trim();
       if (!value) return { error: "Tell us what you're preparing for." };
 
-      const result = await createPrepPlanAction({
+      const input = {
         text: value,
         modeOverride: modeOverride ?? undefined,
         difficulty: fd.get("difficulty") as string,
         questionCount: fd.get("question_count") ? Number(fd.get("question_count")) : undefined,
         category: (fd.get("category") as "technical" | "behavioral") || undefined,
-      });
+      };
+      const result = await withKey((key) => createPrepPlanAction(input, key));
       if (!result.ok || !result.data) return { error: result.error };
       router.push(ROUTES.interviewPrepPlan(result.data.id));
       return null;

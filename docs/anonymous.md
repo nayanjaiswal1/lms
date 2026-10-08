@@ -147,6 +147,6 @@ POST /api/courses/{courseID}/anon-progress/migrate  body: {completed_module_ids,
 ## Public-test policy (current)
 
 - `max_attempts` is enforced per candidate email per test, atomically (advisory lock around count-then-insert).
-- The candidate token is sent as `X-Attempt-Token`; the old `/submit/{token}` and `/result/{token}` URL forms still work for one release and are logged as deprecated. A token only works for the test it was issued for and expires at `started_at + duration + 24h`.
+- The candidate token is sent only as the `X-Attempt-Token` header, never in the URL (so it stays out of access logs). A token only works for the test it was issued for and expires at `started_at + duration + 24h`.
 - The server enforces the time limit (submit after `duration + 2 min` grace returns an expired error); start and submit bodies are size-capped.
 - Candidate name, email and phone are nulled after `RETENTION_PUBLIC_CANDIDATES_DAYS` (default 180); the scored attempt remains.

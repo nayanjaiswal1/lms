@@ -47,8 +47,8 @@ export function LinkChips({ task, allTasks, diaryEntries, projects }: LinkChipsP
     <div className="flex flex-wrap items-center gap-1.5">
       {(task.links ?? []).map((link) => (
         <Badge className="gap-1 pr-1" key={link.id} variant="outline">
-          {TARGET_LABEL[link.targetType]}: {link.targetLabel}
-          <Button aria-label={`Remove link to ${link.targetLabel}`}
+          {TARGET_LABEL[link.target_type]}: {link.target_label}
+          <Button aria-label={`Remove link to ${link.target_label}`}
             className="rounded-full hover:bg-foreground/10"
             type="button"
             variant="unstyled"

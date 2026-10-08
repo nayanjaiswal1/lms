@@ -174,9 +174,10 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     icon:  BookmarkCheck,
   },
   mistakes: {
-    label: "My Mistakes",
-    href:  ROUTES.MISTAKES,
-    icon:  Brain,
+    label:              "My Mistakes",
+    href:               ROUTES.MISTAKES,
+    icon:               Brain,
+    requiredPermission: PERMISSIONS.PRACTICE.USE,
   },
   algo_visualizer: {
     label: "Algorithm Visualizer",
