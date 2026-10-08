@@ -17,14 +17,23 @@ const (
 	closeCaptureConcurrency = 4
 )
 
-// studentDiff returns the student's git diff against baselineRef (≤ 8 KB),
+// studentDiffScript prints the student's tracked changes against baselineRef
+// followed by each untracked, non-ignored file as an added file (a new test
+// file is part of the fix but invisible to a plain `git diff`), capped at
+// MaxStudentDiffBytes. Failures are swallowed: the diff is best-effort.
+func studentDiffScript(baselineRef string) string {
+	const excludes = `':!.lab' ':!logs'`
+	return fmt.Sprintf(`cd %s && { git diff %s -- . %s; git ls-files -z --others --exclude-standard -- . %s | xargs -0 -r -n1 git diff --no-index -- /dev/null; } 2>/dev/null | head -c %d`,
+		shellQuote(labWorkdir), baselineRef, excludes, excludes, MaxStudentDiffBytes)
+}
+
+// studentDiff returns the student's changes against baselineRef (≤ 8 KB),
 // via a bounded, fixed-shape exec. "" when unavailable.
 func studentDiff(ctx context.Context, container ContainerRuntime, containerID, baselineRef string) string {
 	if containerID == "" || !commitRefRe.MatchString(baselineRef) || !container.IsRunning(ctx, containerID) {
 		return ""
 	}
-	script := fmt.Sprintf(`cd %s && git diff %s -- . ':!.lab' ':!logs' 2>/dev/null | head -c %d`, shellQuote(labWorkdir), baselineRef, MaxStudentDiffBytes)
-	stdout, _, exitCode, err := container.Exec(ctx, containerID, script, diffExecTimeoutSec)
+	stdout, _, exitCode, err := container.Exec(ctx, containerID, studentDiffScript(baselineRef), diffExecTimeoutSec)
 	if err != nil || exitCode != 0 {
 		return ""
 	}
