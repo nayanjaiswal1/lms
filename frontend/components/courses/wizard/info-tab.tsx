@@ -96,7 +96,6 @@ export function InfoTab({ info, coverFile, onChange, onCoverFile }: InfoTabProps
 
   return (
     <div className="form-stack max-w-2xl">
-      {/* Title */}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="title">Course title <span className="text-destructive">*</span></Label>
         <Input
@@ -107,7 +106,6 @@ export function InfoTab({ info, coverFile, onChange, onCoverFile }: InfoTabProps
         />
       </div>
 
-      {/* Description */}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="description">Description</Label>
         <Textarea
@@ -120,7 +118,6 @@ export function InfoTab({ info, coverFile, onChange, onCoverFile }: InfoTabProps
         />
       </div>
 
-      {/* Cover image */}
       <div className="flex flex-col gap-2">
         <Label>Cover image</Label>
         <div className="flex gap-1 text-xs">
@@ -200,7 +197,6 @@ export function InfoTab({ info, coverFile, onChange, onCoverFile }: InfoTabProps
         )}
       </div>
 
-      {/* Difficulty + Free */}
       <div className="grid-responsive-2 gap-4">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="difficulty">Difficulty</Label>
@@ -225,7 +221,6 @@ export function InfoTab({ info, coverFile, onChange, onCoverFile }: InfoTabProps
         </div>
       </div>
 
-      {/* Tags */}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="tags">Tags</Label>
         <div className="flex flex-wrap gap-1.5 rounded-md border border-input bg-background px-3 py-2 min-h-[40px]">

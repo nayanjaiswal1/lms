@@ -15,8 +15,7 @@ interface HighlightProviderProps {
   // its saved state immediately instead of only after a round-trip.
   initialHighlights?: Highlight[]
   // Passed through to the Explanation panel's "Copy prompt" button, which
-  // copies a context blob for the student's own connected AI — same context
-  // the old standalone "Ask your AI" button used to provide.
+  // copies a context blob for the student's own connected AI.
   moduleTitle: string
   lessonUrl: string
 }
@@ -58,15 +57,8 @@ function findSegmentAnchor(range: Range, text: string): { segmentIndex: number; 
 // Wraps any reading surface and enables the highlight flow.
 // Do NOT mount on assessment attempt pages — AI assist during a live exam is cheating.
 //
-// Usage:
-//   <HighlightProvider sourceType="lesson" sourceId={lesson.id}>
-//     <LessonContent html={lesson.body} />
-//   </HighlightProvider>
-//
 // Lesson notes and this highlight explain popup/panel are independent
-// floating overlays rendered over the same lesson content. Neither used to
-// know about the other, so opening one while the other was already open just
-// stacked them on screen. They now share the `lessonPanel` URL param (read
+// floating overlays rendered over the same lesson content. They share the `lessonPanel` URL param (read
 // here via nuqs, written by LessonNotes) as a single slot: the popup/panel
 // below only renders while Notes isn't open, matching this codebase's
 // URL-driven-modal-state convention instead of a one-off React state/context

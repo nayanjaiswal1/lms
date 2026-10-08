@@ -47,7 +47,7 @@ func NewDigestNightlyHandler(pool *pgxpool.Pool) *DigestNightlyHandler {
 // periodic cadence closing tonight, or several merged into one digest
 // (digest.MergeCadences). A due flashcard with no other activity still
 // counts, since this digest replaced the standalone "Cards due for review"
-// email (handlers/srs.go) that used to fire on its own.
+// email (handlers/srs.go).
 // Uses a raw INSERT with an idempotency key rather than going through
 // jobs.Enqueue, since this handler (unlike digest.user) never needs the
 // registry for anything else.

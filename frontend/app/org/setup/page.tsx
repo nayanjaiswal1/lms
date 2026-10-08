@@ -30,7 +30,6 @@ function SetupProgress({ currentStep }: SetupProgressProps) {
           return (
             <li className="flex flex-1 flex-col items-center gap-1.5" key={label}>
               <div className="flex w-full items-center">
-                {/* Connector before */}
                 {index > 0 && (
                   <div
                     className={`h-px flex-1 transition-colors duration-normal ${
@@ -39,7 +38,6 @@ function SetupProgress({ currentStep }: SetupProgressProps) {
                   />
                 )}
 
-                {/* Circle */}
                 <div
                   aria-current={isCurrent ? "step" : undefined}
                   className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors duration-normal ${
@@ -57,7 +55,6 @@ function SetupProgress({ currentStep }: SetupProgressProps) {
                   )}
                 </div>
 
-                {/* Connector after */}
                 {index < STEPS.length - 1 && (
                   <div
                     className={`h-px flex-1 transition-colors duration-normal ${

@@ -5,7 +5,7 @@ import { apiAction, type ActionResult } from "@/lib/server/api";
 import type { WhatsNewEntry } from "@/lib/whats-new";
 import ROUTES from "@/lib/routes";
 
-export interface WhatsNewEntryInput {
+interface WhatsNewEntryInput {
   title: string;
   description: string;
   icon: string;

@@ -9,7 +9,7 @@ export type JobStatus =
 
 export type JobPriority = 1 | 2 | 3 | 4 | 5;
 
-export type JobType = "one_time" | "cron";
+type JobType = "one_time" | "cron";
 
 export interface Job {
   id: string;

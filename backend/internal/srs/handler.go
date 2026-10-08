@@ -9,12 +9,10 @@ import (
 	"github.com/mindforge/backend/internal/httputil"
 )
 
-// Handler exposes the SRS domain over HTTP.
 type Handler struct {
 	repo *Repo
 }
 
-// NewHandler constructs the SRS handler from a connection pool.
 func NewHandler(pool *pgxpool.Pool) *Handler {
 	return &Handler{repo: NewRepo(pool)}
 }

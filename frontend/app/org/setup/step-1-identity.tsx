@@ -101,7 +101,6 @@ export function Step1Identity({ orgId, org }: Step1IdentityProps) {
           </p>
         )}
 
-        {/* Name */}
         <FormField
           control={form.control}
           name="name"
@@ -127,7 +126,6 @@ export function Step1Identity({ orgId, org }: Step1IdentityProps) {
           )}
         />
 
-        {/* Slug */}
         <FormInputField
           control={form.control}
           disabled={isPending}
@@ -138,7 +136,6 @@ export function Step1Identity({ orgId, org }: Step1IdentityProps) {
           serverError={state.fieldErrors?.slug}
         />
 
-        {/* Description */}
         <FormField
           control={form.control}
           name="description"

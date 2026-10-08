@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -21,12 +22,12 @@ var validTaskStatuses = map[string]bool{
 func (s *Service) CreateTask(ctx context.Context, orgID, userID, teamID, title string, description, checkpointID *string, dueAt *time.Time) (*ProjectTask, error) {
 	team, err := s.repo.GetMyProject(ctx, orgID, userID, teamID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.CreateTask: %w", err)
 	}
 	if checkpointID != nil {
 		checkpoint, err := s.repo.GetCheckpoint(ctx, orgID, *checkpointID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("gitlab.CreateTask: %w", err)
 		}
 		if checkpoint.AssignmentID != team.AssignmentID {
 			return nil, ErrNotFound
@@ -40,7 +41,7 @@ func (s *Service) CreateTask(ctx context.Context, orgID, userID, teamID, title s
 // ListTasksForTeam returns a team's board — same membership guard.
 func (s *Service) ListTasksForTeam(ctx context.Context, orgID, userID, teamID string) ([]ProjectTask, error) {
 	if _, err := s.repo.GetMyProject(ctx, orgID, userID, teamID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.ListTasksForTeam: %w", err)
 	}
 	return s.repo.ListTasksForTeam(ctx, teamID)
 }
@@ -50,10 +51,10 @@ func (s *Service) ListTasksForTeam(ctx context.Context, orgID, userID, teamID st
 func (s *Service) getOwnTask(ctx context.Context, orgID, userID, taskID string) (*ProjectTask, error) {
 	task, err := s.repo.GetTask(ctx, orgID, taskID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.getOwnTask: %w", err)
 	}
 	if _, err := s.repo.GetMyProject(ctx, orgID, userID, task.TeamID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.getOwnTask: %w", err)
 	}
 	return task, nil
 }
@@ -62,7 +63,7 @@ func (s *Service) getOwnTask(ctx context.Context, orgID, userID, taskID string) 
 // the task's team.
 func (s *Service) UpdateTask(ctx context.Context, orgID, userID, taskID string, p TaskPatch) (*ProjectTask, error) {
 	if _, err := s.getOwnTask(ctx, orgID, userID, taskID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.UpdateTask: %w", err)
 	}
 	return s.repo.UpdateTask(ctx, orgID, taskID, p)
 }
@@ -71,7 +72,7 @@ func (s *Service) UpdateTask(ctx context.Context, orgID, userID, taskID string, 
 // same membership guard.
 func (s *Service) SetTaskAssignee(ctx context.Context, orgID, userID, taskID string, assigneeUserID *string) (*ProjectTask, error) {
 	if _, err := s.getOwnTask(ctx, orgID, userID, taskID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.SetTaskAssignee: %w", err)
 	}
 	return s.repo.SetTaskAssignee(ctx, orgID, taskID, assigneeUserID)
 }
@@ -79,7 +80,7 @@ func (s *Service) SetTaskAssignee(ctx context.Context, orgID, userID, taskID str
 // DeleteTask removes a task — same membership guard.
 func (s *Service) DeleteTask(ctx context.Context, orgID, userID, taskID string) error {
 	if _, err := s.getOwnTask(ctx, orgID, userID, taskID); err != nil {
-		return err
+		return fmt.Errorf("gitlab.DeleteTask: %w", err)
 	}
 	return s.repo.DeleteTask(ctx, orgID, taskID)
 }

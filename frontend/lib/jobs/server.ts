@@ -3,19 +3,19 @@ import "server-only";
 import { apiGet, apiAction } from "@/lib/server/api";
 import type { Job, JobRun, OrgJobStats } from "@/lib/jobs/types";
 
-export interface JobsFilter {
+interface JobsFilter {
   status?: string;
   handler?: string;
   after?: string;
   limit?: number;
 }
 
-export interface JobListPage {
+interface JobListPage {
   jobs: Job[];
   next_cursor: string;
 }
 
-export interface JobDetail {
+interface JobDetail {
   job: Job;
   runs: JobRun[];
 }

@@ -69,7 +69,7 @@ export const HABIT_ICON_OPTIONS = Object.entries(HABIT_ICONS).map(([value, Icon]
 // this just keeps the input from looking broken before that round-trip.
 export const MAX_CUSTOM_ICON_LENGTH = 16;
 
-export type ResolvedHabitIcon = { kind: "lucide"; Icon: LucideIcon } | { kind: "emoji"; value: string };
+type ResolvedHabitIcon = { kind: "lucide"; Icon: LucideIcon } | { kind: "emoji"; value: string };
 
 // Looks up a habit's chosen override icon: a curated lucide component, a
 // typed emoji (any value that isn't a curated key), or null if there's no

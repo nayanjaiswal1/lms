@@ -13,7 +13,7 @@ export type ProjectStatus =
 export type BriefStatus = "raw" | "clarifying" | "agreed";
 export type ProjectRole = "owner" | "manager" | "member" | "viewer";
 export type MemberStatus = "invited" | "active" | "left" | "removed";
-export type TrackMemberStatus = "pending" | "approved";
+type TrackMemberStatus = "pending" | "approved";
 export type InterestStatus = "new" | "accepted" | "rejected" | "invite_expired" | "joined";
 
 export const PROJECT_ROLE_RANK: Record<ProjectRole, number> = {
@@ -34,7 +34,7 @@ export const PROJECT_STATUS_NEXT: Record<ProjectStatus, ProjectStatus[]> = {
   archived: [],
 };
 
-export interface HealthThresholds {
+interface HealthThresholds {
   s1_open_hours: number;
   forecast_red_pct: number;
   blocked_red_pct: number;
@@ -126,7 +126,7 @@ export interface Member {
   onboarding_pct: number;
 }
 
-export interface TrackMember {
+interface TrackMember {
   user_id: string;
   name: string;
   status: TrackMemberStatus;
@@ -168,7 +168,7 @@ export interface ReviewInterestResult {
   outcome: "invited" | "member_invited" | "rejected";
 }
 
-export interface RequirementVersion {
+interface RequirementVersion {
   version: number;
   raw_requirement: string;
   created_by: string | null;
@@ -460,7 +460,7 @@ export interface BriefView {
   approve_blocker?: string;
 }
 
-export interface ItemReview {
+interface ItemReview {
   id: string;
   item_id: string;
   reviewer_id: string | null;
@@ -534,9 +534,9 @@ export interface Standup {
 
 // ─── Phase 4: GitLab linking, time logs, dashboard (models_phase4.go) ─────────
 
-export type GitlabLinkKind = "branch" | "mr" | "commit";
-export type GitlabSyncStatus = "synced" | "pending" | "failed";
-export type HealthColor = "green" | "yellow" | "red";
+type GitlabLinkKind = "branch" | "mr" | "commit";
+type GitlabSyncStatus = "synced" | "pending" | "failed";
+type HealthColor = "green" | "yellow" | "red";
 
 export interface GitlabLink {
   id: string;
@@ -573,7 +573,7 @@ export interface TimeLogInput {
   logged_on: string;
 }
 
-export interface PercentileStat {
+interface PercentileStat {
   count: number;
   median_hours: number | null;
   p85_hours: number | null;
@@ -590,12 +590,12 @@ export interface AttentionItem {
   since: string | null;
 }
 
-export interface AttentionPerson {
+interface AttentionPerson {
   person: PersonRef;
   detail: string;
 }
 
-export interface AttentionTrack {
+interface AttentionTrack {
   track_id: string;
   name: string;
 }
@@ -618,20 +618,20 @@ export interface DayPoint {
   added: number;
 }
 
-export interface WeekPoint {
+interface WeekPoint {
   week: string;
   count: number;
   fixed?: number;
 }
 
-export interface ScopeChurn {
+interface ScopeChurn {
   added_after_start: number;
   removed_after_start: number;
   change_requests: number;
   brief_versions_after_agreed: number;
 }
 
-export interface RequirementClarity {
+interface RequirementClarity {
   asked: number;
   answered: number;
   assumptions: number;
@@ -639,7 +639,7 @@ export interface RequirementClarity {
   days_active_to_agreed: number | null;
 }
 
-export interface Forecast {
+interface Forecast {
   remaining: number;
   weekly_throughput: number;
   projected_finish: string | null;
@@ -664,13 +664,13 @@ export interface Delivery {
   doc_review_rounds: number;
 }
 
-export interface SeverityCount {
+interface SeverityCount {
   severity: BugSeverity;
   open: number;
   oldest_age_hours: number;
 }
 
-export interface FeatureDensity {
+interface FeatureDensity {
   feature: ItemRef;
   bugs: number;
   tasks: number;
@@ -776,17 +776,6 @@ export interface DashboardFilter {
 export type ReleaseStatus = "planned" | "frozen" | "released";
 export type SprintStatus = "planned" | "active" | "completed";
 
-// Same edges as statemachine.go's ReleaseStatusMachine/SprintStatusMachine.
-export const RELEASE_STATUS_NEXT: Record<ReleaseStatus, ReleaseStatus[]> = {
-  planned: ["frozen"],
-  frozen: ["planned", "released"],
-  released: [],
-};
-export const SPRINT_STATUS_NEXT: Record<SprintStatus, SprintStatus[]> = {
-  planned: ["active"],
-  active: ["completed"],
-  completed: [],
-};
 
 export interface Release {
   id: string;
@@ -824,7 +813,7 @@ export interface SetItemSprintInput {
   sprint_id: string | null;
 }
 
-export interface ReleaseNoteItem {
+interface ReleaseNoteItem {
   item: ItemRef;
   doc_version: number | null;
 }
@@ -874,7 +863,7 @@ export interface PeerFeedbackRow {
   created_at: string;
 }
 
-export interface MyFeedback {
+interface MyFeedback {
   available: boolean;
   average?: number;
   comments?: string[];

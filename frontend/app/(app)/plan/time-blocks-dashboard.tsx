@@ -96,7 +96,6 @@ export function TimeBlocksDashboard({ events, onEventClick }: TimeBlocksDashboar
 
   return (
     <div className="space-y-4">
-      {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-lg border border-border bg-card p-3">
           <div className="space-y-1">
@@ -126,7 +125,6 @@ export function TimeBlocksDashboard({ events, onEventClick }: TimeBlocksDashboar
         )}
       </div>
 
-      {/* Filters */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
           <Filter className="h-4 w-4" />
@@ -147,7 +145,6 @@ export function TimeBlocksDashboard({ events, onEventClick }: TimeBlocksDashboar
         </div>
       </div>
 
-      {/* Events list */}
       {sortedEvents.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center">
           <p className="text-sm text-muted-foreground">No blocks match this filter</p>
@@ -170,7 +167,6 @@ export function TimeBlocksDashboard({ events, onEventClick }: TimeBlocksDashboar
                 variant="unstyled"
                 onClick={() => onEventClick(event.id)}
               >
-                {/* Status indicator */}
                 <div className="mt-0.5 flex-shrink-0">
                   {isTask ? (
                     isCompleted ? (
@@ -183,7 +179,6 @@ export function TimeBlocksDashboard({ events, onEventClick }: TimeBlocksDashboar
                   )}
                 </div>
 
-                {/* Content */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <h3
@@ -217,7 +212,6 @@ export function TimeBlocksDashboard({ events, onEventClick }: TimeBlocksDashboar
                     </div>
                   </div>
 
-                  {/* Time and notes */}
                   <div className="mt-2 flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center">
                     <span>{formatDateTime(start)}</span>
                     {event.notes && (

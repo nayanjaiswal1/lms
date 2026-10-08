@@ -51,18 +51,18 @@ func (s *Service) RunBuild(ctx context.Context, buildID string) error {
 		return nil
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("labbuild.RunBuild: %w", err)
 	}
 	if b.Status != StatusQueued && b.Status != StatusRendering {
 		return nil
 	}
 	if _, err := s.repo.Advance(ctx, b.ID, []string{StatusQueued}, StatusRendering); err != nil {
-		return err
+		return fmt.Errorf("labbuild.RunBuild: %w", err)
 	}
 
 	existing, err := s.repo.ListVariants(ctx, b.ID)
 	if err != nil {
-		return err
+		return fmt.Errorf("labbuild.RunBuild: %w", err)
 	}
 	if len(existing) == 0 {
 		if err := s.render(ctx, b); err != nil {
@@ -70,11 +70,11 @@ func (s *Service) RunBuild(ctx context.Context, buildID string) error {
 			if errors.As(err, &ce) {
 				return s.failBuild(ctx, b, Report{Error: ce.msg, Issues: ce.issues})
 			}
-			return err
+			return fmt.Errorf("labbuild.RunBuild: %w", err)
 		}
 	}
 	if _, err := s.enqueue(ctx, HandlerRecipeVerify, b.ID, b.CreatedBy, verifyJobTimeoutMS); err != nil {
-		return err
+		return fmt.Errorf("labbuild.RunBuild: %w", err)
 	}
 	return nil
 }
@@ -82,7 +82,7 @@ func (s *Service) RunBuild(ctx context.Context, buildID string) error {
 func (s *Service) failBuild(ctx context.Context, b *Build, rep Report) error {
 	slog.Warn("labbuild: build failed", "build_id", b.ID, "error", rep.Error)
 	if _, err := s.repo.Finish(ctx, b.ID, StatusFailed, rep); err != nil {
-		return err
+		return fmt.Errorf("labbuild.failBuild: %w", err)
 	}
 	return nil
 }
@@ -91,7 +91,7 @@ func (s *Service) render(ctx context.Context, b *Build) error {
 	started := time.Now()
 	res, err := s.resolveSnapshot(ctx, b.Snapshot)
 	if err != nil {
-		return err
+		return fmt.Errorf("labbuild.render: %w", err)
 	}
 	if !res.Analysis.Valid || res.Analysis.RecipeHash != b.RecipeHash {
 		msg := "the recipe no longer validates"
@@ -107,22 +107,22 @@ func (s *Service) render(ctx context.Context, b *Build) error {
 	}
 	payloads, err := s.loadPayloads(ctx, res.Recipe.Blocks)
 	if err != nil {
-		return err
+		return fmt.Errorf("labbuild.render: %w", err)
 	}
 	input, err := buildRendererInput(res, b.RecipeHash, variants, payloads)
 	if err != nil {
-		return err
+		return fmt.Errorf("labbuild.render: %w", err)
 	}
 	artifacts, err := s.runRenderer(ctx, res.Kind.Image(), b, input, variants)
 	if err != nil {
-		return err
+		return fmt.Errorf("labbuild.render: %w", err)
 	}
 
 	rows := make([]VariantRow, 0, len(artifacts))
 	for _, a := range artifacts {
 		row, err := s.storeVariant(ctx, b, a)
 		if err != nil {
-			return err
+			return fmt.Errorf("labbuild.render: %w", err)
 		}
 		rows = append(rows, *row)
 	}
@@ -131,7 +131,7 @@ func (s *Service) render(ctx context.Context, b *Build) error {
 		usage = append(usage, blk.VersionID)
 	}
 	if err := s.repo.InsertVariants(ctx, b.ID, rows, usage); err != nil {
-		return err
+		return fmt.Errorf("labbuild.render: %w", err)
 	}
 	rep := Report{RecipeHash: b.RecipeHash, Difficulty: res.Analysis.Difficulty, VariantCount: len(rows), RenderSecs: time.Since(started).Seconds()}
 	return s.repo.SaveReport(ctx, b.ID, rep)
@@ -145,7 +145,7 @@ func (s *Service) loadPayloads(ctx context.Context, blocks []*labblock.ResolvedB
 	}
 	refs, err := s.authoring.Repo().PayloadRefs(ctx, ids)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.loadPayloads: %w", err)
 	}
 	out := map[string]*blockPayload{}
 	for i, blk := range blocks {
@@ -163,7 +163,7 @@ func (s *Service) loadPayloads(ctx context.Context, blocks []*labblock.ResolvedB
 		}
 		p, err := newBlockPayload(i, blk, raw)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("labbuild.loadPayloads: %w", err)
 		}
 		out[blk.VersionID] = p
 	}
@@ -320,19 +320,19 @@ func (s *Service) storeVariant(ctx context.Context, b *Build, a renderedVariant)
 	}
 	ws, gr, vf := a.Files["workspace.tar.gz"], a.Files["grader.tar.gz"], a.Files["verify.tar.gz"]
 	if err := a.checkBudgets(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.storeVariant: %w", err)
 	}
 	wsKey, wsSHA, err := storage.PutBundle(ctx, s.store, ws)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.storeVariant: %w", err)
 	}
 	grKey, grSHA, err := storage.PutBundle(ctx, s.store, gr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.storeVariant: %w", err)
 	}
 	vfKey, vfSHA, err := storage.PutBundle(ctx, s.store, vf)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.storeVariant: %w", err)
 	}
 	payload := m.Payload
 	if payload == nil {

@@ -71,7 +71,6 @@ function BlockItem({ block, index, total, onChange, onMove, onRemove, onFile }: 
 
   return (
     <div className="group relative flex gap-2">
-      {/* Controls */}
       <div className="flex shrink-0 flex-col items-center gap-0.5 pt-1 opacity-0 transition-opacity group-hover:opacity-100">
         <Button aria-label="Move up" className="h-6 w-6 p-0" disabled={index === 0} size="icon" variant="ghost"
           onClick={() => onMove("up")}>
@@ -87,7 +86,6 @@ function BlockItem({ block, index, total, onChange, onMove, onRemove, onFile }: 
         </Button>
       </div>
 
-      {/* Block content */}
       <div className="flex-1 min-w-0">
         {block.type === "paragraph" && <ParagraphBlockEditor block={block} onChange={onChange} />}
         {block.type === "heading"   && <HeadingBlockEditor   block={block} onChange={onChange} />}

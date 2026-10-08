@@ -5,6 +5,7 @@ import { CheckCircle2, Loader2, Play, XCircle } from "lucide-react";
 import type { Database, SqlValue } from "sql.js";
 import { createSeededDatabase, gradeQuery } from "@/lib/courses/sql-playground";
 import { updateProgressAction } from "@/lib/courses/actions";
+import { formatSqlCell } from "@/components/courses/format-sql-cell";
 import { showRewardToasts } from "@/components/shared/reward-toast";
 import { CodeEditor } from "@/components/shared/code-editor";
 import { Button } from "@/components/ui/button";
@@ -23,12 +24,6 @@ type Outcome =
   | { kind: "error"; message: string }
   | { kind: "correct" }
   | { kind: "incorrect"; reason?: string };
-
-function formatCell(value: SqlValue): string {
-  if (value === null) return "NULL";
-  if (value instanceof Uint8Array) return "[blob]";
-  return String(value);
-}
 
 // A graded practice exercise embedded directly in a lesson — write a query,
 // Run it to preview the result (ungraded), Submit to check it against the
@@ -157,7 +152,7 @@ export function LessonSqlChallenge({ moduleId, prompt, starter, solution }: Less
                   <tr className="whitespace-nowrap border-b border-border/50" key={rowIndex}>
                     {row.map((cell, cellIndex) => (
                       <td className="px-2 py-1 font-mono text-foreground" key={cellIndex}>
-                        {formatCell(cell)}
+                        {formatSqlCell(cell)}
                       </td>
                     ))}
                   </tr>

@@ -42,7 +42,7 @@ func (r *Repo) scanTranslations(rows pgx.Rows) ([]ModuleTranslation, error) {
 // exists but is untranslated; ErrNotFound means it isn't visible to the org.
 func (r *Repo) ListModuleTranslations(ctx context.Context, orgID, moduleID string) ([]ModuleTranslation, error) {
 	if _, err := r.GetModule(ctx, orgID, moduleID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("courses.ListModuleTranslations: %w", err)
 	}
 	rows, err := r.pool.Query(ctx,
 		`SELECT `+translationColumns+` FROM module_translations mt
@@ -59,7 +59,7 @@ func (r *Repo) ListModuleTranslations(ctx context.Context, orgID, moduleID strin
 func (r *Repo) ListPublicModuleTranslations(ctx context.Context, slug, moduleID string) ([]ModuleTranslation, error) {
 	c, err := r.GetPublicCourseBySlug(ctx, slug)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("courses.ListPublicModuleTranslations: %w", err)
 	}
 	var exists bool
 	if err := r.pool.QueryRow(ctx,

@@ -4,13 +4,13 @@ const DEFAULT_MIN_QUALITY = 0.5;
 const QUALITY_STEP = 0.1;
 const QUALITY_EPSILON = 1e-6;
 
-export interface CompressImageOptions {
+interface CompressImageOptions {
   maxDim?: number;
   targetBytes?: number;
   minQuality?: number;
 }
 
-export interface CompressImageResult {
+interface CompressImageResult {
   blob: Blob;
   width: number;
   height: number;

@@ -24,15 +24,8 @@ export type {
   UpdateCalendarEventInput,
 } from "@/lib/server/calendar";
 
-import type { AttendeeRole, CalendarEventPriority, CalendarEventType, CalendarVisibility } from "@/lib/server/calendar";
+import type { AttendeeRole, CalendarEventPriority } from "@/lib/server/calendar";
 
-export const CALENDAR_EVENT_TYPE_OPTIONS: { label: string; value: CalendarEventType }[] = [
-  { label: "Mentor session", value: "mentor_session" },
-  { label: "Live class",     value: "live_class" },
-  { label: "Deadline",       value: "deadline" },
-  { label: "Custom",         value: "custom" },
-  { label: "Task",           value: "task" },
-];
 
 // Only meaningful on event_type: "task" rows — badge/swatch classes reuse the
 // same categorical token palette CALENDAR_LAYER_OPTIONS draws from.
@@ -54,11 +47,6 @@ export const CALENDAR_PRIORITY_RANK: Record<CalendarEventPriority, number> = Obj
 ) as Record<CalendarEventPriority, number>;
 export const CALENDAR_PRIORITY_UNSET_RANK = CALENDAR_PRIORITY_OPTIONS.length;
 
-export const CALENDAR_VISIBILITY_OPTIONS: { label: string; value: CalendarVisibility }[] = [
-  { label: "Private", value: "private" },
-  { label: "Shared",  value: "shared" },
-  { label: "Public",  value: "public" },
-];
 
 export const ATTENDEE_ROLE_OPTIONS: { label: string; value: AttendeeRole }[] = [
   { label: "Owner",  value: "owner" },

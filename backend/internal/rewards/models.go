@@ -124,7 +124,6 @@ type AwardXPRequest struct {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// ComputeLevel returns level info for the given XP total.
 func ComputeLevel(totalXP int) UserLevel {
 	cur := xpLevels[0]
 	for _, l := range xpLevels {

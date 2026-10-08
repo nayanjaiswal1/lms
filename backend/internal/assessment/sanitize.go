@@ -2,6 +2,7 @@ package assessment
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/rand"
 )
 
@@ -35,7 +36,7 @@ func toStudentView(aq AssessmentQuestion, shuffleOptions bool) (StudentQuestion,
 	case QuestionTypeMCQ:
 		var c MCQContent
 		if err := json.Unmarshal(aq.Content, &c); err != nil {
-			return StudentQuestion{}, err
+			return StudentQuestion{}, fmt.Errorf("assessment.toStudentView: %w", err)
 		}
 		opts := make([]map[string]string, 0, len(c.Options))
 		for _, o := range c.Options {
@@ -51,14 +52,14 @@ func toStudentView(aq AssessmentQuestion, shuffleOptions bool) (StudentQuestion,
 		}
 		raw, err := json.Marshal(safe)
 		if err != nil {
-			return StudentQuestion{}, err
+			return StudentQuestion{}, fmt.Errorf("assessment.toStudentView: %w", err)
 		}
 		sq.Content = raw
 
 	case QuestionTypeCoding:
 		var c CodingContent
 		if err := json.Unmarshal(aq.Content, &c); err != nil {
-			return StudentQuestion{}, err
+			return StudentQuestion{}, fmt.Errorf("assessment.toStudentView: %w", err)
 		}
 		// Only sample (non-hidden) cases are exposed; hidden cases, VerifyFiles,
 		// and VerifyCommand stay server-side (this map is an explicit allowlist,
@@ -88,14 +89,14 @@ func toStudentView(aq AssessmentQuestion, shuffleOptions bool) (StudentQuestion,
 		}
 		raw, err := json.Marshal(safe)
 		if err != nil {
-			return StudentQuestion{}, err
+			return StudentQuestion{}, fmt.Errorf("assessment.toStudentView: %w", err)
 		}
 		sq.Content = raw
 
 	case QuestionTypeSubjective:
 		var c SubjectiveContent
 		if err := json.Unmarshal(aq.Content, &c); err != nil {
-			return StudentQuestion{}, err
+			return StudentQuestion{}, fmt.Errorf("assessment.toStudentView: %w", err)
 		}
 		// reference_answer and expected_topics are server-only — never exposed to students.
 		safe := map[string]any{
@@ -103,7 +104,7 @@ func toStudentView(aq AssessmentQuestion, shuffleOptions bool) (StudentQuestion,
 		}
 		raw, err := json.Marshal(safe)
 		if err != nil {
-			return StudentQuestion{}, err
+			return StudentQuestion{}, fmt.Errorf("assessment.toStudentView: %w", err)
 		}
 		sq.Content = raw
 

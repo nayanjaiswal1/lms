@@ -89,7 +89,6 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Event type selector */}
       <div className="space-y-2">
         <div className="text-xs font-medium text-muted-foreground">Type</div>
         <div aria-label="Event or task" className="flex gap-2" role="radiogroup">
@@ -118,7 +117,6 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
         </div>
       </div>
 
-      {/* Title input */}
       <div className="space-y-2">
         <label className="block text-xs font-medium text-muted-foreground" htmlFor={`${uid}-title`}>
           {isTask ? "Task title" : "Event title"}
@@ -138,7 +136,6 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
         />
       </div>
 
-      {/* Time controls */}
       {!isTask && (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
@@ -164,7 +161,6 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
             </div>
           </div>
 
-          {/* Duration display */}
           <div className="flex-between rounded-md bg-muted/50 px-3 py-2">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-muted-foreground" />
@@ -178,12 +174,10 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
             )}
           </div>
 
-          {/* Presets */}
           {usePreset === false && <TimeBlockPresets onSelect={handlePresetSelect} />}
         </div>
       )}
 
-      {/* Task due time + priority */}
       {isTask && (
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-2">
@@ -214,7 +208,6 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
         </div>
       )}
 
-      {/* Notes (optional) */}
       <div className="space-y-2">
         <label className="text-xs font-medium text-muted-foreground" htmlFor={`${uid}-notes`}>Notes (optional)</label>
         <Textarea
@@ -226,7 +219,6 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
         />
       </div>
 
-      {/* Actions */}
       <div className="flex justify-end gap-2 pt-2">
         <Button size="sm" type="button" variant="ghost" onClick={onCancel}>
           Cancel

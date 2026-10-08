@@ -565,7 +565,7 @@ func renderCustom(in RenderInput, sub *labblock.Recipe, c *labblock.ResolvedBloc
 	}
 	ticket, err := renderTicket(in, sub, nil, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labkinds.renderCustom: %w", err)
 	}
 	v.TicketMD = ticket
 	for _, m := range placeholderRe.FindAllStringSubmatch(ticket, -1) {

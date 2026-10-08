@@ -10,10 +10,8 @@ export default function SettingsLayout({
       <div className="py-6 lg:py-10">
         <h1 className="text-2xl font-semibold text-foreground mb-6">Settings</h1>
 
-        {/* Mobile tab row — hidden on lg+ */}
         <SettingsMobileNav />
 
-        {/* Desktop two-column: sidebar + content */}
         <div className="lg:flex lg:gap-8">
           <SettingsDesktopNav />
 

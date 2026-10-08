@@ -6,12 +6,12 @@ import { apiGet } from "@/lib/server/api";
 
 export type AeTone = "blue" | "emerald" | "purple" | "rose" | "amber" | "slate";
 
-export interface AePerson {
+interface AePerson {
   name: string;
   initial: string;
 }
 
-export interface AeTaskChip {
+interface AeTaskChip {
   id: string;
   title: string;
   dot: AeTone;
@@ -33,12 +33,12 @@ export interface AeChangeLogEntry {
   actor: string;
 }
 
-export interface AeCountedTab {
+interface AeCountedTab {
   label: string;
   count?: number;
 }
 
-export interface AeSubtask {
+interface AeSubtask {
   id: string;
   label: string;
   checked: boolean;
@@ -68,7 +68,7 @@ export interface AeTaskDetail {
   steps: AeStep[];
 }
 
-export interface AeBoard {
+interface AeBoard {
   user: AePerson & { workspace: string };
   title: string;
   subtitle: string;
@@ -99,7 +99,7 @@ export interface AeIssueStep {
   note_icon: "done" | "progress" | "pending";
 }
 
-export interface AeComment {
+interface AeComment {
   id: string;
   author: string;
   initial: string;
@@ -108,7 +108,7 @@ export interface AeComment {
   body: string;
 }
 
-export interface AeIssueDetail {
+interface AeIssueDetail {
   markdown: string;
   steps: AeIssueStep[];
   branch: string;

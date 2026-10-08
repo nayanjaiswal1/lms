@@ -16,7 +16,7 @@ interface JournalToolbarProps {
   categories: JournalCategoryNode[];
 }
 
-// Quick-capture input replaces the old "Add Learning" button. Typing doesn't
+// Quick-capture input. Typing doesn't
 // open the full form right away — it waits until the user pauses.
 // Position/width stay fixed across both states; height is conditional (FLOATING_BOX_OPEN_CLASS)
 // so the closed single-line input isn't stranded inside a tall empty box, and

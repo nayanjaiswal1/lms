@@ -559,7 +559,7 @@ func (p *WarmPoolPlanner) startWarmContainer(warmID, image string) {
 func (p *WarmPoolPlanner) retireStale(ctx context.Context) error {
 	stale, err := p.repo.ListStaleWarmContainers(ctx, warmPoolStuckAfter)
 	if err != nil {
-		return err
+		return fmt.Errorf("labs.retireStale: %w", err)
 	}
 	for _, s := range stale {
 		if s.Kill && s.ContainerID != nil {

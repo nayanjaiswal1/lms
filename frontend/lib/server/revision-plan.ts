@@ -2,7 +2,7 @@ import "server-only";
 
 import { apiGet } from "@/lib/server/api";
 
-export interface RevisionPlanTopic {
+interface RevisionPlanTopic {
   id: string;
   module_id: string | null;
   title: string;
@@ -12,7 +12,7 @@ export interface RevisionPlanTopic {
   position: number;
 }
 
-export type RevisionPlanStatus = "generating" | "ready" | "failed";
+type RevisionPlanStatus = "generating" | "ready" | "failed";
 
 export interface RevisionPlan {
   id: string;

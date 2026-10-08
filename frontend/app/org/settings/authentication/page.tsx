@@ -37,7 +37,6 @@ export default async function AuthenticationPage() {
         <AuthConfigForm config={config} orgId={orgId} />
       </div>
 
-      {/* Info callout */}
       <div className="rounded-lg border border-border bg-muted p-4">
         <p className="text-sm font-medium text-foreground mb-1">About SSO setup</p>
         <p className="text-sm text-muted-foreground">

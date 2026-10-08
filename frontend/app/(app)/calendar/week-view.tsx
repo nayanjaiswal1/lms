@@ -57,7 +57,6 @@ export function WeekView({
 
   return (
     <div className="space-y-4">
-      {/* Header with navigation */}
       <div className="flex-between">
         <div>
           <h2 className="text-lg font-semibold">
@@ -74,14 +73,11 @@ export function WeekView({
         </div>
       </div>
 
-      {/* Week grid */}
       <div className="rounded-lg border border-border bg-card overflow-x-auto">
         {/* eslint-disable-next-line no-restricted-syntax -- 7-day grid needs a fixed time-gutter column plus 7 equal day columns, not expressible as a static token */}
         <div className="grid" style={{ gridTemplateColumns: "60px repeat(7, 1fr)" }}>
-          {/* Time column header */}
           <div className="sticky left-0 z-raised bg-muted/50 border-r border-border" />
 
-          {/* Day headers */}
           {days.map((day, i) => {
             const today = new Date();
             const isToday = isSameDay(day, today);
@@ -96,15 +92,12 @@ export function WeekView({
             );
           })}
 
-          {/* Time slots */}
           {HOURS.map((hour) => (
             <React.Fragment key={hour}>
-              {/* Time label */}
               <div className="sticky left-0 z-raised border-r border-b border-border bg-muted/50 px-2 py-2 text-right text-xs text-muted-foreground">
                 {String(hour).padStart(2, "0")}:00
               </div>
 
-              {/* Day slots */}
               {days.map((day, dayIdx) => {
                 const dayEvents = getEventsForDay(events, day);
                 const slotEvents = dayEvents.filter((e) => {
@@ -133,12 +126,10 @@ export function WeekView({
                       }
                     }}
                   >
-                    {/* Add button on hover */}
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <Plus className="h-4 w-4 text-muted-foreground" />
                     </div>
 
-                    {/* Events in this slot */}
                     {slotEvents.map((event) => {
                       const layer = primaryLayerFor(event, currentUserId);
                       return (
@@ -177,7 +168,6 @@ export function WeekView({
         </div>
       </div>
 
-      {/* Legend */}
       <div className="flex flex-wrap gap-4 text-xs">
         <div className="flex items-center gap-2">
           <div className="h-3 w-3 rounded bg-primary" />

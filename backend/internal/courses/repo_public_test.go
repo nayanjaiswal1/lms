@@ -2,6 +2,7 @@ package courses
 
 import (
 	"context"
+	"errors"
 	"github.com/mindforge/backend/internal/testdomain"
 	"testing"
 
@@ -77,7 +78,7 @@ func TestGetPublicCourseTreeBySlug(t *testing.T) {
 	t.Run("published but not is_public is not visible", func(t *testing.T) {
 		seedPublicCourseFixture(t, ctx, pool, "private-course", "published", false)
 
-		if _, err := repo.GetPublicCourseTreeBySlug(ctx, "private-course"); err != ErrNotFound {
+		if _, err := repo.GetPublicCourseTreeBySlug(ctx, "private-course"); !errors.Is(err, ErrNotFound) {
 			t.Fatalf("expected ErrNotFound, got %v", err)
 		}
 	})
@@ -85,13 +86,13 @@ func TestGetPublicCourseTreeBySlug(t *testing.T) {
 	t.Run("is_public but still a draft is not visible", func(t *testing.T) {
 		seedPublicCourseFixture(t, ctx, pool, "draft-course", "draft", true)
 
-		if _, err := repo.GetPublicCourseTreeBySlug(ctx, "draft-course"); err != ErrNotFound {
+		if _, err := repo.GetPublicCourseTreeBySlug(ctx, "draft-course"); !errors.Is(err, ErrNotFound) {
 			t.Fatalf("expected ErrNotFound, got %v", err)
 		}
 	})
 
 	t.Run("unknown slug is not visible", func(t *testing.T) {
-		if _, err := repo.GetPublicCourseTreeBySlug(ctx, "does-not-exist"); err != ErrNotFound {
+		if _, err := repo.GetPublicCourseTreeBySlug(ctx, "does-not-exist"); !errors.Is(err, ErrNotFound) {
 			t.Fatalf("expected ErrNotFound, got %v", err)
 		}
 	})

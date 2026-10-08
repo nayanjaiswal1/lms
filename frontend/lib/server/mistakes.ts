@@ -23,7 +23,7 @@ export interface CategorySummary {
   trend: "worsening" | "stable" | "improving";
 }
 
-export interface MistakeFilter {
+interface MistakeFilter {
   category?: string;
   context_tag?: string;
   limit?: number;

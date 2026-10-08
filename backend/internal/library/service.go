@@ -107,7 +107,7 @@ func (s *Service) Try(ctx context.Context, orgID, userID, kind, itemID string) (
 	}
 	session, err := s.labsSvc.StartSession(ctx, itemID, userID, orgID, true, "", nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("library.Try: %w", err)
 	}
 	return session, nil
 }
@@ -147,13 +147,13 @@ func (s *Service) AttachTx(ctx context.Context, tx pgx.Tx, orgID, actorUserID st
 	// via GetSectionForOrg — org membership + the instructor route guard).
 	section, err := s.coursesRepo.LockSectionForOrg(ctx, tx, orgID, req.SectionID)
 	if err != nil {
-		return courses.CourseModule{}, err
+		return courses.CourseModule{}, fmt.Errorf("library.AttachTx: %w", err)
 	}
 
 	// 3. Per-kind eligibility + build the module to insert.
 	mod, err := s.resolveAttachModule(ctx, tx, orgID, section, req)
 	if err != nil {
-		return courses.CourseModule{}, err
+		return courses.CourseModule{}, fmt.Errorf("library.AttachTx: %w", err)
 	}
 
 	// Position: append after the section's current last module when the
@@ -174,13 +174,13 @@ func (s *Service) AttachTx(ctx context.Context, tx pgx.Tx, orgID, actorUserID st
 
 	// 4. Shift positions >= the insert point (safe: course_modules_section_id_position_key is DEFERRABLE INITIALLY DEFERRED).
 	if err := s.coursesRepo.ShiftModulePositionsTx(ctx, tx, section.ID, *position); err != nil {
-		return courses.CourseModule{}, err
+		return courses.CourseModule{}, fmt.Errorf("library.AttachTx: %w", err)
 	}
 
 	// 5. Insert through the shared column-list path.
 	inserted, err := s.coursesRepo.InsertModuleTx(ctx, tx, mod)
 	if err != nil {
-		return courses.CourseModule{}, err
+		return courses.CourseModule{}, fmt.Errorf("library.AttachTx: %w", err)
 	}
 
 	// 6. Audit log, same table/shape orgs.writeAuditLog uses, written inside

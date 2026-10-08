@@ -37,7 +37,6 @@ export default async function SettingsIntegrationsAuthorizePage({
   return (
     <McpAuthorizeConsent
       clientName={details.client_name}
-      redirectHost={details.redirect_host}
       decision={{
         client_id: clientId,
         redirect_uri: redirectUri,
@@ -45,12 +44,13 @@ export default async function SettingsIntegrationsAuthorizePage({
         state,
         code_challenge: codeChallenge,
       }}
+      reapproval={details.reapproval}
+      redirectHost={details.redirect_host}
       scopes={details.scope_keys.map((key, i) => ({
         key,
         description: details.scope_descriptions[i],
         isNew: details.new_scopes.includes(key),
       }))}
-      reapproval={details.reapproval}
     />
   );
 }

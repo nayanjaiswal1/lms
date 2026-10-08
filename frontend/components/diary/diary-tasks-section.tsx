@@ -108,9 +108,7 @@ interface TaskSectionProps {
 
 // Clicking a task expands it into an editable title + description in place
 // — AI-captured titles are sometimes cut mid-sentence (the analyze pass ran
-// against text the writer hadn't finished typing yet), and there was
-// previously no way to see or fix the full text, let alone attach any more
-// detail, short of editing the DB row. The section always renders (even
+// against text the writer hadn't finished typing yet). The section always renders (even
 // with zero items) so there's somewhere to add one manually — diary_tasks
 // aren't only AI-captured.
 function TaskSection({ title, items, onAdd, onCheck, onSaveDetails }: TaskSectionProps) {

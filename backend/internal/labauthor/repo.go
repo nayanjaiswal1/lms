@@ -245,7 +245,7 @@ func (r *Repo) LiveVersions(ctx context.Context, blockIDs []string) ([]VersionRe
 func (r *Repo) CreateTextBlock(ctx context.Context, orgID, userID string, m *labblock.Manifest, changelog string) (blockID, versionID string, err error) {
 	raw, err := m.CanonicalJSON()
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("labauthor.CreateTextBlock: %w", err)
 	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -296,7 +296,7 @@ func insertVersion(ctx context.Context, tx pgx.Tx, blockID, userID string, m *la
 func (r *Repo) AddTextVersion(ctx context.Context, orgID, userID, blockID string, m *labblock.Manifest, changelog string) (string, error) {
 	raw, err := m.CanonicalJSON()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("labauthor.AddTextVersion: %w", err)
 	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -474,7 +474,7 @@ func scanRecipe(row pgx.Row) (*Recipe, error) {
 	var rc Recipe
 	var spec, placement []byte
 	if err := row.Scan(&rc.ID, &rc.OrgID, &rc.OwnerID, &rc.LabKind, &rc.Title, &spec, &rc.Revision, &rc.LabID, &placement, &rc.CreatedAt, &rc.UpdatedAt); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.scanRecipe: %w", err)
 	}
 	if err := json.Unmarshal(spec, &rc.Spec); err != nil {
 		return nil, fmt.Errorf("labauthor: recipe %s spec: %w", rc.ID, err)

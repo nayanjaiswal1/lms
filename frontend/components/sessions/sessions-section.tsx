@@ -9,8 +9,7 @@ interface SessionsSectionProps {
   currentUserId: string;
 }
 
-// Upcoming + past mentor sessions. Rendered on /calendar (the old standalone
-// /sessions page now redirects there) — callers gate on SESSION_BOOKING.
+// Upcoming + past mentor sessions. Rendered on /calendar — callers gate on SESSION_BOOKING.
 export async function SessionsSection({ currentUserId }: SessionsSectionProps) {
   const [{ config, balance }, upcoming, past] = await Promise.all([
     getBookingConfig(),

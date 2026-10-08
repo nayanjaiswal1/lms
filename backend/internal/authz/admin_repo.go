@@ -683,7 +683,7 @@ func scanPermissions(rows pgx.Rows) ([]Permission, error) {
 		perms = append(perms, p)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("authz.scanPermissions: %w", err)
 	}
 	if perms == nil {
 		perms = []Permission{}
@@ -696,12 +696,12 @@ func scanRoles(rows pgx.Rows) ([]Role, error) {
 	for rows.Next() {
 		r, err := scanRoleColumns(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("authz.scanRoles: %w", err)
 		}
 		roles = append(roles, *r)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("authz.scanRoles: %w", err)
 	}
 	if roles == nil {
 		roles = []Role{}
@@ -878,7 +878,7 @@ func (r *AdminRepo) setUserStatus(ctx context.Context, userID, status, reason st
 
 	if guard != nil {
 		if err = guard(tx); err != nil {
-			return "", err
+			return "", fmt.Errorf("authz.setUserStatus: %w", err)
 		}
 	}
 

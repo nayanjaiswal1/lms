@@ -4,7 +4,7 @@
 // (backend/internal/courses) — this is purely a render-time grouping, so it
 // assumes `sections` is already ordered by position like every CourseTree/
 // CourseSection API response already is.
-export interface GroupedSection<T extends { group_title: string | null }> {
+interface GroupedSection<T extends { group_title: string | null }> {
   section: T;
   /** Render a group heading (section.group_title) directly above this section. */
   isGroupStart: boolean;

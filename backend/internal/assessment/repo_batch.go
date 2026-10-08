@@ -485,7 +485,7 @@ func (r *Repo) CreateBatchInvitations(ctx context.Context, orgID, batchID, invit
 	for _, email := range emails {
 		raw, hash, err := newInvitationToken()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("assessment.CreateBatchInvitations: %w", err)
 		}
 		pending = append(pending, pendingInvitation{email: email, raw: raw, hash: hash})
 		out = append(out, InvitationToken{Email: email, Token: raw})
@@ -518,7 +518,7 @@ func (r *Repo) CreateBatchInvitations(ctx context.Context, orgID, batchID, invit
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("assessment.CreateBatchInvitations: %w", err)
 	}
 	return out, nil
 }
@@ -562,7 +562,7 @@ func (r *Repo) RevokeInvitation(ctx context.Context, orgID, invID string) error 
 func (r *Repo) ResendInvitation(ctx context.Context, orgID, invID string) (InvitationToken, error) {
 	raw, hash, err := newInvitationToken()
 	if err != nil {
-		return InvitationToken{}, err
+		return InvitationToken{}, fmt.Errorf("assessment.ResendInvitation: %w", err)
 	}
 	expiresAt := time.Now().Add(invitationTTL)
 	var email string

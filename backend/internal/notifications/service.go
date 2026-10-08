@@ -82,7 +82,7 @@ func (s *Service) NotifyMany(ctx context.Context, tx pgx.Tx, base New, userIDs [
 		n := base
 		n.UserID = userID
 		if err := s.Notify(ctx, tx, n); err != nil {
-			return err
+			return fmt.Errorf("notifications.NotifyMany: %w", err)
 		}
 	}
 	return nil
@@ -96,7 +96,7 @@ func (s *Service) NotifyMany(ctx context.Context, tx pgx.Tx, base New, userIDs [
 func (s *Service) enqueueEmail(ctx context.Context, n New) error {
 	email, name, err := s.repo.userContact(ctx, n.UserID)
 	if err != nil {
-		return err
+		return fmt.Errorf("notifications.enqueueEmail: %w", err)
 	}
 	body := n.Title
 	if n.Body != nil && *n.Body != "" {

@@ -26,7 +26,6 @@ export default async function DomainsPage() {
 
   return (
     <div className="space-y-8">
-      {/* Add domain */}
       <div className="card-base p-6">
         <h2 className="subsection-title text-foreground mb-1">Add a Domain</h2>
         <p className="text-sm text-muted-foreground mb-4">
@@ -35,7 +34,6 @@ export default async function DomainsPage() {
         <AddDomainForm orgId={orgId} />
       </div>
 
-      {/* Domain list */}
       <div>
         <h2 className="subsection-title text-foreground mb-4">
           Configured Domains

@@ -6,7 +6,6 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// New builds the fully-wired rewards handler.
 func New(pool *pgxpool.Pool, rdb *redis.Client) *Handler {
 	repo := NewRepo(pool, rdb)
 	svc := NewService(repo)

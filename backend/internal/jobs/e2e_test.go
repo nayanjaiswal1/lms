@@ -551,9 +551,8 @@ func TestE2E_ListWithCursor(t *testing.T) {
 	maxRetries := 3
 
 	var allIDs []string
+	createdBase := time.Now().Add(-time.Hour).UTC()
 	for i := 0; i < 5; i++ {
-		// Small sleep to guarantee distinct created_at values for deterministic ordering.
-		time.Sleep(2 * time.Millisecond)
 		j, err := jobs.Enqueue(ctx, pool, reg, jobs.EnqueueParams{
 			Handler:    handlerKey,
 			Priority:   jobs.PriorityNormal,
@@ -561,6 +560,9 @@ func TestE2E_ListWithCursor(t *testing.T) {
 			MaxRetries: &maxRetries,
 			OrgID:      &orgID,
 		})
+		require.NoError(t, err)
+		// Explicit, distinct created_at values make the ordering deterministic.
+		_, err = pool.Exec(ctx, `UPDATE jobs SET created_at = $2 WHERE id = $1`, j.ID, createdBase.Add(time.Duration(i)*time.Second))
 		require.NoError(t, err)
 		allIDs = append(allIDs, j.ID)
 	}

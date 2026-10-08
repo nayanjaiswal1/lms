@@ -1,99 +1,139 @@
-"use client";
-
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import {
+  BookOpen,
+  FlaskConical,
+  GraduationCap,
+  HelpCircle,
+  LayoutDashboard,
+  ListChecks,
+  type LucideIcon,
+} from "lucide-react";
 
 import { BrandMark } from "@/components/shared/brand-mark";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import ROUTES from "@/lib/routes";
-import { LearnerView } from "@/app/demo/tour/learner-view";
-import { AdminView } from "@/app/demo/tour/admin-view";
+import { cn } from "@/lib/utils";
+import { CoursesDemo } from "@/app/demo/tour/courses-demo";
+import { DashboardDemo } from "@/app/demo/tour/dashboard-demo";
+import { LabsDemo } from "@/app/demo/tour/labs-demo";
+import { QuizDemo } from "@/app/demo/tour/quiz-demo";
+import { SheetsDemo } from "@/app/demo/tour/sheets-demo";
+import { DEMO_TABS, type DemoLabKind, type DemoTabId } from "@/app/demo/tour/mock-data";
 
 interface DemoShellProps {
-  activeView: "learner" | "admin";
+  activeTab: DemoTabId;
+  courseSlug?: string;
+  labKind: DemoLabKind;
+  nonce: string;
 }
 
-export function DemoShell({ activeView }: DemoShellProps) {
-  const router = useRouter();
+const TAB_ICONS: Record<DemoTabId, LucideIcon> = {
+  dashboard: LayoutDashboard,
+  courses: GraduationCap,
+  labs: FlaskConical,
+  quiz: HelpCircle,
+  sheets: ListChecks,
+};
 
-  function switchView(v: "learner" | "admin") {
-    router.push(`/demo/tour?view=${v}`);
+function tabHref(id: DemoTabId): string {
+  return `${ROUTES.DEMO_TOUR}?tab=${id}`;
+}
+
+function TabView({ tab, courseSlug, labKind, nonce }: { tab: DemoTabId; courseSlug?: string; labKind: DemoLabKind; nonce: string }) {
+  switch (tab) {
+    case "courses":
+      return <CoursesDemo slug={courseSlug} />;
+    case "labs":
+      return <LabsDemo kind={labKind} nonce={nonce} />;
+    case "quiz":
+      return <QuizDemo />;
+    case "sheets":
+      return <SheetsDemo />;
+    default:
+      return <DashboardDemo />;
   }
+}
 
+export function DemoShell({ activeTab, courseSlug, labKind, nonce }: DemoShellProps) {
   return (
-    <div className="flex min-h-dvh flex-col">
-      {/* Demo bar — sticky top */}
-      <header
-        className="sticky top-0 z-sticky h-14 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
-      >
-        <div className="page-container flex h-full items-center justify-between">
-          {/* Left — brand + demo label */}
-          <div className="flex items-center gap-2">
-            <BrandMark showName={false} />
-            <Badge className="text-xs" variant="secondary">Demo</Badge>
-          </div>
-
-          {/* Center — view switcher */}
-          <div className="flex items-center gap-1 rounded-full bg-muted p-1">
-            <Button className={cn(
-                "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
-                activeView === "learner"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-transparent text-muted-foreground hover:text-foreground",
-              )}
-              type="button"
-              variant="unstyled"
-              onClick={() => switchView("learner")}
-            >
-              Learner
-            </Button>
-            <Button className={cn(
-                "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
-                activeView === "admin"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-transparent text-muted-foreground hover:text-foreground",
-              )}
-              type="button"
-              variant="unstyled"
-              onClick={() => switchView("admin")}
-            >
-              Admin
-            </Button>
-          </div>
-
-          {/* Right — exit link */}
-          <Link
-            className="text-sm text-muted-foreground no-underline hover:text-foreground hover:no-underline"
-            href={ROUTES.DEMO}
-          >
-            Exit demo
-          </Link>
+    <div className="app-shell">
+      <aside aria-label="Demo navigation" className="app-sidebar">
+        <div className="flex items-center gap-2 border-b border-sidebar-border px-5 py-4">
+          <BrandMark iconClassName="h-6 w-6" />
+          <Badge className="text-xs" variant="secondary">Demo</Badge>
         </div>
-      </header>
+        <nav className="flex flex-1 flex-col gap-1 p-3">
+          {DEMO_TABS.map(({ id, label }) => {
+            const Icon = TAB_ICONS[id];
+            return (
+              <Link
+                aria-current={id === activeTab ? "page" : undefined}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium no-underline hover:no-underline",
+                  id === activeTab ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground",
+                )}
+                href={tabHref(id)}
+                key={id}
+              >
+                <Icon aria-hidden className="h-4 w-4" />
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+        <Link
+          className="flex items-center gap-2 border-t border-sidebar-border px-5 py-4 text-sm text-muted-foreground no-underline hover:text-foreground hover:no-underline"
+          href={ROUTES.DEMO}
+        >
+          <BookOpen aria-hidden className="h-4 w-4" />
+          Exit demo
+        </Link>
+      </aside>
 
-      {/* Main content */}
-      <main className="flex-1 pb-24">
-        {activeView === "learner" ? <LearnerView /> : <AdminView />}
-      </main>
+      <div className="app-main">
+        <header className="app-header lg:hidden">
+          <BrandMark />
+          <Badge className="ml-2 text-xs" variant="secondary">Demo</Badge>
+        </header>
 
-      {/* Conversion bar — fixed bottom */}
-      <div className="fixed inset-x-0 bottom-0 z-sticky border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-bottom">
-        <div className="page-container flex h-16 flex-col items-center justify-center gap-2 sm:flex-row sm:justify-between">
-          <p className="hidden text-sm text-muted-foreground sm:block">
-            You&apos;re in demo mode · Your progress won&apos;t be saved
-          </p>
-          <div className="flex w-full gap-2 sm:w-auto">
-            <Button asChild className="flex-1 sm:flex-none" size="sm" variant="outline">
-              <Link href={ROUTES.REGISTER}>Create free account</Link>
-            </Button>
-            <Button asChild className="flex-1 sm:flex-none" size="sm">
-              <Link href={ROUTES.REGISTER}>Set up for my team</Link>
-            </Button>
+        <main className="app-content pb-24">
+          <TabView courseSlug={courseSlug} labKind={labKind} nonce={nonce} tab={activeTab} />
+        </main>
+
+        <div className="sticky bottom-0 z-sticky border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 max-lg:mb-16">
+          <div className="flex flex-col items-center justify-center gap-2 px-4 py-3 sm:flex-row sm:justify-between lg:px-8">
+            <p className="hidden text-sm text-muted-foreground sm:block">
+              Demo mode · Nothing you do here is saved
+            </p>
+            <div className="flex w-full gap-2 sm:w-auto">
+              <Button asChild className="flex-1 sm:flex-none" size="sm" variant="outline">
+                <Link href={ROUTES.LOGIN}>Log in</Link>
+              </Button>
+              <Button asChild className="flex-1 sm:flex-none" size="sm">
+                <Link href={ROUTES.REGISTER}>Create free account</Link>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
+
+      <nav aria-label="Demo navigation" className="bottom-nav">
+        {DEMO_TABS.map(({ id, label }) => {
+          const Icon = TAB_ICONS[id];
+          return (
+            <Link
+              aria-current={id === activeTab ? "page" : undefined}
+              className="bottom-nav-item no-underline hover:no-underline"
+              href={tabHref(id)}
+              key={id}
+            >
+              <Icon aria-hidden className="h-5 w-5" />
+              <span className="bottom-nav-item-label">{label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }

@@ -75,7 +75,7 @@ func (s *AdminService) UpdateRole(ctx context.Context, actorID, tenantID, roleID
 	}
 
 	s.audit(ctx, tenantID, actorID, "role.update", "role", roleID, &AuditDiff{Before: before, After: after})
-	_ = s.svc.InvalidateForRoleChange(ctx, roleID)
+	s.logCacheFlush(ctx, s.svc.InvalidateForRoleChange(ctx, roleID))
 	return after, nil
 }
 
@@ -101,7 +101,7 @@ func (s *AdminService) DisableRole(ctx context.Context, actorID, tenantID, roleI
 	}
 
 	s.audit(ctx, tenantID, actorID, "role.disable", "role", roleID, &AuditDiff{Before: before})
-	_ = s.svc.InvalidateForRoleChange(ctx, roleID)
+	s.logCacheFlush(ctx, s.svc.InvalidateForRoleChange(ctx, roleID))
 	return nil
 }
 
@@ -127,7 +127,7 @@ func (s *AdminService) EnableRole(ctx context.Context, actorID, tenantID, roleID
 	}
 
 	s.audit(ctx, tenantID, actorID, "role.enable", "role", roleID, &AuditDiff{Before: before})
-	_ = s.svc.InvalidateForRoleChange(ctx, roleID)
+	s.logCacheFlush(ctx, s.svc.InvalidateForRoleChange(ctx, roleID))
 	return nil
 }
 
@@ -164,7 +164,7 @@ func (s *AdminService) SetRolePermissions(ctx context.Context, actorID, tenantID
 
 	s.audit(ctx, tenantID, actorID, "role.permissions.set", "role", roleID,
 		&AuditDiff{Before: before, After: after})
-	_ = s.svc.InvalidateForRoleChange(ctx, roleID)
+	s.logCacheFlush(ctx, s.svc.InvalidateForRoleChange(ctx, roleID))
 	return after, nil
 }
 
@@ -183,7 +183,7 @@ func (s *AdminService) AssignRole(ctx context.Context, actorID, tenantID, target
 			"role_id": roleID,
 			"org_id":  tenantID,
 		}})
-	_ = s.svc.InvalidateUser(ctx, targetUserID, tenantID)
+	s.logCacheFlush(ctx, s.svc.InvalidateUser(ctx, targetUserID, tenantID))
 	return nil
 }
 
@@ -200,7 +200,7 @@ func (s *AdminService) RevokeRole(ctx context.Context, actorID, tenantID, target
 			"role_id": roleID,
 			"org_id":  tenantID,
 		}})
-	_ = s.svc.InvalidateUser(ctx, targetUserID, tenantID)
+	s.logCacheFlush(ctx, s.svc.InvalidateUser(ctx, targetUserID, tenantID))
 	return nil
 }
 
@@ -220,7 +220,7 @@ func (s *AdminService) GrantUserPermission(ctx context.Context, actorID, tenantI
 			"permission_id": permissionID,
 			"org_id":        tenantID,
 		}})
-	_ = s.svc.InvalidateUser(ctx, targetUserID, tenantID)
+	s.logCacheFlush(ctx, s.svc.InvalidateUser(ctx, targetUserID, tenantID))
 	return nil
 }
 
@@ -237,7 +237,7 @@ func (s *AdminService) RevokeUserPermission(ctx context.Context, actorID, tenant
 			"permission_id": permissionID,
 			"org_id":        tenantID,
 		}})
-	_ = s.svc.InvalidateUser(ctx, targetUserID, tenantID)
+	s.logCacheFlush(ctx, s.svc.InvalidateUser(ctx, targetUserID, tenantID))
 	return nil
 }
 
@@ -299,6 +299,15 @@ func (s *AdminService) SetUserStatus(ctx context.Context, actorID, tenantID, tar
 	if s.sessions != nil {
 		s.sessions.InvalidateVersionCache(ctx, targetUserID)
 	}
-	_ = s.svc.InvalidateUser(ctx, targetUserID, tenantID)
+	s.logCacheFlush(ctx, s.svc.InvalidateUser(ctx, targetUserID, tenantID))
 	return nil
+}
+
+// logCacheFlush records a failed permission-cache flush. The DB change has
+// already committed by the time it runs, so the request still succeeds; the
+// stale entry lives at most cacheTTL.
+func (s *AdminService) logCacheFlush(ctx context.Context, err error) {
+	if err != nil {
+		slog.ErrorContext(ctx, "authz: permission cache flush failed", "error", err)
+	}
 }

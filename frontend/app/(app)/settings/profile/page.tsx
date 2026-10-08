@@ -108,7 +108,6 @@ export default async function SettingsProfilePage({
 
       <ProfileHeader profile={profile} uploadAction={uploadAvatarAction} />
 
-      {/* Tab bar */}
       <div
         aria-label="Profile settings sections"
         className="flex overflow-x-auto gap-0 border-b border-border -mb-px"
@@ -135,9 +134,7 @@ export default async function SettingsProfilePage({
         })}
       </div>
 
-      {/* Two-column layout on lg+ */}
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-        {/* Main tab content */}
         <div className="flex-1 min-w-0 space-y-6">
           {activeTab === 'profile' && (
             <>
@@ -208,7 +205,6 @@ export default async function SettingsProfilePage({
           )}
         </div>
 
-        {/* Sidebar: completion score */}
         <aside className="w-full lg:w-[260px] flex-shrink-0">
           <ProfileCompletion
             breakdown={breakdown}

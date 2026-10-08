@@ -20,7 +20,7 @@ func runImport(args []string) error {
 	}
 
 	if err := importer.Import(*vendor, *out); err != nil {
-		return err
+		return fmt.Errorf("import: %w", err)
 	}
 	fmt.Printf("coursegen import: scaffolded canonical markdown under %s\n", *out)
 	return nil

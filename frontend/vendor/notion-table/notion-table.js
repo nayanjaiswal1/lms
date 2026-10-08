@@ -269,7 +269,7 @@ export class NotionTable extends (globalThis.HTMLElement ?? class {}) {
     }
   }
 
-  /** @param {{key: string, label?: string, type?: 'text'|'number'|'image'|'select'|'multiselect', options?: string[], width?: number, align?: 'left'|'center'|'right', color?: string, readonly?: boolean}[]} cols */
+  /** @param {{key: string, label?: string, type?: 'text'|'number'|'image'|'link'|'select'|'multiselect', options?: string[], width?: number, align?: 'left'|'center'|'right', color?: string, readonly?: boolean}[]} cols */
   set columns(cols) { this.#cols = cols; this.#render(); }
   get columns() { return this.#cols; }
 
@@ -564,9 +564,15 @@ function cell(text, col, c, role, edit = true) {
     if (text) el.append(Object.assign(document.createElement('img'), { src: text, alt: '', loading: 'lazy', className: 'img' }));
     return el;
   }
+  // A link cell holds a URL, shown as an "Open" anchor in a new tab; display-only.
+  if (col.type === 'link' && role === 'cell') {
+    if (text) el.append(Object.assign(document.createElement('a'), { href: text, target: '_blank', rel: 'noopener noreferrer', textContent: 'Open' }));
+    return el;
+  }
   // A select cell picks its value from `col.options` with a native <select>; a value that isn't
   // one of them (old data) is kept as an extra choice, so just showing a row never changes it.
-  if (col.type === 'select' && role === 'cell' && edit && !col.readonly) {
+  // (stays pickable in a `readonly` table; mark the column `readonly` to lock it)
+  if (col.type === 'select' && role === 'cell' && !col.readonly) {
     const pick = document.createElement('select');
     pick.className = 'pick';
     pick.setAttribute('aria-label', col.label || col.key);

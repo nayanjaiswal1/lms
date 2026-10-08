@@ -59,7 +59,6 @@ type Limiter struct {
 	fallback *inMemorySlidingWindow
 }
 
-// New constructs a Limiter over the given Redis client.
 func New(rdb *redis.Client) *Limiter {
 	return &Limiter{
 		rdb:      rdb,

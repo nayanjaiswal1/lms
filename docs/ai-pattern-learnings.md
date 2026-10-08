@@ -352,3 +352,53 @@ AI features shipped sending user text to a third party with no opt-in, security 
 **Fix:** a shared `privacy.RequireAIConsent` check at every AI entry point, an append-only trigger with a purge-only escape hatch, and a single `retention.purge` job with per-class windows.
 
 **Rule:** a new feature that sends user content to a model, or stores identifying data, names its consent check and its retention window in the same change.
+
+## Whole-repo audit (2026-10-08)
+
+Patterns found across the backend and frontend during the audit pass. Each entry names the shape to look for and the rule that prevents it.
+
+### Best-effort writes swallowed silently
+**Found in:** gitlab roster sync and provision status, rewards leaderboard, sessions decode, whatnow energy dial, profile avatar cleanup.
+**Shape:** `_ = call()`, `x, _ := call()`, or `.catch(() => {})` where the failure changes what the user sees or what is stored.
+**Rule:** best-effort writes are logged; reads that feed a response are checked and returned as errors.
+
+### Scan or lookup error discarded before branching
+**Found in:** gitlab DeleteAssignment existence check, assessment hasResult check, calendar invite consume.
+**Shape:** the error from `Scan`/`QueryRow` is dropped and the zero value is branched on, so a DB failure becomes a wrong domain answer.
+**Rule:** check the error before using the value.
+
+### Multi-statement write outside a transaction
+**Found in:** auth logout-all (refresh revoke plus session-version bump), calendar invite accept.
+**Rule:** a multi-table or multi-statement change runs in one transaction; a token is consumed inside the same transaction as the action it authorises.
+
+### Fail-open authz helper
+**Found in:** `middleware.LiveOrgRole` returns `(role, bool)` and swallows DB errors, so a mentor's batch scope silently widens on error.
+**Rule:** authz helpers return an error and the caller denies on error.
+
+### AI call bypassing the backend
+**Found in:** frontend `parseResumeAction` called Anthropic directly from the Next server, with a hardcoded model and no consent check.
+**Rule:** every model call goes through the backend provider, behind `privacy.EnforceAIConsent` and the quota wrapper.
+
+### Untyped JSON from the DB or a model
+**Found in:** calendar invite payload (unchecked `.(string)`), resume extract.
+**Rule:** decode into a struct with an error return; never assert on map values from stored or model output.
+
+### Unpaginated lists and hardcoded caps
+**Found in:** roadmap Discover (`LIMIT 50`, no offset), interviewexp `ListEntries` (`LIMIT 500`), and several list endpoints still unpaginated (diary tasks, assessment attempts, student progress).
+**Rule:** public or growing lists take `limit`/`offset` with a bounded default and max.
+
+### Dead exports and orphaned UI
+**Found in:** about 80 lib declarations and about 35 app exports with zero callers after their UI was removed.
+**Rule:** delete the endpoint wrapper and action together with the UI that calls it.
+
+### Env value copied into each consumer
+**Found in:** `ws://localhost:18081` read and defaulted in three frontend files.
+**Rule:** read an env var once in one exported constant and import it.
+
+### Test that runs a copy of the code
+**Found in:** db seed-order comparator duplicated in `seed_test.go`.
+**Rule:** tests call the production function, never a re-implementation of it.
+
+### Helper copied per call site
+**Found in:** `formatDate` (4 copies), SQL cell formatter (2), countdown formatter (2), GetClaims+401 block (16), consent check (2).
+**Rule:** extract on the second use, not after the fifth.

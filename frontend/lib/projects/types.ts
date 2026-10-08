@@ -3,12 +3,12 @@
 // see handler_assignment.go / handler_team.go for the request/response
 // shapes this was verified against.
 
-export type ProjectVisibility = "private" | "internal";
-export type ProjectAssignmentStatus = "draft" | "active" | "archived";
-export type TeamProvisionStatus = "pending" | "provisioning" | "ready" | "failed";
-export type TeamMemberRole = "lead" | "member";
-export type TeamMemberSyncStatus = "pending" | "synced" | "failed" | "removing";
-export type GitlabAccessLevel = 20 | 30 | 40;
+type ProjectVisibility = "private" | "internal";
+type ProjectAssignmentStatus = "draft" | "active" | "archived";
+type TeamProvisionStatus = "pending" | "provisioning" | "ready" | "failed";
+type TeamMemberRole = "lead" | "member";
+type TeamMemberSyncStatus = "pending" | "synced" | "failed" | "removing";
+type GitlabAccessLevel = 20 | 30 | 40;
 
 export interface ProjectAssignment {
   id: string;
@@ -76,16 +76,16 @@ export interface ProjectTeamMember {
 // models.go's own "Batch 3 add-on" section for why these are a narrower
 // projection than the full mirrored gitlab_commits/gitlab_merge_requests/
 // gitlab_pipelines rows.
-export type MergeRequestState = "opened" | "merged" | "closed" | "locked";
+type MergeRequestState = "opened" | "merged" | "closed" | "locked";
 
-export interface TeamActivityCommit {
+interface TeamActivityCommit {
   sha: string;
   message: string | null;
   author_name: string | null;
   committed_at: string | null;
 }
 
-export interface TeamActivityMergeRequest {
+interface TeamActivityMergeRequest {
   title: string;
   state: MergeRequestState;
   web_url: string | null;
@@ -230,8 +230,8 @@ export interface MyProjectDetailView extends ProjectTeam {
 // required_approvals lives on ProjectAssignment above, not on
 // ProjectCheckpoint — there is no such column on project_checkpoints.
 
-export type CheckpointStatus = "open" | "submitted" | "approved" | "merged" | "graded";
-export type CIStatus = "none" | "pending" | "running" | "success" | "failed" | "canceled";
+type CheckpointStatus = "open" | "submitted" | "approved" | "merged" | "graded";
+type CIStatus = "none" | "pending" | "running" | "success" | "failed" | "canceled";
 
 // Batch 7 (Phase B) — the SDLC gate a checkpoint represents. "milestone" is
 // the original default kind.
@@ -325,7 +325,7 @@ export interface MyProjectCheckpointsView {
 // ─── Batch 6: originality + handoff ────────────────────────────────────────
 // Mirrors backend/internal/gitlab/models.go's own "Batch 6" section exactly.
 
-export type OriginalityReportStatus = "pending" | "running" | "complete" | "failed";
+type OriginalityReportStatus = "pending" | "running" | "complete" | "failed";
 
 export interface ProjectOriginalityReport {
   id: string;

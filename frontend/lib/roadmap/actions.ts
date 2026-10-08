@@ -6,7 +6,7 @@ import type { ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 import type { Roadmap } from "@/lib/server/roadmap";
 
-export interface CreateRoadmapInput {
+interface CreateRoadmapInput {
   title?: string;
   goal_description: string;
   target_role?: string;

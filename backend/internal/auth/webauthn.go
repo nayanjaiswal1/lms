@@ -170,9 +170,8 @@ func (h *Handler) HandleWebAuthnRegisterBegin(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	claims, ok := GetClaims(r.Context())
+	claims, ok := RequireClaims(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
 		return
 	}
 
@@ -228,9 +227,8 @@ func (h *Handler) HandleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	claims, ok := GetClaims(r.Context())
+	claims, ok := RequireClaims(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
 		return
 	}
 
@@ -315,9 +313,8 @@ type webauthnCredentialResponse struct {
 }
 
 func (h *Handler) HandleWebAuthnCredentialsList(w http.ResponseWriter, r *http.Request) {
-	claims, ok := GetClaims(r.Context())
+	claims, ok := RequireClaims(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
 		return
 	}
 
@@ -353,9 +350,8 @@ func (h *Handler) HandleWebAuthnCredentialsList(w http.ResponseWriter, r *http.R
 }
 
 func (h *Handler) HandleWebAuthnCredentialRename(w http.ResponseWriter, r *http.Request) {
-	claims, ok := GetClaims(r.Context())
+	claims, ok := RequireClaims(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
 		return
 	}
 
@@ -398,9 +394,8 @@ func (h *Handler) HandleWebAuthnCredentialRename(w http.ResponseWriter, r *http.
 // social account, no other passkey) — otherwise the delete would lock the
 // user out with no way back in.
 func (h *Handler) HandleWebAuthnCredentialDelete(w http.ResponseWriter, r *http.Request) {
-	claims, ok := GetClaims(r.Context())
+	claims, ok := RequireClaims(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
 		return
 	}
 

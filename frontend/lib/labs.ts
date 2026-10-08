@@ -1,6 +1,6 @@
 export type LabType = 'terminal' | 'code' | 'playground' | 'guided' | 'sandbox' | 'debug'
 
-export type LabWorkspaceLayout = 'split' | 'console'
+type LabWorkspaceLayout = 'split' | 'console'
 
 export type LabCodeLanguage = 'javascript' | 'python' | 'typescript'
 
@@ -27,9 +27,9 @@ export type TaskStatus = 'pending' | 'passed' | 'skipped'
 // Set only by the lab.expire_sessions background job — distinguishes an
 // automatic reaper termination from a normal user-driven end/completion
 // (which leaves the session's end_reason null).
-export type SessionEndReason = 'time_limit' | 'idle_timeout'
+type SessionEndReason = 'time_limit' | 'idle_timeout'
 
-export type LabTaskGrader = 'script' | 'writeup_review'
+type LabTaskGrader = 'script' | 'writeup_review'
 
 export interface LabTask {
   task_id: string
@@ -144,7 +144,7 @@ export interface LabSession {
 
 // Student-safe workspace block of a "debug" lab (GET /sessions/:id) — never
 // the root cause, fix or rubric.
-export interface DebugSessionBlock {
+interface DebugSessionBlock {
   brief: string
   ide_port: number
   app_ports: number[]

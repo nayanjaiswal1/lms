@@ -23,7 +23,7 @@ export interface ActivityEntry {
   ref_slug?: string;
 }
 
-export interface ActivityPage {
+interface ActivityPage {
   entries: ActivityEntry[];
   next_cursor?: string;
 }

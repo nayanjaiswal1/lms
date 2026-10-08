@@ -12,12 +12,10 @@ import (
 	"github.com/mindforge/backend/internal/httputil"
 )
 
-// Handler exposes the sheets domain over HTTP.
 type Handler struct {
 	repo *Repo
 }
 
-// NewHandler constructs the sheets handler from a connection pool.
 func NewHandler(pool *pgxpool.Pool) *Handler {
 	return &Handler{repo: NewRepo(pool)}
 }
@@ -367,7 +365,7 @@ func (h *Handler) ImportExcel(w http.ResponseWriter, r *http.Request) {
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxImportBytes+1)
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Failed to parse multipart form.")
+		httputil.WriteMultipartParseError(w, err, "Import file must be under 10 MB.")
 		return
 	}
 	file, _, err := r.FormFile("file")

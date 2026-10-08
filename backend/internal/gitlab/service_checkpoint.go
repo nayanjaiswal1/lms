@@ -116,7 +116,7 @@ func (s *Service) DeleteCheckpoint(ctx context.Context, orgID, id string) error 
 // ListSubmissions lists every team's submission row for a checkpoint.
 func (s *Service) ListSubmissions(ctx context.Context, orgID, checkpointID string) ([]ProjectTeamCheckpoint, error) {
 	if _, err := s.repo.GetCheckpoint(ctx, orgID, checkpointID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.ListSubmissions: %w", err)
 	}
 	return s.repo.ListTeamCheckpointsByCheckpoint(ctx, checkpointID)
 }
@@ -130,10 +130,10 @@ func (s *Service) ListSubmissions(ctx context.Context, orgID, checkpointID strin
 // question this batch doesn't need to answer yet).
 func (s *Service) GradeSubmission(ctx context.Context, orgID, teamID, checkpointID string, gradedBy string, patch GradePatch) (*ProjectTeamCheckpoint, error) {
 	if _, err := s.repo.GetTeam(ctx, orgID, teamID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GradeSubmission: %w", err)
 	}
 	if _, err := s.repo.GetCheckpoint(ctx, orgID, checkpointID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GradeSubmission: %w", err)
 	}
 	updated, err := s.repo.GradeTeamCheckpoint(ctx, teamID, checkpointID, patch.Score, patch.Feedback, gradedBy)
 	if err != nil {
@@ -147,14 +147,14 @@ func (s *Service) GradeSubmission(ctx context.Context, orgID, teamID, checkpoint
 func (s *Service) PostCheckpointComment(ctx context.Context, orgID, teamID, checkpointID, body string) error {
 	team, err := s.repo.GetTeam(ctx, orgID, teamID)
 	if err != nil {
-		return err
+		return fmt.Errorf("gitlab.PostCheckpointComment: %w", err)
 	}
 	if team.GitlabProjectID == nil {
 		return fmt.Errorf("gitlab: post checkpoint comment: %w: team has no provisioned GitLab project", ErrConflict)
 	}
 	ptc, err := s.repo.GetTeamCheckpoint(ctx, teamID, checkpointID)
 	if err != nil {
-		return err
+		return fmt.Errorf("gitlab.PostCheckpointComment: %w", err)
 	}
 	if ptc.MRIID == nil {
 		return fmt.Errorf("gitlab: post checkpoint comment: %w: no merge request submitted for this checkpoint yet", ErrConflict)

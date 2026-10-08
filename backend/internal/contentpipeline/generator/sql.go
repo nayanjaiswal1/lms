@@ -22,7 +22,6 @@ func sqlStringArray(items []string) string {
 	return "ARRAY[" + strings.Join(quoted, ",") + "]"
 }
 
-// sqlBool returns the Postgres literal for a Go bool.
 func sqlBool(b bool) string {
 	if b {
 		return "true"
@@ -30,7 +29,6 @@ func sqlBool(b bool) string {
 	return "false"
 }
 
-// sqlInt returns the Postgres literal for a Go int.
 func sqlInt(n int) string {
 	return strconv.Itoa(n)
 }

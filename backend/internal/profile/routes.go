@@ -3,6 +3,7 @@ package profile
 import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/certificates"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/storage"
@@ -17,9 +18,9 @@ type ProfileHandler struct {
 // New constructs the profile stack: Repo → Service → Handler. certsRepo is
 // shared (read-only here) so the public profile can list a learner's earned
 // certificates without a second query path into the certificates domain.
-func New(pool *pgxpool.Pool, cfg *config.Config, store storage.StorageClient, certsRepo *certificates.Repo) *ProfileHandler {
+func New(pool *pgxpool.Pool, cfg *config.Config, store storage.StorageClient, certsRepo *certificates.Repo, aiProvider ai.LLMProvider) *ProfileHandler {
 	repo := NewRepo(pool)
-	svc := NewService(repo, store, cfg, certsRepo)
+	svc := NewService(repo, store, cfg, certsRepo, aiProvider)
 	h := newHandler(svc, pool)
 	return &ProfileHandler{handler: h}
 }
@@ -36,6 +37,7 @@ func (ph *ProfileHandler) RegisterRoutes(r chi.Router) {
 	r.Get("/api/profile/me/skills", ph.handler.HandleGetMySkills)
 	r.Post("/api/profile/me/skills", ph.handler.HandleAddSkill)
 	r.Delete("/api/profile/me/skills/{skillID}", ph.handler.HandleRemoveSkill)
+	r.Post("/api/profile/me/resume/parse", ph.handler.HandleParseResume)
 	r.Get("/api/profile/user/{userID}", ph.handler.HandleGetUserProfile)
 }
 

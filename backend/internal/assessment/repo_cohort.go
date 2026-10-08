@@ -43,7 +43,7 @@ func (r *Repo) UpdateCohortGroup(ctx context.Context, orgID string, g CohortGrou
 		}
 		cyclic, err := r.isCohortGroupDescendant(ctx, orgID, g.ID, *g.ParentID)
 		if err != nil {
-			return CohortGroup{}, err
+			return CohortGroup{}, fmt.Errorf("assessment.UpdateCohortGroup: %w", err)
 		}
 		if cyclic {
 			return CohortGroup{}, ErrCyclicParent

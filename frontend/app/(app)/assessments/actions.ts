@@ -6,7 +6,7 @@ import type { ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 import type { ProctoringConfig } from "@/lib/assessments/types";
 
-export interface CreateAssessmentInput {
+interface CreateAssessmentInput {
   title: string;
   description?: string;
   parent_type: string;
@@ -20,7 +20,7 @@ export interface CreateAssessmentInput {
   proctoring: ProctoringConfig;
 }
 
-export interface CreateAssessmentResult {
+interface CreateAssessmentResult {
   ok?: boolean;
   error?: string;
   id?: string;
@@ -33,7 +33,7 @@ export async function createAssessmentAction(input: CreateAssessmentInput): Prom
   return { ok: true, id: result.data?.id };
 }
 
-export interface UpdateAssessmentInput extends CreateAssessmentInput {
+interface UpdateAssessmentInput extends CreateAssessmentInput {
   parent_id?: string | null;
 }
 

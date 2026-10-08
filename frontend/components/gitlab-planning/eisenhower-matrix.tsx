@@ -11,7 +11,6 @@ const AXIS_LABEL = "absolute text-xs font-bold uppercase tracking-wide text-fore
 export function EisenhowerMatrix({ quadrants, selectedTaskId }: EisenhowerMatrixProps) {
   return (
     <section aria-label="Eisenhower matrix" className="order-1 space-y-3 sm:space-y-0 xl:order-none">
-      {/* Mobile section heading */}
       <div className="flex-between px-0.5 sm:hidden">
         <div>
           <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">Eisenhower Matrix</h2>
@@ -23,7 +22,6 @@ export function EisenhowerMatrix({ quadrants, selectedTaskId }: EisenhowerMatrix
       </div>
 
       <div className="relative sm:pb-6 sm:pl-8 sm:pr-6 sm:pt-5">
-        {/* Axes — sm+ only; the touch layout drops them for room */}
         <div aria-hidden className="hidden sm:block">
           <div className={`${AXIS_LABEL} left-1/2 top-0 -translate-x-1/2`}>Important</div>
           <div className={`${AXIS_LABEL} left-3 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90`}>Can Wait</div>

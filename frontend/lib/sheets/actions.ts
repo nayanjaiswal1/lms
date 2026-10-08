@@ -15,7 +15,6 @@ import type {
   ProgressStatus,
   Sheet,
   SheetItem,
-  UpdateItemInput,
   UpdateSheetInput,
   UserSheetSettings,
 } from "@/lib/server/sheets";
@@ -67,15 +66,6 @@ export async function addSheetItemAction(
   return result;
 }
 
-export async function updateSheetItemAction(
-  sheetId: string,
-  itemId: string,
-  input: UpdateItemInput,
-): Promise<ActionResult<SheetItem>> {
-  const result = await apiAction<SheetItem>("PATCH", `/api/sheets/${sheetId}/items/${itemId}`, input);
-  if (result.ok) revalidatePath(ROUTES.SHEETS, "layout");
-  return result;
-}
 
 export async function deleteSheetItemAction(sheetId: string, itemId: string): Promise<ActionResult> {
   const result = await apiAction("DELETE", `/api/sheets/${sheetId}/items/${itemId}`);

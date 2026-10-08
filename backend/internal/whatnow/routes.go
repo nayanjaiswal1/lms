@@ -5,7 +5,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// New constructs the What Now? domain handler.
 func New(pool *pgxpool.Pool) *Handler {
 	return NewHandler(pool)
 }

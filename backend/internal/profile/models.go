@@ -101,7 +101,6 @@ type Profile struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// Skill is a single user skill entry.
 type Skill struct {
 	ID         string    `json:"id"`
 	SkillName  string    `json:"skill_name"`

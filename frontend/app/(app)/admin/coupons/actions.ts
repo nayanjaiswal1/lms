@@ -5,7 +5,7 @@ import { apiAction, type ActionResult } from "@/lib/server/api";
 import type { Coupon } from "@/lib/server/coupons";
 import ROUTES from "@/lib/routes";
 
-export interface CreateCouponInput {
+interface CreateCouponInput {
   code: string;
   description?: string;
   discount_type: "percent" | "fixed";
@@ -22,7 +22,7 @@ export async function createCouponAction(input: CreateCouponInput): Promise<Acti
   return result;
 }
 
-export interface UpdateCouponInput {
+interface UpdateCouponInput {
   description: string;
   is_active: boolean;
   expires_at?: string;

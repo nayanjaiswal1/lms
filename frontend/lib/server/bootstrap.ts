@@ -9,7 +9,7 @@ import type { ActiveLabSession } from "@/lib/labs";
 // permissions, features, active lab, current org) into one backend call.
 // A part is absent when its underlying endpoint failed — each reader keeps its
 // own fallback, exactly as when these were separate calls.
-export interface Bootstrap {
+interface Bootstrap {
   me?: AuthMeResponse;
   permissions?: { permissions: string[] };
   features?: FeatureConfig;

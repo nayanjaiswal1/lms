@@ -140,7 +140,7 @@ func (h *Handler) HandleUploadAvatar(w http.ResponseWriter, r *http.Request) {
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxAvatarBytes+1)
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Failed to parse multipart form.")
+		httputil.WriteMultipartParseError(w, err, "Avatar must be under 5 MB.")
 		return
 	}
 

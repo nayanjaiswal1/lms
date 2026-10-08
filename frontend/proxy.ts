@@ -241,5 +241,5 @@ export async function proxy(request: NextRequest, event: NextFetchEvent): Promis
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons|apple-icon|manifest.webmanifest).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons|apple-icon|monaco-vs|manifest.webmanifest).*)"],
 }

@@ -12,12 +12,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Repo is the data-access layer for the sheets domain.
 type Repo struct {
 	pool *pgxpool.Pool
 }
 
-// NewRepo constructs a Repo over the shared connection pool.
 func NewRepo(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }
@@ -66,7 +64,6 @@ func (r *Repo) ListPublicSheets(ctx context.Context) ([]Sheet, error) {
 	return out, rows.Err()
 }
 
-// GetSheetBySlug returns one sheet by its slug.
 func (r *Repo) GetSheetBySlug(ctx context.Context, slug string) (Sheet, error) {
 	row := r.pool.QueryRow(ctx, `SELECT `+sheetColumns+` FROM sheets WHERE slug = $1`, slug)
 	s, err := scanSheet(row)

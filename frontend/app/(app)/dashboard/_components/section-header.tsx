@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export interface DashboardSectionLink {
+interface DashboardSectionLink {
   href: string;
   label: string;
 }

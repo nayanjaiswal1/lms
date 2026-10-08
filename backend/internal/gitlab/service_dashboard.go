@@ -19,11 +19,11 @@ import (
 // getProjectTeamMembers/getTeamActivity across every team itself.
 func (s *Service) GetAssignmentDashboard(ctx context.Context, orgID, assignmentID string) (*AssignmentDashboardView, error) {
 	if _, err := s.repo.GetAssignment(ctx, orgID, assignmentID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetAssignmentDashboard: %w", err)
 	}
 	teams, err := s.repo.GetAssignmentDashboard(ctx, assignmentID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetAssignmentDashboard: %w", err)
 	}
 	membersByTeam, err := s.repo.GetTeamMembersByAssignment(ctx, assignmentID)
 	if err != nil {
@@ -48,11 +48,11 @@ func (s *Service) GetAssignmentDashboard(ctx context.Context, orgID, assignmentI
 // aggregation (including free-rider flags) for the staff+mentor view.
 func (s *Service) GetTeamContributions(ctx context.Context, orgID, teamID string) (*TeamContributionsView, error) {
 	if _, err := s.repo.GetTeam(ctx, orgID, teamID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetTeamContributions: %w", err)
 	}
 	contributions, err := s.repo.GetTeamContributions(ctx, teamID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetTeamContributions: %w", err)
 	}
 	return &TeamContributionsView{TeamID: teamID, Contributions: contributions}, nil
 }
@@ -61,11 +61,11 @@ func (s *Service) GetTeamContributions(ctx context.Context, orgID, teamID string
 // same existence guard as GetTeamContributions.
 func (s *Service) GetTeamOwnership(ctx context.Context, orgID, teamID string) (*TeamOwnershipView, error) {
 	if _, err := s.repo.GetTeam(ctx, orgID, teamID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetTeamOwnership: %w", err)
 	}
 	files, err := s.repo.ListFileOwnership(ctx, teamID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetTeamOwnership: %w", err)
 	}
 	return &TeamOwnershipView{TeamID: teamID, Files: files}, nil
 }
@@ -75,11 +75,11 @@ func (s *Service) GetTeamOwnership(ctx context.Context, orgID, teamID string) (*
 // GetMyProjectContributions uses.
 func (s *Service) GetMyProjectOwnership(ctx context.Context, orgID, userID, teamID string) (*TeamOwnershipView, error) {
 	if _, err := s.repo.GetMyProject(ctx, orgID, userID, teamID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetMyProjectOwnership: %w", err)
 	}
 	files, err := s.repo.ListFileOwnership(ctx, teamID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetMyProjectOwnership: %w", err)
 	}
 	return &TeamOwnershipView{TeamID: teamID, Files: files}, nil
 }
@@ -89,11 +89,11 @@ func (s *Service) GetMyProjectOwnership(ctx context.Context, orgID, userID, team
 // to them (see Repo.GetAssignmentBurndown's own doc comment).
 func (s *Service) GetAssignmentBurndown(ctx context.Context, orgID, assignmentID string) (*AssignmentBurndownView, error) {
 	if _, err := s.repo.GetAssignment(ctx, orgID, assignmentID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetAssignmentBurndown: %w", err)
 	}
 	checkpoints, err := s.repo.GetAssignmentBurndown(ctx, assignmentID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetAssignmentBurndown: %w", err)
 	}
 	return &AssignmentBurndownView{AssignmentID: assignmentID, Checkpoints: checkpoints}, nil
 }
@@ -102,11 +102,11 @@ func (s *Service) GetAssignmentBurndown(ctx context.Context, orgID, assignmentID
 // across every team under an assignment.
 func (s *Service) GetAssignmentLeaderboard(ctx context.Context, orgID, assignmentID string) (*AssignmentLeaderboardView, error) {
 	if _, err := s.repo.GetAssignment(ctx, orgID, assignmentID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetAssignmentLeaderboard: %w", err)
 	}
 	leaderboard, err := s.repo.GetAssignmentLeaderboard(ctx, assignmentID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetAssignmentLeaderboard: %w", err)
 	}
 	return &AssignmentLeaderboardView{AssignmentID: assignmentID, Leaderboard: leaderboard}, nil
 }
@@ -133,11 +133,11 @@ func (s *Service) GetMyProject(ctx context.Context, orgID, userID, teamID string
 // another team's contribution rows by guessing a teamID.
 func (s *Service) GetMyProjectContributions(ctx context.Context, orgID, userID, teamID string) (*TeamContributionsView, error) {
 	if _, err := s.repo.GetMyProject(ctx, orgID, userID, teamID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetMyProjectContributions: %w", err)
 	}
 	contributions, err := s.repo.GetTeamContributions(ctx, teamID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetMyProjectContributions: %w", err)
 	}
 	return &TeamContributionsView{TeamID: teamID, Contributions: contributions}, nil
 }
@@ -153,11 +153,11 @@ func (s *Service) GetMyProjectContributions(ctx context.Context, orgID, userID, 
 func (s *Service) GetMyProjectCheckpoints(ctx context.Context, orgID, userID, teamID string) (*MyProjectCheckpointsView, error) {
 	team, err := s.repo.GetMyProject(ctx, orgID, userID, teamID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetMyProjectCheckpoints: %w", err)
 	}
 	checkpoints, err := s.repo.ListCheckpointsForTeam(ctx, team.AssignmentID, teamID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetMyProjectCheckpoints: %w", err)
 	}
 	return &MyProjectCheckpointsView{TeamID: teamID, Checkpoints: checkpoints}, nil
 }

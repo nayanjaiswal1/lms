@@ -5,6 +5,7 @@ import type { Terminal as XTerm } from "@xterm/xterm"
 import type { FitAddon as XFitAddon } from "@xterm/addon-fit"
 import { mintWSTokenAction } from "@/app/(app)/labs/[labId]/actions"
 import { getEditorSettings, subscribeEditorSettings } from "@/lib/labs/editor-settings"
+import { LAB_PROXY_WS_URL } from "@/lib/labs/preview-url"
 
 interface UseLabTerminalOptions {
  sessionId: string
@@ -121,10 +122,8 @@ export function useLabTerminal({
  return
  }
 
-        const proxyUrl =
-          process.env.NEXT_PUBLIC_LAB_PROXY_URL ?? "ws://localhost:18081"
  // Token rides the Sec-WebSocket-Protocol header, not the URL (audit M-20).
- const ws = new WebSocket(`${proxyUrl}/ws`, ["mf-lab", res.data.session_token])
+ const ws = new WebSocket(`${LAB_PROXY_WS_URL}/ws`, ["mf-lab", res.data.session_token])
  wsRef.current = ws
  ws.binaryType = "arraybuffer"
  attachWSHandlers(ws)

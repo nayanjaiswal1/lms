@@ -127,7 +127,6 @@ function SectionCard({
 
   return (
     <div className="card-base">
-      {/* Section header */}
       <div className="flex items-center gap-2 p-3 border-b border-border">
         <Button aria-label={open ? "Collapse section" : "Expand section"}
           type="button"
@@ -149,7 +148,6 @@ function SectionCard({
         </div>
       </div>
 
-      {/* Modules */}
       {open && (
         <div className="flex flex-col gap-1 p-2">
           {section.modules.length === 0 && (

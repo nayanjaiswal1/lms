@@ -46,7 +46,6 @@ func NewService(repo *Repo, cal CalendarProjector, providers *payments.Registry,
 // package. Not part of the public surface of the domain.
 func (s *Service) Repo() *Repo { return s.repo }
 
-// GetConfig returns the org's booking policy.
 func (s *Service) GetConfig(ctx context.Context, orgID string) (Config, error) {
 	return s.repo.GetConfig(ctx, orgID)
 }
@@ -126,7 +125,6 @@ func (s *Service) AddException(ctx context.Context, e AvailabilityException) (Av
 	return s.repo.CreateException(ctx, e)
 }
 
-// DeleteException removes one of the mentor's own overrides.
 func (s *Service) DeleteException(ctx context.Context, orgID, mentorID, id string) error {
 	return s.repo.DeleteException(ctx, orgID, mentorID, id)
 }
@@ -519,7 +517,6 @@ func (s *Service) SubmitFeedback(ctx context.Context, orgID, sessionID, callerID
 	})
 }
 
-// SaveNotes writes the mentor's write-up of a session.
 func (s *Service) SaveNotes(ctx context.Context, orgID, sessionID, callerID, body string, visibleToStudent bool) (Notes, error) {
 	if len(body) > 20000 {
 		return Notes{}, fmt.Errorf("%w: notes must be 20000 characters or fewer", ErrInvalid)

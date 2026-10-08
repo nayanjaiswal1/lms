@@ -80,10 +80,12 @@ func (r *Repo) GetEvaluationStatus(ctx context.Context, attemptID string) (Evalu
 	}
 
 	var hasResult bool
-	_ = r.pool.QueryRow(dbCtx,
+	if err := r.pool.QueryRow(dbCtx,
 		`SELECT EXISTS(SELECT 1 FROM interview_evaluations WHERE attempt_id = $1 AND scope = 'overall')`,
 		attemptID,
-	).Scan(&hasResult)
+	).Scan(&hasResult); err != nil {
+		return EvaluationStatus{}, fmt.Errorf("eval repo: get eval result flag: %w", err)
+	}
 
 	return EvaluationStatus{AttemptID: attemptID, Status: status, HasResult: hasResult}, nil
 }
@@ -414,7 +416,7 @@ func (r *Repo) GetStudentProgress(ctx context.Context, userID, orgID string) (St
 
 	trends, err := r.GetSkillTrends(dbCtx, userID, orgID)
 	if err != nil {
-		return StudentProgress{}, err
+		return StudentProgress{}, fmt.Errorf("assessment.GetStudentProgress: %w", err)
 	}
 	sp.SkillTrends = trends
 	return sp, nil

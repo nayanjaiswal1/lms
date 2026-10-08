@@ -23,7 +23,7 @@ import type {
 
 // ─── Assignments ─────────────────────────────────────────────────────────────
 
-export interface CreateAssignmentInput {
+interface CreateAssignmentInput {
   batch_id: string;
   title: string;
   slug: string;
@@ -49,7 +49,7 @@ export async function createAssignmentAction(input: CreateAssignmentInput): Prom
   return { ok: true, data: { id: result.data.id } };
 }
 
-export interface UpdateAssignmentInput {
+interface UpdateAssignmentInput {
   title?: string;
   description?: string | null;
   visibility?: "private" | "internal";
@@ -155,7 +155,7 @@ export async function removeTeamMemberAction(teamId: string, userId: string, ass
 
 // ─── Checkpoints (staff) ─────────────────────────────────────────────────────
 
-export interface CheckpointInput {
+interface CheckpointInput {
   title: string;
   description?: string | null;
   position: number;
@@ -258,7 +258,7 @@ export async function runTemplateSyncAction(assignmentId: string): Promise<Actio
   return apiAction("POST", `/api/projects/assignments/${assignmentId}/template-sync`);
 }
 
-export interface HandoffInput {
+interface HandoffInput {
   user_id: string;
   mode: HandoffMode;
   target_namespace_id: number;
@@ -281,7 +281,7 @@ export async function requestHandoffAction(
 
 // ─── Marketplace (Phase A, Slice 1) ─────────────────────────────────────────
 
-export interface RequirementInput {
+interface RequirementInput {
   title: string;
   brief: string;
   required_skills: string[];
@@ -355,7 +355,7 @@ export async function withdrawApplicationAction(applicationId: string, requireme
 
 // ─── Batch 7 (Phase B): task board ──────────────────────────────────────────
 
-export interface TaskInput {
+interface TaskInput {
   title: string;
   description?: string | null;
   checkpoint_id?: string | null;
@@ -392,7 +392,7 @@ export async function deleteTaskAction(taskId: string, teamId: string): Promise<
 
 // ─── Batch 7 (Phase B): design proposals & voting ──────────────────────────
 
-export interface ProposalInput {
+interface ProposalInput {
   title: string;
   description?: string | null;
   link?: string | null;
@@ -447,7 +447,7 @@ export async function requestScoringAction(requirementId: string): Promise<Actio
   return result;
 }
 
-export interface CreateTeamFromSelectionInput {
+interface CreateTeamFromSelectionInput {
   assignment_id: string;
   team_name: string;
   team_slug: string;

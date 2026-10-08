@@ -45,7 +45,7 @@ export interface HabitCompletion {
   metadata: Record<string, unknown>
 }
 
-export interface HabitMonthView {
+interface HabitMonthView {
   habits: Habit[]
   completions: HabitCompletion[]
 }

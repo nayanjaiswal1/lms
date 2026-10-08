@@ -28,7 +28,6 @@ export function PreferencesForm({ profile, updateAction }: Props) {
       <h2 className="section-title mb-6">Preferences</h2>
 
       <form action={updateAction} className="form-stack">
-        {/* Timezone */}
         <div className="space-y-1.5">
           <Label htmlFor="timezone-input">Timezone</Label>
           <Input
@@ -44,7 +43,6 @@ export function PreferencesForm({ profile, updateAction }: Props) {
           </p>
         </div>
 
-        {/* Language */}
         <div className="space-y-1.5">
           <Label htmlFor="language-input">Language</Label>
           <Input
@@ -60,7 +58,6 @@ export function PreferencesForm({ profile, updateAction }: Props) {
           </p>
         </div>
 
-        {/* Weekly Goal */}
         <div className="space-y-1.5">
           <Label htmlFor="weekly-goal-input">Weekly Learning Goal (hours)</Label>
           <Input
@@ -76,7 +73,6 @@ export function PreferencesForm({ profile, updateAction }: Props) {
           />
         </div>
 
-        {/* Sidebar logo destination */}
         <div className="space-y-2">
           <Label htmlFor="default-landing-page-select">Logo takes you to</Label>
           <Select
@@ -96,7 +92,6 @@ export function PreferencesForm({ profile, updateAction }: Props) {
           </Select>
         </div>
 
-        {/* Notifications */}
         <fieldset className="space-y-3">
           <legend className="text-sm font-medium text-foreground">
             Notifications

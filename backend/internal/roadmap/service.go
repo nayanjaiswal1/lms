@@ -198,9 +198,9 @@ func (s *Service) Delete(ctx context.Context, id, userID string) error {
 	return s.repo.SoftDelete(ctx, id, userID)
 }
 
-// ListPublic returns the browse gallery of roadmaps their owners have shared.
-func (s *Service) ListPublic(ctx context.Context) ([]Roadmap, error) {
-	return s.repo.ListPublic(ctx)
+// ListPublic returns one page of the browse gallery of roadmaps their owners have shared.
+func (s *Service) ListPublic(ctx context.Context, limit, offset int) ([]Roadmap, error) {
+	return s.repo.ListPublic(ctx, limit, offset)
 }
 
 // Fork copies a public roadmap's tree into a brand-new roadmap owned by

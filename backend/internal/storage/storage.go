@@ -53,7 +53,6 @@ type PrivateStore interface {
 	List(ctx context.Context, prefix string) ([]PrivateObject, error)
 }
 
-// PrivateObject is one listed object in a PrivateStore.
 type PrivateObject struct {
 	Key          string
 	LastModified time.Time

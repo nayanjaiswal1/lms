@@ -117,7 +117,7 @@ func gradeCoding(ctx context.Context, resolve func(CodingContent) CodeExecutor, 
 
 	result, err := exec.Run(ctx, a.Language, a.Code, c)
 	if err != nil {
-		return false, false, 0, RunResult{Status: "error"}, a.Language, a.Code, err
+		return false, false, 0, RunResult{Status: "error"}, a.Language, a.Code, fmt.Errorf("assessment.gradeCoding: %w", err)
 	}
 
 	var weightTotal, weightPassed float64

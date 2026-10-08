@@ -13,14 +13,14 @@ import {
 } from "@/components/ui/select";
 
 export const ROLE_TYPE_FILTERS = ["all", "system", "custom"] as const;
-export const ROLE_TYPE_FILTER_LABEL: Record<(typeof ROLE_TYPE_FILTERS)[number], string> = {
+const ROLE_TYPE_FILTER_LABEL: Record<(typeof ROLE_TYPE_FILTERS)[number], string> = {
   all: "All types",
   system: "System",
   custom: "Custom",
 };
 
 export const ROLE_STATUS_FILTERS = ["all", "active", "disabled"] as const;
-export const ROLE_STATUS_FILTER_LABEL: Record<(typeof ROLE_STATUS_FILTERS)[number], string> = {
+const ROLE_STATUS_FILTER_LABEL: Record<(typeof ROLE_STATUS_FILTERS)[number], string> = {
   all: "All statuses",
   active: "Active",
   disabled: "Disabled",

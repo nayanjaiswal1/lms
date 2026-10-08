@@ -21,11 +21,11 @@ import (
 func (s *Service) SubmitDesignProposal(ctx context.Context, orgID, userID, checkpointID, teamID, title string, description, link *string) (*ProjectDesignProposal, error) {
 	team, err := s.repo.GetMyProject(ctx, orgID, userID, teamID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.SubmitDesignProposal: %w", err)
 	}
 	checkpoint, err := s.repo.GetCheckpoint(ctx, orgID, checkpointID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.SubmitDesignProposal: %w", err)
 	}
 	if checkpoint.AssignmentID != team.AssignmentID {
 		return nil, ErrNotFound
@@ -40,7 +40,7 @@ func (s *Service) SubmitDesignProposal(ctx context.Context, orgID, userID, check
 // ranked by vote count — same membership guard as SubmitDesignProposal.
 func (s *Service) ListDesignProposals(ctx context.Context, orgID, userID, checkpointID, teamID string) ([]DesignProposalView, error) {
 	if _, err := s.repo.GetMyProject(ctx, orgID, userID, teamID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.ListDesignProposals: %w", err)
 	}
 	return s.repo.ListDesignProposals(ctx, checkpointID, teamID, userID)
 }
@@ -50,7 +50,7 @@ func (s *Service) ListDesignProposals(ctx context.Context, orgID, userID, checkp
 // called from a staff-only route (routes.go's Batch 7 section).
 func (s *Service) ListDesignProposalsForCheckpoint(ctx context.Context, orgID, checkpointID, callerUserID string) ([]DesignProposalView, error) {
 	if _, err := s.repo.GetCheckpoint(ctx, orgID, checkpointID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.ListDesignProposalsForCheckpoint: %w", err)
 	}
 	return s.repo.ListAllDesignProposalsForCheckpoint(ctx, checkpointID, callerUserID)
 }
@@ -60,10 +60,10 @@ func (s *Service) ListDesignProposalsForCheckpoint(ctx context.Context, orgID, c
 func (s *Service) VoteForProposal(ctx context.Context, orgID, userID, proposalID string) error {
 	proposal, err := s.repo.GetDesignProposal(ctx, orgID, proposalID)
 	if err != nil {
-		return err
+		return fmt.Errorf("gitlab.VoteForProposal: %w", err)
 	}
 	if _, err := s.repo.GetMyProject(ctx, orgID, userID, proposal.TeamID); err != nil {
-		return err
+		return fmt.Errorf("gitlab.VoteForProposal: %w", err)
 	}
 	return s.repo.VoteForProposal(ctx, proposalID, userID)
 }
@@ -72,10 +72,10 @@ func (s *Service) VoteForProposal(ctx context.Context, orgID, userID, proposalID
 func (s *Service) RemoveVote(ctx context.Context, orgID, userID, proposalID string) error {
 	proposal, err := s.repo.GetDesignProposal(ctx, orgID, proposalID)
 	if err != nil {
-		return err
+		return fmt.Errorf("gitlab.RemoveVote: %w", err)
 	}
 	if _, err := s.repo.GetMyProject(ctx, orgID, userID, proposal.TeamID); err != nil {
-		return err
+		return fmt.Errorf("gitlab.RemoveVote: %w", err)
 	}
 	return s.repo.RemoveVote(ctx, proposalID, userID)
 }
@@ -87,7 +87,7 @@ func (s *Service) RemoveVote(ctx context.Context, orgID, userID, proposalID stri
 func (s *Service) AcceptDesignProposal(ctx context.Context, orgID, proposalID string) (*ProjectDesignProposal, error) {
 	accepted, err := s.repo.AcceptDesignProposal(ctx, orgID, proposalID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.AcceptDesignProposal: %w", err)
 	}
 	if team, err := s.repo.GetTeamByID(ctx, accepted.TeamID); err == nil {
 		s.notifyTeam(ctx, team, notifications.New{

@@ -17,7 +17,7 @@ import ROUTES from "@/lib/routes";
 
 const BASE = "/api/instructor/lab-authoring";
 
-export interface CreateRecipeInput {
+interface CreateRecipeInput {
   title: string;
   appVersionId: string;
   placement: TargetPlacement | null;
@@ -47,11 +47,6 @@ export async function saveRecipeSpecAction(
   return res;
 }
 
-export async function deleteRecipeAction(id: string): Promise<ActionResult> {
-  const res = await apiAction("DELETE", `${BASE}/recipes/${id}`);
-  if (res.ok) revalidatePath(ROUTES.LAB_BUILDER);
-  return res;
-}
 
 export async function startBuildAction(recipeId: string): Promise<ActionResult<{ build_id: string; reused: boolean }>> {
   const res = await apiAction<{ build_id: string; reused: boolean }>("POST", `${BASE}/recipes/${recipeId}/builds`);
@@ -63,7 +58,7 @@ export async function startPreviewAction(buildId: string, variantKey: string): P
   return apiAction<LabSession>("POST", `${BASE}/builds/${buildId}/preview-session`, { variant_key: variantKey });
 }
 
-export interface PublishInput {
+interface PublishInput {
   courseId: string;
   sectionId: string;
   isRequired: boolean;

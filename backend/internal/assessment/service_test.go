@@ -6,66 +6,28 @@ import (
 	"time"
 )
 
-func TestBreachedHardCap_TabSwitch(t *testing.T) {
-	p := DefaultProctoring() // MaxTabSwitches=3
-	if breachedHardCap(p, EventTally{"tab_switch": 3}) {
-		t.Fatal("3 switches is at the cap, not over it")
+func TestBreachedHardCap(t *testing.T) {
+	def := DefaultProctoring() // MaxTabSwitches=3, MaxFocusLoss=5
+	tests := []struct {
+		name  string
+		p     ProctoringConfig
+		tally EventTally
+		want  bool
+	}{
+		{"tab switch at cap", def, EventTally{"tab_switch": 3}, false},
+		{"tab switch over cap", def, EventTally{"tab_switch": 4}, true},
+		{"tab+visibility combined over cap", def, EventTally{"tab_switch": 2, "visibility_hidden": 2}, true},
+		{"tab+visibility combined at cap", def, EventTally{"tab_switch": 1, "visibility_hidden": 2}, false},
+		{"focus loss at cap", def, EventTally{"focus_loss": 5}, false},
+		{"focus loss over cap", def, EventTally{"focus_loss": 6}, true},
+		{"zero caps unlimited", ProctoringConfig{}, EventTally{"tab_switch": 100, "focus_loss": 100}, false},
 	}
-	if !breachedHardCap(p, EventTally{"tab_switch": 4}) {
-		t.Fatal("4 switches must breach a cap of 3")
-	}
-}
-
-func TestBreachedHardCap_TabSwitchCountsVisibilityHidden(t *testing.T) {
-	p := DefaultProctoring()
-	if !breachedHardCap(p, EventTally{"tab_switch": 2, "visibility_hidden": 2}) {
-		t.Fatal("combined tab_switch + visibility_hidden must breach the cap")
-	}
-}
-
-func TestBreachedHardCap_FocusLoss(t *testing.T) {
-	p := DefaultProctoring() // MaxFocusLoss=5
-	if !breachedHardCap(p, EventTally{"focus_loss": 6}) {
-		t.Fatal("6 focus losses must breach a cap of 5")
-	}
-}
-
-func TestBreachedHardCap_Unlimited(t *testing.T) {
-	p := ProctoringConfig{MaxTabSwitches: 0, MaxFocusLoss: 0}
-	if breachedHardCap(p, EventTally{"tab_switch": 100, "focus_loss": 100}) {
-		t.Fatal("zero caps mean unlimited, must never breach")
-	}
-}
-
-func TestBreachedHardCap_FocusLossAtBoundary(t *testing.T) {
-	p := DefaultProctoring() // MaxFocusLoss=5: allow 5, submit on 6th
-	if breachedHardCap(p, EventTally{"focus_loss": 5}) {
-		t.Fatal("exactly 5 focus losses must not breach a cap of 5 (submit on 6th)")
-	}
-	if !breachedHardCap(p, EventTally{"focus_loss": 6}) {
-		t.Fatal("6 focus losses must breach a cap of 5")
-	}
-}
-
-func TestBreachedHardCap_TabSwitchAtBoundary(t *testing.T) {
-	p := DefaultProctoring() // MaxTabSwitches=3: allow 3, submit on 4th
-	if breachedHardCap(p, EventTally{"tab_switch": 3}) {
-		t.Fatal("exactly 3 tab switches must not breach a cap of 3 (submit on 4th)")
-	}
-	if !breachedHardCap(p, EventTally{"tab_switch": 4}) {
-		t.Fatal("4 tab switches must breach a cap of 3")
-	}
-}
-
-func TestBreachedHardCap_MixedTabAndVisibilityAtBoundary(t *testing.T) {
-	p := DefaultProctoring() // MaxTabSwitches=3
-	// At cap: 1 tab_switch + 2 visibility_hidden = 3 total, must NOT breach.
-	if breachedHardCap(p, EventTally{"tab_switch": 1, "visibility_hidden": 2}) {
-		t.Fatal("1 tab_switch + 2 visibility_hidden = 3 total, must not breach a cap of 3")
-	}
-	// Over cap: 2 + 2 = 4 total, must breach.
-	if !breachedHardCap(p, EventTally{"tab_switch": 2, "visibility_hidden": 2}) {
-		t.Fatal("2 tab_switch + 2 visibility_hidden = 4 total, must breach a cap of 3")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := breachedHardCap(tc.p, tc.tally); got != tc.want {
+				t.Fatalf("breachedHardCap = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 

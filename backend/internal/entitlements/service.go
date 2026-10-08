@@ -57,7 +57,7 @@ func (g GateMap) Enabled(featureKey string) bool {
 func (s *Service) GateMap(ctx context.Context, tierID string) (GateMap, error) {
 	gates, err := s.repo.GateMap(ctx, tierID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("entitlements.GateMap: %w", err)
 	}
 	return GateMap(gates), nil
 }
@@ -73,7 +73,7 @@ type UnlockInfos struct {
 func (s *Service) UnlockInfos(ctx context.Context, audience string) (UnlockInfos, error) {
 	tiers, err := s.repo.FirstUnlockingTiers(ctx, audience)
 	if err != nil {
-		return UnlockInfos{}, err
+		return UnlockInfos{}, fmt.Errorf("entitlements.UnlockInfos: %w", err)
 	}
 	return UnlockInfos{audience: audience, tiers: tiers}, nil
 }
@@ -137,7 +137,7 @@ func (s *Service) ListPlanLimits(ctx context.Context, tierID string) ([]PlanLimi
 
 	existing, err := s.repo.ListPlanLimits(ctx, tierID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("entitlements.ListPlanLimits: %w", err)
 	}
 	byKey := make(map[string]PlanLimit, len(existing))
 	for _, pl := range existing {

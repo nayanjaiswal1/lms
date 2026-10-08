@@ -31,7 +31,7 @@ export interface Connector {
   path: string;
 }
 
-export interface RoadmapLayout {
+interface RoadmapLayout {
   phases: PhaseBox[];
   connectors: Connector[];
   width: number;

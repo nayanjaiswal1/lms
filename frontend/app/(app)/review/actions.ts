@@ -2,7 +2,7 @@
 
 import { apiAction } from "@/lib/server/api";
 
-export interface ReviewResult {
+interface ReviewResult {
   ok: boolean;
   nextDue?: string;
   error?: string;

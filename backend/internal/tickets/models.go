@@ -47,8 +47,7 @@ func IsValidStatus(kind, status string) bool {
 	return validStatus[kind][status]
 }
 
-// Category values — support tickets only, mirrors the category CHECK a prior
-// dedicated support_tickets table used to enforce.
+// Category values — support tickets only.
 const (
 	CategoryTechnical     = "technical"
 	CategoryBilling       = "billing"
@@ -136,7 +135,6 @@ type Ticket struct {
 	CreatedAt       time.Time  `json:"created_at"`
 }
 
-// Message is a single reply on a ticket's thread.
 type Message struct {
 	ID        string    `json:"id"`
 	OrgID     string    `json:"org_id"`

@@ -13,9 +13,11 @@ type stubRepo struct {
 	assignments []UserRoleAssignment
 	permErr     error
 	assignErr   error
+	calls       [][2]string // (userID, tenantID) per GetEffectivePermissions call
 }
 
-func (r *stubRepo) GetEffectivePermissions(_ context.Context, _, _ string) ([]string, error) {
+func (r *stubRepo) GetEffectivePermissions(_ context.Context, userID, tenantID string) ([]string, error) {
+	r.calls = append(r.calls, [2]string{userID, tenantID})
 	return r.perms, r.permErr
 }
 
@@ -227,150 +229,79 @@ func TestGetEffectivePermissions_CacheMiss_FallsBackToRepo(t *testing.T) {
 
 func TestGetEffectivePermissions_RepoError_Propagates(t *testing.T) {
 	cache := newStubCache()
-	repo := &stubRepo{permErr: errors.New("db unavailable")}
+	wantErr := errors.New("db unavailable")
+	repo := &stubRepo{permErr: wantErr}
 	svc := newTestService(repo, cache)
 
 	_, err := svc.GetEffectivePermissions(context.Background(), "user-1", "tenant-1")
-	if err == nil {
-		t.Fatal("expected error to propagate from repo, got nil")
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("want repo error propagated, got %v", err)
 	}
 }
 
 func TestGetEffectivePermissions_CrossTenantIsolation(t *testing.T) {
-	// tenant-1 has courses.create; tenant-2 has only courses.view
+	// tenant-1 is cached with courses.create; a tenant-2 lookup must miss that
+	// entry, hit the repo with tenant-2, and cache under tenant-2 only.
 	cache := newStubCache()
 	_ = cache.Set(context.Background(), "tenant-1", "user-1", []string{"courses.create"})
-	_ = cache.Set(context.Background(), "tenant-2", "user-1", []string{"courses.view"})
-
-	repo := &stubRepo{}
+	repo := &stubRepo{perms: []string{"courses.view"}}
 	svc := newTestService(repo, cache)
 
-	// Querying tenant-2 must not return tenant-1's permissions.
 	perms, err := svc.GetEffectivePermissions(context.Background(), "user-1", "tenant-2")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	for _, p := range perms {
-		if p == "courses.create" {
-			t.Error("cross-tenant permission leak: courses.create from tenant-1 appeared in tenant-2 results")
-		}
+	if len(perms) != 1 || perms[0] != "courses.view" {
+		t.Fatalf("want tenant-2 repo perms, got %v", perms)
+	}
+	if len(repo.calls) != 1 || repo.calls[0] != [2]string{"user-1", "tenant-2"} {
+		t.Fatalf("repo must be queried with tenant-2, got %v", repo.calls)
+	}
+	if got, _ := cache.Get(context.Background(), "tenant-1", "user-1"); len(got) != 1 || got[0] != "courses.create" {
+		t.Fatalf("tenant-1 cache entry must be untouched, got %v", got)
 	}
 }
 
-func TestHasPermission_True(t *testing.T) {
-	cache := newStubCache()
-	repo := &stubRepo{perms: []string{"courses.view", "assessments.take"}}
-	svc := newTestService(repo, cache)
-
-	ok, err := svc.HasPermission(context.Background(), "user-1", "tenant-1", "courses.view")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func TestHasPermissions(t *testing.T) {
+	const view, create, take = "courses.view", "courses.create", "assessments.take"
+	tests := []struct {
+		name   string
+		method string // "one", "any", "all"
+		held   []string
+		codes  []string
+		want   bool
+	}{
+		{"one true", "one", []string{view, take}, []string{view}, true},
+		{"one false", "one", []string{view}, []string{create}, false},
+		{"one escalation: manage_roles is not manage_permissions", "one", []string{"admin.manage_roles"}, []string{"admin.manage_permissions"}, false},
+		{"any matches first", "any", []string{view}, []string{view, create}, true},
+		{"any matches second", "any", []string{create}, []string{view, create}, true},
+		{"any no match", "any", []string{take}, []string{view, create}, false},
+		{"all present", "all", []string{view, create, take}, []string{view, create}, true},
+		{"all one missing", "all", []string{view}, []string{view, create}, false},
+		{"all empty user", "all", []string{}, []string{view}, false},
 	}
-	if !ok {
-		t.Error("expected HasPermission to return true for courses.view")
-	}
-}
-
-func TestHasPermission_False(t *testing.T) {
-	cache := newStubCache()
-	repo := &stubRepo{perms: []string{"courses.view"}}
-	svc := newTestService(repo, cache)
-
-	ok, err := svc.HasPermission(context.Background(), "user-1", "tenant-1", "courses.create")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if ok {
-		t.Error("expected HasPermission to return false for courses.create")
-	}
-}
-
-func TestHasAnyPermission_MatchesFirst(t *testing.T) {
-	cache := newStubCache()
-	repo := &stubRepo{perms: []string{"courses.view"}}
-	svc := newTestService(repo, cache)
-
-	ok, err := svc.HasAnyPermission(context.Background(), "user-1", "tenant-1",
-		"courses.view", "courses.create")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !ok {
-		t.Error("expected HasAnyPermission to return true")
-	}
-}
-
-func TestHasAnyPermission_MatchesSecond(t *testing.T) {
-	cache := newStubCache()
-	repo := &stubRepo{perms: []string{"courses.create"}}
-	svc := newTestService(repo, cache)
-
-	ok, err := svc.HasAnyPermission(context.Background(), "user-1", "tenant-1",
-		"courses.view", "courses.create")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !ok {
-		t.Error("expected HasAnyPermission to return true for second code")
-	}
-}
-
-func TestHasAnyPermission_NoMatch(t *testing.T) {
-	cache := newStubCache()
-	repo := &stubRepo{perms: []string{"assessments.take"}}
-	svc := newTestService(repo, cache)
-
-	ok, err := svc.HasAnyPermission(context.Background(), "user-1", "tenant-1",
-		"courses.view", "courses.create")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if ok {
-		t.Error("expected HasAnyPermission to return false")
-	}
-}
-
-func TestHasAllPermissions_AllPresent(t *testing.T) {
-	cache := newStubCache()
-	repo := &stubRepo{perms: []string{"courses.view", "courses.create", "assessments.take"}}
-	svc := newTestService(repo, cache)
-
-	ok, err := svc.HasAllPermissions(context.Background(), "user-1", "tenant-1",
-		"courses.view", "courses.create")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !ok {
-		t.Error("expected HasAllPermissions to return true when all codes held")
-	}
-}
-
-func TestHasAllPermissions_OneMissing(t *testing.T) {
-	cache := newStubCache()
-	repo := &stubRepo{perms: []string{"courses.view"}}
-	svc := newTestService(repo, cache)
-
-	ok, err := svc.HasAllPermissions(context.Background(), "user-1", "tenant-1",
-		"courses.view", "courses.create")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if ok {
-		t.Error("expected HasAllPermissions to return false when one code is missing")
-	}
-}
-
-func TestHasAllPermissions_EmptyUser(t *testing.T) {
-	cache := newStubCache()
-	repo := &stubRepo{perms: []string{}}
-	svc := newTestService(repo, cache)
-
-	ok, err := svc.HasAllPermissions(context.Background(), "user-1", "tenant-1", "courses.view")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if ok {
-		t.Error("expected HasAllPermissions to return false for user with no permissions")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := newTestService(&stubRepo{perms: tc.held}, newStubCache())
+			ctx := context.Background()
+			var got bool
+			var err error
+			switch tc.method {
+			case "one":
+				got, err = svc.HasPermission(ctx, "user-1", "tenant-1", tc.codes[0])
+			case "any":
+				got, err = svc.HasAnyPermission(ctx, "user-1", "tenant-1", tc.codes...)
+			case "all":
+				got, err = svc.HasAllPermissions(ctx, "user-1", "tenant-1", tc.codes...)
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("got %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 
@@ -400,23 +331,5 @@ func TestInvalidateForRoleChange_InvalidatesAllHolders(t *testing.T) {
 		if cached != nil {
 			t.Errorf("cache entry for (%s, %s) should have been invalidated", pair.t, pair.u)
 		}
-	}
-}
-
-func TestPrivilegeEscalation_CannotGrantSelfAdmin(t *testing.T) {
-	// A user with only admin.manage_roles should not be able to grant
-	// admin.manage_permissions to themselves via the permission system.
-	// This is enforced at the AdminService layer, but we verify the baseline
-	// here: the permission set returned does not magically expand.
-	cache := newStubCache()
-	repo := &stubRepo{perms: []string{"admin.manage_roles"}} // does NOT include admin.manage_permissions
-	svc := newTestService(repo, cache)
-
-	ok, err := svc.HasPermission(context.Background(), "user-1", "tenant-1", "admin.manage_permissions")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if ok {
-		t.Error("privilege escalation: user should not hold admin.manage_permissions")
 	}
 }

@@ -4,7 +4,7 @@
 
 export const PRIVACY_LAST_UPDATED = "October 7, 2026";
 
-export interface Subprocessor {
+interface Subprocessor {
   name: string;
   purpose: string;
   data: string;

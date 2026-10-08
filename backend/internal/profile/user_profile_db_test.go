@@ -15,7 +15,7 @@ func TestMain(m *testing.M) { testdb.RunMain(m) }
 func TestGetUserProfile_AdminScopedToOwnOrg(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
-	svc := NewService(NewRepo(pool), nil, nil, certificates.NewRepo(pool))
+	svc := NewService(NewRepo(pool), nil, nil, certificates.NewRepo(pool), nil)
 
 	seedUser := func(email string) string {
 		var id string

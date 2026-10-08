@@ -357,15 +357,12 @@ func getGitHubUser(ctx context.Context, client *http.Client) (*providerUser, err
 	}
 
 	// Always resolve through /user/emails, which states verified explicitly, and
-	// ignore the public-profile email entirely. The profile field was previously
-	// preferred and its verified-ness inferred from being non-empty — an
-	// assumption about GitHub's behaviour that the response itself never
-	// asserts. Since a verified address is what authorises linking into an
+	// ignore the public-profile email entirely. Since a verified address is what authorises linking into an
 	// existing account (findOrCreateSocialUser), it has to be read from the
 	// field that actually says so.
 	email, err := getGitHubPrimaryEmail(ctx, client)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("auth.getGitHubUser: %w", err)
 	}
 
 	return &providerUser{

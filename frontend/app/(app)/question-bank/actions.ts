@@ -12,12 +12,12 @@ export interface FormState {
   ok?: boolean;
 }
 
-export interface MCQOptionInput {
+interface MCQOptionInput {
   text: string;
   is_correct: boolean;
 }
 
-export interface CreateQuestionInput {
+interface CreateQuestionInput {
   type: "mcq" | "coding";
   title: string;
   difficulty: string;

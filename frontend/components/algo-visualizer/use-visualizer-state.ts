@@ -134,5 +134,3 @@ export function useVisualizerState() {
     setSpeed: (speedMs: number) => dispatch({ type: "SET_SPEED", speedMs }),
   };
 }
-
-export type VisualizerActions = ReturnType<typeof useVisualizerState>;

@@ -107,7 +107,6 @@ export function SchedulePage({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Schedule</h1>
@@ -132,9 +131,7 @@ export function SchedulePage({
         </Popover>
       </div>
 
-      {/* Views */}
       <div className="space-y-4">
-        {/* View toggle */}
         <div className="flex gap-2">
           {(["week", "list", "stats"] as const).map((v) => (
             <Button
@@ -152,7 +149,6 @@ export function SchedulePage({
           ))}
         </div>
 
-        {/* View content */}
         {view === "week" && (
           <WeekView
             anchor={selectedDate}
@@ -177,7 +173,6 @@ export function SchedulePage({
         {view === "stats" && <StatsView events={events} />}
       </div>
 
-      {/* Event detail panel */}
       {selectedEvent && (
         <EventPanel
           open

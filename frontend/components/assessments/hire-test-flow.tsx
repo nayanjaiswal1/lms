@@ -144,7 +144,6 @@ function TestRunner({
 
   return (
     <div className="flex min-h-dvh flex-col">
-      {/* Header */}
       <header className="sticky top-0 z-sticky border-b border-border bg-background/95 backdrop-blur">
         {/* eslint-disable-next-line no-restricted-syntax -- nested sticky header row, not the page shell: py-3 is the header's own internal spacing */}
         <div className="page-container flex-between py-3">
@@ -162,7 +161,6 @@ function TestRunner({
 
       {/* eslint-disable-next-line no-restricted-syntax -- standalone public test shell with its own min-h-dvh wrapper, no .app-content ancestor */}
       <main className="page-container flex flex-1 flex-col gap-6 py-8">
-        {/* Question navigation */}
         <div className="flex flex-wrap gap-2">
           {questions.map((question, i) => {
             const isAnswered = (answers[question.assessment_question_id]?.length ?? 0) > 0;
@@ -185,7 +183,6 @@ function TestRunner({
           })}
         </div>
 
-        {/* Current question */}
         <div className="card-base p-6">
           <div className="mb-1 flex-between gap-2">
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -227,7 +224,6 @@ function TestRunner({
           </div>
         </div>
 
-        {/* Prev / Next */}
         <div className="flex justify-between gap-3">
           <Button
             disabled={index === 0}

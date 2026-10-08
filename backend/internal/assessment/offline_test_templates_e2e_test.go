@@ -2,6 +2,7 @@ package assessment
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -56,7 +57,7 @@ func TestTestTemplate_InvalidMaxScoreRejected(t *testing.T) {
 	ctx := context.Background()
 	creator := seedUser(t, repo.pool, orgID)
 
-	if _, err := repo.CreateTestTemplate(ctx, orgID, "Bad Template", 0, creator); err != ErrInvalidScore {
+	if _, err := repo.CreateTestTemplate(ctx, orgID, "Bad Template", 0, creator); !errors.Is(err, ErrInvalidScore) {
 		t.Fatalf("expected ErrInvalidScore for max_score=0, got %v", err)
 	}
 }
@@ -103,7 +104,7 @@ func TestCreateOfflineTestScores_WithTemplateID(t *testing.T) {
 		t.Fatalf("create test template (other org): %v", err)
 	}
 	if _, err := repo.CreateOfflineTestScores(ctx, orgID, batch.ID, "Cross-Org Test", testDate, 100, creator,
-		[]OfflineTestScoreEntry{{UserID: student, Score: 50}}, &otherTmpl.ID); err != ErrNotFound {
+		[]OfflineTestScoreEntry{{UserID: student, Score: 50}}, &otherTmpl.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected ErrNotFound for cross-org template, got %v", err)
 	}
 }

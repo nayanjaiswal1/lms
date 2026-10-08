@@ -58,7 +58,7 @@ func (s *Service) RunVerify(ctx context.Context, buildID string) error {
 		return nil
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("labbuild.RunVerify: %w", err)
 	}
 	if b.Status != StatusVerifying {
 		return nil
@@ -69,7 +69,7 @@ func (s *Service) RunVerify(ctx context.Context, buildID string) error {
 	}
 	variants, err := s.repo.ListVariants(ctx, b.ID)
 	if err != nil {
-		return err
+		return fmt.Errorf("labbuild.RunVerify: %w", err)
 	}
 	if len(variants) == 0 {
 		return s.failBuild(ctx, b, Report{Error: "the build has no variants"})
@@ -113,7 +113,7 @@ func (s *Service) RunVerify(ctx context.Context, buildID string) error {
 	}
 	moved, err := s.repo.Finish(ctx, b.ID, status, rep)
 	if err != nil {
-		return err
+		return fmt.Errorf("labbuild.RunVerify: %w", err)
 	}
 	if moved && allPassed && b.Snapshot.AutoPublish {
 		if err := s.autoPublish(ctx, b); err != nil {
@@ -145,11 +145,11 @@ func (s *Service) downloadVerified(ctx context.Context, key, wantSHA string) ([]
 func (s *Service) loadVariantBundles(ctx context.Context, v VariantRow) (*variantBundles, error) {
 	ws, err := s.downloadVerified(ctx, v.WorkspaceKey, v.WorkspaceSHA)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.loadVariantBundles: %w", err)
 	}
 	gr, err := s.downloadVerified(ctx, v.GraderKey, v.GraderSHA)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.loadVariantBundles: %w", err)
 	}
 	var vb VerifyBundle
 	if err := json.Unmarshal(v.Payload, &vb); err != nil || vb.Key == "" {
@@ -157,11 +157,11 @@ func (s *Service) loadVariantBundles(ctx context.Context, v VariantRow) (*varian
 	}
 	raw, err := s.downloadVerified(ctx, vb.Key, vb.SHA)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.loadVariantBundles: %w", err)
 	}
 	overlays, err := overlaysFromVerifyTar(raw)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.loadVariantBundles: %w", err)
 	}
 	return &variantBundles{
 		view: &labkinds.VariantView{BuildID: v.BuildID, VariantKey: v.Key, WorkspaceBundle: ws, GraderBundle: gr,
@@ -174,7 +174,7 @@ func (s *Service) loadVariantBundles(ctx context.Context, v VariantRow) (*varian
 func overlaysFromVerifyTar(raw []byte) (map[string][]byte, error) {
 	files, err := readTar(raw)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.overlaysFromVerifyTar: %w", err)
 	}
 	overlays := map[string][]byte{}
 	for name, data := range files {
@@ -192,7 +192,7 @@ func overlayFile(sel string) string {
 func (s *Service) verifyVariant(ctx context.Context, b *Build, kind labkinds.Kind, v VariantRow, prior *VariantReport) (*VariantReport, error) {
 	bundles, err := s.loadVariantBundles(ctx, v)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.verifyVariant: %w", err)
 	}
 	matrix := kind.VerifyMatrix(kind.VerifyInput(v.Payload))
 
@@ -330,7 +330,7 @@ func (s *Service) fillCaptures(ctx context.Context, b *Build, v VariantRow, bund
 	}
 	key, sha, err := storage.PutBundle(ctx, s.store, ws)
 	if err != nil {
-		return err
+		return fmt.Errorf("labbuild.fillCaptures: %w", err)
 	}
 	return s.repo.UpdateVariantBrief(ctx, b.ID, v.Key, key, sha, brief)
 }

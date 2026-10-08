@@ -206,7 +206,10 @@ func TestConsumeTx_SameUserTwiceIsRejected(t *testing.T) {
 		t.Fatalf("commit tx1: %v", err)
 	}
 
-	purchase2 := seedTestPurchase(t, pool, orgID, userID, courseID)
+	// A second completed course purchase for the same course would hit
+	// idx_purchases_user_course_completed, so the retry uses another course.
+	courseID2 := seedTestCourse(t, pool, orgID, userID)
+	purchase2 := seedTestPurchase(t, pool, orgID, userID, courseID2)
 	tx2, err := pool.Begin(ctx)
 	if err != nil {
 		t.Fatalf("begin tx2: %v", err)

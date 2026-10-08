@@ -9,9 +9,7 @@ import (
 
 // Course-outline generation runs in two places: the instructor's sync preview
 // endpoint (which returns the outline for review and writes nothing) and the
-// llm.task job that persists it. Both used to hand-roll the same defaults,
-// clamps, prompt and model call, so changing the module cap in one made the
-// preview silently disagree with what the job would actually produce. Every
+// llm.task job that persists it. Every
 // decision they share lives here.
 
 const (
@@ -97,7 +95,7 @@ func OutlineUserPrompt(p OutlineParams) string {
 func GenerateOutline(ctx context.Context, provider LLMProvider, p OutlineParams) (CourseOutline, string, error) {
 	normalized, err := p.Normalize()
 	if err != nil {
-		return CourseOutline{}, "", err
+		return CourseOutline{}, "", fmt.Errorf("ai.GenerateOutline: %w", err)
 	}
 
 	resp, err := provider.Complete(ctx, CompletionRequest{
@@ -107,7 +105,7 @@ func GenerateOutline(ctx context.Context, provider LLMProvider, p OutlineParams)
 		JSONMode:     true,
 	})
 	if err != nil {
-		return CourseOutline{}, "", err
+		return CourseOutline{}, "", fmt.Errorf("ai.GenerateOutline: %w", err)
 	}
 
 	var outline CourseOutline

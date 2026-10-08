@@ -142,7 +142,6 @@ func (r *Repo) UpdateDailyStreak(ctx context.Context, userID string) (int, error
 
 // ─── PostgreSQL: badges ───────────────────────────────────────────────────────
 
-// GetAllDefinitions returns the full badge catalog.
 func (r *Repo) GetAllDefinitions(ctx context.Context) ([]RewardDefinition, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, slug, name, description, icon, badge_tier, xp_value,
@@ -181,7 +180,6 @@ func scanDefinitions(rows pgx.Rows) ([]RewardDefinition, error) {
 	return defs, rows.Err()
 }
 
-// GetEarnedSlugs returns all badge slugs already earned by a user.
 func (r *Repo) GetEarnedSlugs(ctx context.Context, userID string) ([]string, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT rd.slug FROM user_achievements ua
@@ -986,12 +984,6 @@ func joinStrings(ss []string, sep string) string {
 }
 
 // parseLBKey decodes a leaderboard Redis key into (scope, scopeID, featureType).
-// Examples:
-//
-//	"leaderboard:global"               → ("global", "", "")
-//	"leaderboard:org:abc123"           → ("org", "abc123", "")
-//	"leaderboard:batch:xyz"            → ("batch", "xyz", "")
-//	"leaderboard:feature:org:abc:problems" → ("feature", "abc", "problems")
 func parseLBKey(key string) (scope, scopeID, featureType string) {
 	const (
 		pfxGlobal  = "leaderboard:global"

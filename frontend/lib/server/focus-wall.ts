@@ -1,10 +1,6 @@
 import { apiGet } from "@/lib/server/api"
 
 export type NoteColor = "yellow" | "blue" | "pink" | "green"
-// Built-ins only — a note's actual category is any string the user has
-// created via FocusCategory, so the wider type is `string` at the API
-// boundary (see FocusNote.category below).
-export type NoteCategory = "personal" | "study" | "urgent"
 
 export interface FocusNote {
   id: string

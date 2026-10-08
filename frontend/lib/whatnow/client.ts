@@ -20,9 +20,9 @@ import type {
 import { apiFetch } from "@/lib/client/api";
 
 /** Single config value for the API base (suffix appended to /api by apiFetch). */
-export const WHATNOW_API_BASE = "/whatnow";
+const WHATNOW_API_BASE = "/whatnow";
 
-export class ApiError extends Error {
+class ApiError extends Error {
   constructor(
     public status: number,
     message: string,

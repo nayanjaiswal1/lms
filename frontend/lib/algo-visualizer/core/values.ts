@@ -43,7 +43,7 @@ export function pyStr(v: PyValue): string {
   return String(v);
 }
 
-export function pyRepr(v: PyValue): string {
+function pyRepr(v: PyValue): string {
   if (typeof v === "string") return `'${v}'`;
   return pyStr(v);
 }
@@ -157,7 +157,7 @@ export function pySlice<T extends PyValue[] | string>(
   return (isStr ? out.join("") : out) as T;
 }
 
-export function cloneValue(v: PyValue): unknown {
+function cloneValue(v: PyValue): unknown {
   if (Array.isArray(v)) return v.map(cloneValue);
   if (isInstance(v)) return `<${v.__instance_of__} instance>`;
   return v;

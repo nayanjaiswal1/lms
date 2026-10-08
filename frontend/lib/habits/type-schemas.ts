@@ -8,7 +8,7 @@ import type { CustomField, Habit, HabitType } from "@/lib/server/habits";
 // entry form rendered below the grid (habit-entry-form.tsx) — mirrors the
 // backend's builtinMetadataFields in internal/habit/service.go, so a field
 // added here must be added there too.
-export type FieldKind = "text" | "number" | "textarea" | "time" | "slider";
+type FieldKind = "text" | "number" | "textarea" | "time" | "slider";
 
 export interface FieldDef {
   key: string;

@@ -9,7 +9,7 @@ export interface CustomItemInput {
   difficulty?: Difficulty;
 }
 
-export interface CustomItem extends CustomItemInput {
+interface CustomItem extends CustomItemInput {
   id: string;
 }
 

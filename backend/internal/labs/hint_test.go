@@ -10,25 +10,11 @@ import (
 
 // ─── hintCacheKey ────────────────────────────────────────────────────────────
 
-func TestHintCacheKey_DeterministicAndUnique(t *testing.T) {
-	a := hintCacheKey("session-1", "task-1", 1)
-	b := hintCacheKey("session-1", "task-1", 1)
-	if a != b {
-		t.Fatalf("not deterministic: %q != %q", a, b)
-	}
-	if a == "" {
-		t.Fatal("cache key must not be empty")
-	}
-
-	cases := []string{
-		hintCacheKey("session-2", "task-1", 1), // different session
-		hintCacheKey("session-1", "task-2", 1), // different task
-		hintCacheKey("session-1", "task-1", 2), // different level
-	}
-	for i, c := range cases {
-		if c == a {
-			t.Fatalf("case %d: expected a different cache key, got the same as the base case", i)
-		}
+func TestHintCacheKey_Format(t *testing.T) {
+	// sha256("session-1task-11") hex
+	const want = "ff4d71895a99170a9c5825f99177837564b96f9e3a54f9701cb783ba35dd3df4"
+	if got := hintCacheKey("session-1", "task-1", 1); got != want {
+		t.Fatalf("hintCacheKey = %q, want %q", got, want)
 	}
 }
 

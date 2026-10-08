@@ -9,7 +9,7 @@ export interface UserLevel {
   progress_pct: number;
 }
 
-export interface RewardDefinition {
+interface RewardDefinition {
   id: string;
   slug: string;
   name: string;
@@ -30,7 +30,7 @@ export interface UserAchievement {
   earned_at: string;
 }
 
-export interface XPEvent {
+interface XPEvent {
   id: number;
   xp_amount: number;
   reason: string;
@@ -56,7 +56,7 @@ export interface LeaderboardEntry {
   level_name: string;
 }
 
-export interface LeaderboardResponse {
+interface LeaderboardResponse {
   entries: LeaderboardEntry[];
   me?: { rank: number; xp: number };
 }

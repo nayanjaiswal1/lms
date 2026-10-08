@@ -13,7 +13,6 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.105.0",
     "@braintree/sanitize-url": "^7.1.2",
     "@excalidraw/excalidraw": "^0.18.1",
     "@hookform/resolvers": "^5.4.0",

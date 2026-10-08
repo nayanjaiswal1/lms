@@ -20,10 +20,8 @@ export default async function OrgSettingsLayout({
           Organisation Settings
         </h1>
 
-        {/* Mobile tab row */}
         <OrgSettingsMobileNav />
 
-        {/* Desktop two-column: sidebar + content */}
         <div className="lg:flex lg:gap-8">
           <OrgSettingsDesktopNav />
           <main className="flex-1 min-w-0">{children}</main>

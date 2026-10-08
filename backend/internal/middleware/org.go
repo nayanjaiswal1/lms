@@ -17,7 +17,6 @@ type orgCtxKey int
 
 const orgKey orgCtxKey = 0
 
-// OrgCtx holds the resolved org context for the current request.
 type OrgCtx struct {
 	OrgID      string
 	OrgStatus  string

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Target, Users, RefreshCw } from "lucide-react";
+import { ArrowRight, FlaskConical, GraduationCap, ListChecks } from "lucide-react";
 
 import { BrandMark } from "@/components/shared/brand-mark";
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,9 @@ export const metadata: Metadata = {
 };
 
 const HIGHLIGHTS = [
-  { icon: Target,     label: "Personalized learning paths" },
-  { icon: Users,      label: "Team training & compliance" },
-  { icon: RefreshCw,  label: "Switch views anytime" },
+  { icon: GraduationCap, label: "Courses & quizzes" },
+  { icon: FlaskConical,  label: "Hands-on debug labs" },
+  { icon: ListChecks,    label: "Problem sheets" },
 ] as const;
 
 export default function DemoPage() {
@@ -35,7 +35,7 @@ export default function DemoPage() {
           <div className="flex flex-col gap-3">
             <h1>See MindForge in action</h1>
             <p className="mx-auto max-w-md text-muted-foreground">
-              Explore the full platform — as a learner and as a team admin. Switch between both views instantly.
+              Click through the real dashboard layout and work through a course, fix a broken app in a debug lab, take a quiz and track a problem sheet. Nothing is saved.
             </p>
           </div>
 

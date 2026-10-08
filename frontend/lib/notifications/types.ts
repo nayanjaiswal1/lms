@@ -3,7 +3,7 @@
 // domain (bell icon in the app shell), so these types live outside
 // lib/projects/ even though GitLab's checkpoint flows are its first caller.
 
-export type NotificationPriority = "low" | "normal" | "high";
+type NotificationPriority = "low" | "normal" | "high";
 
 export interface Notification {
   id: string;

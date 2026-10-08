@@ -6,7 +6,6 @@ import (
 	"github.com/mindforge/backend/internal/authz"
 )
 
-// New builds the fully-wired sheets handler.
 func New(pool *pgxpool.Pool) *Handler {
 	return NewHandler(pool)
 }

@@ -3,6 +3,7 @@ package labbuild
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 
 	"github.com/mindforge/backend/internal/labauthor"
@@ -27,12 +28,12 @@ type StartResult struct {
 func (s *Service) StartBuild(ctx context.Context, orgID, userID, recipeID string) (*StartResult, error) {
 	rc, err := s.authoring.Repo().GetRecipe(ctx, orgID, recipeID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.StartBuild: %w", err)
 	}
 	snap := Snapshot{LabKind: rc.LabKind, OrgID: orgID, Spec: rc.Spec}
 	res, err := s.resolveSnapshot(ctx, snap)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.StartBuild: %w", err)
 	}
 	if !res.Analysis.Valid || res.Analysis.RecipeHash == "" {
 		return nil, &labauthor.InvalidRecipeError{Analysis: res.Analysis}
@@ -44,7 +45,7 @@ func (s *Service) StartBuild(ctx context.Context, orgID, userID, recipeID string
 // the per-user daily limit.
 func (s *Service) startBuild(ctx context.Context, recipeID, userID string, snap Snapshot, a *labauthor.Analysis, limited bool) (*StartResult, error) {
 	if prev, err := s.repo.LatestBuild(ctx, recipeID, a.RecipeHash); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.startBuild: %w", err)
 	} else if prev != nil {
 		switch prev.Status {
 		case StatusVerified:
@@ -64,7 +65,7 @@ func (s *Service) startBuild(ctx context.Context, recipeID, userID string, snap 
 		return &StartResult{Build: b}, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.startBuild: %w", err)
 	}
 	jobID, err := s.enqueue(ctx, HandlerRecipeBuild, b.ID, userID, renderJobTimeoutMS)
 	if err != nil {
@@ -100,11 +101,11 @@ type VariantInfo struct {
 func (s *Service) View(ctx context.Context, orgID, buildID string) (*BuildView, error) {
 	b, err := s.repo.GetBuildForOrg(ctx, orgID, buildID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.View: %w", err)
 	}
 	vs, err := s.repo.ListVariants(ctx, b.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.View: %w", err)
 	}
 	out := make([]VariantInfo, 0, len(vs))
 	for _, v := range vs {

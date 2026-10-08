@@ -132,7 +132,7 @@ func (s *Service) resolveInstallation(ctx context.Context, orgID string, install
 func (s *Service) clientFor(ctx context.Context, orgID string, installationID *string) (*Client, error) {
 	inst, err := s.resolveInstallation(ctx, orgID, installationID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.clientFor: %w", err)
 	}
 	token, err := s.vault.Decrypt(inst.AccessTokenEnc)
 	if err != nil {
@@ -162,11 +162,11 @@ func (s *Service) clientForTeam(ctx context.Context, orgID, assignmentID string)
 func (s *Service) userClientFor(ctx context.Context, orgID, userID string) (*Client, error) {
 	inst, err := s.repo.GetDefaultInstallation(ctx, orgID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.userClientFor: %w", err)
 	}
 	conn, err := s.repo.GetConnection(ctx, orgID, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.userClientFor: %w", err)
 	}
 	token, err := s.vault.Decrypt(conn.AccessTokenEnc)
 	if err != nil {
@@ -217,7 +217,7 @@ func (s *Service) ListInstallations(ctx context.Context, orgID string) ([]Gitlab
 // SetDefaultInstallation moves the org's default flag onto id.
 func (s *Service) SetDefaultInstallation(ctx context.Context, orgID, id string) (*GitlabInstallation, error) {
 	if err := s.repo.SetDefaultInstallation(ctx, orgID, id); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.SetDefaultInstallation: %w", err)
 	}
 	return s.repo.GetInstallationByID(ctx, orgID, id)
 }
@@ -231,7 +231,7 @@ func (s *Service) GetOrgConfig(ctx context.Context, orgID string) (*GitlabOrgCon
 		return &GitlabOrgConfig{OrgID: orgID, AllowProjectOverride: true}, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetOrgConfig: %w", err)
 	}
 	return cfg, nil
 }
@@ -246,7 +246,7 @@ func (s *Service) SetOrgConfig(ctx context.Context, orgID string, allowOverride 
 func (s *Service) VerifyInstallation(ctx context.Context, orgID, id string) (*GitlabInstallation, error) {
 	inst, err := s.repo.GetInstallationByID(ctx, orgID, id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.VerifyInstallation: %w", err)
 	}
 	token, err := s.vault.Decrypt(inst.AccessTokenEnc)
 	if err != nil {
@@ -260,7 +260,7 @@ func (s *Service) VerifyInstallation(ctx context.Context, orgID, id string) (*Gi
 		lastError = &msg
 	}
 	if err := s.repo.UpdateInstallationVerification(ctx, id, verifyErr == nil, lastError); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.VerifyInstallation: %w", err)
 	}
 	return s.repo.GetInstallationByID(ctx, orgID, id)
 }
@@ -279,7 +279,7 @@ func (s *Service) DeleteInstallation(ctx context.Context, orgID, id string) erro
 func (s *Service) Disconnect(ctx context.Context, orgID, userID string) error {
 	conn, err := s.repo.GetConnection(ctx, orgID, userID)
 	if err != nil {
-		return err
+		return fmt.Errorf("gitlab.Disconnect: %w", err)
 	}
 	if inst, instErr := s.repo.GetDefaultInstallation(ctx, orgID); instErr == nil && inst.OAuthClientID != nil {
 		if token, decErr := s.vault.Decrypt(conn.AccessTokenEnc); decErr == nil {

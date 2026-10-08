@@ -63,12 +63,12 @@ func (s *Service) RunScript(ctx context.Context, sessionID, userID string) (*Run
 	// (same policy as VerifyTask / RunSnippet).
 	rateLimitKey := fmt.Sprintf("lab:run:rate:%s", sessionID)
 	if err := s.acquireCooldown(ctx, rateLimitKey, runRateLimitSeconds*time.Second, "labs.Service.RunScript"); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.RunScript: %w", err)
 	}
 
 	session, err := s.loadRunnableSession(ctx, sessionID, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.RunScript: %w", err)
 	}
 	lab, err := s.repo.GetLab(ctx, session.LabID, session.OrgID)
 	if err != nil {
@@ -105,12 +105,12 @@ func (s *Service) RunScript(ctx context.Context, sessionID, userID string) (*Run
 func (s *Service) SubmitAll(ctx context.Context, sessionID, userID string) (*SubmitResult, error) {
 	rateLimitKey := fmt.Sprintf("lab:submit:rate:%s", sessionID)
 	if err := s.acquireCooldown(ctx, rateLimitKey, submitRateLimitSeconds*time.Second, "labs.Service.SubmitAll"); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.SubmitAll: %w", err)
 	}
 
 	session, err := s.loadRunnableSession(ctx, sessionID, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.SubmitAll: %w", err)
 	}
 	lab, err := s.repo.GetLab(ctx, session.LabID, session.OrgID)
 	if err != nil {
@@ -168,12 +168,12 @@ func (s *Service) SubmitAll(ctx context.Context, sessionID, userID string) (*Sub
 		}
 		if len(modes) > 0 {
 			if err := s.acquireGradeCooldown(ctx, session.ID); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("labs.SubmitAll: %w", err)
 			}
 			var err error
 			if kindResults, err = s.gradeKindModes(ctx, session, lab, modes); err != nil {
 				s.releaseGradeCooldown(ctx, session.ID)
-				return nil, err
+				return nil, fmt.Errorf("labs.SubmitAll: %w", err)
 			}
 		}
 	}

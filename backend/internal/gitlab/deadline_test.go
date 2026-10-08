@@ -48,7 +48,7 @@ func TestFlagLateCommits_MarksLateAfterSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create team: %v", err)
 	}
-	gitlabProjectID := time.Now().UnixNano() % 1_000_000_000
+	gitlabProjectID := nextTestProjectID()
 	if err := repo.SetTeamForkResult(ctx, team.ID, gitlabProjectID, "deadline-test-group/deadline-test-team", "https://gitlab."+testdomain.Domain+"/deadline-test-group/deadline-test-team"); err != nil {
 		t.Fatalf("set team fork result: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestFlagLateCommits_MarksLateAfterSnapshot(t *testing.T) {
 	// would have picked up via ListDueCheckpointsNeedingSnapshot.
 	dueAt := time.Now().Add(-2 * time.Hour)
 	cp, err := repo.CreateCheckpoint(ctx, ProjectCheckpoint{
-		OrgID: orgID, AssignmentID: assignment.ID, Title: "Checkpoint 1", Position: 1,
+		OrgID: orgID, AssignmentID: assignment.ID, Title: "Checkpoint 1", Position: 1, Kind: CheckpointKindMilestone,
 		DueAt: &dueAt, Weight: 100, RequiresMR: true, RequiresCIPass: false,
 	})
 	if err != nil {

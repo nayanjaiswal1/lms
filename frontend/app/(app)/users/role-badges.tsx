@@ -12,7 +12,7 @@ export const ROLE_ICONS: Record<string, LucideIcon> = {
   tenant_admin: ShieldCheck,
 };
 
-export function roleIcon(name: string): LucideIcon {
+function roleIcon(name: string): LucideIcon {
   return ROLE_ICONS[name] ?? Shield;
 }
 

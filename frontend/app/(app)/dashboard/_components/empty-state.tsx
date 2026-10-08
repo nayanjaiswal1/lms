@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export interface DashboardEmptyStateAction {
+interface DashboardEmptyStateAction {
   href: string;
   label: string;
 }

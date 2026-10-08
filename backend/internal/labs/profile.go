@@ -15,8 +15,7 @@ package labs
 type ImageProfile struct {
 	// Name identifies the profile ("" = standard/zero-value default,
 	// otherwise a name from the in-code catalog built in main.go, e.g.
-	// "nested-docker" or the future "debug-ide"). Purely a label now — see
-	// Elevated for what used to be inferred from a non-empty Name.
+	// "nested-docker" or the future "debug-ide"). Purely a label; Elevated gates privilege.
 	Name string
 
 	// Elevated marks a profile as requiring real container-escape-relevant
@@ -24,10 +23,7 @@ type ImageProfile struct {
 	// org allowlist gate) — as opposed to a profile that only resizes
 	// CPU/MemoryMB/disk for a bigger-but-still-sandboxed container (e.g.
 	// the future "debug-ide" profile: 2 CPU / 2 GB / 5 GB, no elevation).
-	// Previously any non-empty Name was treated as elevated, which would
-	// have wrongly forced debug-ide through KubernetesContainerService.
-	// startPod's RuntimeClass requirement below for a profile that needs
-	// no such thing. Zero value (false) = not elevated, matching the
+	// Zero value (false) = not elevated, matching the
 	// standard profile.
 	Elevated bool
 

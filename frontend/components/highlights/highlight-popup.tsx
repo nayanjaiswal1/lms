@@ -126,7 +126,6 @@ export function HighlightPopup({
         </div>
       </div>
 
-      {/* Caret pointing at the selection the popup is anchored to. */}
       <div
         aria-hidden
         className="absolute left-1/2 top-full size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b border-r border-border bg-card"

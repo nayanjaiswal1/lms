@@ -23,9 +23,7 @@ import type {
 // ── Request-body shapes the contract names (AskQuestionRequest,
 // AnswerQuestionRequest, ReviewDocRequest, RecordAttendanceRequest,
 // ActionItemRequest, PostStandupRequest) but that types.ts (lead-owned)
-// doesn't declare — same "local type in your own file" convention
-// actions.ts/items-actions.ts already use. Flagged in the final report for
-// the lead to fold into types.ts if another agent needs the same shape. ──
+// doesn't declare. ──
 
 interface AskQuestionInput {
   question: string;
@@ -42,12 +40,12 @@ interface ReviewDocInput {
   wiki_version: number;
 }
 
-export interface RecordAttendanceInput {
+interface RecordAttendanceInput {
   occurrence_at: string;
   attendance: { user_id: string; attended: boolean }[];
 }
 
-export interface ActionItemInput {
+interface ActionItemInput {
   title: string;
   description?: string;
   force?: boolean;

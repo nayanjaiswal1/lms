@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Repo is the data-access layer for the captures domain.
 type Repo struct {
 	pool *pgxpool.Pool
 }
@@ -46,7 +45,7 @@ func scanCapture(row scanner) (Capture, error) {
 		&c.ErrorMessage, &c.CreatedAt, &c.ProcessedAt,
 	)
 	if err != nil {
-		return Capture{}, err
+		return Capture{}, fmt.Errorf("captures.scanCapture: %w", err)
 	}
 	return c, nil
 }
@@ -220,7 +219,7 @@ func (r *Repo) MarkFailed(ctx context.Context, id, errMessage string) error {
 // the promoted terminal state.
 func (r *Repo) LinkPromoted(ctx context.Context, userID, id, journalEntryID, srsCardID string) error {
 	tag, err := r.pool.Exec(ctx,
-		`UPDATE captures SET status = $3, journal_entry_id = NULLIF($4, ''), srs_card_id = NULLIF($5, '')
+		`UPDATE captures SET status = $3, journal_entry_id = NULLIF($4, '')::uuid, srs_card_id = NULLIF($5, '')::uuid
 		 WHERE id = $1 AND user_id = $2`,
 		id, userID, StatusPromoted, journalEntryID, srsCardID,
 	)

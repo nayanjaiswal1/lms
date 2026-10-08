@@ -95,7 +95,7 @@ func scanPlan(row pgx.Row) (Plan, error) {
 		&p.ExtractedRole, &p.ExtractedSeniority, &p.ExtractedSkills, &p.Status, &reportRaw, &p.AIModel,
 		&p.CreatedAt, &p.CompletedAt)
 	if err != nil {
-		return Plan{}, err
+		return Plan{}, fmt.Errorf("interviewprep.scanPlan: %w", err)
 	}
 	if reportRaw != nil {
 		var rep Report
@@ -124,7 +124,7 @@ func (r *Repo) GetPlan(ctx context.Context, planID, userID string) (Plan, error)
 
 	rounds, err := r.getRounds(ctx, planID)
 	if err != nil {
-		return Plan{}, err
+		return Plan{}, fmt.Errorf("interviewprep.GetPlan: %w", err)
 	}
 	plan.Rounds = rounds
 	return plan, nil
@@ -177,7 +177,7 @@ func scanRound(row pgx.Row) (Round, error) {
 	err := row.Scan(&rnd.ID, &rnd.PlanID, &rnd.RoundType, &rnd.OrderIndex, &rnd.PracticeSessionID,
 		&itemsRaw, &rnd.Status, &rnd.Score, &rnd.CreatedAt, &rnd.CompletedAt)
 	if err != nil {
-		return Round{}, err
+		return Round{}, fmt.Errorf("interviewprep.scanRound: %w", err)
 	}
 	rnd.Items = []CodingItem{}
 	if len(itemsRaw) > 0 {

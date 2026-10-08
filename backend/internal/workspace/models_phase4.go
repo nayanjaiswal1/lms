@@ -56,7 +56,6 @@ type GitlabLink struct {
 	MergedAt       *time.Time `json:"merged_at"`
 }
 
-// TimeLog is one work_item_time_logs row.
 type TimeLog struct {
 	ID        string    `json:"id"`
 	ItemID    string    `json:"item_id"`

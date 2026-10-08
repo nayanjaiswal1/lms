@@ -177,7 +177,7 @@ export function DailyHabitWheel({
   // Short connector tick out of the ring, not a long run — scales with the
   // wheel's own radius instead of a flat pixel value so a small wheel
   // doesn't strand it disproportionately far from a tiny circle, capped
-  // well below the old fixed length so it stays snug against every ring.
+  // so it stays snug against every ring.
   const labelLineLength = Math.min(28, gridOuterRadius * 0.35);
 
   return (

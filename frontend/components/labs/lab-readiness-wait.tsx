@@ -40,7 +40,6 @@ export function LabReadinessWait({
         </div>
       </div>
 
-      {/* Foreground loading state */}
       <div className="relative z-raised flex flex-col items-center justify-center h-full gap-4 px-6 text-center">
         <Loader2
           aria-hidden

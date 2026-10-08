@@ -46,86 +46,41 @@ func multiMCQ() json.RawMessage {
 	})
 }
 
-func TestGradeMCQ_SingleCorrect(t *testing.T) {
-	correct, pts, err := gradeMCQ(singleMCQ(), mustJSON(t, mcqAnswer{Selected: []string{"b"}}), 5)
-	if err != nil {
-		t.Fatal(err)
+func TestGradeMCQ(t *testing.T) {
+	tests := []struct {
+		name      string
+		content   json.RawMessage
+		answer    json.RawMessage // nil → no answer submitted
+		max       float64
+		checkErr  bool
+		wantRight bool
+		wantPts   float64
+	}{
+		{"single correct", singleMCQ(), rawJSON(mcqAnswer{Selected: []string{"b"}}), 5, true, true, 5},
+		{"single wrong", singleMCQ(), rawJSON(mcqAnswer{Selected: []string{"a"}}), 5, false, false, 0},
+		// Two options on a single-select question must not award credit.
+		{"single multiple selected rejected", singleMCQ(), rawJSON(mcqAnswer{Selected: []string{"a", "b"}}), 5, false, false, 0},
+		// 1 of 2 correct, 0 wrong → ratio 0.5, not fully correct.
+		{"multi partial", multiMCQ(), rawJSON(mcqAnswer{Selected: []string{"a"}}), 10, false, false, 5},
+		// 2 correct + 1 wrong → (2-1)/2 = 0.5.
+		{"multi penalises wrong", multiMCQ(), rawJSON(mcqAnswer{Selected: []string{"a", "b", "c"}}), 10, false, false, 5},
+		{"multi all correct", multiMCQ(), rawJSON(mcqAnswer{Selected: []string{"a", "b"}}), 10, false, true, 10},
+		{"no selection", multiMCQ(), nil, 10, false, false, 0},
+		// Explicit empty slice (not nil raw message) must score 0 without panicking.
+		{"empty slice selection", multiMCQ(), rawJSON(mcqAnswer{Selected: []string{}}), 10, true, false, 0},
+		// 2 correct + 2 wrong → ratio 0, clamped, never negative.
+		{"multi over-selection", multiMCQ(), rawJSON(mcqAnswer{Selected: []string{"a", "b", "c", "d"}}), 10, true, false, 0},
 	}
-	if !correct || pts != 5 {
-		t.Fatalf("want correct/5, got %v/%v", correct, pts)
-	}
-}
-
-func TestGradeMCQ_SingleWrong(t *testing.T) {
-	correct, pts, _ := gradeMCQ(singleMCQ(), mustJSON(t, mcqAnswer{Selected: []string{"a"}}), 5)
-	if correct || pts != 0 {
-		t.Fatalf("want wrong/0, got %v/%v", correct, pts)
-	}
-}
-
-func TestGradeMCQ_SingleMultipleSelectedRejected(t *testing.T) {
-	// Selecting two options on a single-select question must not award credit.
-	correct, pts, _ := gradeMCQ(singleMCQ(), mustJSON(t, mcqAnswer{Selected: []string{"a", "b"}}), 5)
-	if correct || pts != 0 {
-		t.Fatalf("want wrong/0, got %v/%v", correct, pts)
-	}
-}
-
-func TestGradeMCQ_MultiPartial(t *testing.T) {
-	// 1 of 2 correct chosen, 0 wrong → ratio 0.5 → 5 points, but not fully correct.
-	correct, pts, _ := gradeMCQ(multiMCQ(), mustJSON(t, mcqAnswer{Selected: []string{"a"}}), 10)
-	if correct {
-		t.Fatal("partial answer must not be marked fully correct")
-	}
-	if pts != 5 {
-		t.Fatalf("want 5 points, got %v", pts)
-	}
-}
-
-func TestGradeMCQ_MultiPenalisesWrong(t *testing.T) {
-	// 2 correct + 1 wrong → (2-1)/2 = 0.5 → 5 points.
-	_, pts, _ := gradeMCQ(multiMCQ(), mustJSON(t, mcqAnswer{Selected: []string{"a", "b", "c"}}), 10)
-	if pts != 5 {
-		t.Fatalf("want 5 points, got %v", pts)
-	}
-}
-
-func TestGradeMCQ_MultiAllCorrect(t *testing.T) {
-	correct, pts, _ := gradeMCQ(multiMCQ(), mustJSON(t, mcqAnswer{Selected: []string{"a", "b"}}), 10)
-	if !correct || pts != 10 {
-		t.Fatalf("want correct/10, got %v/%v", correct, pts)
-	}
-}
-
-func TestGradeMCQ_NoSelection(t *testing.T) {
-	correct, pts, _ := gradeMCQ(multiMCQ(), nil, 10)
-	if correct || pts != 0 {
-		t.Fatalf("want wrong/0, got %v/%v", correct, pts)
-	}
-}
-
-func TestGradeMCQ_EmptySliceSelection(t *testing.T) {
-	// Explicit empty slice (not nil raw message) must score 0 without panicking.
-	correct, pts, err := gradeMCQ(multiMCQ(), mustJSON(t, mcqAnswer{Selected: []string{}}), 10)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if correct || pts != 0 {
-		t.Fatalf("want wrong/0, got %v/%v", correct, pts)
-	}
-}
-
-func TestGradeMCQ_MultiOverSelection(t *testing.T) {
-	// Student picks all 4 options (2 correct + 2 wrong): (2-2)/2 = 0 → 0 points, clamped, never negative.
-	_, pts, err := gradeMCQ(multiMCQ(), mustJSON(t, mcqAnswer{Selected: []string{"a", "b", "c", "d"}}), 10)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if pts < 0 || pts > 10 {
-		t.Fatalf("points must stay in [0, maxPoints], got %v", pts)
-	}
-	if pts != 0 {
-		t.Fatalf("2 correct + 2 wrong → ratio 0, want 0 points, got %v", pts)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			right, pts, err := gradeMCQ(tc.content, tc.answer, tc.max)
+			if tc.checkErr && err != nil {
+				t.Fatal(err)
+			}
+			if right != tc.wantRight || pts != tc.wantPts {
+				t.Fatalf("want %v/%v, got %v/%v", tc.wantRight, tc.wantPts, right, pts)
+			}
+		})
 	}
 }
 

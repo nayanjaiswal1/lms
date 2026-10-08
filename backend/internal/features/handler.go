@@ -20,9 +20,8 @@ func newHandler(service *Service) *Handler {
 
 // GetMyFeatures resolves and returns the current user's feature config.
 func (h *Handler) GetMyFeatures(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.GetClaims(r.Context())
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
 		return
 	}
 
@@ -55,9 +54,8 @@ func (h *Handler) AdminListOrgFeatureFlags(w http.ResponseWriter, r *http.Reques
 
 // AdminSetOrgFeatureFlag turns a feature on/off for the org in the {id} URL param.
 func (h *Handler) AdminSetOrgFeatureFlag(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.GetClaims(r.Context())
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
 		return
 	}
 	orgID := chi.URLParam(r, "id")
@@ -93,26 +91,26 @@ func (h *Handler) AdminClearOrgFeatureFlag(w http.ResponseWriter, r *http.Reques
 // requireOrgAdmin re-derives the org-membership role check handleUpdateMember
 // (internal/orgs) already applies to member mutations — kept local to this
 // package rather than importing internal/orgs for two string constants.
-func requireOrgAdmin(w http.ResponseWriter, r *http.Request) bool {
+func requireOrgAdmin(w http.ResponseWriter, r *http.Request) (*apimiddleware.OrgCtx, bool) {
 	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
 	if !ok {
 		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
-		return false
+		return nil, false
 	}
 	if orgCtx.CallerRole != "owner" && orgCtx.CallerRole != "admin" {
 		httputil.WriteError(w, http.StatusForbidden, "Insufficient permissions.")
-		return false
+		return nil, false
 	}
-	return true
+	return orgCtx, true
 }
 
 // ListMemberFeatureFlags returns every user-toggleable feature the org has
 // enabled, resolved for the member in the {member_id} URL param.
 func (h *Handler) ListMemberFeatureFlags(w http.ResponseWriter, r *http.Request) {
-	if !requireOrgAdmin(w, r) {
+	orgCtx, ok := requireOrgAdmin(w, r)
+	if !ok {
 		return
 	}
-	orgCtx, _ := apimiddleware.GetOrgCtx(r.Context())
 	// The {member_id} URL segment carries the target user's ID (not an
 	// org_members row ID) — see routes.go's RegisterOrgAdminRoutes doc comment.
 	userID := chi.URLParam(r, "member_id")
@@ -128,15 +126,14 @@ func (h *Handler) ListMemberFeatureFlags(w http.ResponseWriter, r *http.Request)
 // SetMemberFeatureFlag turns a feature on/off for the member in the
 // {member_id} URL param.
 func (h *Handler) SetMemberFeatureFlag(w http.ResponseWriter, r *http.Request) {
-	if !requireOrgAdmin(w, r) {
-		return
-	}
-	claims, ok := auth.GetClaims(r.Context())
+	orgCtx, ok := requireOrgAdmin(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
 		return
 	}
-	orgCtx, _ := apimiddleware.GetOrgCtx(r.Context())
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
 	// The {member_id} URL segment carries the target user's ID (not an
 	// org_members row ID) — see routes.go's RegisterOrgAdminRoutes doc comment.
 	userID := chi.URLParam(r, "member_id")
@@ -157,10 +154,10 @@ func (h *Handler) SetMemberFeatureFlag(w http.ResponseWriter, r *http.Request) {
 // ClearMemberFeatureFlag reverts a feature back to the org's default
 // entitlement for the member in the {member_id} URL param.
 func (h *Handler) ClearMemberFeatureFlag(w http.ResponseWriter, r *http.Request) {
-	if !requireOrgAdmin(w, r) {
+	orgCtx, ok := requireOrgAdmin(w, r)
+	if !ok {
 		return
 	}
-	orgCtx, _ := apimiddleware.GetOrgCtx(r.Context())
 	// The {member_id} URL segment carries the target user's ID (not an
 	// org_members row ID) — see routes.go's RegisterOrgAdminRoutes doc comment.
 	userID := chi.URLParam(r, "member_id")

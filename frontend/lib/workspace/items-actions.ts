@@ -21,21 +21,14 @@ import type {
 
 // ── Request-body shapes the contract names (MoveWorkItemRequest,
 // SetAssigneesRequest, CreateLinkRequest) but that types.ts (lead-owned)
-// doesn't declare — same "local type in your own file" convention actions.ts
-// already uses for SetStatusInput etc. Flagged in the final report for the
-// lead to fold into types.ts if another Phase 2+ agent needs the same shape. ──
+// doesn't declare. ──
 
-export interface MoveWorkItemInput {
-  version: number;
-  parent_id: string | null;
-  track_id?: string | null;
-}
 
-export interface SetAssigneesInput {
+interface SetAssigneesInput {
   assignees: AssigneeInput[];
 }
 
-export interface CreateLinkInput {
+interface CreateLinkInput {
   to_item_id: string;
   kind: LinkKind;
 }
@@ -95,18 +88,6 @@ export async function updateWorkItemAction(
   return result;
 }
 
-export async function moveWorkItemAction(
-  workspaceId: string,
-  itemId: string,
-  input: MoveWorkItemInput,
-): Promise<ActionResult<WorkItem>> {
-  const result = await apiAction<WorkItem>("POST", `${itemPath(workspaceId, itemId)}/move`, input);
-  if (result.ok) {
-    revalidateItem(workspaceId, itemId);
-    if (input.parent_id) revalidateItem(workspaceId, input.parent_id);
-  }
-  return result;
-}
 
 export async function archiveWorkItemAction(workspaceId: string, itemId: string): Promise<ActionResult> {
   const result = await apiAction("POST", `${itemPath(workspaceId, itemId)}/archive`);

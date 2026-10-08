@@ -6,7 +6,7 @@ import (
 	"github.com/mindforge/backend/internal/config"
 )
 
-func TestRetentionStepsHonoursWindows(t *testing.T) {
+func TestRetentionSteps(t *testing.T) {
 	cfg := &config.Config{RetentionAuditDays: 30, RetentionAuthEventsDays: 0, RetentionXPEventsDays: 10}
 	got := map[string]bool{}
 	for _, s := range retentionSteps(cfg) {
@@ -22,24 +22,22 @@ func TestRetentionStepsHonoursWindows(t *testing.T) {
 			t.Errorf("step %q should be disabled with a zero window", off)
 		}
 	}
-}
-
-func TestRetentionAuthEventsStepBypassesTrigger(t *testing.T) {
-	for _, s := range retentionSteps(&config.Config{RetentionAuthEventsDays: 5}) {
-		if s.name == "auth_events" && !s.allowAuthEventsDelete {
-			t.Fatal("auth_events purge must opt in to the append-only trigger bypass")
-		}
+	// auth_events purge must opt in to the append-only trigger bypass.
+	if s := findRetentionStep(t, &config.Config{RetentionAuthEventsDays: 5}, "auth_events"); !s.allowAuthEventsDelete {
+		t.Fatal("auth_events purge must opt in to the append-only trigger bypass")
+	}
+	if s := findRetentionStep(t, &config.Config{RetentionMCPConnectionDays: 90}, "mcp_connections"); !s.needsWindow || s.days != 90 {
+		t.Fatalf("mcp_connections step misconfigured: %+v", s)
 	}
 }
 
-func TestRetentionMCPConnectionsStep(t *testing.T) {
-	for _, s := range retentionSteps(&config.Config{RetentionMCPConnectionDays: 90}) {
-		if s.name == "mcp_connections" {
-			if !s.needsWindow || s.days != 90 {
-				t.Fatalf("mcp_connections step misconfigured: %+v", s)
-			}
-			return
+func findRetentionStep(t *testing.T, cfg *config.Config, name string) retentionStep {
+	t.Helper()
+	for _, s := range retentionSteps(cfg) {
+		if s.name == name {
+			return s
 		}
 	}
-	t.Fatal("mcp_connections step missing")
+	t.Fatalf("%s step missing", name)
+	return retentionStep{}
 }

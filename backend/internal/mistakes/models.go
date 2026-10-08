@@ -59,7 +59,6 @@ const (
 	StatusResolved  = "resolved"
 )
 
-// Entry is one mistake event.
 type Entry struct {
 	ID             string     `json:"id"`
 	UserID         string     `json:"-"`

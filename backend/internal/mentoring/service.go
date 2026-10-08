@@ -122,7 +122,7 @@ func (s *Service) ClaimTicket(ctx context.Context, orgID, ticketID, mentorID str
 func (s *Service) AssignTicket(ctx context.Context, orgID, ticketID, mentorID, assignedBy string) (tickets.Ticket, error) {
 	isMentor, err := s.repo.IsMentor(ctx, orgID, mentorID)
 	if err != nil {
-		return tickets.Ticket{}, err
+		return tickets.Ticket{}, fmt.Errorf("mentoring.AssignTicket: %w", err)
 	}
 	if !isMentor {
 		return tickets.Ticket{}, fmt.Errorf("%w: mentor_id must be a mentor in this organization", ErrInvalid)
@@ -164,7 +164,7 @@ func (s *Service) GetMentorProfile(ctx context.Context, orgID, mentorID string) 
 func (s *Service) SetMentorVerified(ctx context.Context, orgID, mentorID string, verified bool, callerID string) error {
 	isMentor, err := s.repo.IsMentor(ctx, orgID, mentorID)
 	if err != nil {
-		return err
+		return fmt.Errorf("mentoring.SetMentorVerified: %w", err)
 	}
 	if !isMentor {
 		return fmt.Errorf("%w: mentor_id must be a mentor in this organization", ErrInvalid)
@@ -182,7 +182,7 @@ func (s *Service) GetOrCreateConversation(ctx context.Context, orgID, studentID,
 	}
 	isMentor, err := s.repo.IsMentor(ctx, orgID, mentorID)
 	if err != nil {
-		return MentorConversation{}, err
+		return MentorConversation{}, fmt.Errorf("mentoring.GetOrCreateConversation: %w", err)
 	}
 	if !isMentor {
 		return MentorConversation{}, fmt.Errorf("%w: mentor_id must be a mentor in this organization", ErrInvalid)
@@ -205,7 +205,7 @@ func (s *Service) SendConversationMessage(ctx context.Context, orgID, conversati
 	}
 	conv, err := s.repo.GetConversation(ctx, orgID, conversationID)
 	if err != nil {
-		return DirectMessage{}, err
+		return DirectMessage{}, fmt.Errorf("mentoring.SendConversationMessage: %w", err)
 	}
 	if senderID != conv.StudentID && senderID != conv.MentorID {
 		return DirectMessage{}, ErrForbidden
@@ -218,7 +218,7 @@ func (s *Service) SendConversationMessage(ctx context.Context, orgID, conversati
 func (s *Service) ListConversationMessages(ctx context.Context, orgID, conversationID, callerID string) ([]DirectMessage, error) {
 	conv, err := s.repo.GetConversation(ctx, orgID, conversationID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("mentoring.ListConversationMessages: %w", err)
 	}
 	if callerID != conv.StudentID && callerID != conv.MentorID {
 		return nil, ErrForbidden
@@ -234,17 +234,17 @@ func (s *Service) ListConversationMessages(ctx context.Context, orgID, conversat
 func (s *Service) GetTicketDetail(ctx context.Context, orgID, ticketID string, canViewReports bool) (TicketLifecycle, error) {
 	ticket, err := s.tickets.Get(ctx, orgID, ticketID)
 	if err != nil {
-		return TicketLifecycle{}, err
+		return TicketLifecycle{}, fmt.Errorf("mentoring.GetTicketDetail: %w", err)
 	}
 	changeRequests, err := s.repo.ListChangeRequestsByTicket(ctx, ticketID)
 	if err != nil {
-		return TicketLifecycle{}, err
+		return TicketLifecycle{}, fmt.Errorf("mentoring.GetTicketDetail: %w", err)
 	}
 	detail := TicketLifecycle{Ticket: ticket, ChangeRequests: changeRequests}
 	if canViewReports {
 		reports, err := s.repo.ListReportsByTicket(ctx, ticketID)
 		if err != nil {
-			return TicketLifecycle{}, err
+			return TicketLifecycle{}, fmt.Errorf("mentoring.GetTicketDetail: %w", err)
 		}
 		detail.Reports = reports
 	}
@@ -309,7 +309,7 @@ func (s *Service) RequestMentorChange(ctx context.Context, orgID, ticketID, stud
 	}
 	ticket, err := s.tickets.Get(ctx, orgID, ticketID)
 	if err != nil {
-		return ChangeRequest{}, err
+		return ChangeRequest{}, fmt.Errorf("mentoring.RequestMentorChange: %w", err)
 	}
 	if ticket.RequesterID != studentID {
 		return ChangeRequest{}, ErrForbidden

@@ -111,12 +111,12 @@ func (s *Service) ListPorts(ctx context.Context, sessionID, userID string) (*Lab
 	// (same policy as RunScript/SubmitAll/VerifyTask).
 	rateLimitKey := fmt.Sprintf("lab:ports:rate:%s", sessionID)
 	if err := s.acquireCooldown(ctx, rateLimitKey, portsRateLimitSeconds*time.Second, "labs.Service.ListPorts"); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.ListPorts: %w", err)
 	}
 
 	session, err := s.loadRunnableSession(ctx, sessionID, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.ListPorts: %w", err)
 	}
 
 	stdout, stderr, exitCode, err := s.container.Exec(ctx, *session.ContainerID, portScanScript, portsExecTimeoutSec)

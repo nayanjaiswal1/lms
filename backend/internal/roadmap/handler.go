@@ -15,6 +15,9 @@ import (
 // interviewprep.maxPlansPerDay (each generation is one AI call).
 const maxRoadmapsPerDay = 3
 
+// maxPublicRoadmapsPageSize caps the Discover gallery page size.
+const maxPublicRoadmapsPageSize = 50
+
 type Handler struct {
 	service *Service
 	repo    *Repo
@@ -80,7 +83,9 @@ func (h *Handler) ListRoadmaps(w http.ResponseWriter, r *http.Request) {
 // ListPublicRoadmaps is a public route (see RegisterPublicRoutes) — anyone,
 // logged in or not, can browse the Discover gallery.
 func (h *Handler) ListPublicRoadmaps(w http.ResponseWriter, r *http.Request) {
-	roadmaps, err := h.service.ListPublic(r.Context())
+	limit := min(httputil.QueryIntPositive(r, "limit", maxPublicRoadmapsPageSize), maxPublicRoadmapsPageSize)
+	offset := httputil.QueryIntNonNegative(r, "offset", 0)
+	roadmaps, err := h.service.ListPublic(r.Context(), limit, offset)
 	if err != nil {
 		writeDomainError(w, err)
 		return

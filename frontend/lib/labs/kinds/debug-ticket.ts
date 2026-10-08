@@ -5,7 +5,7 @@ export const RESTART_COMMAND = "mf-svc restart-workspace"
 export const RESTART_NOTE =
   "The app runs without auto-reload. After you edit code, restart it from the terminal with"
 
-export interface TicketMeta {
+interface TicketMeta {
   severity: string | null
   reporter: string | null
   /** Brief markdown with the metadata lines removed (they render as header chips). */

@@ -72,13 +72,7 @@ export type Feature = (typeof FEATURES)[keyof typeof FEATURES];
 // to decide if a feature is accessible.
 // ─────────────────────────────────────────────
 
-export const PLANS = {
-  FREE:       'free',
-  PRO:        'pro',
-  ENTERPRISE: 'enterprise',
-} as const;
 
-export type Plan = (typeof PLANS)[keyof typeof PLANS];
 
 // ─────────────────────────────────────────────
 // PLAN TIER DISPLAY
@@ -89,41 +83,7 @@ export type Plan = (typeof PLANS)[keyof typeof PLANS];
 // not tied to any real feature gate or price.
 // ─────────────────────────────────────────────
 
-export interface PlanTierMeta {
-  id: Plan;
-  name: string;
-  price: string;
-  tagline: string;
-  cta: string;
-  ctaDisabled: boolean;
-}
 
-export const PLAN_TIERS: PlanTierMeta[] = [
-  {
-    id: PLANS.FREE,
-    name: "Free",
-    price: "$0",
-    tagline: "Everything included while we're in beta.",
-    cta: "Current plan",
-    ctaDisabled: true,
-  },
-  {
-    id: PLANS.PRO,
-    name: "Pro",
-    price: "Contact us",
-    tagline: "For growing teams that need more seats and support.",
-    cta: "Coming soon",
-    ctaDisabled: true,
-  },
-  {
-    id: PLANS.ENTERPRISE,
-    name: "Enterprise",
-    price: "Contact us",
-    tagline: "For large organizations with custom requirements.",
-    cta: "Coming soon",
-    ctaDisabled: true,
-  },
-];
 
 // ─────────────────────────────────────────────
 // LOCKED FEATURE INFO
@@ -133,7 +93,7 @@ export const PLAN_TIERS: PlanTierMeta[] = [
 // knowing whether it's a plan upgrade or add-on.
 // ─────────────────────────────────────────────
 
-export type UnlockVia = 'plan' | 'addon' | 'plan_or_addon';
+type UnlockVia = 'plan' | 'addon' | 'plan_or_addon';
 
 export interface LockedFeatureInfo {
   unlock_via:    UnlockVia;
