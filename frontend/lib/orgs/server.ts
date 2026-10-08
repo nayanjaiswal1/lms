@@ -27,7 +27,7 @@ export async function getCurrentOrgType(): Promise<string | null> {
   return (await getBootstrap()).org?.org_type ?? null;
 }
 
-export interface OrgBranding {
+interface OrgBranding {
   name: string | null;
   logo_url: string | null;
 }

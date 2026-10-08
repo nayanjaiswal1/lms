@@ -13,9 +13,18 @@ import (
 const syncMembersTimeoutMS = 60000
 
 // ListTeamMembers lists a team's roster.
+// recordMemberSyncResult persists one member's roster sync outcome. A failed
+// write is logged rather than returned so the sweep keeps processing the
+// remaining members.
+func (s *Service) recordMemberSyncResult(ctx context.Context, teamID, userID, status string, syncErr *string) {
+	if err := s.repo.UpdateMemberSyncResult(ctx, teamID, userID, status, syncErr); err != nil {
+		slog.ErrorContext(ctx, "gitlab: record member sync result failed", "team_id", teamID, "user_id", userID, "status", status, "error", err)
+	}
+}
+
 func (s *Service) ListTeamMembers(ctx context.Context, orgID, teamID string) ([]ProjectTeamMember, error) {
 	if _, err := s.repo.GetTeam(ctx, orgID, teamID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.ListTeamMembers: %w", err)
 	}
 	return s.repo.ListTeamMembers(ctx, teamID)
 }
@@ -32,19 +41,19 @@ const teamActivityLimit = 20
 // scope, not this one.
 func (s *Service) GetTeamActivity(ctx context.Context, orgID, teamID string) (*TeamActivityView, error) {
 	if _, err := s.repo.GetTeam(ctx, orgID, teamID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetTeamActivity: %w", err)
 	}
 	commits, err := s.repo.ListRecentCommits(ctx, teamID, teamActivityLimit)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetTeamActivity: %w", err)
 	}
 	mergeRequests, err := s.repo.ListRecentMergeRequests(ctx, teamID, teamActivityLimit)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetTeamActivity: %w", err)
 	}
 	pipeline, err := s.repo.GetLatestPipeline(ctx, teamID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetTeamActivity: %w", err)
 	}
 	return &TeamActivityView{Commits: commits, MergeRequests: mergeRequests, Pipeline: pipeline}, nil
 }
@@ -56,7 +65,7 @@ func (s *Service) GetTeamActivity(ctx context.Context, orgID, teamID string) (*T
 func (s *Service) AddTeamMember(ctx context.Context, orgID, teamID, userID, role string, accessLevel int, addedBy string) (*ProjectTeamMember, error) {
 	team, err := s.repo.GetTeam(ctx, orgID, teamID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.AddTeamMember: %w", err)
 	}
 	added := addedBy
 	member, err := s.repo.AddTeamMember(ctx, ProjectTeamMember{
@@ -68,7 +77,7 @@ func (s *Service) AddTeamMember(ctx context.Context, orgID, teamID, userID, role
 		AddedBy:           &added,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.AddTeamMember: %w", err)
 	}
 	if team.GitlabProjectID != nil {
 		if err := s.enqueueSyncMembers(ctx, orgID, teamID); err != nil {
@@ -87,13 +96,13 @@ func (s *Service) AddTeamMember(ctx context.Context, orgID, teamID, userID, role
 func (s *Service) RemoveTeamMember(ctx context.Context, orgID, teamID, userID string) error {
 	team, err := s.repo.GetTeam(ctx, orgID, teamID)
 	if err != nil {
-		return err
+		return fmt.Errorf("gitlab.RemoveTeamMember: %w", err)
 	}
 	if team.GitlabProjectID == nil {
 		return s.repo.DeleteTeamMember(ctx, teamID, userID)
 	}
 	if err := s.repo.MarkMemberRemoving(ctx, teamID, userID); err != nil {
-		return err
+		return fmt.Errorf("gitlab.RemoveTeamMember: %w", err)
 	}
 	return s.enqueueSyncMembers(ctx, orgID, teamID)
 }
@@ -104,7 +113,7 @@ func (s *Service) RemoveTeamMember(ctx context.Context, orgID, teamID, userID st
 func (s *Service) RequestSync(ctx context.Context, orgID, teamID string) error {
 	team, err := s.repo.GetTeam(ctx, orgID, teamID)
 	if err != nil {
-		return err
+		return fmt.Errorf("gitlab.RequestSync: %w", err)
 	}
 	if team.GitlabProjectID == nil {
 		return ErrConflict
@@ -173,7 +182,7 @@ func (s *Service) SyncTeamMembers(ctx context.Context, teamID string) error {
 		if connErr == nil {
 			if err := client.RemoveProjectMember(ctx, *team.GitlabProjectID, conn.GitlabUserID); err != nil {
 				msg := err.Error()
-				_ = s.repo.UpdateMemberSyncResult(ctx, teamID, m.UserID, SyncStatusFailed, &msg)
+				s.recordMemberSyncResult(ctx, teamID, m.UserID, SyncStatusFailed, &msg)
 				slog.ErrorContext(ctx, "gitlab: remove project member failed", "team_id", teamID, "user_id", m.UserID, "error", err)
 				continue
 			}
@@ -193,7 +202,7 @@ func (s *Service) SyncTeamMembers(ctx context.Context, teamID string) error {
 		conn, connErr := s.repo.GetConnection(ctx, team.OrgID, m.UserID)
 		if connErr != nil {
 			msg := "member has not connected their GitLab account yet"
-			_ = s.repo.UpdateMemberSyncResult(ctx, teamID, m.UserID, SyncStatusFailed, &msg)
+			s.recordMemberSyncResult(ctx, teamID, m.UserID, SyncStatusFailed, &msg)
 			continue
 		}
 
@@ -205,10 +214,10 @@ func (s *Service) SyncTeamMembers(ctx context.Context, teamID string) error {
 		}
 		if syncErr != nil {
 			msg := syncErr.Error()
-			_ = s.repo.UpdateMemberSyncResult(ctx, teamID, m.UserID, SyncStatusFailed, &msg)
+			s.recordMemberSyncResult(ctx, teamID, m.UserID, SyncStatusFailed, &msg)
 			continue
 		}
-		_ = s.repo.UpdateMemberSyncResult(ctx, teamID, m.UserID, SyncStatusSynced, nil)
+		s.recordMemberSyncResult(ctx, teamID, m.UserID, SyncStatusSynced, nil)
 	}
 	return nil
 }

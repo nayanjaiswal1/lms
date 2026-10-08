@@ -1,7 +1,7 @@
 import { mintWSTokenAction } from "@/app/(app)/labs/[labId]/actions"
 
 // labproxy preview tokens live 5 minutes; refresh a minute early.
-export const IDE_TOKEN_REFRESH_MS = 4 * 60 * 1000
+const IDE_TOKEN_REFRESH_MS = 4 * 60 * 1000
 
 export interface IdeTokens {
   /** Token the IDE iframe was first loaded with — never changes, so VS Code never reloads. */
@@ -11,7 +11,7 @@ export interface IdeTokens {
   failed: boolean
 }
 
-export interface IdeTokenStore {
+interface IdeTokenStore {
   subscribe: (listener: () => void) => () => void
   getSnapshot: () => IdeTokens
   /** Mints a fresh token right now (for a click that must not use a stale one); null on failure. */

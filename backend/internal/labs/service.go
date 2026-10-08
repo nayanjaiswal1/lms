@@ -50,8 +50,8 @@ type RepoPreparer interface {
 
 // Service holds the business logic for the labs domain.
 type Service struct {
-	repo          *Repo
-	container     ContainerRuntime
+	repo      *Repo
+	container ContainerRuntime
 	// closer snapshots (student diff) then kills a sandbox on every close path.
 	closer        *SandboxCloser
 	rdb           *redis.Client
@@ -137,7 +137,7 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 		lab, err = s.repo.GetLab(ctx, labID, orgID)
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.StartSession: %w", err)
 	}
 
 	// 2. Require a published version before allowing session starts.
@@ -219,7 +219,7 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 	if _, isKind := kindFor(lab); isKind {
 		vk, err := s.choosePinnedVariant(ctx, lab, userID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("labs.StartSession: %w", err)
 		}
 		variantKey = &vk
 	}
@@ -703,7 +703,7 @@ func (s *Service) runRepoClone(ctx context.Context, session *LabSession, contain
 func (s *Service) GetSession(ctx context.Context, sessionID, userID string) (*LabSession, []LabTaskCompletion, error) {
 	session, err := s.repo.GetSession(ctx, sessionID, userID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("labs.GetSession: %w", err)
 	}
 	completions, err := s.repo.GetTaskCompletions(ctx, sessionID)
 	if err != nil {
@@ -733,10 +733,10 @@ func (s *Service) ListActiveSessions(ctx context.Context, userID string) ([]Acti
 func (s *Service) MintWSToken(ctx context.Context, sessionID, userID, jwtSecret, jwtIssuer string) (string, error) {
 	session, err := s.repo.GetSession(ctx, sessionID, userID)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("labs.MintWSToken: %w", err)
 	}
 	if err := s.requireSessionLive(ctx, session); err != nil {
-		return "", err
+		return "", fmt.Errorf("labs.MintWSToken: %w", err)
 	}
 	// Minting a WS token is the one action guaranteed to happen before every
 	// terminal (re)connect and every preview (re)load — the frontend always
@@ -802,7 +802,7 @@ func (s *Service) MintWSToken(ctx context.Context, sessionID, userID, jwtSecret,
 func (s *Service) EndSession(ctx context.Context, sessionID, userID string) error {
 	session, err := s.repo.GetSession(ctx, sessionID, userID)
 	if err != nil {
-		return err
+		return fmt.Errorf("labs.EndSession: %w", err)
 	}
 
 	switch session.Status {
@@ -886,10 +886,10 @@ func (s *Service) EndSession(ctx context.Context, sessionID, userID string) erro
 func (s *Service) ResetSession(ctx context.Context, sessionID, userID string) (*LabSession, []LabTaskCompletion, error) {
 	session, err := s.repo.GetSession(ctx, sessionID, userID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("labs.ResetSession: %w", err)
 	}
 	if err := s.requireSessionLive(ctx, session); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("labs.ResetSession: %w", err)
 	}
 	if session.Status != SessionStatusRunning && session.Status != SessionStatusPaused {
 		return nil, nil, ErrSessionNotRunning
@@ -985,7 +985,7 @@ func (s *Service) resetContainerSession(ctx context.Context, session *LabSession
 
 	if err := s.swapResetContainer(ctx, session, newContainerID, newContainerHost, newResetCount); err != nil {
 		_ = s.container.Kill(context.Background(), newContainerID)
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("labs.resetContainerSession: %w", err)
 	}
 
 	// The new container is authoritative in the DB from this point — only
@@ -1050,10 +1050,10 @@ func (s *Service) VerifyTask(ctx context.Context, sessionID, taskID, userID, cod
 	//    no-op widening for that path.
 	session, err := s.repo.GetSession(ctx, sessionID, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.VerifyTask: %w", err)
 	}
 	if err := s.requireSessionLive(ctx, session); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.VerifyTask: %w", err)
 	}
 	// requireSessionLive alone also accepts 'provisioning' (no container/
 	// executor ready yet); verification needs one of the two live-and-ready
@@ -1065,7 +1065,7 @@ func (s *Service) VerifyTask(ctx context.Context, sessionID, taskID, userID, cod
 	// 2. Rate-limit per (session, task): one attempt every VerifyRateLimitSeconds.
 	rateLimitKey := fmt.Sprintf("lab:verify:rate:%s:%s", sessionID, taskID)
 	if err := s.acquireCooldown(ctx, rateLimitKey, time.Duration(VerifyRateLimitSeconds)*time.Second, "labs.Service.VerifyTask"); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.VerifyTask: %w", err)
 	}
 
 	// 3. Load the pinned task snapshot for this session.
@@ -1088,7 +1088,7 @@ func (s *Service) VerifyTask(ctx context.Context, sessionID, taskID, userID, cod
 	// SubmitAll's batch loop).
 	attempts, err := s.bumpTaskAttempt(ctx, sessionID, taskID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.VerifyTask: %w", err)
 	}
 
 	// Load the lab once so both branches can dispatch on lab_type and, on

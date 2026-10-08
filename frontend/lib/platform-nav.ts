@@ -1,14 +1,14 @@
 import { Briefcase, Cpu, Sparkles, Tag, ToggleLeft, type LucideIcon } from "lucide-react";
 import ROUTES from "@/lib/routes";
 
-export interface PlatformNavItem {
+interface PlatformNavItem {
   label: string;
   href:  string;
   icon:  LucideIcon;
   exact?: boolean;
 }
 
-export interface PlatformNavGroup {
+interface PlatformNavGroup {
   label: string;
   items: PlatformNavItem[];
 }

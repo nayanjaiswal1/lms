@@ -43,7 +43,7 @@ func (s *Service) React(ctx context.Context, orgID, msgID, userID string, reacti
 	}
 	// Org-scoped lookup: reacting to another tenant's message is a not-found.
 	if _, err := s.repo.GetMessage(ctx, orgID, msgID); err != nil {
-		return false, err
+		return false, fmt.Errorf("messaging.React: %w", err)
 	}
 	return s.repo.ToggleReaction(ctx, msgID, userID, reaction)
 }

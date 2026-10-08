@@ -172,7 +172,7 @@ func (r *Repo) CreateOfflineTestScores(
 		return nil
 	})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("assessment.CreateOfflineTestScores: %w", err)
 	}
 	return assessmentID, nil
 }
@@ -272,7 +272,7 @@ func (r *Repo) GetOfflineTestScores(ctx context.Context, orgID, batchID, testID 
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return out, err
+		return out, fmt.Errorf("assessment.GetOfflineTestScores: %w", err)
 	}
 	if out.TestID == "" {
 		return out, ErrNotFound

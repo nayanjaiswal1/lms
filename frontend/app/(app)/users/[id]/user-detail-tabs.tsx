@@ -11,7 +11,7 @@ export const TAB_VALUES = [
   "audit",
 ] as const;
 
-export type TabValue = (typeof TAB_VALUES)[number];
+type TabValue = (typeof TAB_VALUES)[number];
 
 interface TabDef {
   value: TabValue;

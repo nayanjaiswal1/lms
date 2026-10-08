@@ -316,7 +316,7 @@ func (r *Repo) CountScheduledStartsByImage(ctx context.Context, window time.Dura
 		WHERE l.is_published = true
 		GROUP BY l.environment`, horizon)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.CountScheduledStartsByImage: %w", err)
 	}
 	module, err := r.imageCountQuery(ctx, `
 		SELECT l.environment, count(DISTINCT e.user_id)::int
@@ -327,7 +327,7 @@ func (r *Repo) CountScheduledStartsByImage(ctx context.Context, window time.Dura
 		WHERE l.is_published = true
 		GROUP BY l.environment`, horizon)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.CountScheduledStartsByImage: %w", err)
 	}
 	for image, n := range module {
 		if n > batch[image] {

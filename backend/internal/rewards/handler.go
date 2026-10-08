@@ -1,12 +1,9 @@
 package rewards
 
 import (
-	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"github.com/mindforge/backend/internal/auth"
@@ -93,7 +90,11 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Include the caller's own rank.
-	rank, xp, _ := h.svc.GetUserRank(r.Context(), key, claims.UserID)
+	rank, xp, err := h.svc.GetUserRank(r.Context(), key, claims.UserID)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Could not load leaderboard.")
+		return
+	}
 
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{
 		"entries": entries,
@@ -218,11 +219,3 @@ func buildLBKey(scope, scopeID, featureType, defaultOrgID string) (string, bool)
 	}
 	return "", false
 }
-
-// ─── unused imports guard ─────────────────────────────────────────────────────
-
-var (
-	_ = chi.URLParam
-	_ = json.Marshal
-	_ = errors.New
-)

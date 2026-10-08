@@ -3,7 +3,7 @@
 
 export type IssueSeverity = "error" | "warning" | "info";
 
-export interface RecipeIssue {
+interface RecipeIssue {
   code: string;
   block: string;
   message: string;
@@ -62,7 +62,7 @@ export interface BlockSummary {
   org_owned: boolean;
 }
 
-export interface BlockVersionInfo {
+interface BlockVersionInfo {
   id: string;
   version: string;
   content_hash: string;
@@ -190,13 +190,13 @@ export interface Candidate {
   chain_after?: string;
 }
 
-export interface CheckResult {
+interface CheckResult {
   name: string;
   passed: boolean;
   message?: string;
 }
 
-export interface ModeResult {
+interface ModeResult {
   passed: boolean;
   error?: string;
   checks: CheckResult[] | null;
@@ -216,7 +216,7 @@ export interface RunReport {
   author_messages?: string[];
 }
 
-export interface VariantReport {
+interface VariantReport {
   variant_key: string;
   passed: boolean;
   runs: RunReport[] | null;

@@ -48,24 +48,24 @@ func usage() {
 Usage:
   coursegen generate [--in DIR] [--out FILE]
       Render Canonical Markdown under --in into an idempotent SQL fixture at --out.
-      Defaults: --in content/courses/fast-kubernetes --out backend/db/fixtures/k8s_fastkube.generated.sql
+      Defaults: --in ../content/courses/fast-kubernetes --out db/fixtures/k8s_fastkube.generated.sql
 
   coursegen audit [--vendor DIR] [--canonical DIR]
       Cross-check every canonical document's source: list against the vendored
       upstream tree. Exits non-zero and lists any vendored file with zero
       canonical coverage.
-      Defaults: --vendor content/fast-kubernetes --canonical content/courses/fast-kubernetes
+      Defaults: --vendor ../content/fast-kubernetes --canonical ../content/courses/fast-kubernetes
 
   coursegen import [--vendor DIR] [--out DIR]
       Scaffold Canonical Markdown from the vendored Fast-Kubernetes snapshot.
-      Defaults: --vendor content/fast-kubernetes --out content/courses/fast-kubernetes
+      Defaults: --vendor ../content/fast-kubernetes --out ../content/courses/fast-kubernetes
 
   coursegen blocks sync [--in DIR] [--out FILE] [--dry-run] [--no-upload]
       Validate every lab-authoring block (block.yaml) under --in, upload block
       payloads to the private bundle store (MINIO_* env), and write an
       idempotent SQL fixture at --out. Apply it with scripts/db-seed-courses.sh.
       Same version + different content is a hard error at apply time: bump the version.
-      Defaults: --in content/lab-blocks --out backend/db/fixtures/lab-blocks.generated.sql
+      Defaults: --in ../content/lab-blocks --out db/fixtures/lab-blocks.generated.sql
 
   coursegen blocks verify [--in DIR] [--parallel N] [--report FILE] RECIPE.yaml...
       Build and verify platform recipes against the block tree in local Docker,
@@ -76,9 +76,8 @@ Usage:
 `)
 }
 
-// newFlagSet returns a flag.FlagSet configured to print this command's own
-// usage (via ContinueOnError + a custom Usage func) rather than flag's
-// default os.Exit(2)-on-parse-error path swallowing the subcommand name.
+// newFlagSet returns a flag.FlagSet that reports parse errors to the caller
+// instead of exiting, so main can print them prefixed with the subcommand name.
 func newFlagSet(name string) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	return fs

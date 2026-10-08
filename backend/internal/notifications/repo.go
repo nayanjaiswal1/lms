@@ -87,7 +87,7 @@ func (r *Repo) List(ctx context.Context, userID string, limit int) ([]Notificati
 	for rows.Next() {
 		n, err := scanNotification(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("notifications.List: %w", err)
 		}
 		out = append(out, *n)
 	}

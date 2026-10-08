@@ -75,7 +75,7 @@ func (s *Service) HandleWebhook(ctx context.Context, gitlabProjectID int64, even
 	for i := range candidates {
 		ok, err := s.webhookTokenMatches(ctx, &candidates[i], token)
 		if err != nil {
-			return err
+			return fmt.Errorf("gitlab.HandleWebhook: %w", err)
 		}
 		if ok {
 			team = &candidates[i]

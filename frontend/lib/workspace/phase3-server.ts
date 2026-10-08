@@ -57,9 +57,6 @@ export async function listWorkspaceStandups(workspaceId: string, day?: string): 
   return apiGet<Standup[]>(`/api/workspaces/${workspaceId}/standups${qs}`);
 }
 
-export async function listQuestionComments(workspaceId: string, questionId: string, cursor?: string, limit?: number): Promise<Page<WorkspaceComment>> {
-  return apiGet<Page<WorkspaceComment>>(`/api/workspaces/${workspaceId}/questions/${questionId}/comments${pageQuery(cursor, limit)}`);
-}
 
 export async function listItemComments(workspaceId: string, itemId: string, cursor?: string, limit?: number): Promise<Page<WorkspaceComment>> {
   return apiGet<Page<WorkspaceComment>>(`/api/workspaces/${workspaceId}/items/${itemId}/comments${pageQuery(cursor, limit)}`);

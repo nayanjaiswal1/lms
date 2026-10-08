@@ -19,13 +19,13 @@ export interface Bundle {
   updated_at: string;
 }
 
-export interface BundleProgress {
+interface BundleProgress {
   completed: number;
   total: number;
   pct: number;
 }
 
-export interface BundleCourse {
+interface BundleCourse {
   id: string;
   slug: string;
   title: string;

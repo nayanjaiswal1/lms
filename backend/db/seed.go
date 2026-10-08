@@ -47,6 +47,17 @@ func seedRank(name string) int {
 	}
 }
 
+// sortSeedFiles orders fixture filenames by seedRank, then alphabetically.
+func sortSeedFiles(names []string) {
+	sort.SliceStable(names, func(i, j int) bool {
+		ri, rj := seedRank(names[i]), seedRank(names[j])
+		if ri != rj {
+			return ri < rj
+		}
+		return names[i] < names[j]
+	})
+}
+
 // SeedDev applies every embedded dev fixture file on every startup, ordered by
 // seedRank. All statements are idempotent (ON CONFLICT DO NOTHING / UPDATE).
 // Only called in development against a local database (cfg.IsLocalDB).
@@ -62,13 +73,7 @@ func SeedDev(ctx context.Context, pool *pgxpool.Pool) error {
 			names = append(names, e.Name())
 		}
 	}
-	sort.SliceStable(names, func(i, j int) bool {
-		ri, rj := seedRank(names[i]), seedRank(names[j])
-		if ri != rj {
-			return ri < rj
-		}
-		return names[i] < names[j]
-	})
+	sortSeedFiles(names)
 
 	for _, name := range names {
 		file := path.Join("fixtures", name)

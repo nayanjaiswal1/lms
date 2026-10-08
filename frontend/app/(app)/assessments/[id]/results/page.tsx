@@ -191,7 +191,6 @@ function ScoreDistribution({
           return (
             <div className="flex flex-1 flex-col items-center gap-1" key={key}>
               <span className="text-xs tabular-nums text-muted-foreground">{pct}%</span>
-              {/* eslint-disable-next-line no-restricted-syntax -- fixed container height for score distribution chart */}
               <div className="flex h-20 w-full items-end">
                 { }
                 <div

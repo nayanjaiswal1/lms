@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -49,15 +50,13 @@ func main() {
 	ctx := context.Background()
 	pool, err := idb.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
-		slog.Error("failed to connect to database", "error", err)
-		os.Exit(1)
+		fatal("failed to connect to database", err)
 	}
 	defer pool.Close()
 	slog.Info("database connected")
 
 	if err := db.RunMigrations(ctx, pool); err != nil {
-		slog.Error("migrations failed", "error", err)
-		os.Exit(1)
+		fatal("migrations failed", err)
 	}
 	slog.Info("migrations up to date")
 
@@ -75,14 +74,12 @@ func main() {
 	// "too many colons in address".
 	redisOpts, err := redis.ParseURL(cfg.RedisURL)
 	if err != nil {
-		slog.Error("invalid REDIS_URL", "error", err)
-		os.Exit(1)
+		fatal("invalid REDIS_URL", err)
 	}
 	rdb := redis.NewClient(redisOpts)
 	rdb.AddHook(metrics.RedisHook{})
 	if err := rdb.Ping(ctx).Err(); err != nil {
-		slog.Error("failed to connect to redis", "error", err)
-		os.Exit(1)
+		fatal("failed to connect to redis", err)
 	}
 	defer rdb.Close()
 	slog.Info("redis connected")
@@ -92,12 +89,10 @@ func main() {
 	// ─── Storage (MinIO) ──────────────────────────────────────────────────────
 	storageClient, err := storage.NewMinioClient(cfg)
 	if err != nil {
-		slog.Error("minio: init failed", "error", err)
-		os.Exit(1)
+		fatal("minio: init failed", err)
 	}
-	if err := storageClient.EnsureBucket(context.Background()); err != nil {
-		slog.Error("minio: ensure bucket failed", "error", err)
-		os.Exit(1)
+	if err := storageClient.EnsureBucket(ctx); err != nil {
+		fatal("minio: ensure bucket failed", err)
 	}
 	slog.Info("minio storage ready")
 
@@ -108,12 +103,10 @@ func main() {
 	// reachable by URL. See storage.PrivateStore / PrivateMinioClient.
 	privateStore, err := storage.NewPrivateMinioClient(cfg)
 	if err != nil {
-		slog.Error("minio: private client init failed", "error", err)
-		os.Exit(1)
+		fatal("minio: private client init failed", err)
 	}
-	if err := privateStore.EnsureBucket(context.Background()); err != nil {
-		slog.Error("minio: ensure private bucket failed", "error", err)
-		os.Exit(1)
+	if err := privateStore.EnsureBucket(ctx); err != nil {
+		fatal("minio: ensure private bucket failed", err)
 	}
 	slog.Info("minio private bundle storage ready")
 
@@ -128,41 +121,9 @@ func main() {
 	// reaper job handlers below, so a Kubernetes deploy constructs exactly one
 	// in-cluster client rather than one per consumer.
 	//
-	// labsImageProfileCatalog is the small in-code catalog of named
-	// ImageProfiles LABS_IMAGE_PROFILES entries resolve against — today just
-	// "nested-docker" and "debug-ide" (see labs.ImageProfileNestedDocker / docs/labs.md
-	// "Nested Docker labs"). Adding a second real profile means adding one
-	// more entry here.
-	labsImageProfileCatalog := map[string]labs.ImageProfile{
-		labs.ImageProfileDebugIDE: labs.DebugIDEProfile(),
-		labs.ImageProfileNestedDocker: {
-			Name:                 labs.ImageProfileNestedDocker,
-			Elevated:             true,
-			CPU:                  labs.NestedContainerCPU,
-			MemoryMB:             labs.NestedContainerMemoryMB,
-			PidsLimit:            labs.NestedContainerPidsLimit,
-			Network:              labs.NestedLabNetwork,
-			SkipPreWarm:          true,
-			RequiresOrgAllowlist: true,
-			DockerMechanism: func() string {
-				if cfg.LabsNestedDockerRuntime == "sysbox-runc" {
-					return "sysbox-runc"
-				}
-				return "rootless-dind"
-			}(),
-			K8sRuntimeClass:      cfg.LabsNestedDockerRuntimeClass,
-			K8sExtraVolume:       true,
-			K8sExtraVolumeSizeGB: labs.NestedContainerDiskGB,
-		},
-	}
-	labsImageProfiles := make(map[string]labs.ImageProfile, len(cfg.LabsImageProfiles))
-	for image, profileName := range cfg.LabsImageProfiles {
-		profile, ok := labsImageProfileCatalog[profileName]
-		if !ok {
-			slog.Error("labs: LABS_IMAGE_PROFILES references unknown profile name", "image", image, "profile", profileName)
-			os.Exit(1)
-		}
-		labsImageProfiles[image] = profile
+	labsImageProfiles, err := resolveLabsImageProfiles(cfg)
+	if err != nil {
+		fatal("labs: invalid LABS_IMAGE_PROFILES", err)
 	}
 
 	var labsRuntime labs.ContainerRuntime
@@ -170,8 +131,7 @@ func main() {
 	case "kubernetes":
 		labsRuntime, err = labs.NewKubernetesContainerService(cfg.LabsK8sNamespace, labsImageProfiles, cfg.LabsImageRegistry)
 		if err != nil {
-			slog.Error("labs: kubernetes runtime init failed", "error", err)
-			os.Exit(1)
+			fatal("labs: kubernetes runtime init failed", err)
 		}
 		slog.Info("labs: kubernetes runtime ready", "namespace", cfg.LabsK8sNamespace, "image_registry", cfg.LabsImageRegistry)
 	default:
@@ -191,8 +151,7 @@ func main() {
 	// it took effect while the planner keeps warming it.
 	labsWarmPoolOverrides, err := labs.ParseWarmPoolOverrides(cfg.LabsWarmPoolOverrides)
 	if err != nil {
-		slog.Error("labs: invalid LABS_WARM_POOL_OVERRIDES", "error", err)
-		os.Exit(1)
+		fatal("labs: invalid LABS_WARM_POOL_OVERRIDES", err)
 	}
 	if len(labsWarmPoolOverrides) > 0 {
 		slog.Info("labs: warm pool overrides active", "overrides", cfg.LabsWarmPoolOverrides)
@@ -234,8 +193,7 @@ func main() {
 	// both derive from the same cfg.EncryptionKey.
 	gitlabVault, err := secrets.New(cfg)
 	if err != nil {
-		slog.Error("gitlab: secrets vault init failed", "error", err)
-		os.Exit(1)
+		fatal("gitlab: secrets vault init failed", err)
 	}
 	// A standalone notifications.Service for the same reason — it holds no
 	// state beyond shared pointers (pool, jobsRegistry), so a second instance
@@ -346,7 +304,59 @@ func main() {
 	jobsRegistry.Register(handlers.HandlerWorkspaceAIWeeklySummary, handlers.NewWorkspaceAIWeeklySummaryHandler(workspaceSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerWorkspaceAIWeeklySummaryProject, handlers.NewWorkspaceAIWeeklySummaryProjectHandler(workspaceSvcForJobs))
 
-	cronDefs := []jobs.CronJobDef{
+	cronDefs := cronJobs()
+
+	workerCtx, workerCancel := context.WithCancel(ctx)
+	defer workerCancel()
+
+	workerPool := jobs.NewWorkerPool(pool, rdb, jobsRegistry, cfg, instanceID)
+	scheduler := jobs.NewScheduler(pool, rdb, cfg, jobsRegistry, instanceID, cronDefs)
+
+	go workerPool.Start(workerCtx)
+	go scheduler.Start(workerCtx)
+
+	// ─── Router ──────────────────────────────────────────────────────────────
+	router := api.NewRouter(cfg, pool, cache, rdb, storageClient, aiProvider, jobsRegistry, rewardsSvc, labsRuntime, privateStore)
+
+	srv := &http.Server{
+		Addr:        ":" + cfg.Port,
+		Handler:     router,
+		ReadTimeout: 15 * time.Second,
+		// No WriteTimeout: it's a hard deadline on the whole response, which
+		// kills long-lived SSE streams (labs.Service.WaitForReadiness) after
+		// 30s even when the client is still legitimately waiting — every
+		// handler that can run long already bounds itself via request context
+		// (see ProvisionTimeoutSeconds).
+		IdleTimeout: 60 * time.Second,
+	}
+
+	// ─── Graceful shutdown ────────────────────────────────────────────────────
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
+
+	go func() {
+		slog.Info("server starting", "port", cfg.Port, "env", cfg.Env)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fatal("server error", err)
+		}
+	}()
+
+	<-quit
+	slog.Info("shutdown signal received, draining connections...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		fatal("graceful shutdown failed", err)
+	}
+
+	slog.Info("server stopped cleanly")
+}
+
+// cronJobs is the scheduler's job table.
+func cronJobs() []jobs.CronJobDef {
+	return []jobs.CronJobDef{
 		// srs.review_reminder's standalone "Cards due for review" email was
 		// folded into digest.nightly (internal/digest) — due flashcards now
 		// ride along in the one nightly digest email instead of arriving as
@@ -422,53 +432,50 @@ func main() {
 		// enqueued per project by the fan-out above, not scheduled directly.
 		{Handler: handlers.HandlerWorkspaceAIWeeklySummary, Schedule: "0 6 * * 1", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
 	}
+}
 
-	workerCtx, workerCancel := context.WithCancel(ctx)
-	defer workerCancel()
+// fatal logs err and exits non-zero.
+func fatal(msg string, err error) {
+	slog.Error(msg, "error", err)
+	os.Exit(1)
+}
 
-	workerPool := jobs.NewWorkerPool(pool, rdb, jobsRegistry, cfg, instanceID)
-	scheduler := jobs.NewScheduler(pool, rdb, cfg, jobsRegistry, instanceID, cronDefs)
-
-	go workerPool.Start(workerCtx)
-	go scheduler.Start(workerCtx)
-
-	// ─── Router ──────────────────────────────────────────────────────────────
-	router := api.NewRouter(cfg, pool, cache, rdb, storageClient, aiProvider, jobsRegistry, rewardsSvc, labsRuntime, privateStore)
-
-	srv := &http.Server{
-		Addr:        ":" + cfg.Port,
-		Handler:     router,
-		ReadTimeout: 15 * time.Second,
-		// No WriteTimeout: it's a hard deadline on the whole response, which
-		// kills long-lived SSE streams (labs.Service.WaitForReadiness) after
-		// 30s even when the client is still legitimately waiting — every
-		// handler that can run long already bounds itself via request context
-		// (see ProvisionTimeoutSeconds).
-		IdleTimeout: 60 * time.Second,
+// resolveLabsImageProfiles maps LABS_IMAGE_PROFILES entries to catalog profiles.
+func resolveLabsImageProfiles(cfg *config.Config) (map[string]labs.ImageProfile, error) {
+	// labsImageProfileCatalog is the small in-code catalog of named
+	// ImageProfiles LABS_IMAGE_PROFILES entries resolve against — today just
+	// "nested-docker" and "debug-ide" (see labs.ImageProfileNestedDocker / docs/labs.md
+	// "Nested Docker labs"). Adding a second real profile means adding one
+	// more entry here.
+	labsImageProfileCatalog := map[string]labs.ImageProfile{
+		labs.ImageProfileDebugIDE: labs.DebugIDEProfile(),
+		labs.ImageProfileNestedDocker: {
+			Name:                 labs.ImageProfileNestedDocker,
+			Elevated:             true,
+			CPU:                  labs.NestedContainerCPU,
+			MemoryMB:             labs.NestedContainerMemoryMB,
+			PidsLimit:            labs.NestedContainerPidsLimit,
+			Network:              labs.NestedLabNetwork,
+			SkipPreWarm:          true,
+			RequiresOrgAllowlist: true,
+			DockerMechanism: func() string {
+				if cfg.LabsNestedDockerRuntime == "sysbox-runc" {
+					return "sysbox-runc"
+				}
+				return "rootless-dind"
+			}(),
+			K8sRuntimeClass:      cfg.LabsNestedDockerRuntimeClass,
+			K8sExtraVolume:       true,
+			K8sExtraVolumeSizeGB: labs.NestedContainerDiskGB,
+		},
 	}
-
-	// ─── Graceful shutdown ────────────────────────────────────────────────────
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
-
-	go func() {
-		slog.Info("server starting", "port", cfg.Port, "env", cfg.Env)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("server error", "error", err)
-			os.Exit(1)
+	labsImageProfiles := make(map[string]labs.ImageProfile, len(cfg.LabsImageProfiles))
+	for image, profileName := range cfg.LabsImageProfiles {
+		profile, ok := labsImageProfileCatalog[profileName]
+		if !ok {
+			return nil, fmt.Errorf("labs: LABS_IMAGE_PROFILES image %q references unknown profile %q", image, profileName)
 		}
-	}()
-
-	<-quit
-	slog.Info("shutdown signal received, draining connections...")
-
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		slog.Error("graceful shutdown failed", "error", err)
-		os.Exit(1)
+		labsImageProfiles[image] = profile
 	}
-
-	slog.Info("server stopped cleanly")
+	return labsImageProfiles, nil
 }

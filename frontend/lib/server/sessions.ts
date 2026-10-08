@@ -22,7 +22,7 @@ import ROUTES from "@/lib/routes";
 
 export type SessionStatus = "scheduled" | "completed" | "cancelled" | "no_show";
 export type FeedbackAuthorRole = "student" | "mentor";
-export type SessionScope = "upcoming" | "past" | "all";
+type SessionScope = "upcoming" | "past" | "all";
 export type LedgerReason =
   | "purchase"
   | "admin_grant"
@@ -143,7 +143,7 @@ export interface CreditPack {
   active: boolean;
 }
 
-export interface LedgerEntry {
+interface LedgerEntry {
   id: string;
   delta: number;
   reason: LedgerReason;
@@ -152,13 +152,13 @@ export interface LedgerEntry {
   created_at: string;
 }
 
-export interface CreditSummary {
+interface CreditSummary {
   balance: number;
   entries: LedgerEntry[];
 }
 
 /** What a cancellation actually did, so the UI states the outcome rather than guessing. */
-export interface CancelResult {
+interface CancelResult {
   session: MentorSession;
   credit_refunded: boolean;
   within_cutoff: boolean;
@@ -166,7 +166,7 @@ export interface CancelResult {
   already_closed: boolean;
 }
 
-export interface PackCheckout {
+interface PackCheckout {
   purchase_id: string;
   provider: string;
   status: string;
@@ -176,7 +176,7 @@ export interface PackCheckout {
   currency: string;
 }
 
-export interface BookSessionInput {
+interface BookSessionInput {
   mentor_id: string;
   /** Omit when the caller is the student booking for themselves. */
   student_id?: string;
@@ -187,7 +187,7 @@ export interface BookSessionInput {
   ends_at: string;
 }
 
-export interface MenteeProgress {
+interface MenteeProgress {
   student_id: string;
   student_name: string | null;
   total_sessions: number;

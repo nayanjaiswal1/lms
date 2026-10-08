@@ -2,14 +2,14 @@ import "server-only";
 
 import { apiGet } from "@/lib/server/api";
 
-export interface UsageStatus {
+interface UsageStatus {
   feature_key: string;
   used: number;
   limit: number;
   period: string;
 }
 
-export interface MyUsage {
+interface MyUsage {
   tier_id: string;
   tier_name: string;
   usage: UsageStatus[];

@@ -3,7 +3,7 @@ import "server-only";
 import { apiGet, apiAction } from "@/lib/server/api";
 import type { Job, JobRun, OrgJobStats, WorkerInfo } from "@/lib/jobs/types";
 
-export interface AdminJobsFilter {
+interface AdminJobsFilter {
   org_id?: string;
   status?: string;
   handler?: string;
@@ -11,12 +11,12 @@ export interface AdminJobsFilter {
   limit?: number;
 }
 
-export interface AdminJobListPage {
+interface AdminJobListPage {
   jobs: Job[];
   next_cursor: string;
 }
 
-export interface AdminJobDetail {
+interface AdminJobDetail {
   job: Job;
   runs: JobRun[];
 }
@@ -26,17 +26,17 @@ export interface WorkerHealthResponse {
   leader: string;
 }
 
-export interface PlatformStatsResponse {
+interface PlatformStatsResponse {
   per_org: OrgJobStats[];
 }
 
-export interface OrgQuota {
+interface OrgQuota {
   max_concurrent: number;
   max_queued: number;
   priority_floor: number;
 }
 
-export interface PauseOrgResult {
+interface PauseOrgResult {
   cancelled: number;
 }
 

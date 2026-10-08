@@ -77,11 +77,11 @@ func (r *Repo) ValidateAndStatusRows(ctx context.Context, orgID, batchID string,
 
 	activeUserIDs, err := r.ActiveMemberUserIDs(ctx, orgID, emails)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("assessment.ValidateAndStatusRows: %w", err)
 	}
 	pendingSet, err := r.pendingInvitationEmails(ctx, batchID, emails)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("assessment.ValidateAndStatusRows: %w", err)
 	}
 
 	for i := range rows {

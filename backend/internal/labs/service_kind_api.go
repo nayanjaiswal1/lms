@@ -34,11 +34,11 @@ var commitRefRe = regexp.MustCompile(`^[0-9a-fA-F]{7,64}$`)
 func (s *Service) kindContext(ctx context.Context, sessionID, userID string) (*LabSession, *LabDefinition, labkinds.Kind, error) {
 	session, err := s.repo.GetSession(ctx, sessionID, userID)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, fmt.Errorf("labs.kindContext: %w", err)
 	}
 	lab, err := s.repo.GetLabForPlacement(ctx, session.LabID, session.OrgID)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, fmt.Errorf("labs.kindContext: %w", err)
 	}
 	kind, ok := kindFor(lab)
 	if !ok {
@@ -53,7 +53,7 @@ func (s *Service) kindContext(ctx context.Context, sessionID, userID string) (*L
 func (s *Service) SessionKindPayload(ctx context.Context, session *LabSession) (key string, payload any, ok bool, err error) {
 	lab, err := s.repo.GetLabForPlacement(ctx, session.LabID, session.OrgID)
 	if err != nil {
-		return "", nil, false, err
+		return "", nil, false, fmt.Errorf("labs.SessionKindPayload: %w", err)
 	}
 	kind, isKind := kindFor(lab)
 	if !isKind {
@@ -61,7 +61,7 @@ func (s *Service) SessionKindPayload(ctx context.Context, session *LabSession) (
 	}
 	v, err := s.sessionVariant(ctx, lab, session, false, false)
 	if err != nil {
-		return "", nil, false, err
+		return "", nil, false, fmt.Errorf("labs.SessionKindPayload: %w", err)
 	}
 	return kind.Name(), kind.SessionPayload(v), true, nil
 }
@@ -73,19 +73,19 @@ func (s *Service) SessionKindPayload(ctx context.Context, session *LabSession) (
 func (s *Service) GetDebrief(ctx context.Context, sessionID, userID string) (map[string]any, error) {
 	session, lab, kind, err := s.kindContext(ctx, sessionID, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.GetDebrief: %w", err)
 	}
 	if session.Status != SessionStatusCompleted {
 		return nil, ErrNoDebrief
 	}
 	v, err := s.sessionVariant(ctx, lab, session, false, false)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.GetDebrief: %w", err)
 	}
 	out := map[string]any{"debrief": kind.Debrief(v), "score": session.Score}
 	review, diff, err := s.repo.GetSessionDebriefExtras(ctx, session.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.GetDebrief: %w", err)
 	}
 	if len(review) > 0 {
 		out["writeup_review"] = review
@@ -160,13 +160,13 @@ func parseWriteupOutput(raw string, nKeyPoints int) (*writeupModelOutput, error)
 func (s *Service) ReviewWriteup(ctx context.Context, sessionID, userID string) (*WriteupReviewResult, error) {
 	session, lab, kind, err := s.kindContext(ctx, sessionID, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.ReviewWriteup: %w", err)
 	}
 	if kind.WriteupFilePath() == "" {
 		return nil, ErrLabTypeUnsupported
 	}
 	if err := s.requireSessionLive(ctx, session); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.ReviewWriteup: %w", err)
 	}
 	tasks, err := s.repo.GetPublishedVersion(ctx, session.TaskVersionID)
 	if err != nil {
@@ -184,7 +184,7 @@ func (s *Service) ReviewWriteup(ctx context.Context, sessionID, userID string) (
 	}
 	v, err := s.sessionVariant(ctx, lab, session, false, false)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.ReviewWriteup: %w", err)
 	}
 	keyPoints, misconceptions := kind.WriteupRubric(v)
 	if len(keyPoints) == 0 {
@@ -193,7 +193,7 @@ func (s *Service) ReviewWriteup(ctx context.Context, sessionID, userID string) (
 
 	content, err := s.ReadFile(ctx, sessionID, userID, kind.WriteupFilePath())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.ReviewWriteup: %w", err)
 	}
 	content = strings.TrimSpace(content)
 	if content == "" {
@@ -206,7 +206,7 @@ func (s *Service) ReviewWriteup(ctx context.Context, sessionID, userID string) (
 	cacheKey := writeupCacheKey(sessionID, content)
 	used, err := s.repo.CountWriteupReviews(ctx, sessionID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.ReviewWriteup: %w", err)
 	}
 	cached, err := s.repo.GetAIInteractionByCacheKey(ctx, cacheKey)
 	if err != nil {
@@ -215,14 +215,14 @@ func (s *Service) ReviewWriteup(ctx context.Context, sessionID, userID string) (
 	var out *writeupModelOutput
 	if cached != nil {
 		if out, err = parseWriteupOutput(cached.Response, len(keyPoints)); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("labs.ReviewWriteup: %w", err)
 		}
 	} else {
 		if used >= MaxWriteupReviewsPerSession {
 			return nil, ErrMaxWriteupReviewsReached
 		}
 		if out, err = s.generateWriteupReview(ctx, sessionID, task.ID, cacheKey, keyPoints, misconceptions, content); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("labs.ReviewWriteup: %w", err)
 		}
 		used++
 	}
@@ -239,12 +239,12 @@ func (s *Service) ReviewWriteup(ctx context.Context, sessionID, userID string) (
 	}
 	attempts, err := s.bumpTaskAttempt(ctx, session.ID, task.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.ReviewWriteup: %w", err)
 	}
 	if res.Passed {
 		vr, err := s.finalizeTaskPass(ctx, session, lab, tasks, task.ID, task.Points, attempts, "", "")
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("labs.ReviewWriteup: %w", err)
 		}
 		res.ScoreAdded, res.SessionCompleted = vr.ScoreAdded, vr.SessionCompleted
 	}

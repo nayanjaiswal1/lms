@@ -153,7 +153,7 @@ func editableTarScript(protected []string) string {
 func (s *Service) captureEditableWorkspace(ctx context.Context, containerID string, v *labkinds.VariantView) ([]byte, error) {
 	protected, err := protectedPaths(v.ProtectedManifest)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.captureEditableWorkspace: %w", err)
 	}
 	stdout, stderr, exitCode, err := s.container.ExecCapture(ctx, containerID, editableTarScript(protected), MaxCapturedWorkspaceBytes)
 	if err != nil {
@@ -188,7 +188,7 @@ const stderrTailBytes = 1500
 func (s *Service) GradeInCleanRoom(ctx context.Context, target GradeTarget, v *labkinds.VariantView, editableTar []byte, mode, seed string) (*GradeResult, error) {
 	res, err := s.GradeModesInCleanRoom(ctx, target, v, editableTar, []string{mode}, seed)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.GradeInCleanRoom: %w", err)
 	}
 	return res[mode], nil
 }
@@ -328,19 +328,19 @@ func (s *Service) gradeKindModes(ctx context.Context, session *LabSession, lab *
 	}
 	v, err := s.sessionVariant(ctx, lab, session, true, true)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.gradeKindModes: %w", err)
 	}
 	tar, err := s.captureEditableWorkspace(ctx, *session.ContainerID, v)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.gradeKindModes: %w", err)
 	}
 	seed, err := newGradeSeed()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.gradeKindModes: %w", err)
 	}
 	results, err := s.GradeModesInCleanRoom(ctx, GradeTarget{Image: lab.Environment, OrgID: session.OrgID, SessionID: session.ID}, v, tar, modes, seed)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.gradeKindModes: %w", err)
 	}
 	var last strings.Builder
 	for _, m := range modes {
@@ -376,15 +376,15 @@ func kindTaskMode(kind labkinds.Kind, task *TaskSnapshot) (string, error) {
 func (s *Service) verifyKindTask(ctx context.Context, session *LabSession, lab *LabDefinition, kind labkinds.Kind, tasks []TaskSnapshot, task *TaskSnapshot, attempts int) (*VerifyResult, error) {
 	mode, err := kindTaskMode(kind, task)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.verifyKindTask: %w", err)
 	}
 	if err := s.acquireGradeCooldown(ctx, session.ID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.verifyKindTask: %w", err)
 	}
 	results, err := s.gradeKindModes(ctx, session, lab, []string{mode})
 	if err != nil {
 		s.releaseGradeCooldown(ctx, session.ID)
-		return nil, err
+		return nil, fmt.Errorf("labs.verifyKindTask: %w", err)
 	}
 	return s.applyKindResult(ctx, session, lab, tasks, task, attempts, results[mode])
 }

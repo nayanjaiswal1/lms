@@ -46,7 +46,7 @@ func scanCapture(row scanner) (Capture, error) {
 		&c.ErrorMessage, &c.CreatedAt, &c.ProcessedAt,
 	)
 	if err != nil {
-		return Capture{}, err
+		return Capture{}, fmt.Errorf("captures.scanCapture: %w", err)
 	}
 	return c, nil
 }

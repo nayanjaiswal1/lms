@@ -19,7 +19,7 @@ import { cookies } from "next/headers";
  * Never branch on these values for authorization — in a server action or route
  * handler, ask the API instead.
  */
-export interface UnverifiedAccessClaims {
+interface UnverifiedAccessClaims {
   user_id?: string;
   org_id?: string;
   org_role?: string;

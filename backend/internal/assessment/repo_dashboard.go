@@ -282,23 +282,23 @@ type BatchAnalytics struct {
 func (r *Repo) BatchAnalytics(ctx context.Context, orgID, batchID string) (BatchAnalytics, error) {
 	roster, err := r.GetBatchProgress(ctx, orgID, batchID)
 	if err != nil {
-		return BatchAnalytics{}, err
+		return BatchAnalytics{}, fmt.Errorf("assessment.BatchAnalytics: %w", err)
 	}
 	mastery, err := r.ChapterMastery(ctx, orgID, batchID)
 	if err != nil {
-		return BatchAnalytics{}, err
+		return BatchAnalytics{}, fmt.Errorf("assessment.BatchAnalytics: %w", err)
 	}
 	ranking, err := r.ChapterHintRanking(ctx, orgID, batchID)
 	if err != nil {
-		return BatchAnalytics{}, err
+		return BatchAnalytics{}, fmt.Errorf("assessment.BatchAnalytics: %w", err)
 	}
 	blockers, err := r.BlockersBreakdown(ctx, orgID, batchID)
 	if err != nil {
-		return BatchAnalytics{}, err
+		return BatchAnalytics{}, fmt.Errorf("assessment.BatchAnalytics: %w", err)
 	}
 	engagement, err := r.EngagementScatter(ctx, orgID, batchID)
 	if err != nil {
-		return BatchAnalytics{}, err
+		return BatchAnalytics{}, fmt.Errorf("assessment.BatchAnalytics: %w", err)
 	}
 	return BatchAnalytics{
 		Health:             computeClassHealth(roster),

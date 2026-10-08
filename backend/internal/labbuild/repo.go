@@ -25,7 +25,7 @@ func scanBuild(row pgx.Row) (*Build, error) {
 	var b Build
 	var snap []byte
 	if err := row.Scan(&b.ID, &b.RecipeID, &b.RecipeHash, &b.Status, &b.Report, &b.DerivedDifficulty, &b.CreatedBy, &b.CreatedAt, &b.FinishedAt, &snap); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.scanBuild: %w", err)
 	}
 	if err := json.Unmarshal(snap, &b.Snapshot); err != nil {
 		return nil, fmt.Errorf("labbuild: build %s snapshot: %w", b.ID, err)

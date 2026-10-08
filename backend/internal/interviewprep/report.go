@@ -28,7 +28,7 @@ var ErrNoReportForQuickPlan = fmt.Errorf("interviewprep: quick plans do not gene
 func (s *Service) GetReport(ctx context.Context, planID, userID string) (Report, error) {
 	plan, err := s.repo.GetPlan(ctx, planID, userID)
 	if err != nil {
-		return Report{}, err
+		return Report{}, fmt.Errorf("interviewprep.GetReport: %w", err)
 	}
 	if plan.PlanType == ModeQuick {
 		return Report{}, ErrNoReportForQuickPlan
@@ -87,7 +87,7 @@ func (s *Service) GetReport(ctx context.Context, planID, userID string) (Report,
 
 	summary, nextSteps, model, err := s.summarizeReport(ctx, plan, readiness, primaryPct, secondaryPct, strong, weak)
 	if err != nil {
-		return Report{}, err
+		return Report{}, fmt.Errorf("interviewprep.GetReport: %w", err)
 	}
 
 	cardsAdded := s.createRevisionCards(ctx, userID, session.Items, secondaryItems)
@@ -106,13 +106,13 @@ func (s *Service) GetReport(ctx context.Context, planID, userID string) (Report,
 
 	saved, err := s.repo.SaveReport(ctx, planID, report)
 	if err != nil {
-		return Report{}, err
+		return Report{}, fmt.Errorf("interviewprep.GetReport: %w", err)
 	}
 	if !saved {
 		// Lost the race to a concurrent request — return whatever it wrote.
 		refetched, err := s.repo.GetPlan(ctx, planID, userID)
 		if err != nil {
-			return Report{}, err
+			return Report{}, fmt.Errorf("interviewprep.GetReport: %w", err)
 		}
 		if refetched.Report != nil {
 			return *refetched.Report, nil

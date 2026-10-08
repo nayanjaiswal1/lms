@@ -28,7 +28,7 @@ export interface WikiPageTreeNode {
   children: WikiPageTreeNode[];
 }
 
-export interface WikiSpaceWithTree extends WikiSpace {
+interface WikiSpaceWithTree extends WikiSpace {
   tree: WikiPageTreeNode[];
 }
 
@@ -49,7 +49,7 @@ export interface WikiPage {
   updated_at: string;
 }
 
-export interface WikiBreadcrumbItem {
+interface WikiBreadcrumbItem {
   id: string;
   title: string;
   slug: string;
@@ -69,9 +69,6 @@ export interface WikiPageVersionSummary {
   saved_at: string;
 }
 
-export interface WikiPageVersionDetail extends WikiPageVersionSummary {
-  content: JSONContent;
-}
 
 export interface WikiComment {
   id: string;
@@ -115,31 +112,17 @@ export async function getWikiSpace(spaceSlug: string): Promise<WikiSpaceWithTree
   return apiGet<WikiSpaceWithTree>(`/api/wiki/spaces/${spaceSlug}`);
 }
 
-export async function getWikiPageTree(spaceId: string): Promise<WikiPageTreeNode[]> {
-  return apiGet<WikiPageTreeNode[]>(`/api/wiki/spaces/${spaceId}/pages`);
-}
 
 export async function getWikiPage(pageId: string): Promise<WikiPageDetail> {
   return apiGet<WikiPageDetail>(`/api/wiki/pages/${pageId}`);
 }
 
-export async function getWikiPageVersions(pageId: string): Promise<WikiPageVersionSummary[]> {
-  return apiGet<WikiPageVersionSummary[]>(`/api/wiki/pages/${pageId}/versions`);
-}
 
-export async function getWikiPageVersion(pageId: string, version: number): Promise<WikiPageVersionDetail> {
-  return apiGet<WikiPageVersionDetail>(`/api/wiki/pages/${pageId}/versions/${version}`);
-}
 
 export async function getWikiTemplates(): Promise<WikiTemplate[]> {
   return apiGet<WikiTemplate[]>("/api/wiki/templates");
 }
 
-export async function searchWiki(query: string, spaceSlug?: string): Promise<WikiSearchResult[]> {
-  const params = new URLSearchParams({ q: query });
-  if (spaceSlug) params.set("space", spaceSlug);
-  return apiGet<WikiSearchResult[]>(`/api/wiki/search?${params.toString()}`);
-}
 
 /** Resolves a `[...path]` URL segment chain (page slugs from the space root)
  * against an already-fetched tree to the target page ID — avoids a dedicated

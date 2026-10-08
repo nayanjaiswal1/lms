@@ -54,44 +54,50 @@ func RunMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 		if already {
 			continue
 		}
-
-		sql, err := migrationFS.ReadFile("migrations/" + name)
-		if err != nil {
-			return fmt.Errorf("migrate: read %s: %w", name, err)
+		if err := applyMigration(ctx, pool, name); err != nil {
+			return err
 		}
-
-		tx, err := pool.Begin(ctx)
-		if err != nil {
-			return fmt.Errorf("migrate: begin tx for %s: %w", name, err)
-		}
-
-		if _, err := tx.Exec(ctx, string(sql)); err != nil {
-			_ = tx.Rollback(ctx)
-			return fmt.Errorf("migrate: apply %s: %w", name, err)
-		}
-
-		// A pg_dump-generated migration (001_baseline.sql) sets search_path to
-		// '' with is_local=false, which is session-scoped: it outlives this
-		// statement and would poison the pooled connection for every later
-		// query, starting with the tracking INSERT below.
-		if _, err := tx.Exec(ctx, `RESET search_path`); err != nil {
-			_ = tx.Rollback(ctx)
-			return fmt.Errorf("migrate: reset search_path after %s: %w", name, err)
-		}
-
-		if _, err := tx.Exec(ctx,
-			`INSERT INTO schema_migrations (version) VALUES ($1)`, name,
-		); err != nil {
-			_ = tx.Rollback(ctx)
-			return fmt.Errorf("migrate: record %s: %w", name, err)
-		}
-
-		if err := tx.Commit(ctx); err != nil {
-			return fmt.Errorf("migrate: commit %s: %w", name, err)
-		}
-
 		slog.Info("migration applied", "version", name)
 	}
 
+	return nil
+}
+
+// applyMigration runs one migration and its schema_migrations row in one transaction.
+func applyMigration(ctx context.Context, pool *pgxpool.Pool, name string) error {
+	sql, err := migrationFS.ReadFile("migrations/" + name)
+	if err != nil {
+		return fmt.Errorf("migrate: read %s: %w", name, err)
+	}
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("migrate: begin tx for %s: %w", name, err)
+	}
+
+	if _, err := tx.Exec(ctx, string(sql)); err != nil {
+		_ = tx.Rollback(ctx)
+		return fmt.Errorf("migrate: apply %s: %w", name, err)
+	}
+
+	// A pg_dump-generated migration (001_baseline.sql) sets search_path to
+	// '' with is_local=false, which is session-scoped: it outlives this
+	// statement and would poison the pooled connection for every later
+	// query, starting with the tracking INSERT below.
+	if _, err := tx.Exec(ctx, `RESET search_path`); err != nil {
+		_ = tx.Rollback(ctx)
+		return fmt.Errorf("migrate: reset search_path after %s: %w", name, err)
+	}
+
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO schema_migrations (version) VALUES ($1)`, name,
+	); err != nil {
+		_ = tx.Rollback(ctx)
+		return fmt.Errorf("migrate: record %s: %w", name, err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("migrate: commit %s: %w", name, err)
+	}
 	return nil
 }

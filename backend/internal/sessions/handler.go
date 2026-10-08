@@ -1,9 +1,7 @@
 package sessions
 
 import (
-	"encoding/json"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -259,7 +257,7 @@ func (h *Handler) ListSessions(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	limit := httputil.QueryInt(r, "limit", 0)
 	list, err := h.service.ListSessions(r.Context(), claims.OrgID, claims.UserID, r.URL.Query().Get("scope"), limit)
 	if err != nil {
 		writeDomainError(w, err)
@@ -292,7 +290,9 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 		Reason string `json:"reason"`
 	}
 	// A cancellation with no body is valid — the reason is optional.
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if !httputil.DecodeJSONAllowEmpty(w, r, &req) {
+		return
+	}
 
 	result, err := h.service.Cancel(r.Context(), claims.OrgID, chi.URLParam(r, "sessionID"), claims.UserID, req.Reason)
 	if err != nil {
@@ -460,7 +460,9 @@ func (h *Handler) BuyPack(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Provider string `json:"provider"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if !httputil.DecodeJSONAllowEmpty(w, r, &req) {
+		return
+	}
 
 	checkout, err := h.service.StartPackCheckout(r.Context(), claims.OrgID, claims.UserID, chi.URLParam(r, "packID"), req.Provider)
 	if err != nil {

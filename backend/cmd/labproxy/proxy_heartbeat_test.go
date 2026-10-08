@@ -2,21 +2,18 @@ package main
 
 import (
 	"context"
-	"github.com/mindforge/backend/internal/testdomain"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/testdomain"
 	"github.com/redis/go-redis/v9"
 )
 
 // testPool/testRedis connect to TEST_DATABASE_URL/TEST_REDIS_URL, skipping
 // (not failing) when unset or unreachable — same convention as
-// internal/rewards/cohort_group_leaderboard_e2e_test.go. Docker isn't
-// available in this environment, so these tests compile and are exercised
-// here via t.Skip rather than against a live DB/Redis; see this task's
-// verification notes.
+// internal/rewards/cohort_group_leaderboard_e2e_test.go.
 
 func testPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()

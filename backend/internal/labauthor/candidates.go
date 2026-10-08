@@ -44,14 +44,14 @@ type Candidate struct {
 func (s *Service) Candidates(ctx context.Context, orgID, recipeID, kind string) ([]Candidate, error) {
 	rc, err := s.repo.GetRecipe(ctx, orgID, recipeID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.Candidates: %w", err)
 	}
 	if !KindAllows(rc.LabKind, kind) {
 		return nil, fmt.Errorf("%w: %s blocks are not valid in a %s recipe", ErrInvalidInput, kind, rc.LabKind)
 	}
 	blocks, err := s.repo.ListBlocks(ctx, orgID, BlockFilter{Kind: kind, Limit: maxPageSize})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.Candidates: %w", err)
 	}
 	ids := versionIDs(rc.Spec)
 	for _, b := range blocks {
@@ -59,7 +59,7 @@ func (s *Service) Candidates(ctx context.Context, orgID, recipeID, kind string) 
 	}
 	vers, err := s.repo.ResolveVersions(ctx, orgID, ids)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.Candidates: %w", err)
 	}
 
 	analyze := func(spec labblock.Spec) *Analysis {

@@ -1,4 +1,4 @@
-export type OrgStatus =
+type OrgStatus =
   | "pending_verification"
   | "onboarding"
   | "active"
@@ -76,7 +76,7 @@ export interface InvitePage {
   total: number;
 }
 
-export interface SkippedInvite {
+interface SkippedInvite {
   email: string;
   reason: "invalid_email" | "duplicate" | "already_member";
 }

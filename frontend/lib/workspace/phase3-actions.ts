@@ -42,12 +42,12 @@ interface ReviewDocInput {
   wiki_version: number;
 }
 
-export interface RecordAttendanceInput {
+interface RecordAttendanceInput {
   occurrence_at: string;
   attendance: { user_id: string; attended: boolean }[];
 }
 
-export interface ActionItemInput {
+interface ActionItemInput {
   title: string;
   description?: string;
   force?: boolean;

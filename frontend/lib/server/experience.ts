@@ -5,7 +5,7 @@ import { apiGet } from "@/lib/server/api";
 export type ExperienceSubjectType = "assessment";
 export type ExperienceValue = "smooth" | "issue" | "complaint";
 
-export interface ExperienceReport {
+interface ExperienceReport {
   id: string;
   org_id: string;
   subject_type: ExperienceSubjectType;

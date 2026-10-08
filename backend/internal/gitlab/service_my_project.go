@@ -1,6 +1,9 @@
 package gitlab
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 // GetMyProjectDetail returns the caller's own team (with assignment title
 // and role embedded) plus its contribution breakdown and checkpoint list —
@@ -13,15 +16,15 @@ import "context"
 func (s *Service) GetMyProjectDetail(ctx context.Context, orgID, userID, teamID string) (*MyProjectDetailView, error) {
 	view, err := s.repo.GetMyProjectDetail(ctx, orgID, userID, teamID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetMyProjectDetail: %w", err)
 	}
 	contributions, err := s.repo.GetTeamContributions(ctx, teamID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetMyProjectDetail: %w", err)
 	}
 	checkpoints, err := s.repo.ListCheckpointsForTeam(ctx, view.AssignmentID, teamID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.GetMyProjectDetail: %w", err)
 	}
 	view.Contributions = contributions
 	view.Checkpoints = checkpoints

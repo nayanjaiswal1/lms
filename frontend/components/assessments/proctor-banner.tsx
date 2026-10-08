@@ -1,6 +1,7 @@
 import { Clock, HelpCircle, LogOut, Send, ShieldAlert, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { formatCountdown } from "@/components/assessments/format-countdown";
 
 interface ProctorBannerProps {
   secondsLeft: number;
@@ -11,14 +12,6 @@ interface ProctorBannerProps {
   onHelp: () => void;
   onSubmit: () => void;
   submitDisabled: boolean;
-}
-
-function formatTime(total: number): string {
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 export function ProctorBanner({
@@ -72,7 +65,7 @@ export function ProctorBanner({
         {/* Timer + exit */}
         <div className="flex flex-1 items-center justify-end gap-2">
           <span
-            aria-label={`${formatTime(secondsLeft)} remaining`}
+            aria-label={`${formatCountdown(secondsLeft)} remaining`}
             aria-live="polite"
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-sm font-semibold tabular-nums transition-colors duration-normal",
@@ -86,7 +79,7 @@ export function ProctorBanner({
             )}
           >
             <Clock aria-hidden className="h-3.5 w-3.5" />
-            {formatTime(secondsLeft)}
+            {formatCountdown(secondsLeft)}
           </span>
 
           {onExit && (

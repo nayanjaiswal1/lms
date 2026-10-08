@@ -37,7 +37,7 @@ export interface RoadmapPhase {
   milestones: RoadmapMilestone[];
 }
 
-export type RoadmapStatus = "generating" | "active" | "completed" | "archived" | "failed";
+type RoadmapStatus = "generating" | "active" | "completed" | "archived" | "failed";
 
 export interface Roadmap {
   id: string;

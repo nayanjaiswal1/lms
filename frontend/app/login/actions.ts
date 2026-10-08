@@ -116,7 +116,7 @@ export async function loginPasskeyBeginAction(
   );
 }
 
-export interface PasskeyLoginResult {
+interface PasskeyLoginResult {
   error?: string;
   redirectTo?: string;
 }

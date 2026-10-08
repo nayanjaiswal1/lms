@@ -76,7 +76,7 @@ func Import(vendorDir, outDir string) error {
 func buildLesson(vendorDir string, sec Section) (*canonical.Lesson, error) {
 	body, source, err := buildLessonBody(vendorDir, sec)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("importer.buildLesson: %w", err)
 	}
 	return &canonical.Lesson{
 		Common: canonical.Common{
@@ -146,7 +146,7 @@ func clusterScriptFiles(vendorDir string) ([]string, error) {
 	var rels []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("importer.clusterScriptFiles: %w", err)
 		}
 		if d.IsDir() {
 			return nil
@@ -159,7 +159,7 @@ func clusterScriptFiles(vendorDir string) ([]string, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("importer.clusterScriptFiles: %w", err)
 	}
 	sort.Strings(rels)
 	return rels, nil

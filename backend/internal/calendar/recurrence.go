@@ -146,7 +146,7 @@ func ExpandOccurrences(base Event, from, to time.Time) ([]Event, error) {
 	}
 	rule, err := ParseRRule(*base.RecurrenceRule)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("calendar.ExpandOccurrences: %w", err)
 	}
 
 	var stepDays int

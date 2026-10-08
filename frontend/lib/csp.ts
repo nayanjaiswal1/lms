@@ -1,4 +1,5 @@
 import { TURNSTILE_ORIGIN } from "@/lib/captcha"
+import { LAB_PROXY_WS_URL } from "@/lib/labs/preview-url"
 
 // The lab IDE and app preview are iframes served by labproxy: its own origin plus the
 // per-session preview subdomains (p<port>-<session>.<preview domain>), hence the wildcard.
@@ -10,11 +11,9 @@ function buildLabFrameSources(): string[] {
 }
 
 // The lab terminal opens a WebSocket straight to labproxy (hooks/use-lab-terminal.ts),
-// so connect-src needs that one origin rather than every ws:/wss: host. Mirrors the
-// hook's own ws://localhost:18081 fallback.
+// so connect-src needs that one origin rather than every ws:/wss: host.
 function buildLabConnectSource(): string {
-  const proxyUrl = process.env.NEXT_PUBLIC_LAB_PROXY_URL ?? "ws://localhost:18081"
-  const { protocol, host } = new URL(proxyUrl)
+  const { protocol, host } = new URL(LAB_PROXY_WS_URL)
   return `${protocol}//${host}`
 }
 

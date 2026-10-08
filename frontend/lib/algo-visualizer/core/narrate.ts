@@ -4,7 +4,7 @@ import { pyStr } from "./values";
 
 export type StructureKind = "array" | "stack" | "queue";
 
-export interface StepNarration {
+interface StepNarration {
   phase: string;
   caption: string;
 }

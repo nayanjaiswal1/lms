@@ -6,7 +6,6 @@ import type {
   AssignmentDashboardView,
   AssignmentLeaderboardView,
   DesignProposalView,
-  MyProjectCheckpointsView,
   MyProjectDetailView,
   MyProjectSummary,
   OriginalityReportView,
@@ -17,7 +16,6 @@ import type {
   ProjectTask,
   ProjectTeam,
   RequirementBoardRow,
-  TeamContributionsView,
   TeamOwnershipView,
 } from "@/lib/projects/types";
 
@@ -50,9 +48,6 @@ export async function getAssignmentDashboard(assignmentId: string): Promise<Assi
   return apiGet<AssignmentDashboardView>(`/api/projects/assignments/${assignmentId}/dashboard`);
 }
 
-export async function getTeamContributions(teamId: string): Promise<TeamContributionsView> {
-  return apiGet<TeamContributionsView>(`/api/projects/teams/${teamId}/contributions`);
-}
 
 export async function getAssignmentBurndown(assignmentId: string): Promise<AssignmentBurndownView> {
   return apiGet<AssignmentBurndownView>(`/api/projects/assignments/${assignmentId}/burndown`);
@@ -68,32 +63,16 @@ export async function listMyProjects(): Promise<MyProjectSummary[]> {
   return apiGet<MyProjectSummary[]>(`/api/my/projects`);
 }
 
-// Returns the full ProjectTeam row (not MyProjectSummary) — see
-// GetMyProject's real response shape in handler_dashboard.go. 404s for a
-// team the caller doesn't belong to.
-export async function getMyProject(teamId: string): Promise<ProjectTeam> {
-  return apiGet<ProjectTeam>(`/api/my/projects/${teamId}`);
-}
 
 // Returns the team plus its assignment_title/role, contributions, and
 // checkpoints in one response — the team detail page's full data need
-// (see handler_my_project.go), instead of getMyProject + listMyProjects +
-// getMyProjectContributions + getMyProjectCheckpoints. Same 404-not-403
-// membership scoping as getMyProject.
+// (see handler_my_project.go). Row-scoped to the caller: 404, not 403, for
+// non-members.
 export async function getMyProjectDetail(teamId: string): Promise<MyProjectDetailView> {
   return apiGet<MyProjectDetailView>(`/api/my/projects/${teamId}/detail`);
 }
 
-export async function getMyProjectContributions(teamId: string): Promise<TeamContributionsView> {
-  return apiGet<TeamContributionsView>(`/api/my/projects/${teamId}/contributions`);
-}
 
-// Batch 5 (gap fix): the caller's own team's checkpoint list + submission
-// status (MR state, approvals, CI, grade/feedback) — row-scoped via
-// GetMyProjectCheckpoints's membership check, same as the two above.
-export async function getMyProjectCheckpoints(teamId: string): Promise<MyProjectCheckpointsView> {
-  return apiGet<MyProjectCheckpointsView>(`/api/my/projects/${teamId}/checkpoints`);
-}
 
 // ─── Batch 5: checkpoints & peer review (staff, admin/instructor only) ─────
 // ListCheckpoints/ListSubmissions return their arrays directly under "data",

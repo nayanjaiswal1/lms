@@ -2,6 +2,7 @@ package courses
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/mindforge/backend/internal/testdb"
@@ -38,10 +39,10 @@ func TestBundles(t *testing.T) {
 		t.Fatalf("SetBundleCourses: %v", err)
 	}
 
-	if _, err := repo.GetBundleDetail(ctx, orgID, userID, "", "backend-path", true); err != ErrNotFound {
+	if _, err := repo.GetBundleDetail(ctx, orgID, userID, "", "backend-path", true); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("draft bundle visible to students: got %v", err)
 	}
-	if _, err := repo.EnrollInBundle(ctx, orgID, userID, b.ID); err != ErrNotFound {
+	if _, err := repo.EnrollInBundle(ctx, orgID, userID, b.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("enroll into draft bundle: expected ErrNotFound, got %v", err)
 	}
 
@@ -85,7 +86,7 @@ func TestBundles(t *testing.T) {
 	if err := pool.QueryRow(ctx, `INSERT INTO organizations (slug, name) VALUES ('other-org', 'Other') RETURNING id`).Scan(&otherOrg); err != nil {
 		t.Fatalf("seed other org: %v", err)
 	}
-	if err := repo.SetBundleCourses(ctx, otherOrg, b.ID, []string{freeID}); err != ErrNotFound {
+	if err := repo.SetBundleCourses(ctx, otherOrg, b.ID, []string{freeID}); !errors.Is(err, ErrNotFound) {
 		t.Errorf("cross-org SetBundleCourses: expected ErrNotFound, got %v", err)
 	}
 }

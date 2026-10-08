@@ -405,7 +405,7 @@ func (b *boundedBuffer) Write(p []byte) (int, error) {
 			return b.buf.Write(p)
 		}
 		if _, err := b.buf.Write(p[:room]); err != nil {
-			return 0, err
+			return 0, fmt.Errorf("labs.Write: %w", err)
 		}
 	}
 	b.truncated = true
@@ -501,7 +501,7 @@ func runCmd(ctx context.Context, name string, args ...string) (string, error) {
 		if stderr := strings.TrimSpace(errBuf.String()); stderr != "" {
 			return "", fmt.Errorf("%w: %s", err, stderr)
 		}
-		return "", err
+		return "", fmt.Errorf("labs.runCmd: %w", err)
 	}
 	return outBuf.String(), nil
 }

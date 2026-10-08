@@ -23,7 +23,7 @@ var errUnknownRedirect = errors.New("mcpconnect: redirect_uri not registered for
 func (rt *Router) resolveAuthRequest(ctx context.Context, clientID, redirectURI, scopeParam string) (Client, []string, error) {
 	client, err := rt.repo.GetClient(ctx, clientID)
 	if err != nil {
-		return Client{}, nil, err
+		return Client{}, nil, fmt.Errorf("mcpconnect.resolveAuthRequest: %w", err)
 	}
 	redirectOK := false
 	for _, u := range client.RedirectURIs {

@@ -2,7 +2,7 @@
 // sits alongside (roles/permissions/audit) — one file since every tab
 // component on this page reads from this same shape.
 
-export interface CourseSummary {
+interface CourseSummary {
   id: string;
   title: string;
   slug: string;

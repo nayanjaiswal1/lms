@@ -1,7 +1,7 @@
 // The builder wizard's steps (docs/debug-labs.md B4). Block steps pick blocks
 // of the listed kinds; "single" allows at most one block per kind.
 
-export type BlockStepMode = "single" | "multi";
+type BlockStepMode = "single" | "multi";
 
 interface BaseStep {
   key: string;
@@ -17,7 +17,7 @@ export interface BlockStep extends BaseStep {
   panel?: "ticket-draft";
 }
 
-export interface CustomStep extends BaseStep {
+interface CustomStep extends BaseStep {
   type: "randomize" | "build" | "preview" | "publish";
 }
 

@@ -5,6 +5,7 @@
 // stage stays the main character.
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { whatnowApi } from "@/lib/whatnow/client";
 import type { PlanToday, Task, WeeklyRecap } from "@/lib/whatnow/types";
@@ -37,7 +38,7 @@ export function Shelf({
   }
 
   useEffect(() => {
-    loadAll().catch(() => {});
+    loadAll().catch(() => toast.error("Could not load your shelf."));
   }, []);
 
   async function toggleToday(task: Task, add: boolean) {
@@ -140,8 +141,8 @@ export function Shelf({
                     <Button
                       aria-label={`Move ${t.title} up`}
                       className="h-auto p-0"
-                      variant="link"
                       disabled={busyId === t.id || i === 0}
+                      variant="link"
                       onClick={() => move(t, -1)}
                     >
                       ↑
@@ -149,24 +150,24 @@ export function Shelf({
                     <Button
                       aria-label={`Move ${t.title} down`}
                       className="h-auto p-0"
-                      variant="link"
                       disabled={busyId === t.id || i === plan.tasks.length - 1}
+                      variant="link"
                       onClick={() => move(t, 1)}
                     >
                       ↓
                     </Button>
                     <Button
                       className="h-auto p-0"
-                      variant="link"
                       disabled={busyId === t.id}
+                      variant="link"
                       onClick={() => promote(t)}
                     >
                       do this now
                     </Button>
                     <Button
                       className="h-auto p-0"
-                      variant="link"
                       disabled={busyId === t.id}
+                      variant="link"
                       onClick={() => toggleToday(t, false)}
                     >
                       drop
@@ -192,9 +193,9 @@ export function Shelf({
                   </span>
                   <Button
                     className="h-auto p-0"
-                    variant="link"
                     disabled={busyId === t.id || planFull}
                     title={planFull ? "Today is full — drop something first" : undefined}
+                    variant="link"
                     onClick={() => toggleToday(t, true)}
                   >
                     today
@@ -216,8 +217,8 @@ export function Shelf({
                   <span className="wn-shelf-item-title">{t.title}</span>
                   <Button
                     className="h-auto p-0"
-                    variant="link"
                     disabled={busyId === t.id}
+                    variant="link"
                     onClick={() => revive(t)}
                   >
                     revive

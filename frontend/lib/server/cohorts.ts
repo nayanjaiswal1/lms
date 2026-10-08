@@ -20,9 +20,6 @@ export async function getCohortGroups(): Promise<CohortGroup[]> {
   return data.groups ?? [];
 }
 
-export async function getCohortGroup(id: string): Promise<CohortGroup> {
-  return apiGet<CohortGroup>(`/api/cohort-groups/${id}`);
-}
 
 export interface CohortGroupNode extends CohortGroup {
   children: CohortGroupNode[];

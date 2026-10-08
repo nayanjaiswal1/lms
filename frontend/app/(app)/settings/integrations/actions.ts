@@ -20,7 +20,7 @@ export async function disconnectGitlabAction(): Promise<ActionResult<undefined>>
 
 // ─── GitLab: org installation pool (admin-only) ───────────────────────────────
 
-export interface GitlabInstallationPutResponse {
+interface GitlabInstallationPutResponse {
   // Present when auth_kind="pat": the install completed synchronously.
   id?: string;
   name?: string;
@@ -37,7 +37,7 @@ export interface GitlabInstallationPutResponse {
   pending?: boolean;
 }
 
-export interface InstallGitlabPATInput {
+interface InstallGitlabPATInput {
   name: string;
   baseUrl: string;
   personalAccessToken: string;
@@ -58,7 +58,7 @@ export async function createGitlabInstallationPATAction(input: InstallGitlabPATI
   return result;
 }
 
-export interface StartGitlabInstallOAuthInput {
+interface StartGitlabInstallOAuthInput {
   name: string;
   baseUrl: string;
   oauthClientId: string;

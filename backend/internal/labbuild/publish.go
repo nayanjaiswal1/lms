@@ -40,12 +40,12 @@ func (p PublishReq) placed() bool { return p.SectionID != "" }
 
 // PublishResult is what a publish returns.
 type PublishResult struct {
-	LabID         string                 `json:"lab_id"`
-	TaskVersionID string                 `json:"task_version_id"`
-	Version       int                    `json:"version"`
-	Republished   bool                   `json:"republished"`
-	Unchanged     bool                   `json:"unchanged"`
-	Module        *courses.CourseModule  `json:"module,omitempty"`
+	LabID         string                `json:"lab_id"`
+	TaskVersionID string                `json:"task_version_id"`
+	Version       int                   `json:"version"`
+	Republished   bool                  `json:"republished"`
+	Unchanged     bool                  `json:"unchanged"`
+	Module        *courses.CourseModule `json:"module,omitempty"`
 }
 
 // publishIn parameterises the single lab-versioning path shared by publish and
@@ -81,7 +81,7 @@ type publishOut struct {
 func (s *Service) publishLab(ctx context.Context, tx pgx.Tx, in publishIn) (*publishOut, error) {
 	variants, err := s.repo.ListVariants(ctx, in.Build.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.publishLab: %w", err)
 	}
 	previewPort := 0
 	if len(variants) > 0 && len(variants[0].AppPorts) > 0 {
@@ -272,18 +272,18 @@ func catalogOf(r *labblock.Recipe, difficulty string) *catalogMeta {
 func (s *Service) Publish(ctx context.Context, orgID, userID, buildID string, req PublishReq) (*PublishResult, error) {
 	b, err := s.repo.GetBuildForOrg(ctx, orgID, buildID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.Publish: %w", err)
 	}
 	if b.Status != StatusVerified {
 		return nil, ErrNotVerified
 	}
 	rc, err := s.authoring.Repo().GetRecipe(ctx, orgID, b.RecipeID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.Publish: %w", err)
 	}
 	res, err := s.resolveSnapshot(ctx, Snapshot{LabKind: rc.LabKind, OrgID: orgID, Spec: rc.Spec})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.Publish: %w", err)
 	}
 	if !res.Analysis.Valid || res.Analysis.RecipeHash != b.RecipeHash {
 		return nil, ErrBuildStale
@@ -353,11 +353,11 @@ func placementFromRecipe(raw json.RawMessage, req PublishReq) PublishReq {
 func (s *Service) autoPublish(ctx context.Context, b *Build) error {
 	rc, err := s.authoring.Repo().GetRecipe(ctx, b.Snapshot.OrgID, b.RecipeID)
 	if err != nil {
-		return err
+		return fmt.Errorf("labbuild.autoPublish: %w", err)
 	}
 	res, err := s.resolveSnapshot(ctx, Snapshot{LabKind: rc.LabKind, OrgID: rc.OrgID, Spec: rc.Spec})
 	if err != nil {
-		return err
+		return fmt.Errorf("labbuild.autoPublish: %w", err)
 	}
 	if !res.Analysis.Valid || res.Analysis.RecipeHash != b.RecipeHash {
 		return ErrBuildStale
@@ -394,14 +394,14 @@ func (s *Service) autoPublish(ctx context.Context, b *Build) error {
 func (s *Service) Preview(ctx context.Context, orgID, userID, buildID, variantKey string) (*labs.LabSession, error) {
 	b, err := s.repo.GetBuildForOrg(ctx, orgID, buildID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.Preview: %w", err)
 	}
 	if b.Status != StatusVerified {
 		return nil, ErrNotVerified
 	}
 	variants, err := s.repo.ListVariants(ctx, b.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.Preview: %w", err)
 	}
 	if variantKey == "" && len(variants) > 0 {
 		variantKey = variants[0].Key
@@ -419,7 +419,7 @@ func (s *Service) Preview(ctx context.Context, orgID, userID, buildID, variantKe
 	}
 	rc, err := s.authoring.Repo().GetRecipe(ctx, orgID, b.RecipeID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.Preview: %w", err)
 	}
 
 	tx, err := s.pool.Begin(ctx)

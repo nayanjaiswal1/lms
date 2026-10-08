@@ -48,7 +48,7 @@ func (s *Service) CompleteModule(ctx context.Context, userID, orgID, moduleID, c
 		CompletedAt: &now,
 	})
 	if err != nil {
-		return ModuleProgress{}, nil, err
+		return ModuleProgress{}, nil, fmt.Errorf("courses.CompleteModule: %w", err)
 	}
 
 	// A module already marked completed (student unmarked it, then remarked
@@ -109,7 +109,7 @@ func (s *Service) CompleteModuleForAssessment(ctx context.Context, orgID, userID
 		if errors.Is(err, ErrNotFound) {
 			return nil, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("courses.CompleteModuleForAssessment: %w", err)
 	}
 	_, result, err := s.CompleteModule(ctx, userID, orgID, module.ID, module.CourseID)
 	return result, err
@@ -124,7 +124,7 @@ func (s *Service) CompleteModuleForAssessment(ctx context.Context, orgID, userID
 func (s *Service) GetCourseDetailForViewer(ctx context.Context, orgID, userID, slug string) (CourseDetailForViewer, error) {
 	tree, err := s.repo.GetCourseTreeBySlug(ctx, orgID, userID, slug)
 	if err != nil {
-		return CourseDetailForViewer{}, err
+		return CourseDetailForViewer{}, fmt.Errorf("courses.GetCourseDetailForViewer: %w", err)
 	}
 	detail := CourseDetailForViewer{CourseTree: tree}
 	// Redaction happens after the enrollment check below; until then the
@@ -144,10 +144,10 @@ func (s *Service) GetCourseDetailForViewer(ctx context.Context, orgID, userID, s
 		return nil
 	})
 	if err := g.Wait(); err != nil {
-		return CourseDetailForViewer{}, err
+		return CourseDetailForViewer{}, fmt.Errorf("courses.GetCourseDetailForViewer: %w", err)
 	}
 	if err := s.restrictTreeForViewer(ctx, orgID, userID, &detail.CourseTree, detail.IsEnrolled); err != nil {
-		return CourseDetailForViewer{}, err
+		return CourseDetailForViewer{}, fmt.Errorf("courses.GetCourseDetailForViewer: %w", err)
 	}
 	if !detail.IsEnrolled {
 		return detail, nil
@@ -166,13 +166,13 @@ func (s *Service) GetCourseDetailForViewer(ctx context.Context, orgID, userID, s
 			return nil
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("courses.GetCourseDetailForViewer: %w", err)
 		}
 		detail.MyRating = &rev.Rating
 		return nil
 	})
 	if err := g.Wait(); err != nil {
-		return CourseDetailForViewer{}, err
+		return CourseDetailForViewer{}, fmt.Errorf("courses.GetCourseDetailForViewer: %w", err)
 	}
 	detail.Progress = &CourseProgressSummary{Completed: cp.Completed, Total: cp.Total, Pct: cp.Pct, Modules: modules}
 	return detail, nil
@@ -183,14 +183,14 @@ func (s *Service) GetCourseDetailForViewer(ctx context.Context, orgID, userID, s
 func (s *Service) GetCourseTree(ctx context.Context, orgID, userID, courseID string) (CourseTree, error) {
 	tree, err := s.repo.GetCourseTree(ctx, orgID, userID, courseID)
 	if err != nil {
-		return CourseTree{}, err
+		return CourseTree{}, fmt.Errorf("courses.GetCourseTree: %w", err)
 	}
 	enrolled, err := s.repo.IsEnrolled(ctx, userID, tree.ID)
 	if err != nil {
 		return CourseTree{}, fmt.Errorf("courses: check enrollment: %w", err)
 	}
 	if err := s.restrictTreeForViewer(ctx, orgID, userID, &tree, enrolled); err != nil {
-		return CourseTree{}, err
+		return CourseTree{}, fmt.Errorf("courses.GetCourseTree: %w", err)
 	}
 	return tree, nil
 }
@@ -206,7 +206,7 @@ func (s *Service) restrictTreeForViewer(ctx context.Context, orgID, userID strin
 	}
 	staff, err := s.repo.IsOrgStaff(ctx, orgID, userID)
 	if err != nil {
-		return err
+		return fmt.Errorf("courses.restrictTreeForViewer: %w", err)
 	}
 	if staff {
 		return nil
@@ -230,13 +230,13 @@ func (s *Service) restrictTreeForViewer(ctx context.Context, orgID, userID strin
 func (s *Service) GetModuleContent(ctx context.Context, orgID, userID, moduleID string) (ModuleContent, error) {
 	m, err := s.repo.GetModule(ctx, orgID, moduleID)
 	if err != nil {
-		return ModuleContent{}, err
+		return ModuleContent{}, fmt.Errorf("courses.GetModuleContent: %w", err)
 	}
 
 	if !m.IsFreePreview {
 		enrolled, err := s.repo.IsEnrolled(ctx, userID, m.CourseID)
 		if err != nil {
-			return ModuleContent{}, err
+			return ModuleContent{}, fmt.Errorf("courses.GetModuleContent: %w", err)
 		}
 		if !enrolled {
 			return ModuleContent{}, ErrForbidden
@@ -262,14 +262,14 @@ func (s *Service) GetModuleContent(ctx context.Context, orgID, userID, moduleID 
 func (s *Service) checkEnrolled(ctx context.Context, orgID, userID, moduleID string) (CourseModule, error) {
 	m, err := s.repo.GetModule(ctx, orgID, moduleID)
 	if err != nil {
-		return CourseModule{}, err
+		return CourseModule{}, fmt.Errorf("courses.checkEnrolled: %w", err)
 	}
 	if m.IsFreePreview {
 		return m, nil
 	}
 	enrolled, err := s.repo.IsEnrolled(ctx, userID, m.CourseID)
 	if err != nil {
-		return CourseModule{}, err
+		return CourseModule{}, fmt.Errorf("courses.checkEnrolled: %w", err)
 	}
 	if !enrolled {
 		return CourseModule{}, ErrForbidden
@@ -281,7 +281,7 @@ func (s *Service) checkEnrolled(ctx context.Context, orgID, userID, moduleID str
 // the same enrollment as viewing the lesson itself.
 func (s *Service) GetMyLessonNote(ctx context.Context, orgID, userID, moduleID string) (LessonNote, error) {
 	if _, err := s.checkEnrolled(ctx, orgID, userID, moduleID); err != nil {
-		return LessonNote{}, err
+		return LessonNote{}, fmt.Errorf("courses.GetMyLessonNote: %w", err)
 	}
 	return s.repo.GetMyLessonNote(ctx, userID, moduleID)
 }
@@ -292,7 +292,7 @@ func (s *Service) GetMyLessonNote(ctx context.Context, orgID, userID, moduleID s
 // log_understanding call so it can be reverted.
 func (s *Service) GetMyReflection(ctx context.Context, orgID, userID, moduleID string) (LessonReflection, error) {
 	if _, err := s.checkEnrolled(ctx, orgID, userID, moduleID); err != nil {
-		return LessonReflection{}, err
+		return LessonReflection{}, fmt.Errorf("courses.GetMyReflection: %w", err)
 	}
 	return s.repo.GetMyReflection(ctx, userID, moduleID)
 }
@@ -302,7 +302,7 @@ func (s *Service) GetMyReflection(ctx context.Context, orgID, userID, moduleID s
 // the caller's connected MCP client via the save_my_lesson_note tool.
 func (s *Service) SaveLessonNote(ctx context.Context, orgID, userID, moduleID, content, source string) (LessonNote, error) {
 	if _, err := s.checkEnrolled(ctx, orgID, userID, moduleID); err != nil {
-		return LessonNote{}, err
+		return LessonNote{}, fmt.Errorf("courses.SaveLessonNote: %w", err)
 	}
 	return s.repo.UpsertLessonNote(ctx, LessonNote{
 		OrgID: orgID, UserID: userID, ModuleID: moduleID, Content: content, Source: source,
@@ -316,7 +316,7 @@ func (s *Service) SaveLessonNote(ctx context.Context, orgID, userID, moduleID, c
 // words.
 func (s *Service) LogUnderstanding(ctx context.Context, orgID, userID, moduleID, summary string) (LessonReflection, error) {
 	if _, err := s.checkEnrolled(ctx, orgID, userID, moduleID); err != nil {
-		return LessonReflection{}, err
+		return LessonReflection{}, fmt.Errorf("courses.LogUnderstanding: %w", err)
 	}
 	return s.repo.UpsertReflection(ctx, LessonReflection{
 		OrgID: orgID, UserID: userID, ModuleID: moduleID, Response: summary, Source: "ai",
@@ -334,7 +334,7 @@ func (s *Service) LogUnderstanding(ctx context.Context, orgID, userID, moduleID,
 func (s *Service) GetLearningContext(ctx context.Context, orgID, userID string) (LearningContext, error) {
 	enrollments, err := s.repo.GetMyEnrollments(ctx, userID, orgID)
 	if err != nil {
-		return LearningContext{}, err
+		return LearningContext{}, fmt.Errorf("courses.GetLearningContext: %w", err)
 	}
 	// GetMyEnrollments already joins per-course progress in one query, so no
 	// need for a per-enrollment GetCourseProgress round trip here.
@@ -349,7 +349,7 @@ func (s *Service) GetLearningContext(ctx context.Context, orgID, userID string) 
 	const recentLimit = 10
 	reflections, err := s.repo.GetRecentReflections(ctx, orgID, userID, recentLimit)
 	if err != nil {
-		return LearningContext{}, err
+		return LearningContext{}, fmt.Errorf("courses.GetLearningContext: %w", err)
 	}
 
 	return LearningContext{Courses: courses, RecentReflections: reflections}, nil
@@ -386,7 +386,7 @@ func randomTopicAttempts(interests, excludeCourseIDs []string) []RandomTopicFilt
 func (s *Service) GetRandomTopic(ctx context.Context, orgID, userID string) (RandomTopic, error) {
 	enrollments, err := s.repo.GetMyEnrollments(ctx, userID, orgID)
 	if err != nil {
-		return RandomTopic{}, err
+		return RandomTopic{}, fmt.Errorf("courses.GetRandomTopic: %w", err)
 	}
 	excludeIDs := make([]string, len(enrollments))
 	for i, e := range enrollments {
@@ -395,7 +395,7 @@ func (s *Service) GetRandomTopic(ctx context.Context, orgID, userID string) (Ran
 
 	interests, err := s.repo.GetTopicsInterest(ctx, userID)
 	if err != nil {
-		return RandomTopic{}, err
+		return RandomTopic{}, fmt.Errorf("courses.GetRandomTopic: %w", err)
 	}
 
 	attempts := randomTopicAttempts(interests, excludeIDs)
@@ -426,7 +426,7 @@ func (s *Service) PresignedUploadURL(ctx context.Context, orgID, courseID, modul
 	key := "orgs/" + orgID + "/courses/" + courseID + "/modules/" + moduleID + "/" + randomHex(8) + ext
 	url, fields, err := s.store.PresignedPost(ctx, key, mimeType, MaxPresignedUploadBytes)
 	if err != nil {
-		return "", nil, "", err
+		return "", nil, "", fmt.Errorf("courses.PresignedUploadURL: %w", err)
 	}
 	return url, fields, key, nil
 }

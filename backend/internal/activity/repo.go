@@ -137,7 +137,7 @@ func (r *Repo) List(ctx context.Context, userID, orgID string, tzOffsetMin int, 
 	loc := time.FixedZone("client", tzOffsetMin*60)
 	out, err := scanEntries(rows)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("activity.List: %w", err)
 	}
 	for i := range out {
 		out[i].Day = out[i].OccurredAt.In(loc).Format("2006-01-02")

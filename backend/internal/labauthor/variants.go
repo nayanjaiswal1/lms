@@ -79,7 +79,7 @@ func activeSets(r *labblock.Recipe) ([][]*labblock.ResolvedBlock, error) {
 func EnumerateVariants(r *labblock.Recipe) (variants []Variant, total int, err error) {
 	sets, err := activeSets(r)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("labauthor.EnumerateVariants: %w", err)
 	}
 	type group struct {
 		set  []*labblock.ResolvedBlock
@@ -147,7 +147,7 @@ func EnumerateVariants(r *labblock.Recipe) (variants []Variant, total int, err e
 		} else {
 			raw, err := canonicalJSON(v.Assignment)
 			if err != nil {
-				return nil, 0, err
+				return nil, 0, fmt.Errorf("labauthor.EnumerateVariants: %w", err)
 			}
 			v.Key = "v" + sha256Hex(raw)[:10]
 		}
@@ -162,7 +162,7 @@ func EnumerateVariants(r *labblock.Recipe) (variants []Variant, total int, err e
 func canonicalJSON(v any) ([]byte, error) {
 	n, err := normalize(v)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.canonicalJSON: %w", err)
 	}
 	raw, err := json.Marshal(n)
 	if err != nil {

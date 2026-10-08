@@ -67,7 +67,7 @@ func (r *Repo) ListOriginalityReports(ctx context.Context, assignmentID string) 
 	for rows.Next() {
 		rpt, err := scanOriginalityReport(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("gitlab.ListOriginalityReports: %w", err)
 		}
 		out = append(out, *rpt)
 	}

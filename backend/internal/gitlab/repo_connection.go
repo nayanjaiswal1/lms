@@ -76,7 +76,7 @@ func (r *Repo) ListInstallations(ctx context.Context, orgID string) ([]GitlabIns
 	for rows.Next() {
 		inst, err := scanInstallation(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("gitlab.ListInstallations: %w", err)
 		}
 		out = append(out, *inst)
 	}
@@ -297,7 +297,7 @@ func (r *Repo) ListExpiringOAuthInstallations(ctx context.Context, before time.T
 	for rows.Next() {
 		inst, err := scanInstallation(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("gitlab.ListExpiringOAuthInstallations: %w", err)
 		}
 		out = append(out, *inst)
 	}
@@ -499,7 +499,7 @@ func (r *Repo) ListExpiringConnections(ctx context.Context, before time.Time) ([
 	for rows.Next() {
 		c, err := scanConnection(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("gitlab.ListExpiringConnections: %w", err)
 		}
 		out = append(out, *c)
 	}

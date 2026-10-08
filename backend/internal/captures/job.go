@@ -193,7 +193,7 @@ func (pr *Processor) extract(ctx context.Context, cp Capture) (string, *ai.Image
 		}
 		text, err := ExtractPDFText(ctx, data)
 		if err != nil {
-			return "", nil, err
+			return "", nil, fmt.Errorf("captures.extract: %w", err)
 		}
 		return text, nil, nil
 
@@ -203,7 +203,7 @@ func (pr *Processor) extract(ctx context.Context, cp Capture) (string, *ai.Image
 		}
 		_, text, err := FetchLinkText(ctx, *cp.SourceURL)
 		if err != nil {
-			return "", nil, err
+			return "", nil, fmt.Errorf("captures.extract: %w", err)
 		}
 		return text, nil, nil
 

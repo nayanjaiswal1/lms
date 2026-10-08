@@ -45,7 +45,7 @@ t.columns = [
 ];
 ```
 
-Picking a value fires `cell-change` (and `change`) like typing does. In a select cell, ↑/↓ and Enter work the dropdown; Tab, Esc and Ctrl+D work as everywhere else.
+A select stays pickable in a `readonly` table; set the column's `readonly: true` to lock it. Picking a value fires `cell-change` (and `change`) like typing does. In a select cell, ↑/↓ and Enter work the dropdown; Tab, Esc and Ctrl+D work as everywhere else.
 
 ### Multiselect columns
 
@@ -74,7 +74,7 @@ t.addEventListener('change', () => (dirty = true));
 | Option | Meaning |
 | --- | --- |
 | `key`, `label` | Row field and header text |
-| `type` | `text` (default), `number` (right-aligned), `image` (the value is a URL shown as a small picture, not editable), `select` (a dropdown of `options`), or `multiselect` (checkboxes of `options`, the value is a `string[]`) |
+| `type` | `text` (default), `number` (right-aligned), `image` (the value is a URL shown as a small picture, not editable), `link` (the value is a URL shown as an "Open" link in a new tab, not editable), `select` (a dropdown of `options`), or `multiselect` (checkboxes of `options`, the value is a `string[]`) |
 | `options` | The choices of a `select` column. A row's value that isn't listed is still shown, so loading data never changes it |
 | `width` | Width in px; omitted = flexible |
 | `align` | `left` / `center` / `right` |

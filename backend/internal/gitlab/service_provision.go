@@ -31,9 +31,18 @@ const provisionTeamTimeoutMS = 180000
 // CreateAssignment inserts a new draft assignment. Publishing (see
 // PublishAssignment) is a separate, explicit instructor action — nothing
 // here touches GitLab.
+// markTeamProvisionFailed records why provisioning failed. A failed write is
+// logged, not returned, so the caller still sees the original provisioning error.
+func (s *Service) markTeamProvisionFailed(ctx context.Context, teamID string, cause error) {
+	msg := cause.Error()
+	if err := s.repo.SetTeamProvisionStatus(ctx, teamID, ProvisionFailed, &msg); err != nil {
+		slog.ErrorContext(ctx, "gitlab: record team provision failure failed", "team_id", teamID, "error", err)
+	}
+}
+
 func (s *Service) CreateAssignment(ctx context.Context, orgID, userID string, a ProjectAssignment) (*ProjectAssignment, error) {
 	if err := s.validateInstallationOverride(ctx, orgID, a.InstallationID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.CreateAssignment: %w", err)
 	}
 	a.OrgID = orgID
 	a.CreatedBy = userID
@@ -54,7 +63,7 @@ func (s *Service) validateInstallationOverride(ctx context.Context, orgID string
 	}
 	cfg, err := s.GetOrgConfig(ctx, orgID)
 	if err != nil {
-		return err
+		return fmt.Errorf("gitlab.validateInstallationOverride: %w", err)
 	}
 	if !cfg.AllowProjectOverride {
 		return ErrOverrideNotAllowed
@@ -71,10 +80,10 @@ func (s *Service) validateInstallationOverride(ctx context.Context, orgID string
 // to default."
 func (s *Service) SetAssignmentInstallation(ctx context.Context, orgID, id string, installationID *string) (*ProjectAssignment, error) {
 	if err := s.validateInstallationOverride(ctx, orgID, installationID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.SetAssignmentInstallation: %w", err)
 	}
 	if err := s.repo.SetAssignmentInstallation(ctx, orgID, id, installationID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.SetAssignmentInstallation: %w", err)
 	}
 	return s.repo.GetAssignment(ctx, orgID, id)
 }
@@ -107,7 +116,7 @@ func (s *Service) DeleteAssignment(ctx context.Context, orgID, id string) error 
 func (s *Service) PublishAssignment(ctx context.Context, orgID, assignmentID string) (*ProjectAssignment, error) {
 	a, err := s.repo.SetAssignmentStatus(ctx, orgID, assignmentID, AssignmentStatusDraft, AssignmentStatusActive)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.PublishAssignment: %w", err)
 	}
 	teams, err := s.repo.ListTeams(ctx, orgID, assignmentID)
 	if err != nil {
@@ -129,7 +138,7 @@ func (s *Service) PublishAssignment(ctx context.Context, orgID, assignmentID str
 func (s *Service) CreateTeam(ctx context.Context, orgID, userID, assignmentID, name, slug string) (*ProjectTeam, error) {
 	assignment, err := s.repo.GetAssignment(ctx, orgID, assignmentID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.CreateTeam: %w", err)
 	}
 	createdBy := userID
 	team, err := s.repo.CreateTeam(ctx, ProjectTeam{
@@ -140,7 +149,7 @@ func (s *Service) CreateTeam(ctx context.Context, orgID, userID, assignmentID, n
 		CreatedBy:    &createdBy,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.CreateTeam: %w", err)
 	}
 	if assignment.Status == AssignmentStatusActive {
 		if err := s.enqueueProvisionTeam(ctx, orgID, team.ID, true); err != nil {
@@ -153,7 +162,7 @@ func (s *Service) CreateTeam(ctx context.Context, orgID, userID, assignmentID, n
 // ListTeams lists every team under an assignment.
 func (s *Service) ListTeams(ctx context.Context, orgID, assignmentID string) ([]ProjectTeam, error) {
 	if _, err := s.repo.GetAssignment(ctx, orgID, assignmentID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.ListTeams: %w", err)
 	}
 	return s.repo.ListTeams(ctx, orgID, assignmentID)
 }
@@ -176,7 +185,7 @@ func (s *Service) DeleteTeam(ctx context.Context, orgID, teamID string) error {
 // original job's idempotency key is still on file.
 func (s *Service) ReprovisionTeam(ctx context.Context, orgID, teamID string) error {
 	if _, err := s.repo.GetTeam(ctx, orgID, teamID); err != nil {
-		return err
+		return fmt.Errorf("gitlab.ReprovisionTeam: %w", err)
 	}
 	return s.enqueueProvisionTeam(ctx, orgID, teamID, false)
 }
@@ -222,13 +231,12 @@ func (s *Service) ProvisionTeam(ctx context.Context, teamID string) error {
 	}
 	if assignment.TemplateProjectID == nil && (assignment.TemplateProjectPath == nil || *assignment.TemplateProjectPath == "") {
 		err := fmt.Errorf("assignment %s has no template project configured (neither template_project_id nor template_project_path)", assignment.ID)
-		msg := err.Error()
-		_ = s.repo.SetTeamProvisionStatus(ctx, teamID, ProvisionFailed, &msg)
+		s.markTeamProvisionFailed(ctx, teamID, err)
 		return err
 	}
 
 	if err := s.repo.SetTeamProvisionStatus(ctx, teamID, ProvisionProvisioning, nil); err != nil {
-		return err
+		return fmt.Errorf("gitlab.ProvisionTeam: %w", err)
 	}
 
 	if stepsErr := s.provisionTeamSteps(ctx, team, assignment); stepsErr != nil {
@@ -423,7 +431,7 @@ func (s *Service) pollImportFinished(ctx context.Context, client *Client, projec
 	for attempt := 0; attempt < importPollAttempts; attempt++ {
 		project, err := client.GetProject(ctx, projectID)
 		if err != nil {
-			return err
+			return fmt.Errorf("gitlab.pollImportFinished: %w", err)
 		}
 		switch project.ImportStatus {
 		case "", "none", "finished":

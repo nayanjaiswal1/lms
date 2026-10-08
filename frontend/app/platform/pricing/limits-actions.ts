@@ -5,7 +5,7 @@ import { apiAction, type ActionResult } from "@/lib/server/api";
 import type { PlanLimit } from "@/lib/server/entitlements";
 import ROUTES from "@/lib/routes";
 
-export interface UpdatePlanLimitInput {
+interface UpdatePlanLimitInput {
   kind: PlanLimit["kind"];
   bool_value?: boolean;
   numeric_value?: number;

@@ -14,7 +14,6 @@ import type {
   AssessmentAnalytics,
   AttemptRow,
   Batch,
-  EvaluationStatus,
   FullEvaluation,
   StudentProgress,
   SkillTrend,
@@ -142,9 +141,6 @@ export async function startAttempt(assessmentId: string): Promise<AttemptPayload
 
 // ─── Interview evaluation ─────────────────────────────────────────────────────
 
-export async function getEvaluationStatus(attemptId: string): Promise<EvaluationStatus> {
-  return apiGet(`/api/attempts/${attemptId}/evaluation/status`);
-}
 
 export async function getEvaluation(attemptId: string): Promise<FullEvaluation> {
   return apiGet(`/api/attempts/${attemptId}/evaluation`);

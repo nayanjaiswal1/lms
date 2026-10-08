@@ -31,7 +31,7 @@ func (r *Repo) tx(ctx context.Context, fn func(pgx.Tx) error) error {
 	}
 	if err := fn(tx); err != nil {
 		_ = tx.Rollback(ctx)
-		return err
+		return fmt.Errorf("calendar.tx: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("calendar: commit tx: %w", err)
@@ -424,25 +424,25 @@ func (r *Repo) ListRange(ctx context.Context, orgID, userID string, from, to tim
 
 	virtual, err := r.listVirtualAssessmentEvents(ctx, orgID, userID, from, to)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("calendar.ListRange: %w", err)
 	}
 	out = append(out, virtual...)
 
 	batchEvents, err := r.listVirtualBatchEvents(ctx, orgID, userID, from, to)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("calendar.ListRange: %w", err)
 	}
 	out = append(out, batchEvents...)
 
 	courseEvents, err := r.listVirtualCourseEvents(ctx, orgID, userID, from, to)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("calendar.ListRange: %w", err)
 	}
 	out = append(out, courseEvents...)
 
 	lessonEvents, err := r.listVirtualLessonEvents(ctx, orgID, userID, from, to)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("calendar.ListRange: %w", err)
 	}
 	out = append(out, lessonEvents...)
 
@@ -811,11 +811,14 @@ func (r *Repo) SetInviteTokenHash(ctx context.Context, inviteID, tokenHash strin
 	}
 
 	// Insert token into auth_tokens
-	payload, _ := json.Marshal(map[string]interface{}{
+	payload, err := json.Marshal(map[string]interface{}{
 		"event_id": inv.EventID,
 		"email":    inv.Email,
 		"role":     inv.Role,
 	})
+	if err != nil {
+		return EventInvite{}, fmt.Errorf("calendar: marshal invite payload: %w", err)
+	}
 	_, err = r.pool.Exec(ctx,
 		`INSERT INTO auth_tokens (purpose, token_hash, payload, expires_at)
 		 VALUES ('calendar_invite', $1, $2, now() + interval '7 days')
@@ -847,11 +850,17 @@ func (r *Repo) GetInviteByTokenHash(ctx context.Context, tokenHash string) (Even
 		return EventInvite{}, fmt.Errorf("calendar: get invite token: %w", err)
 	}
 
-	var payloadData map[string]interface{}
-	json.Unmarshal(payload, &payloadData)
-	inv.EventID = payloadData["event_id"].(string)
-	inv.Email = payloadData["email"].(string)
-	inv.Role = payloadData["role"].(string)
+	var data struct {
+		EventID string `json:"event_id"`
+		Email   string `json:"email"`
+		Role    string `json:"role"`
+	}
+	if err := json.Unmarshal(payload, &data); err != nil {
+		return EventInvite{}, fmt.Errorf("calendar: decode invite payload: %w", err)
+	}
+	inv.EventID = data.EventID
+	inv.Email = data.Email
+	inv.Role = data.Role
 	inv.TokenHash = tokenHash
 	inv.ExpiresAt = expiresAt
 
@@ -886,11 +895,13 @@ func (r *Repo) AcceptInviteTx(ctx context.Context, tx pgx.Tx, inviteID string) e
 	}
 
 	// Mark auth_tokens as consumed
-	_, _ = tx.Exec(ctx,
+	if _, err := tx.Exec(ctx,
 		`UPDATE auth_tokens SET consumed_at = now()
 		 WHERE purpose = 'calendar_invite' AND (payload->>'event_id')::uuid = $1
 		   AND (payload->>'email') = $2`,
-		eventID, email)
+		eventID, email); err != nil {
+		return fmt.Errorf("calendar: consume invite token: %w", err)
+	}
 
 	return nil
 }

@@ -13,12 +13,15 @@ import (
 	"image/jpeg"
 	_ "image/png" // register PNG decoder
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
+	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/certificates"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/storage"
@@ -41,13 +44,15 @@ type Service struct {
 	storage   storage.StorageClient
 	cfg       *config.Config
 	certsRepo *certificates.Repo
+	ai        ai.LLMProvider
 }
 
 // NewService constructs a Service. certsRepo backs the public profile's
 // certificate list — read-only here, same shared-repo pattern as
-// systemdesign.NewService's coursesRepo dependency.
-func NewService(repo *Repo, store storage.StorageClient, cfg *config.Config, certsRepo *certificates.Repo) *Service {
-	return &Service{repo: repo, storage: store, cfg: cfg, certsRepo: certsRepo}
+// systemdesign.NewService's coursesRepo dependency. aiProvider backs resume
+// import; the router passes the quota-wrapped provider.
+func NewService(repo *Repo, store storage.StorageClient, cfg *config.Config, certsRepo *certificates.Repo, aiProvider ai.LLMProvider) *Service {
+	return &Service{repo: repo, storage: store, cfg: cfg, certsRepo: certsRepo, ai: aiProvider}
 }
 
 // ─── GetMyProfile ─────────────────────────────────────────────────────────────
@@ -231,7 +236,9 @@ func (s *Service) UploadAvatar(ctx context.Context, userID string, r io.Reader, 
 	// Persist new URL.
 	if err := s.repo.UpdateAvatar(ctx, userID, publicURL); err != nil {
 		// Best-effort delete the just-uploaded object to avoid orphans.
-		_ = s.storage.Delete(ctx, key)
+		if delErr := s.storage.Delete(ctx, key); delErr != nil {
+			slog.Error("profile: delete orphaned avatar", "error", delErr, "key", key)
+		}
 		return "", fmt.Errorf("profile: save avatar url: %w", err)
 	}
 
@@ -239,7 +246,9 @@ func (s *Service) UploadAvatar(ctx context.Context, userID string, r io.Reader, 
 	if oldURL != "" {
 		oldKey := extractMinioKey(oldURL)
 		if oldKey != "" {
-			_ = s.storage.Delete(ctx, oldKey)
+			if delErr := s.storage.Delete(ctx, oldKey); delErr != nil {
+				slog.Error("profile: delete replaced avatar", "error", delErr, "key", oldKey)
+			}
 		}
 	}
 
@@ -278,7 +287,7 @@ func (s *Service) AddSkill(ctx context.Context, userID string, input AddSkillInp
 	if len(input.SkillName) > 100 {
 		return nil, fmt.Errorf("profile: skill name must be 100 characters or fewer")
 	}
-	if !contains(ValidSkillLevels, input.SkillLevel) {
+	if !slices.Contains(ValidSkillLevels, input.SkillLevel) {
 		return nil, fmt.Errorf("profile: skill level must be one of: %s", strings.Join(ValidSkillLevels, ", "))
 	}
 
@@ -629,10 +638,10 @@ func resizeNearest(src image.Image, dstW, dstH int) image.Image {
 // ─── validateProfileInput ────────────────────────────────────────────────────
 
 func validateProfileInput(input UpdateProfileInput) error {
-	if input.ExperienceLevel != nil && !contains(ValidExperienceLevels, *input.ExperienceLevel) {
+	if input.ExperienceLevel != nil && !slices.Contains(ValidExperienceLevels, *input.ExperienceLevel) {
 		return fmt.Errorf("profile: experience_level must be one of: %s", strings.Join(ValidExperienceLevels, ", "))
 	}
-	if input.PreferredLearningStyle != nil && !contains(ValidLearningStyles, *input.PreferredLearningStyle) {
+	if input.PreferredLearningStyle != nil && !slices.Contains(ValidLearningStyles, *input.PreferredLearningStyle) {
 		return fmt.Errorf("profile: preferred_learning_style must be one of: %s", strings.Join(ValidLearningStyles, ", "))
 	}
 	if input.YearsOfExperience != nil && (*input.YearsOfExperience < 0 || *input.YearsOfExperience > 50) {
@@ -644,7 +653,7 @@ func validateProfileInput(input UpdateProfileInput) error {
 	if input.WeeklyGoalHrs != nil && (*input.WeeklyGoalHrs < 1 || *input.WeeklyGoalHrs > 168) {
 		return fmt.Errorf("profile: weekly_goal_hrs must be between 1 and 168")
 	}
-	if input.DefaultLandingPage != nil && !contains(ValidDefaultLandingPages, *input.DefaultLandingPage) {
+	if input.DefaultLandingPage != nil && !slices.Contains(ValidDefaultLandingPages, *input.DefaultLandingPage) {
 		return fmt.Errorf("profile: default_landing_page must be one of: %s", strings.Join(ValidDefaultLandingPages, ", "))
 	}
 	if input.LinkedIn != nil {
@@ -675,26 +684,10 @@ func validateHTTPSURL(raw string) error {
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-func contains(slice []string, val string) bool {
-	for _, s := range slice {
-		if s == val {
-			return true
-		}
-	}
-	return false
-}
-
 func randomHex(n int) (string, error) {
 	buf := make([]byte, n)
 	if _, err := rand.Read(buf); err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(buf), nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

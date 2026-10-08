@@ -23,21 +23,17 @@ func main() {
 	previewDomain := os.Getenv("LABPROXY_PREVIEW_DOMAIN")
 
 	if dbURL == "" {
-		slog.Error("labproxy: LABPROXY_DB_URL is required")
-		os.Exit(1)
+		fatal("labproxy: LABPROXY_DB_URL is required")
 	}
 	if jwtSecret == "" {
-		slog.Error("labproxy: LABPROXY_JWT_SECRET is required")
-		os.Exit(1)
+		fatal("labproxy: LABPROXY_JWT_SECRET is required")
 	}
 	allowedOrigins := parseAllowedOrigins(os.Getenv("LABPROXY_ALLOWED_ORIGINS"))
 	if len(allowedOrigins) == 0 {
-		slog.Error("labproxy: LABPROXY_ALLOWED_ORIGINS is required (comma-separated app origins)")
-		os.Exit(1)
+		fatal("labproxy: LABPROXY_ALLOWED_ORIGINS is required (comma-separated app origins)")
 	}
 	if previewDomain == "" {
-		slog.Error("labproxy: LABPROXY_PREVIEW_DOMAIN is required")
-		os.Exit(1)
+		fatal("labproxy: LABPROXY_PREVIEW_DOMAIN is required")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
@@ -45,22 +41,47 @@ func main() {
 
 	pool, err := idb.Connect(ctx, dbURL)
 	if err != nil {
-		slog.Error("labproxy: connect postgres", "error", err)
-		os.Exit(1)
+		fatal("labproxy: connect postgres", "error", err)
 	}
 	defer pool.Close()
 	slog.Info("labproxy: postgres connected")
 
 	redisOpts, err := redis.ParseURL(redisURL)
 	if err != nil {
-		slog.Error("labproxy: invalid LABPROXY_REDIS_URL", "error", err)
-		os.Exit(1)
+		fatal("labproxy: invalid LABPROXY_REDIS_URL", "error", err)
 	}
 	rdb := redis.NewClient(redisOpts)
 	defer rdb.Close()
 
 	handler := NewProxyHandler(pool, rdb, jwtSecret, jwtIssuer, previewDomain, allowedOrigins)
 
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: newRootHandler(handler, previewDomain),
+	}
+
+	go func() {
+		slog.Info("labproxy: listening", "port", port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fatal("labproxy: serve", "error", err)
+		}
+	}()
+
+	<-ctx.Done()
+	slog.Info("labproxy: signal received, draining connections")
+	drain(handler, srv)
+	os.Exit(0)
+}
+
+// fatal logs and exits non-zero; used for startup and listener failures.
+func fatal(msg string, args ...any) {
+	slog.Error(msg, args...)
+	os.Exit(1)
+}
+
+// newRootHandler sends preview-subdomain Hosts to the preview handlers and every
+// other Host to the ordinary mux.
+func newRootHandler(handler *ProxyHandler, previewDomain string) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/ws", handler)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -73,12 +94,7 @@ func main() {
 	// this mux never sees them.
 	mux.HandleFunc("/preview/", handler.ServePreview)
 
-	// Host-based routing for preview subdomains
-	// (p<port>-<sessionID>.<previewDomain>) — checked ahead of the ordinary
-	// mux above so every path on a matching Host goes to the preview
-	// handlers regardless of what it looks like, and every other Host falls
-	// through to /ws, /health, /preview/ unchanged.
-	root := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		previewPort, sessionID, ok := splitPreviewHost(r.Host, previewDomain)
 		if !ok {
 			mux.ServeHTTP(w, r)
@@ -90,22 +106,10 @@ func main() {
 		}
 		handler.ServePreviewPassthrough(w, r, previewPort, sessionID)
 	})
+}
 
-	srv := &http.Server{
-		Addr:    ":" + port,
-		Handler: root,
-	}
-
-	go func() {
-		slog.Info("labproxy: listening", "port", port)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("labproxy: serve", "error", err)
-			os.Exit(1)
-		}
-	}()
-
-	<-ctx.Done()
-	slog.Info("labproxy: signal received, draining connections")
+// drain refuses new requests, waits up to 90s for live relays, then shuts down srv.
+func drain(handler *ProxyHandler, srv *http.Server) {
 	handler.draining.Store(true)
 
 	drainDone := make(chan struct{})
@@ -124,8 +128,9 @@ func main() {
 		slog.Warn("labproxy: drain timeout reached, forcing exit")
 	}
 
-	_ = srv.Shutdown(shutdownCtx)
-	os.Exit(0)
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		slog.Warn("labproxy: http shutdown", "error", err)
+	}
 }
 
 func getEnv(key, defaultVal string) string {

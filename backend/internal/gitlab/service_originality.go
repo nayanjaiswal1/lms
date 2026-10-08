@@ -54,7 +54,7 @@ func (s *Service) RequestOriginalityScan(ctx context.Context, orgID, assignmentI
 // first), each with its own matches inlined — GET .../originality.
 func (s *Service) ListOriginalityReports(ctx context.Context, orgID, assignmentID string) ([]OriginalityReportView, error) {
 	if _, err := s.repo.GetAssignment(ctx, orgID, assignmentID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.ListOriginalityReports: %w", err)
 	}
 	reports, err := s.repo.ListOriginalityReports(ctx, assignmentID)
 	if err != nil {

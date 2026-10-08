@@ -40,7 +40,7 @@ export interface ExplainResponse {
   explanation: Explanation | null
 }
 
-export interface AnalyticsEntry {
+interface AnalyticsEntry {
   text_hash: string
   selected_text: string
   source_type: string

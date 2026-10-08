@@ -9,7 +9,7 @@ import type { BlockManifest, TextBlockKind, TextBlockManifest } from "@/lib/labs
 const MAX_TEMPLATE = 20000;
 const MAX_LADDER_ITEM = 2000;
 
-export const TextBlockBase = z.object({
+const TextBlockBase = z.object({
   title: z.string().trim().min(1, "Give the block a title").max(200),
   summary: z.string().trim().min(1, "Add a one-line summary").max(1000),
   changelog: z.string().trim().max(1000),
@@ -25,7 +25,7 @@ export const TextBlockBase = z.object({
 });
 export type TextBlockValues = z.infer<typeof TextBlockBase>;
 
-export function splitLines(text: string): string[] {
+function splitLines(text: string): string[] {
   return text.split("\n").map((l) => l.trim()).filter(Boolean);
 }
 

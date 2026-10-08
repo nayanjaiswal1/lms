@@ -68,7 +68,7 @@ func Load(canonicalDir string) ([]*canonical.Document, error) {
 
 	walkErr := filepath.WalkDir(canonicalDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("generator.Load: %w", err)
 		}
 		if d.IsDir() || !strings.HasSuffix(path, ".md") {
 			return nil

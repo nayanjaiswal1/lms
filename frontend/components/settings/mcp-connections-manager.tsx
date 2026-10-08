@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { revokeMcpConnectionAction } from "@/app/(app)/settings/integrations/actions";
+import { formatOptionalDate } from "@/components/settings/format-optional-date";
 import ROUTES from "@/lib/routes";
 
 export interface McpConnection {
@@ -33,11 +34,6 @@ export interface McpConnection {
   status: string;
   last_used_at: string | null;
   created_at: string;
-}
-
-function formatDate(iso: string | null): string {
-  if (!iso) return "Never";
-  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
 interface McpConnectionsManagerProps {
@@ -150,7 +146,7 @@ Note: this URL only works from an app running on this same machine (Claude Deskt
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{conn.client_name}</p>
                   <p className="text-xs text-muted-foreground">
-                    Connected {formatDate(conn.created_at)} · Last used {formatDate(conn.last_used_at)}
+                    Connected {formatOptionalDate(conn.created_at)} · Last used {formatOptionalDate(conn.last_used_at)}
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {conn.scopes.map((scope) => (

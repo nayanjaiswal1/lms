@@ -29,7 +29,7 @@ export interface Course {
   updated_at: string;
 }
 
-export interface CourseModule {
+interface CourseModule {
   id: string;
   course_id: string;
   section_id: string;
@@ -91,7 +91,7 @@ export interface ModuleProgress {
   updated_at: string;
 }
 
-export interface CourseProgressSummary {
+interface CourseProgressSummary {
   completed: number;
   total: number;
   pct: number;
@@ -166,7 +166,7 @@ export async function getCourseTree(courseID: string): Promise<CourseTree> {
   return apiGet<CourseTree>(`/api/courses/${courseID}`);
 }
 
-export interface CourseDetailForViewer extends CourseTree {
+interface CourseDetailForViewer extends CourseTree {
   is_enrolled: boolean;
   progress: CourseProgressSummary | null;
   my_rating: number | null;
@@ -239,10 +239,6 @@ export async function getMyLessonNote(moduleID: string): Promise<string | null> 
   return data.content;
 }
 
-export async function getMyReview(courseID: string): Promise<number | null> {
-  const data = await apiGet<{ rating: number | null }>(`/api/courses/${courseID}/reviews/me`);
-  return data.rating;
-}
 
 export interface StudentProgressRow {
   user_id: string;
@@ -260,13 +256,13 @@ export async function getAllStudentProgress(courseID: string): Promise<StudentPr
 
 // ─── Final test + certificates ───────────────────────────────────────────────
 
-export interface MCQOption {
+interface MCQOption {
   id: string;
   text: string;
   is_correct?: boolean;
 }
 
-export interface MCQContent {
+interface MCQContent {
   prompt: string;
   multiple: boolean;
   options: MCQOption[];
@@ -281,7 +277,7 @@ export interface TestCase {
   weight: number;
 }
 
-export interface CodingContent {
+interface CodingContent {
   prompt: string;
   languages: string[];
   starter_code: Record<string, string>;
@@ -310,7 +306,7 @@ export interface StudentFinalTest {
   cert_uuid?: string;
 }
 
-export interface FinalTestAttempt {
+interface FinalTestAttempt {
   id: string;
   user_id: string;
   final_test_id: string;
@@ -320,7 +316,7 @@ export interface FinalTestAttempt {
   completed_at: string;
 }
 
-export type CertificateIssueType = "final_test" | "manual" | "threshold";
+type CertificateIssueType = "final_test" | "manual" | "threshold";
 
 export interface Certificate {
   id: string;
@@ -333,10 +329,6 @@ export interface Certificate {
   issued_by: string | null;
 }
 
-export interface CertificateView extends Certificate {
-  course_title: string;
-  learner_name: string;
-}
 
 export interface CertificateRule {
   id: string;
@@ -381,10 +373,6 @@ export async function getFinalTestForEdit(courseID: string): Promise<FinalTestCo
   }
 }
 
-export async function getMyCertificates(): Promise<CertificateView[]> {
-  const data = await apiGet<CertificateView[]>("/api/certificates/me");
-  return data ?? [];
-}
 
 // The caller's own certificate for one course, if any — scoped to (user,
 // course) rather than fetching every certificate the learner has ever earned

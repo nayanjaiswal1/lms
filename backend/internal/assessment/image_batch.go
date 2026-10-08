@@ -214,7 +214,7 @@ func resizeNearestBatch(src image.Image, dstW, dstH int) image.Image {
 func randomHexBatch(n int) (string, error) {
 	buf := make([]byte, n)
 	if _, err := rand.Read(buf); err != nil {
-		return "", err
+		return "", fmt.Errorf("assessment.randomHexBatch: %w", err)
 	}
 	return hex.EncodeToString(buf), nil
 }

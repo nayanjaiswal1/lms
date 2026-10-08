@@ -73,7 +73,7 @@ export interface CouponPreview {
   original_amount_cents: number;
 }
 
-export interface MentorChangeRequest {
+interface MentorChangeRequest {
   id: string;
   org_id: string;
   ticket_id: string;
@@ -165,7 +165,7 @@ export async function getMentorChangeRequests(status?: MentorChangeRequestStatus
   return body.requests ?? [];
 }
 
-export interface MentorReport {
+interface MentorReport {
   id: string;
   org_id: string;
   mentor_id: string;
@@ -188,7 +188,7 @@ export interface MentorReport {
 // backend/internal/mentoring/models.go's TicketLifecycle doc comment) — the
 // detail page derives its "assigned" timeline event from ticket.assigned_to
 // directly instead of a separate assignments list.
-export interface TicketLifecycle {
+interface TicketLifecycle {
   ticket: Ticket;
   change_requests: MentorChangeRequest[];
   reports?: MentorReport[];

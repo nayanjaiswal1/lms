@@ -36,7 +36,7 @@ func NewService(repo *Repo, provider ai.LLMProvider) *Service {
 // Used when the user clicks "Save for revision" before or instead of "Explain now".
 func (s *Service) Create(ctx context.Context, userID string, req CreateRequest) (Highlight, error) {
 	if err := validateRequest(req.SourceType, req.SelectedText); err != nil {
-		return Highlight{}, err
+		return Highlight{}, fmt.Errorf("highlights.Create: %w", err)
 	}
 	if req.Note != nil && len(strings.TrimSpace(*req.Note)) > maxNoteLength {
 		return Highlight{}, ErrNoteTooLong
@@ -50,7 +50,7 @@ func (s *Service) Create(ctx context.Context, userID string, req CreateRequest) 
 // been explained before; otherwise the LLM is called and the result is cached.
 func (s *Service) Explain(ctx context.Context, userID string, req ExplainRequest) (ExplainResponse, error) {
 	if err := validateRequest(req.SourceType, req.SelectedText); err != nil {
-		return ExplainResponse{}, err
+		return ExplainResponse{}, fmt.Errorf("highlights.Explain: %w", err)
 	}
 
 	textHash := computeHash(req.SelectedText, string(req.SourceType), req.SourceID)
@@ -61,16 +61,16 @@ func (s *Service) Explain(ctx context.Context, userID string, req ExplainRequest
 		SelectedText: req.SelectedText,
 	})
 	if err != nil {
-		return ExplainResponse{}, err
+		return ExplainResponse{}, fmt.Errorf("highlights.Explain: %w", err)
 	}
 
 	existing, found, err := s.repo.GetExplanationByHash(ctx, textHash)
 	if err != nil {
-		return ExplainResponse{}, err
+		return ExplainResponse{}, fmt.Errorf("highlights.Explain: %w", err)
 	}
 	if found {
 		if err := s.repo.IncrementServeCount(ctx, textHash); err != nil {
-			return ExplainResponse{}, err
+			return ExplainResponse{}, fmt.Errorf("highlights.Explain: %w", err)
 		}
 		existing.ServeCount++
 		existing.FromCache = true
@@ -109,7 +109,7 @@ func (s *Service) Explain(ctx context.Context, userID string, req ExplainRequest
 
 	explanation, err := s.repo.InsertExplanation(ctx, textHash, req.SelectedText, string(req.SourceType), parsed.Explanation, resp.Model, diagram)
 	if err != nil {
-		return ExplainResponse{}, err
+		return ExplainResponse{}, fmt.Errorf("highlights.Explain: %w", err)
 	}
 	explanation.FromCache = false
 

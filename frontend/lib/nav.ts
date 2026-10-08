@@ -56,7 +56,7 @@ import { type Terminology } from "@/lib/terminology";
 //                       Support — reachable via the Menu drawer instead).
 // ─────────────────────────────────────────────
 
-export interface NavItem {
+interface NavItem {
   label:               string;
   href:                string;
   icon:                LucideIcon;
@@ -77,10 +77,6 @@ export interface NavGroup {
 // TOP NAVBAR (public + auth-aware)
 // ─────────────────────────────────────────────
 
-export const TOP_NAV: NavItem[] = [
-  { label: "Courses", href: ROUTES.COURSES, icon: BookOpen },
-  { label: "Sheets",  href: ROUTES.SHEETS,  icon: ListChecks, feature: FEATURES.SHEET_TRACKER, mode: "hide" },
-];
 
 // ─────────────────────────────────────────────
 // SETTINGS SIDEBAR

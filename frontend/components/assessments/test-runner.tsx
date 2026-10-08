@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ProctorBanner } from "@/components/assessments/proctor-banner";
+import { formatCountdown } from "@/components/assessments/format-countdown";
 import { ProctorPreflight } from "@/components/assessments/proctor-preflight";
 import { MCQQuestion } from "@/components/shared/mcq-question";
 import { CodingQuestion } from "@/components/assessments/coding-question";
@@ -51,14 +52,6 @@ import {
 } from "@/lib/assessments/types";
 import { cn } from "@/lib/utils";
 import type { AttemptPayload, QuestionSection, StudentQuestion } from "@/lib/assessments/types";
-
-function formatSecondsLeft(total: number): string {
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
 
 interface TestRunnerProps {
   payload: AttemptPayload;
@@ -639,7 +632,7 @@ export function TestRunner({ payload }: TestRunnerProps) {
                     </p>
                     <div className="mt-4 flex items-center justify-center gap-1.5 font-mono text-2xl font-bold tabular-nums text-destructive">
                       <Clock aria-hidden className="h-5 w-5" />
-                      {formatSecondsLeft(proctor.secondsLeft)}
+                      {formatCountdown(proctor.secondsLeft)}
                     </div>
                   </>
                 ) : (
@@ -651,7 +644,7 @@ export function TestRunner({ payload }: TestRunnerProps) {
                     </p>
                     <div className="mt-4 flex items-center justify-center gap-1.5 font-mono text-2xl font-bold tabular-nums text-primary">
                       <Clock aria-hidden className="h-5 w-5" />
-                      {formatSecondsLeft(proctor.secondsLeft)}
+                      {formatCountdown(proctor.secondsLeft)}
                     </div>
                   </>
                 )}

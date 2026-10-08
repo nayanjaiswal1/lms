@@ -73,7 +73,7 @@ func checkSession(att Attempt, sessionToken string) error {
 func (s *Service) Publish(ctx context.Context, orgID, assessmentID string) (Assessment, error) {
 	a, err := s.repo.GetAssessment(ctx, orgID, assessmentID)
 	if err != nil {
-		return Assessment{}, err
+		return Assessment{}, fmt.Errorf("assessment.Publish: %w", err)
 	}
 	if a.QuestionCount == 0 {
 		return Assessment{}, ErrNoQuestions
@@ -84,7 +84,7 @@ func (s *Service) Publish(ctx context.Context, orgID, assessmentID string) (Asse
 		target = StatusScheduled
 	}
 	if err := s.repo.SetStatus(ctx, orgID, assessmentID, target, true); err != nil {
-		return Assessment{}, err
+		return Assessment{}, fmt.Errorf("assessment.Publish: %w", err)
 	}
 	a.Status = target
 	return a, nil
@@ -97,37 +97,37 @@ func (s *Service) Publish(ctx context.Context, orgID, assessmentID string) (Asse
 func (s *Service) StartAttempt(ctx context.Context, orgID, userID, assessmentID string) (Attempt, []StudentQuestion, Assessment, error) {
 	a, err := s.repo.GetAssessment(ctx, orgID, assessmentID)
 	if err != nil {
-		return Attempt{}, nil, Assessment{}, err
+		return Attempt{}, nil, Assessment{}, fmt.Errorf("assessment.StartAttempt: %w", err)
 	}
 
 	assigned, err := s.repo.IsUserAssigned(ctx, assessmentID, userID)
 	if err != nil {
-		return Attempt{}, nil, Assessment{}, err
+		return Attempt{}, nil, Assessment{}, fmt.Errorf("assessment.StartAttempt: %w", err)
 	}
 	if !assigned {
 		return Attempt{}, nil, Assessment{}, ErrNotAssigned
 	}
 	if err := assertOpen(a); err != nil {
-		return Attempt{}, nil, Assessment{}, err
+		return Attempt{}, nil, Assessment{}, fmt.Errorf("assessment.StartAttempt: %w", err)
 	}
 
 	// Resume a live attempt if one exists. Opening it here — from this device —
 	// rotates the session token, superseding whatever device previously held
 	// it (see RotateSessionToken).
 	if activeID, ok, err := s.repo.FindActiveAttempt(ctx, assessmentID, userID); err != nil {
-		return Attempt{}, nil, Assessment{}, err
+		return Attempt{}, nil, Assessment{}, fmt.Errorf("assessment.StartAttempt: %w", err)
 	} else if ok {
 		activeAtt, err := s.repo.GetAttempt(ctx, activeID)
 		if err != nil {
-			return Attempt{}, nil, Assessment{}, err
+			return Attempt{}, nil, Assessment{}, fmt.Errorf("assessment.StartAttempt: %w", err)
 		}
 		qs, err := s.attemptState(ctx, activeAtt, a)
 		if err != nil {
-			return Attempt{}, nil, Assessment{}, err
+			return Attempt{}, nil, Assessment{}, fmt.Errorf("assessment.StartAttempt: %w", err)
 		}
 		token, err := s.repo.RotateSessionToken(ctx, activeAtt.ID)
 		if err != nil {
-			return Attempt{}, nil, Assessment{}, err
+			return Attempt{}, nil, Assessment{}, fmt.Errorf("assessment.StartAttempt: %w", err)
 		}
 		activeAtt.ActiveSessionToken = &token
 		return activeAtt, qs, a, nil
@@ -135,7 +135,7 @@ func (s *Service) StartAttempt(ctx context.Context, orgID, userID, assessmentID 
 
 	used, err := s.repo.CountFinalAttempts(ctx, assessmentID, userID)
 	if err != nil {
-		return Attempt{}, nil, Assessment{}, err
+		return Attempt{}, nil, Assessment{}, fmt.Errorf("assessment.StartAttempt: %w", err)
 	}
 	if used >= a.MaxAttempts {
 		return Attempt{}, nil, Assessment{}, ErrNoAttemptsLeft
@@ -143,7 +143,7 @@ func (s *Service) StartAttempt(ctx context.Context, orgID, userID, assessmentID 
 
 	questions, err := s.repo.ListAssessmentQuestions(ctx, assessmentID, AssessmentQuestionFilter{})
 	if err != nil {
-		return Attempt{}, nil, Assessment{}, err
+		return Attempt{}, nil, Assessment{}, fmt.Errorf("assessment.StartAttempt: %w", err)
 	}
 	if len(questions) == 0 {
 		return Attempt{}, nil, Assessment{}, ErrNoQuestions
@@ -175,17 +175,17 @@ func (s *Service) StartAttempt(ctx context.Context, orgID, userID, assessmentID 
 	}
 	att, err = s.repo.CreateAttempt(ctx, att, questions)
 	if err != nil {
-		return Attempt{}, nil, Assessment{}, err
+		return Attempt{}, nil, Assessment{}, fmt.Errorf("assessment.StartAttempt: %w", err)
 	}
 	token, err := s.repo.RotateSessionToken(ctx, att.ID)
 	if err != nil {
-		return Attempt{}, nil, Assessment{}, err
+		return Attempt{}, nil, Assessment{}, fmt.Errorf("assessment.StartAttempt: %w", err)
 	}
 	att.ActiveSessionToken = &token
 
 	views, err := buildStudentViews(questions, order, a.ShuffleOptions)
 	if err != nil {
-		return Attempt{}, nil, Assessment{}, err
+		return Attempt{}, nil, Assessment{}, fmt.Errorf("assessment.StartAttempt: %w", err)
 	}
 	return att, views, a, nil
 }
@@ -195,23 +195,23 @@ func (s *Service) StartAttempt(ctx context.Context, orgID, userID, assessmentID 
 func (s *Service) ResumeAttempt(ctx context.Context, orgID, userID, attemptID string) (Attempt, []StudentQuestion, Assessment, error) {
 	att, err := s.repo.GetAttempt(ctx, attemptID)
 	if err != nil {
-		return Attempt{}, nil, Assessment{}, err
+		return Attempt{}, nil, Assessment{}, fmt.Errorf("assessment.ResumeAttempt: %w", err)
 	}
 	if att.UserID != userID {
 		return Attempt{}, nil, Assessment{}, ErrNotAttemptOwner
 	}
 	a, err := s.repo.GetAssessment(ctx, orgID, att.AssessmentID)
 	if err != nil {
-		return Attempt{}, nil, Assessment{}, err
+		return Attempt{}, nil, Assessment{}, fmt.Errorf("assessment.ResumeAttempt: %w", err)
 	}
 	// Pass the already-loaded attempt to avoid a second GetAttempt call inside attemptState.
 	views, err := s.attemptState(ctx, att, a)
 	if err != nil {
-		return Attempt{}, nil, Assessment{}, err
+		return Attempt{}, nil, Assessment{}, fmt.Errorf("assessment.ResumeAttempt: %w", err)
 	}
 	token, err := s.repo.RotateSessionToken(ctx, att.ID)
 	if err != nil {
-		return Attempt{}, nil, Assessment{}, err
+		return Attempt{}, nil, Assessment{}, fmt.Errorf("assessment.ResumeAttempt: %w", err)
 	}
 	att.ActiveSessionToken = &token
 	return att, views, a, nil
@@ -223,7 +223,7 @@ func (s *Service) ResumeAttempt(ctx context.Context, orgID, userID, attemptID st
 func (s *Service) attemptState(ctx context.Context, att Attempt, a Assessment) ([]StudentQuestion, error) {
 	questions, err := s.repo.ListAssessmentQuestions(ctx, att.AssessmentID, AssessmentQuestionFilter{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("assessment.attemptState: %w", err)
 	}
 
 	var snap struct {
@@ -249,13 +249,13 @@ func (s *Service) attemptState(ctx context.Context, att Attempt, a Assessment) (
 func (s *Service) SaveAnswer(ctx context.Context, userID, attemptID, sessionToken, assessmentQuestionID string, answer json.RawMessage, transcript *string, timeSpent int) error {
 	att, err := s.repo.GetAttempt(ctx, attemptID)
 	if err != nil {
-		return err
+		return fmt.Errorf("assessment.SaveAnswer: %w", err)
 	}
 	if att.UserID != userID {
 		return ErrNotAttemptOwner
 	}
 	if err := checkSession(att, sessionToken); err != nil {
-		return err
+		return fmt.Errorf("assessment.SaveAnswer: %w", err)
 	}
 	if att.Status != AttemptInProgress {
 		return ErrAttemptClosed
@@ -273,13 +273,13 @@ func (s *Service) SaveAnswer(ctx context.Context, userID, attemptID, sessionToke
 func (s *Service) RunSample(ctx context.Context, userID, attemptID, sessionToken, assessmentQuestionID, language, code string) (RunResult, error) {
 	att, err := s.repo.GetAttempt(ctx, attemptID)
 	if err != nil {
-		return RunResult{}, err
+		return RunResult{}, fmt.Errorf("assessment.RunSample: %w", err)
 	}
 	if att.UserID != userID {
 		return RunResult{}, ErrNotAttemptOwner
 	}
 	if err := checkSession(att, sessionToken); err != nil {
-		return RunResult{}, err
+		return RunResult{}, fmt.Errorf("assessment.RunSample: %w", err)
 	}
 	if att.Status != AttemptInProgress {
 		return RunResult{}, ErrAttemptClosed
@@ -290,7 +290,7 @@ func (s *Service) RunSample(ctx context.Context, userID, attemptID, sessionToken
 
 	aqc, err := s.repo.GetAttemptQuestionContent(ctx, attemptID, assessmentQuestionID)
 	if err != nil {
-		return RunResult{}, err
+		return RunResult{}, fmt.Errorf("assessment.RunSample: %w", err)
 	}
 	if aqc.Type != QuestionTypeCoding {
 		return RunResult{}, ErrNotCodingQuestion
@@ -345,7 +345,7 @@ func (s *Service) RunSample(ctx context.Context, userID, attemptID, sessionToken
 func (s *Service) SubmitPublicAttempt(ctx context.Context, token string, answersRaw json.RawMessage, questions []AssessmentQuestion, passPercent float64) (PublicAttempt, error) {
 	att, err := s.repo.GetPublicAttemptByToken(ctx, token)
 	if err != nil {
-		return PublicAttempt{}, err
+		return PublicAttempt{}, fmt.Errorf("assessment.SubmitPublicAttempt: %w", err)
 	}
 	if att.Status == "submitted" {
 		return att, nil
@@ -406,13 +406,13 @@ func (s *Service) SubmitPublicAttempt(ctx context.Context, token string, answers
 func (s *Service) Submit(ctx context.Context, orgID, userID, attemptID, sessionToken string) (Attempt, bool, error) {
 	att, err := s.repo.GetAttempt(ctx, attemptID)
 	if err != nil {
-		return Attempt{}, false, err
+		return Attempt{}, false, fmt.Errorf("assessment.Submit: %w", err)
 	}
 	if att.UserID != userID {
 		return Attempt{}, false, ErrNotAttemptOwner
 	}
 	if err := checkSession(att, sessionToken); err != nil {
-		return Attempt{}, false, err
+		return Attempt{}, false, fmt.Errorf("assessment.Submit: %w", err)
 	}
 	return s.finalizeSubmit(ctx, orgID, userID, attemptID, false)
 }
@@ -424,7 +424,7 @@ func (s *Service) Submit(ctx context.Context, orgID, userID, attemptID, sessionT
 func (s *Service) finalizeSubmit(ctx context.Context, orgID, userID, attemptID string, autoSubmitted bool) (Attempt, bool, error) {
 	att, err := s.repo.GetAttempt(ctx, attemptID)
 	if err != nil {
-		return Attempt{}, false, err
+		return Attempt{}, false, fmt.Errorf("assessment.finalizeSubmit: %w", err)
 	}
 	if att.UserID != userID {
 		return Attempt{}, false, ErrNotAttemptOwner
@@ -435,12 +435,12 @@ func (s *Service) finalizeSubmit(ctx context.Context, orgID, userID, attemptID s
 
 	a, err := s.repo.GetAssessment(ctx, orgID, att.AssessmentID)
 	if err != nil {
-		return Attempt{}, false, err
+		return Attempt{}, false, fmt.Errorf("assessment.finalizeSubmit: %w", err)
 	}
 
 	answers, err := s.repo.ListAnswersForGrading(ctx, attemptID)
 	if err != nil {
-		return Attempt{}, false, err
+		return Attempt{}, false, fmt.Errorf("assessment.finalizeSubmit: %w", err)
 	}
 
 	var score, maxScore float64
@@ -509,7 +509,7 @@ func (s *Service) finalizeSubmit(ctx context.Context, orgID, userID, attemptID s
 
 	tally, err := s.repo.TallyEvents(ctx, attemptID)
 	if err != nil {
-		return Attempt{}, false, err
+		return Attempt{}, false, fmt.Errorf("assessment.finalizeSubmit: %w", err)
 	}
 	summary, err := json.Marshal(map[string]any{
 		"events":         tally,
@@ -618,24 +618,24 @@ func srsBack(ans AnswerRow) string {
 func (s *Service) RecordEvent(ctx context.Context, orgID, userID, attemptID, sessionToken, eventType, severity string, metadata json.RawMessage, clientTS *time.Time) (bool, error) {
 	att, err := s.repo.GetAttempt(ctx, attemptID)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("assessment.RecordEvent: %w", err)
 	}
 	if att.UserID != userID {
 		return false, ErrNotAttemptOwner
 	}
 	if err := checkSession(att, sessionToken); err != nil {
-		return false, err
+		return false, fmt.Errorf("assessment.RecordEvent: %w", err)
 	}
 	if att.Status != AttemptInProgress {
 		return false, nil // ignore late events on a closed attempt
 	}
 	if err := s.repo.InsertEvent(ctx, attemptID, userID, eventType, severity, metadata, clientTS); err != nil {
-		return false, err
+		return false, fmt.Errorf("assessment.RecordEvent: %w", err)
 	}
 
 	a, err := s.repo.GetAssessment(ctx, orgID, att.AssessmentID)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("assessment.RecordEvent: %w", err)
 	}
 	if !a.Proctoring.AutoSubmitOnViolation {
 		return false, nil
@@ -643,13 +643,13 @@ func (s *Service) RecordEvent(ctx context.Context, orgID, userID, attemptID, ses
 
 	tally, err := s.repo.TallyEvents(ctx, attemptID)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("assessment.RecordEvent: %w", err)
 	}
 	if breachedHardCap(a.Proctoring, tally) {
 		// This device already proved it holds the active session above —
 		// finalizeSubmit skips the (now redundant) session check.
 		if _, _, err := s.finalizeSubmit(ctx, orgID, userID, attemptID, true); err != nil {
-			return false, err
+			return false, fmt.Errorf("assessment.RecordEvent: %w", err)
 		}
 		return true, nil
 	}
@@ -705,7 +705,7 @@ func buildStudentViews(questions []AssessmentQuestion, order []string, shuffleOp
 		}
 		view, err := toStudentView(q, shuffleOptions)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("assessment.buildStudentViews: %w", err)
 		}
 		view.Position = pos
 		views = append(views, view)

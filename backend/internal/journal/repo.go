@@ -44,7 +44,7 @@ func scanEntry(row scanner) (Entry, error) {
 	var entryDate time.Time
 	err := row.Scan(&e.ID, &e.UserID, &entryDate, &e.Category, &e.Subcategory, &e.Title, &e.Content, &e.CreatedAt, &e.UpdatedAt)
 	if err != nil {
-		return Entry{}, err
+		return Entry{}, fmt.Errorf("journal.scanEntry: %w", err)
 	}
 	e.EntryDate = entryDate.Format("2006-01-02")
 	e.Source = "journal"

@@ -4,9 +4,9 @@ import * as React from "react";
 import type { ProctoringConfig } from "@/lib/assessments/types";
 import { useDevToolsDetector } from "@/lib/assessments/use-devtools-detector";
 
-export type ProctorSeverity = "info" | "warning" | "critical";
+type ProctorSeverity = "info" | "warning" | "critical";
 
-export interface ProctorEvent {
+interface ProctorEvent {
   type: string;
   severity: ProctorSeverity;
   metadata: Record<string, unknown>;
@@ -21,7 +21,7 @@ interface ProctorOptions {
   onAutoSubmit?: () => void;
 }
 
-export interface ProctorState {
+interface ProctorState {
   secondsLeft: number;
   violations: number;
   tabSwitches: number;

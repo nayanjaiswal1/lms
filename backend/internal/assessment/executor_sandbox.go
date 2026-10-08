@@ -87,11 +87,11 @@ func (e *sandboxExecutor) Run(ctx context.Context, lang, source string, content 
 	}()
 
 	if err := e.writeFile(runCtx, containerID, content.SubmitPath, source); err != nil {
-		return RunResult{Status: "error"}, err
+		return RunResult{Status: "error"}, fmt.Errorf("assessment.Run: %w", err)
 	}
 	for filePath, body := range content.VerifyFiles {
 		if err := e.writeFile(runCtx, containerID, filePath, body); err != nil {
-			return RunResult{Status: "error"}, err
+			return RunResult{Status: "error"}, fmt.Errorf("assessment.Run: %w", err)
 		}
 	}
 
@@ -144,7 +144,7 @@ func shellQuote(s string) string {
 func randSessionSuffix() (string, error) {
 	b := make([]byte, 8)
 	if _, err := rand.Read(b); err != nil {
-		return "", err
+		return "", fmt.Errorf("assessment.randSessionSuffix: %w", err)
 	}
 	return hex.EncodeToString(b), nil
 }

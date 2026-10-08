@@ -250,7 +250,7 @@ func evalQuestion(ctx context.Context, provider ai.LLMProvider, q evalQuestionRo
 	applyInjectionPenalty(&parsed, flagged)
 
 	if err := validateEvalResponse(parsed); err != nil {
-		return EvaluationResult{}, err
+		return EvaluationResult{}, fmt.Errorf("assessment.evalQuestion: %w", err)
 	}
 
 	composite := computeComposite(parsed)

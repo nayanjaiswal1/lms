@@ -93,7 +93,7 @@ func (r *Repo) ListAssignments(ctx context.Context, orgID string, batchID *strin
 	for rows.Next() {
 		a, err := scanAssignment(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("gitlab.ListAssignments: %w", err)
 		}
 		out = append(out, *a)
 	}
@@ -143,7 +143,9 @@ func (r *Repo) DeleteAssignment(ctx context.Context, orgID, id string) error {
 	}
 	if tag.RowsAffected() == 0 {
 		var exists bool
-		_ = r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM project_assignments WHERE id = $1 AND org_id = $2)`, id, orgID).Scan(&exists)
+		if err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM project_assignments WHERE id = $1 AND org_id = $2)`, id, orgID).Scan(&exists); err != nil {
+			return fmt.Errorf("gitlab.DeleteAssignment: check exists: %w", err)
+		}
 		if !exists {
 			return ErrNotFound
 		}
@@ -294,7 +296,7 @@ func (r *Repo) ListTeams(ctx context.Context, orgID, assignmentID string) ([]Pro
 	for rows.Next() {
 		t, err := scanTeam(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("gitlab.ListTeams: %w", err)
 		}
 		out = append(out, *t)
 	}
@@ -323,7 +325,7 @@ func (r *Repo) ListTeamsNeedingSync(ctx context.Context) ([]ProjectTeam, error) 
 	for rows.Next() {
 		t, err := scanTeam(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("gitlab.ListTeamsNeedingSync: %w", err)
 		}
 		out = append(out, *t)
 	}
@@ -343,7 +345,7 @@ func (r *Repo) ListTeamsByGitlabProjectID(ctx context.Context, gitlabProjectID i
 	for rows.Next() {
 		t, err := scanTeam(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("gitlab.ListTeamsByGitlabProjectID: %w", err)
 		}
 		out = append(out, *t)
 	}
@@ -402,7 +404,7 @@ func (r *Repo) ListTeamsNeedingPoll(ctx context.Context, staleThreshold time.Dur
 	for rows.Next() {
 		t, err := scanTeam(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("gitlab.ListTeamsNeedingPoll: %w", err)
 		}
 		out = append(out, *t)
 	}
@@ -600,7 +602,7 @@ func (r *Repo) ListMembersNeedingSync(ctx context.Context, teamID string) ([]Pro
 	for rows.Next() {
 		m, err := scanMember(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("gitlab.ListMembersNeedingSync: %w", err)
 		}
 		out = append(out, *m)
 	}
@@ -622,7 +624,7 @@ func (r *Repo) ListMembersRemoving(ctx context.Context, teamID string) ([]Projec
 	for rows.Next() {
 		m, err := scanMember(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("gitlab.ListMembersRemoving: %w", err)
 		}
 		out = append(out, *m)
 	}

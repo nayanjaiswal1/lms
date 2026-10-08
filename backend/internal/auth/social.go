@@ -365,7 +365,7 @@ func getGitHubUser(ctx context.Context, client *http.Client) (*providerUser, err
 	// field that actually says so.
 	email, err := getGitHubPrimaryEmail(ctx, client)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("auth.getGitHubUser: %w", err)
 	}
 
 	return &providerUser{

@@ -2,6 +2,7 @@ package courses
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/mindforge/backend/internal/testdb"
@@ -55,13 +56,13 @@ func TestModuleTranslations(t *testing.T) {
 	t.Run("other org cannot read or write", func(t *testing.T) {
 		_, moduleID := seedModule("tr-org-a", "published", true)
 		otherOrg, _ := seedModule("tr-org-b", "published", true)
-		if _, err := repo.UpsertModuleTranslation(ctx, otherOrg, moduleID, "hi", "x"); err != ErrNotFound {
+		if _, err := repo.UpsertModuleTranslation(ctx, otherOrg, moduleID, "hi", "x"); !errors.Is(err, ErrNotFound) {
 			t.Fatalf("cross-org upsert: want ErrNotFound, got %v", err)
 		}
-		if _, err := repo.ListModuleTranslations(ctx, otherOrg, moduleID); err != ErrNotFound {
+		if _, err := repo.ListModuleTranslations(ctx, otherOrg, moduleID); !errors.Is(err, ErrNotFound) {
 			t.Fatalf("cross-org list: want ErrNotFound, got %v", err)
 		}
-		if err := repo.DeleteModuleTranslation(ctx, otherOrg, moduleID, "hi"); err != ErrNotFound {
+		if err := repo.DeleteModuleTranslation(ctx, otherOrg, moduleID, "hi"); !errors.Is(err, ErrNotFound) {
 			t.Fatalf("cross-org delete: want ErrNotFound, got %v", err)
 		}
 	})
@@ -77,15 +78,15 @@ func TestModuleTranslations(t *testing.T) {
 		}
 
 		_, privateModule := seedModule("tr-private", "published", false)
-		if _, err := repo.ListPublicModuleTranslations(ctx, "tr-private", privateModule); err != ErrNotFound {
+		if _, err := repo.ListPublicModuleTranslations(ctx, "tr-private", privateModule); !errors.Is(err, ErrNotFound) {
 			t.Fatalf("private course: want ErrNotFound, got %v", err)
 		}
 		_, draftModule := seedModule("tr-draft", "draft", true)
-		if _, err := repo.ListPublicModuleTranslations(ctx, "tr-draft", draftModule); err != ErrNotFound {
+		if _, err := repo.ListPublicModuleTranslations(ctx, "tr-draft", draftModule); !errors.Is(err, ErrNotFound) {
 			t.Fatalf("draft course: want ErrNotFound, got %v", err)
 		}
 		// A module id from a different course must not be readable through this slug.
-		if _, err := repo.ListPublicModuleTranslations(ctx, "tr-visible", privateModule); err != ErrNotFound {
+		if _, err := repo.ListPublicModuleTranslations(ctx, "tr-visible", privateModule); !errors.Is(err, ErrNotFound) {
 			t.Fatalf("foreign module: want ErrNotFound, got %v", err)
 		}
 	})
@@ -98,7 +99,7 @@ func TestModuleTranslations(t *testing.T) {
 		if err := repo.DeleteModuleTranslation(ctx, orgID, moduleID, "hi"); err != nil {
 			t.Fatalf("delete: %v", err)
 		}
-		if err := repo.DeleteModuleTranslation(ctx, orgID, moduleID, "hi"); err != ErrNotFound {
+		if err := repo.DeleteModuleTranslation(ctx, orgID, moduleID, "hi"); !errors.Is(err, ErrNotFound) {
 			t.Fatalf("second delete: want ErrNotFound, got %v", err)
 		}
 	})

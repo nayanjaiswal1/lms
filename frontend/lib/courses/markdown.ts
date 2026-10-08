@@ -89,12 +89,6 @@ function parseKnowledgeCheck(source: string): KnowledgeCheckQuestion[] {
   return parsed.questions.map(({ correct: _correct, ...question }) => question);
 }
 
-export interface LessonImage {
-  src: string;
-  alt: string;
-  caption?: string;
-  headingId: string | null;
-}
 
 interface ParsedModuleContent {
   segments: Segment[];

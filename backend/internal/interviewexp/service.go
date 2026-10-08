@@ -3,8 +3,8 @@ package interviewexp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
-
 )
 
 var (
@@ -42,15 +42,15 @@ func (s *Service) CreatePost(ctx context.Context, userID string, req CreatePostR
 func (s *Service) GetPostDetail(ctx context.Context, userID, postID string) (PostDetail, error) {
 	post, err := s.repo.GetPost(ctx, postID)
 	if err != nil {
-		return PostDetail{}, err
+		return PostDetail{}, fmt.Errorf("interviewexp.GetPostDetail: %w", err)
 	}
 	entries, err := s.repo.ListEntries(ctx, postID)
 	if err != nil {
-		return PostDetail{}, err
+		return PostDetail{}, fmt.Errorf("interviewexp.GetPostDetail: %w", err)
 	}
 	allQna, err := s.repo.ListQnaByPost(ctx, postID)
 	if err != nil {
-		return PostDetail{}, err
+		return PostDetail{}, fmt.Errorf("interviewexp.GetPostDetail: %w", err)
 	}
 
 	qnaIDs := make([]string, len(allQna))
@@ -59,7 +59,7 @@ func (s *Service) GetPostDetail(ctx context.Context, userID, postID string) (Pos
 	}
 	comments, err := s.repo.ListCommentsByQnaIDs(ctx, qnaIDs)
 	if err != nil {
-		return PostDetail{}, err
+		return PostDetail{}, fmt.Errorf("interviewexp.GetPostDetail: %w", err)
 	}
 	commentIDs := make([]string, len(comments))
 	for i, c := range comments {
@@ -68,11 +68,11 @@ func (s *Service) GetPostDetail(ctx context.Context, userID, postID string) (Pos
 
 	qnaScores, qnaMine, err := s.repo.VoteScores(ctx, "qna", qnaIDs, userID)
 	if err != nil {
-		return PostDetail{}, err
+		return PostDetail{}, fmt.Errorf("interviewexp.GetPostDetail: %w", err)
 	}
 	commentScores, commentMine, err := s.repo.VoteScores(ctx, "comment", commentIDs, userID)
 	if err != nil {
-		return PostDetail{}, err
+		return PostDetail{}, fmt.Errorf("interviewexp.GetPostDetail: %w", err)
 	}
 	for i := range comments {
 		comments[i].Score = commentScores[comments[i].ID]
@@ -140,7 +140,7 @@ func buildCommentTree(flat []Comment) []Comment {
 // "continue add exp").
 func (s *Service) CreateEntry(ctx context.Context, userID, postID string, req CreateEntryRequest) (Entry, error) {
 	if _, err := s.repo.GetPost(ctx, postID); err != nil {
-		return Entry{}, err
+		return Entry{}, fmt.Errorf("interviewexp.CreateEntry: %w", err)
 	}
 	label := strings.TrimSpace(req.RoundLabel)
 	content := strings.TrimSpace(req.Content)
@@ -154,7 +154,7 @@ func (s *Service) CreateEntry(ctx context.Context, userID, postID string, req Cr
 
 func (s *Service) CreateStandaloneQna(ctx context.Context, userID, postID string, req CreateQnaRequest) (Qna, error) {
 	if _, err := s.repo.GetPost(ctx, postID); err != nil {
-		return Qna{}, err
+		return Qna{}, fmt.Errorf("interviewexp.CreateStandaloneQna: %w", err)
 	}
 	return s.createQna(ctx, postID, nil, userID, req)
 }
@@ -162,7 +162,7 @@ func (s *Service) CreateStandaloneQna(ctx context.Context, userID, postID string
 func (s *Service) CreateEntryQna(ctx context.Context, userID, entryID string, req CreateQnaRequest) (Qna, error) {
 	entry, err := s.repo.GetEntry(ctx, entryID)
 	if err != nil {
-		return Qna{}, err
+		return Qna{}, fmt.Errorf("interviewexp.CreateEntryQna: %w", err)
 	}
 	return s.createQna(ctx, entry.PostID, &entryID, userID, req)
 }
@@ -185,7 +185,7 @@ func (s *Service) createQna(ctx context.Context, postID string, entryID *string,
 func (s *Service) UpdateQna(ctx context.Context, userID string, moderator bool, id string, req UpdateQnaRequest) (Qna, error) {
 	q, err := s.repo.GetQna(ctx, id)
 	if err != nil {
-		return Qna{}, err
+		return Qna{}, fmt.Errorf("interviewexp.UpdateQna: %w", err)
 	}
 	if q.AuthorID != userID && !moderator {
 		return Qna{}, ErrForbidden
@@ -199,7 +199,7 @@ func (s *Service) UpdateQna(ctx context.Context, userID string, moderator bool, 
 func (s *Service) DeleteQna(ctx context.Context, userID string, moderator bool, id string) error {
 	q, err := s.repo.GetQna(ctx, id)
 	if err != nil {
-		return err
+		return fmt.Errorf("interviewexp.DeleteQna: %w", err)
 	}
 	if q.AuthorID != userID && !moderator {
 		return ErrForbidden
@@ -211,12 +211,12 @@ func (s *Service) DeleteQna(ctx context.Context, userID string, moderator bool, 
 
 func (s *Service) CreateComment(ctx context.Context, userID, qnaID string, req CreateCommentRequest) (Comment, error) {
 	if _, err := s.repo.GetQna(ctx, qnaID); err != nil {
-		return Comment{}, err
+		return Comment{}, fmt.Errorf("interviewexp.CreateComment: %w", err)
 	}
 	if req.ParentID != nil {
 		parent, err := s.repo.GetComment(ctx, *req.ParentID)
 		if err != nil {
-			return Comment{}, err
+			return Comment{}, fmt.Errorf("interviewexp.CreateComment: %w", err)
 		}
 		if parent.QnaID != qnaID {
 			return Comment{}, ErrValidation
@@ -232,7 +232,7 @@ func (s *Service) CreateComment(ctx context.Context, userID, qnaID string, req C
 func (s *Service) UpdateComment(ctx context.Context, userID, id, content string) (Comment, error) {
 	c, err := s.repo.GetComment(ctx, id)
 	if err != nil {
-		return Comment{}, err
+		return Comment{}, fmt.Errorf("interviewexp.UpdateComment: %w", err)
 	}
 	if c.AuthorID != userID {
 		return Comment{}, ErrForbidden
@@ -247,7 +247,7 @@ func (s *Service) UpdateComment(ctx context.Context, userID, id, content string)
 func (s *Service) DeleteComment(ctx context.Context, userID string, moderator bool, id string) error {
 	c, err := s.repo.GetComment(ctx, id)
 	if err != nil {
-		return err
+		return fmt.Errorf("interviewexp.DeleteComment: %w", err)
 	}
 	if c.AuthorID != userID && !moderator {
 		return ErrForbidden
@@ -264,11 +264,11 @@ func (s *Service) Vote(ctx context.Context, userID string, req VoteRequest) erro
 	switch req.TargetType {
 	case "qna":
 		if _, err := s.repo.GetQna(ctx, req.TargetID); err != nil {
-			return err
+			return fmt.Errorf("interviewexp.Vote: %w", err)
 		}
 	case "comment":
 		if _, err := s.repo.GetComment(ctx, req.TargetID); err != nil {
-			return err
+			return fmt.Errorf("interviewexp.Vote: %w", err)
 		}
 	default:
 		return ErrValidation
@@ -289,14 +289,14 @@ func (s *Service) UpdateFaqStatus(ctx context.Context, userID, qnaID, status str
 		return ErrValidation
 	}
 	if _, err := s.repo.GetQna(ctx, qnaID); err != nil {
-		return err
+		return fmt.Errorf("interviewexp.UpdateFaqStatus: %w", err)
 	}
 	return s.repo.UpsertFaqStatus(ctx, userID, qnaID, status)
 }
 
 func (s *Service) UpdateFaqStarred(ctx context.Context, userID, qnaID string, starred bool) error {
 	if _, err := s.repo.GetQna(ctx, qnaID); err != nil {
-		return err
+		return fmt.Errorf("interviewexp.UpdateFaqStarred: %w", err)
 	}
 	return s.repo.UpsertFaqStarred(ctx, userID, qnaID, starred)
 }

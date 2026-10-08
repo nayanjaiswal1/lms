@@ -826,27 +826,13 @@ func (h *Handler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 // ─── HandleLogoutAll ─────────────────────────────────────────────────────────
 
 func (h *Handler) HandleLogoutAll(w http.ResponseWriter, r *http.Request) {
-	claims, ok := GetClaims(r.Context())
+	claims, ok := RequireClaims(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
 		return
 	}
 
-	if _, err := h.pool.Exec(r.Context(),
-		`UPDATE refresh_tokens SET revoked_at = now()
-		 WHERE user_id = $1 AND revoked_at IS NULL`,
-		claims.UserID,
-	); err != nil {
-		slog.Error("auth: logout-all revoke tokens", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Logout failed.")
-		return
-	}
-
-	if _, err := h.pool.Exec(r.Context(),
-		`UPDATE users SET session_version = session_version + 1 WHERE id = $1`,
-		claims.UserID,
-	); err != nil {
-		slog.Error("auth: logout-all bump session_version", "error", err)
+	if err := revokeAllSessions(r.Context(), h.pool, claims.UserID); err != nil {
+		slog.Error("auth: logout-all", "error", err)
 		httputil.WriteError(w, http.StatusInternalServerError, "Logout failed.")
 		return
 	}
@@ -855,6 +841,34 @@ func (h *Handler) HandleLogoutAll(w http.ResponseWriter, r *http.Request) {
 	authevents.Emit(r.Context(), h.pool, r, claims.UserID, authevents.LogoutAll)
 	clearCookies(w, h.cfg)
 	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "All sessions revoked."})
+}
+
+// revokeAllSessions revokes the user's refresh tokens and bumps session_version
+// in one transaction, so a partial failure cannot leave refresh tokens revoked
+// while access tokens stay valid.
+func revokeAllSessions(ctx context.Context, pool *pgxpool.Pool, userID string) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("auth: begin logout-all tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
+	if _, err := tx.Exec(ctx,
+		`UPDATE refresh_tokens SET revoked_at = now()
+		 WHERE user_id = $1 AND revoked_at IS NULL`,
+		userID,
+	); err != nil {
+		return fmt.Errorf("auth: revoke refresh tokens: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE users SET session_version = session_version + 1 WHERE id = $1`,
+		userID,
+	); err != nil {
+		return fmt.Errorf("auth: bump session_version: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("auth: commit logout-all tx: %w", err)
+	}
+	return nil
 }
 
 // ─── HandleVerifyEmail ────────────────────────────────────────────────────────
@@ -1169,9 +1183,8 @@ func (h *Handler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 // ─── HandleMe ────────────────────────────────────────────────────────────────
 
 func (h *Handler) HandleMe(w http.ResponseWriter, r *http.Request) {
-	claims, ok := GetClaims(r.Context())
+	claims, ok := RequireClaims(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
 		return
 	}
 
@@ -1288,7 +1301,7 @@ func (h *Handler) queryUserOrgs(ctx context.Context, userID string) ([]orgRespon
 		userID,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("auth.queryUserOrgs: %w", err)
 	}
 	defer rows.Close()
 
@@ -1296,12 +1309,12 @@ func (h *Handler) queryUserOrgs(ctx context.Context, userID string) ([]orgRespon
 	for rows.Next() {
 		var org orgResponse
 		if err := rows.Scan(&org.ID, &org.Slug, &org.Name, &org.Role); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("auth.queryUserOrgs: %w", err)
 		}
 		orgs = append(orgs, org)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("auth.queryUserOrgs: %w", err)
 	}
 	if orgs == nil {
 		orgs = []orgResponse{}

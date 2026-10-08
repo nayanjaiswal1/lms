@@ -23,7 +23,7 @@ const DEFAULT_TERMINOLOGY: Terminology = {
   studentPlural: "Students",
 };
 
-export const TERMINOLOGY_BY_ORG_TYPE: Record<OrgType, Terminology> = {
+const TERMINOLOGY_BY_ORG_TYPE: Record<OrgType, Terminology> = {
   [ORG_TYPE.SCHOOL]: {
     teacher: "Teacher", teacherPlural: "Teachers",
     class_: "Class", classPlural: "Classes",

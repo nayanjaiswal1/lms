@@ -20,7 +20,7 @@ export function startOfDay(date: Date): Date {
   return d;
 }
 
-export function endOfDay(date: Date): Date {
+function endOfDay(date: Date): Date {
   const d = new Date(date);
   d.setHours(23, 59, 59, 999);
   return d;
@@ -32,7 +32,7 @@ export function addDays(date: Date, days: number): Date {
   return d;
 }
 
-export function addMonths(date: Date, months: number): Date {
+function addMonths(date: Date, months: number): Date {
   const d = new Date(date);
   d.setMonth(d.getMonth() + months);
   return d;
@@ -43,14 +43,9 @@ export function startOfWeek(date: Date): Date {
   return addDays(startOfDay(date), -date.getDay());
 }
 
-export function startOfMonth(date: Date): Date {
+function startOfMonth(date: Date): Date {
   const d = new Date(date.getFullYear(), date.getMonth(), 1);
   return startOfDay(d);
-}
-
-export function endOfMonth(date: Date): Date {
-  const d = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-  return endOfDay(d);
 }
 
 /** 42-day (6-week) grid for the month view, including the leading/trailing

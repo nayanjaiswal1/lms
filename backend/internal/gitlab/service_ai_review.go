@@ -53,7 +53,7 @@ func (s *Service) ReviewMergeRequest(ctx context.Context, mrRowID string) error 
 
 	mr, err := s.repo.GetMergeRequestByID(ctx, mrRowID)
 	if err != nil {
-		return err
+		return fmt.Errorf("gitlab.ReviewMergeRequest: %w", err)
 	}
 	if mr.AIReviewedAt != nil {
 		return nil

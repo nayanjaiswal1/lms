@@ -50,7 +50,7 @@ export function WhatNowApp() {
 
   function switchEnergy(e: Energy) {
     setEnergy(e);
-    whatnowApi.putEnergy(e).catch(() => {});
+    whatnowApi.putEnergy(e).catch(() => setToast("Could not save your energy level."));
   }
 
   function onCaptured(task: Task) {

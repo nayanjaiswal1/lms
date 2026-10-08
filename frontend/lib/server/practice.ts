@@ -24,7 +24,7 @@ export interface PracticeItem {
   created_at: string;
 }
 
-export interface PracticeSession {
+interface PracticeSession {
   id: string;
   user_id: string;
   technology: string;

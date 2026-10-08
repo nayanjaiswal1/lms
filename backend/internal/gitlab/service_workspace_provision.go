@@ -81,8 +81,7 @@ func (s *Service) ProvisionWorkspaceProject(ctx context.Context, orgID, userID, 
 	}
 
 	if err := s.provisionWorkspaceTeamSteps(ctx, team, assignment); err != nil {
-		msg := err.Error()
-		_ = s.repo.SetTeamProvisionStatus(ctx, team.ID, ProvisionFailed, &msg)
+		s.markTeamProvisionFailed(ctx, team.ID, err)
 		return nil, fmt.Errorf("gitlab: provision workspace project: %w", err)
 	}
 	if err := s.repo.MarkTeamReady(ctx, team.ID); err != nil {

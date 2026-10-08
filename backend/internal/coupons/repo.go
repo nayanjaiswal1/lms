@@ -28,7 +28,7 @@ func (r *Repo) tx(ctx context.Context, fn func(pgx.Tx) error) error {
 	}
 	if err := fn(tx); err != nil {
 		_ = tx.Rollback(ctx)
-		return err
+		return fmt.Errorf("coupons.tx: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("coupons: commit tx: %w", err)
@@ -169,7 +169,7 @@ func (r *Repo) getByCode(ctx context.Context, orgID, code string) (Coupon, error
 func (r *Repo) Validate(ctx context.Context, orgID, userID, courseID, code string) (Coupon, error) {
 	c, err := r.getByCode(ctx, orgID, code)
 	if err != nil {
-		return Coupon{}, err
+		return Coupon{}, fmt.Errorf("coupons.Validate: %w", err)
 	}
 	if !c.IsActive {
 		return Coupon{}, ErrNotFound
@@ -210,7 +210,7 @@ func (r *Repo) Validate(ctx context.Context, orgID, userID, courseID, code strin
 
 	c.CourseIDs, err = r.courseIDsFor(ctx, c.ID)
 	if err != nil {
-		return Coupon{}, err
+		return Coupon{}, fmt.Errorf("coupons.Validate: %w", err)
 	}
 	return c, nil
 }
@@ -304,7 +304,7 @@ func (r *Repo) Create(ctx context.Context, c Coupon, courseIDs []string) (Coupon
 		return setCourseIDsTx(ctx, tx, c.OrgID, created.ID, courseIDs)
 	})
 	if err != nil {
-		return Coupon{}, err
+		return Coupon{}, fmt.Errorf("coupons.Create: %w", err)
 	}
 	created.CourseIDs = courseIDs
 	return created, nil
@@ -344,7 +344,7 @@ func (r *Repo) List(ctx context.Context, orgID string, includeInactive bool) ([]
 	}
 	scopes, err := r.courseIDsForMany(ctx, ids)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("coupons.List: %w", err)
 	}
 	for i := range out {
 		out[i].CourseIDs = scopes[out[i].ID]
@@ -365,7 +365,7 @@ func (r *Repo) Get(ctx context.Context, orgID, id string) (Coupon, error) {
 	}
 	c.CourseIDs, err = r.courseIDsFor(ctx, c.ID)
 	if err != nil {
-		return Coupon{}, err
+		return Coupon{}, fmt.Errorf("coupons.Get: %w", err)
 	}
 	return c, nil
 }
@@ -413,7 +413,7 @@ func (r *Repo) Update(ctx context.Context, orgID, id, description string, isActi
 		if errors.Is(err, ErrNotFound) || errors.Is(err, ErrInvalid) {
 			return Coupon{}, err
 		}
-		return Coupon{}, err
+		return Coupon{}, fmt.Errorf("coupons.Update: %w", err)
 	}
 	updated.CourseIDs = courseIDs
 	return updated, nil

@@ -117,17 +117,17 @@ func (s *Service) downloadBundle(ctx context.Context, key, wantSHA string) ([]by
 func (s *Service) loadVariant(ctx context.Context, buildID, variantKey string, withWorkspace, withGrader bool) (*labkinds.VariantView, error) {
 	rec, err := s.repo.GetVariantRecord(ctx, buildID, variantKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.loadVariant: %w", err)
 	}
 	v := variantViewOf(rec)
 	if withWorkspace {
 		if v.WorkspaceBundle, err = s.downloadBundle(ctx, rec.WorkspaceKey, rec.WorkspaceSHA); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("labs.loadVariant: %w", err)
 		}
 	}
 	if withGrader {
 		if v.GraderBundle, err = s.downloadBundle(ctx, rec.GraderKey, rec.GraderSHA); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("labs.loadVariant: %w", err)
 		}
 	}
 	return v, nil

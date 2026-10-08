@@ -66,11 +66,11 @@ func (s *Service) TicketDraft(ctx context.Context, orgID, userID, recipeID, pers
 	}
 	rc, err := s.repo.GetRecipe(ctx, orgID, recipeID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.TicketDraft: %w", err)
 	}
 	r, missing, err := s.Resolve(ctx, rc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.TicketDraft: %w", err)
 	}
 	analysis := &Analysis{Issues: missing}
 	if len(missing) == 0 {
@@ -82,7 +82,7 @@ func (s *Service) TicketDraft(ctx context.Context, orgID, userID, recipeID, pers
 
 	cacheKey := sha256Hex([]byte(analysis.RecipeHash + persona))
 	if cached, ok, err := s.repo.GetDraft(ctx, cacheKey); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.TicketDraft: %w", err)
 	} else if ok {
 		return &TicketDraft{Draft: cached, Persona: persona, RecipeHash: analysis.RecipeHash, Cached: true}, nil
 	}
@@ -103,7 +103,7 @@ func (s *Service) TicketDraft(ctx context.Context, orgID, userID, recipeID, pers
 	}
 	winner, err := s.repo.PutDraft(ctx, cacheKey, orgID, draftCacheKind, prompt, strings.TrimSpace(resp.Content), resp.Usage.InputTokens+resp.Usage.OutputTokens)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.TicketDraft: %w", err)
 	}
 	return &TicketDraft{Draft: winner, Persona: persona, RecipeHash: analysis.RecipeHash}, nil
 }

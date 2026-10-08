@@ -5,7 +5,7 @@ import { apiAction, type ActionResult } from "@/lib/server/api";
 import type { PricingTier } from "@/lib/server/pricing";
 import ROUTES from "@/lib/routes";
 
-export interface UpdatePricingTierInput {
+interface UpdatePricingTierInput {
   name: string;
   price: string;
   billing_note: string;

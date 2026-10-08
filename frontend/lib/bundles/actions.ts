@@ -6,13 +6,13 @@ import type { ActionResult } from "@/lib/server/api";
 import type { Bundle, BundleDetail } from "@/lib/server/bundles";
 import ROUTES from "@/lib/routes";
 
-export interface BundleInput {
+interface BundleInput {
   title: string;
   description: string | null;
   status: "draft" | "published";
 }
 
-export interface BundleEnrollResult {
+interface BundleEnrollResult {
   enrolled_course_ids: string[];
   requires_purchase_course_ids: string[];
 }

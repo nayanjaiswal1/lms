@@ -10,8 +10,8 @@ import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type LearningGoalValue = "get_promotion" | "switch_careers" | "build_project" | "stay_current" | "compliance";
-export type SkillLevelValue = "beginner" | "some_experience" | "intermediate" | "advanced";
+type LearningGoalValue = "get_promotion" | "switch_careers" | "build_project" | "stay_current" | "compliance";
+type SkillLevelValue = "beginner" | "some_experience" | "intermediate" | "advanced";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
