@@ -10,8 +10,6 @@ import (
 	"github.com/mindforge/backend/internal/testdomain"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 // Practice items live in attempt_answers, which has no ordering column of its
 // own: position comes from the linked assessment_questions row. These tests
 // run the real schema end to end.
