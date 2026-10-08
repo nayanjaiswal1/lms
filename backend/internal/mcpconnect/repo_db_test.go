@@ -10,8 +10,6 @@ import (
 	"github.com/mindforge/backend/internal/testdb"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 // TestRegisterAndGetClient exercises RegisterClient/GetClient (repo.go)
 // against a real database — the Dynamic-Client-Registration round trip
 // through mcp_clients, including the not-found path, isn't reachable from

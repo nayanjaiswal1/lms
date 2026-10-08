@@ -14,8 +14,6 @@ import (
 	"github.com/mindforge/backend/internal/testdb"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 // libraryFixture is the minimum org/user/course/section rows every Attach
 // test needs, plus one published, org-visible lab ready to place.
 type libraryFixture struct {

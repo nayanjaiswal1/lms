@@ -13,8 +13,6 @@ import (
 	"github.com/mindforge/backend/internal/testdb"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 // newRedis starts a throwaway Redis container for one test and returns a
 // client to it; both are torn down when the test ends.
 func newRedis(t *testing.T) *redis.Client {

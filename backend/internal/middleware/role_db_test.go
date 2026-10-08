@@ -10,8 +10,6 @@ import (
 	"github.com/mindforge/backend/internal/testdomain"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 // TestRequireOrgRoleCrossOrgCtxIgnored: an OrgCtx for another org (where the
 // caller is owner) must not grant a role in the JWT's org (where they are a
 // plain mentor); the role is re-read from the database for claims.OrgID.

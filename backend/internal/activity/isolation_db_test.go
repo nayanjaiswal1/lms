@@ -8,8 +8,6 @@ import (
 	"github.com/mindforge/backend/internal/testdomain"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 // The activity feed is read-only. A course completion recorded under org A
 // must appear in org A's feed and never in the same user's org B feed.
 func TestActivityFeed_OrgScopedCourseCompletion(t *testing.T) {

@@ -9,8 +9,6 @@ import (
 	"github.com/mindforge/backend/internal/testdb"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 func TestTruncateIP(t *testing.T) {
 	cases := map[string]string{
 		"203.0.113.77:5555":    "203.0.113",

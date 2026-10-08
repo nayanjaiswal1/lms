@@ -13,8 +13,6 @@ import (
 	"github.com/mindforge/backend/internal/testdb"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 // seedOrgAndUsers creates one organization and n users — the minimum every
 // projectmarket repo method needs (project_requirements.org_id/created_by,
 // project_applications.org_id/user_id all carry NOT NULL FKs).

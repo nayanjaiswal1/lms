@@ -10,8 +10,6 @@ import (
 	"github.com/mindforge/backend/internal/testdomain"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 // Notifications are read and written by (user_id, id); org_id is a stored
 // attribute, not a read filter. A user in tenant B must not see, count, or
 // mark-read tenant A's notification.

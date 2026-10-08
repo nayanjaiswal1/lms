@@ -14,8 +14,6 @@ import (
 // The pre-existing team_test.go/checkpoint_test.go/dashboard_test.go/
 // webhook_test.go files use their own env-var-gated testPool(t) instead —
 // unaffected by this, since they never call testdb.New(t).
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 // seedDesignProposalFixture creates an org/instructor/batch/assignment/team
 // (via team_test.go's own seed helpers) plus one checkpoint and two student
 // users — the minimum needed to exercise proposal submission and voting.

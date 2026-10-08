@@ -9,8 +9,6 @@ import (
 	"github.com/mindforge/backend/internal/testdomain"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 // captures has no org_id column (personal inbox, keyed by user_id), so the
 // isolation boundary is the owning user: another user — in any org — gets
 // ErrNotFound on read/dismiss and A's row stays untouched.

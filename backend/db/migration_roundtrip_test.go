@@ -9,8 +9,6 @@ import (
 	"github.com/mindforge/backend/internal/testdb"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 const driftMigration = "062_fix_baseline_drift"
 
 // 062's down only drops purchases.created_at's default (it does not touch

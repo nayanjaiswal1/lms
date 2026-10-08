@@ -10,8 +10,6 @@ import (
 	"github.com/mindforge/backend/internal/testdomain"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 // Tenant B must not read, modify, move or delete tenant A's space or page by id.
 func TestWiki_TenantIsolation(t *testing.T) {
 	pool := testdb.New(t)

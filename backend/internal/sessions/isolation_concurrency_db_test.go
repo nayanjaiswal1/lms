@@ -14,8 +14,6 @@ import (
 	"github.com/mindforge/backend/internal/testdomain"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 // failingProjector makes every calendar projection fail; Book tolerates that
 // (the booking stays), which keeps these tests about the booking transaction.
 type failingProjector struct{}

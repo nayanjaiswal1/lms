@@ -8,8 +8,6 @@ import (
 	"github.com/mindforge/backend/internal/testdomain"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 // Leaderboard scope ids come from the client; ScopeInOrg is the tenancy gate.
 // A cohort group owned by org A must not be accepted as an org B scope.
 // (XP/achievement tables are per-user with no by-id read/update API, so the

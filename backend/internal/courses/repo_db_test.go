@@ -6,11 +6,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/mindforge/backend/internal/testdb"
 )
-
-func TestMain(m *testing.M) { testdb.RunMain(m) }
 
 // seedCourseFixture inserts the minimum org/user/course rows a DB-backed
 // courses test needs — organizations.slug/name, users.email/name, and

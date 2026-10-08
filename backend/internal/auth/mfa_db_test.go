@@ -14,8 +14,6 @@ import (
 	"github.com/mindforge/backend/internal/testdb"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 func newMFAHandler(t *testing.T) (*Handler, string) {
 	t.Helper()
 	pool := testdb.New(t)

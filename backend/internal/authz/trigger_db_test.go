@@ -8,8 +8,6 @@ import (
 	"github.com/mindforge/backend/internal/testdb"
 )
 
-func TestMain(m *testing.M) { testdb.RunMain(m) }
-
 // TestUserRoleTrigger_OrgScopeEnforced is the regression check for migration
 // 014: fn_check_user_role_tenant_scope (001_baseline.sql) read roles.tenant_id
 // and user_roles.tenant_id, columns that don't exist on either table (both
