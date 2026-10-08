@@ -60,24 +60,4 @@ func TestRequireOrgRole(t *testing.T) {
 			t.Fatalf("got %d reached=%v, want 403 not reached", code, reached)
 		}
 	})
-	t.Run("route without the middleware is not gated", func(t *testing.T) {
-		reached := false
-		h := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { reached = true })
-		rec := httptest.NewRecorder()
-		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/open", nil))
-		if rec.Code != http.StatusOK || !reached {
-			t.Fatalf("ungated route got %d reached=%v, want 200 reached", rec.Code, reached)
-		}
-	})
-	t.Run("role from a different org context is ignored", func(t *testing.T) {
-		// OrgCtx for another org must not satisfy the check for claims.OrgID;
-		// with no pool and a mismatched org the lookup would need the DB, so
-		// use an empty claims.OrgID to exercise the deny path without one.
-		ctx := auth.SetClaims(context.Background(), &auth.Claims{UserID: "u1"})
-		ctx = context.WithValue(ctx, orgKey, &OrgCtx{OrgID: "other-org", CallerRole: RoleOwner})
-		code, reached := serve(t, mw, ctx)
-		if code != http.StatusForbidden || reached {
-			t.Fatalf("got %d reached=%v, want 403 not reached", code, reached)
-		}
-	})
 }

@@ -91,3 +91,50 @@ func TestRefreshRotationCASAndReuse(t *testing.T) {
 		t.Fatalf("revoked connection must not resolve, got %v", err)
 	}
 }
+
+// TestConnectionLookupRequiresActiveUserAndMember covers H-01: a token stops
+// resolving once its user or its org membership is no longer active.
+func TestConnectionLookupRequiresActiveUserAndMember(t *testing.T) {
+	cases := []struct {
+		name         string
+		userStatus   string
+		memberStatus string
+		wantErr      error
+	}{
+		{"active user and member", "active", "active", nil},
+		{"deactivated user", "deactivated", "active", ErrInvalidGrant},
+		{"inactive org member", "active", "suspended", ErrInvalidGrant},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			pool := testdb.New(t)
+			ctx := context.Background()
+			repo := NewRepo(pool)
+
+			var orgID, userID string
+			if err := pool.QueryRow(ctx, `INSERT INTO organizations (name, slug) VALUES ('H01 Org', 'h01-org') RETURNING id`).Scan(&orgID); err != nil {
+				t.Fatalf("insert org: %v", err)
+			}
+			if err := pool.QueryRow(ctx, `INSERT INTO users (email, name, status) VALUES ('h01@`+testdomain.Domain+`', 'H01 User', $1) RETURNING id`, tc.userStatus).Scan(&userID); err != nil {
+				t.Fatalf("insert user: %v", err)
+			}
+			if _, err := pool.Exec(ctx, `INSERT INTO org_members (org_id, user_id, role, status) VALUES ($1, $2, 'learner', $3)`, orgID, userID, tc.memberStatus); err != nil {
+				t.Fatalf("insert member: %v", err)
+			}
+			if _, err := repo.RegisterClient(ctx, "cid", "Client", []string{"https://client." + testdomain.Domain + "/cb"}); err != nil {
+				t.Fatalf("RegisterClient: %v", err)
+			}
+			if _, err := repo.UpsertConnection(ctx, orgID, userID, "cid", []string{ScopeCoursesRead}, "rh", time.Now().Add(time.Hour)); err != nil {
+				t.Fatalf("UpsertConnection: %v", err)
+			}
+
+			got, err := repo.GetConnectionByRefreshHash(ctx, "rh")
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("want err %v, got %v", tc.wantErr, err)
+			}
+			if tc.wantErr == nil && got.UserID != userID {
+				t.Fatalf("resolved wrong connection: %+v", got)
+			}
+		})
+	}
+}

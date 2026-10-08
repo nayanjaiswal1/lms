@@ -70,3 +70,17 @@ func TestImport_RealSnapshot(t *testing.T) {
 	require.Positive(t, labCount)
 	t.Logf("imported %d lesson(s) and %d lab stub(s) across %d section(s)", lessonCount, labCount, len(Sections))
 }
+
+func TestWriteCanonicalFile_RefusesToOverwrite(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "course.md")
+	const authored = "hand-authored content\n"
+	require.NoError(t, os.WriteFile(path, []byte(authored), 0o644))
+
+	err := writeCanonicalFile(path, []byte("title: x\n"), "body")
+	require.Error(t, err)
+	require.ErrorIs(t, err, os.ErrExist)
+
+	got, readErr := os.ReadFile(path)
+	require.NoError(t, readErr)
+	require.Equal(t, authored, string(got))
+}

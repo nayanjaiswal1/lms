@@ -60,8 +60,8 @@ func TestOKFFrontmatterRoundTrip(t *testing.T) {
 	if status == nil || *status != "published" {
 		t.Errorf("status = %v, want published", status)
 	}
-	if len(content) == 0 {
-		t.Error("content is empty")
+	if !strings.Contains(string(content), `"text":"hello"`) {
+		t.Errorf("content lost the paragraph text, got %s", content)
 	}
 	_ = meta // extension fields (none set in this fixture) preserved separately
 }
