@@ -621,7 +621,9 @@ func (h *Handler) HandleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Reque
 	// silently killing a legitimate login.
 	if cloneWarning {
 		slog.Warn("auth: webauthn clone warning detected", "user_id", u.userID)
-		if err := SendPasskeyCloneAlert(h.cfg, u.email); err != nil {
+		// Day-bucketed per user: a flapping authenticator sends one alert a day.
+		if err := h.enqueueAuthEmail(r.Context(), emailTypePasskeyCloneAlert, u.email, "",
+			"passkey_clone:"+u.userID+":"+time.Now().UTC().Format("20060102")); err != nil {
 			slog.Error("auth: webauthn clone alert email", "error", err)
 		}
 	}

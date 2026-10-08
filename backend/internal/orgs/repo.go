@@ -45,6 +45,9 @@ type JobsSettings struct {
 	MaxConcurrentJobs   *int `json:"max_concurrent_jobs,omitempty"`
 	QueuedJobTTLMinutes *int `json:"queued_job_ttl_minutes,omitempty"`
 	ActiveJobTimeoutHrs *int `json:"active_job_timeout_hrs,omitempty"`
+	// Per-org overrides of EMAIL_ORG_MAX_PER_MINUTE / EMAIL_ORG_MAX_PER_DAY.
+	EmailMaxPerMinute *int `json:"email_max_per_minute,omitempty"`
+	EmailMaxPerDay    *int `json:"email_max_per_day,omitempty"`
 }
 
 // GitlabSettings represents org_settings.gitlab namespace.

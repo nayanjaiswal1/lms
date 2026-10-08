@@ -29,6 +29,7 @@ import (
 	"github.com/mindforge/backend/internal/mentoring"
 	"github.com/mindforge/backend/internal/metrics"
 	"github.com/mindforge/backend/internal/notifications"
+	"github.com/mindforge/backend/internal/opsalert"
 	"github.com/mindforge/backend/internal/profile"
 	"github.com/mindforge/backend/internal/projectmarket"
 	"github.com/mindforge/backend/internal/ratelimit"
@@ -236,12 +237,12 @@ func main() {
 	} else {
 		emailSender = mailer.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.EmailFrom)
 	}
-	jobsRegistry.Register(handlers.HandlerEmailSend, handlers.NewEmailHandler(cfg, emailSender))
+	jobsRegistry.Register(handlers.HandlerEmailSend, handlers.NewEmailHandler(cfg, emailSender, pool, rdb))
 	// A dead email.send job otherwise leaves only last_error on the jobs row;
 	// the hook turns it into a structured, alertable log line.
-	jobsRegistry.OnDead(handlers.HandlerEmailSend, handlers.NewEmailDeadHook())
+	jobsRegistry.OnDead(handlers.HandlerEmailSend, handlers.NewEmailDeadHook(pool))
 	jobsRegistry.Register(handlers.HandlerBulkInvite, handlers.NewInviteHandler(pool, cfg))
-	jobsRegistry.OnDead(handlers.HandlerBulkInvite, handlers.NewInviteDeadHook())
+	jobsRegistry.OnDead(handlers.HandlerBulkInvite, handlers.NewInviteDeadHook(pool))
 	jobsRegistry.Register(handlers.HandlerLLM, handlers.NewLLMHandler(pool, aiProvider, cfg))
 	jobsRegistry.Register(handlers.HandlerAnalytics, handlers.NewAnalyticsHandler(pool))
 	jobsRegistry.Register(handlers.HandlerRetentionPurge, handlers.NewRetentionPurgeHandler(pool, cfg))
@@ -284,6 +285,10 @@ func main() {
 	jobsRegistry.Register(handlers.HandlerGitlabAIReviewMR, handlers.NewGitlabAIReviewMRHandler(gitlabSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerProjectmarketScoreRequirement, handlers.NewProjectmarketScoreRequirementHandler(projectmarketSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerProjectmarketCloseExpired, handlers.NewProjectmarketCloseExpiredHandler(projectmarketSvcForJobs))
+	opsAlertSvc := opsalert.NewService(pool, notificationsSvcForJobs)
+	jobsRegistry.OnAnyDead(opsAlertSvc.OnJobDead)
+	jobsRegistry.Register(handlers.HandlerOpsHealth, handlers.NewOpsHealthHandler(pool, cfg, opsAlertSvc))
+	jobsRegistry.Register(handlers.HandlerOpsDigest, handlers.NewOpsDigestHandler(pool, opsAlertSvc))
 	jobsRegistry.Register(handlers.HandlerDigestNightly, handlers.NewDigestNightlyHandler(pool))
 	jobsRegistry.Register(handlers.HandlerDigestUser, handlers.NewDigestUserHandler(pool, aiProvider, cfg, jobsRegistry))
 	// Knowledge Captures — extract + AI-structure a screenshot/PDF/link into
@@ -359,6 +364,9 @@ func cronJobs() []jobs.CronJobDef {
 		// there is no separate review-reminder cron entry.
 		{Handler: handlers.HandlerAnalytics, Schedule: "0 2 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 300000},
 		{Handler: handlers.HandlerAnalytics, Schedule: "0 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
+		// Job-system health checks and the daily dead-job digest (internal/opsalert).
+		{Handler: handlers.HandlerOpsHealth, Schedule: "*/5 * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 30000},
+		{Handler: handlers.HandlerOpsDigest, Schedule: "0 8 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 		{Handler: handlers.HandlerRetentionPurge, Schedule: "15 3 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 300000},
 		{Handler: handlers.HandlerPaymentReconcile, Schedule: "*/15 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 		{Handler: handlers.HandlerLabExpire, Schedule: "* * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 30000},

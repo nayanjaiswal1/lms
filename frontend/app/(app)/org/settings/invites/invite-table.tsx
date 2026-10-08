@@ -66,6 +66,7 @@ interface InviteTableProps {
   onRevoke: (inviteId: string) => void;
   onBatchRevoke: () => void;
   onBatchResend: () => void;
+  onResend: (inviteId: string) => void;
 }
 
 export function InviteTable({
@@ -76,6 +77,7 @@ export function InviteTable({
   onRevoke,
   onBatchRevoke,
   onBatchResend,
+  onResend,
 }: InviteTableProps) {
   const pendingInvites = invites.filter((i) => resolveStatus(i) === "pending");
   const allSelected =
@@ -198,6 +200,15 @@ export function InviteTable({
                       <Badge className="capitalize" variant={resolveStatusVariant(status)}>
                         {status}
                       </Badge>
+                      {isPending && invite.email_status === "failed" && (
+                        <Badge
+                          className="ml-2"
+                          title={invite.email_error ?? undefined}
+                          variant="destructive"
+                        >
+                          Email failed
+                        </Badge>
+                      )}
                     </td>
                     <td className="py-3 pr-4 text-muted-foreground hidden md:table-cell">
                       {formatRelative(invite.created_at)}
@@ -206,6 +217,16 @@ export function InviteTable({
                       {formatExpiry(invite.expires_at, status)}
                     </td>
                     <td className="py-3 text-right">
+                      {isPending && invite.email_status === "failed" && (
+                        <Button
+                          className="h-7 px-2"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => onResend(invite.id)}
+                        >
+                          Failed — resend
+                        </Button>
+                      )}
                       {isPending && (
                         <Button
                           className="h-7 px-2 text-destructive hover:text-destructive"

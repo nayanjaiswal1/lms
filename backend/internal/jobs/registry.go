@@ -19,6 +19,7 @@ type Registry struct {
 	mu        sync.RWMutex
 	handlers  map[string]Handler
 	deadHooks map[string]DeadLetterHook
+	anyDead   []DeadLetterHook
 }
 
 func NewRegistry() *Registry {
@@ -57,12 +58,24 @@ func (r *Registry) OnDead(key string, hook DeadLetterHook) {
 	r.deadHooks[key] = hook
 }
 
-// getDeadHook returns the registered DeadLetterHook and true, or nil and false.
-func (r *Registry) getDeadHook(key string) (DeadLetterHook, bool) {
+// OnAnyDead registers a hook that fires for EVERY dead job, in addition to the
+// per-handler hook. Multiple hooks are allowed (cross-cutting concerns such as
+// ops alerting).
+func (r *Registry) OnAnyDead(hook DeadLetterHook) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.anyDead = append(r.anyDead, hook)
+}
+
+// deadHooksFor returns the per-handler hook (if any) followed by all any-dead hooks.
+func (r *Registry) deadHooksFor(key string) []DeadLetterHook {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	h, ok := r.deadHooks[key]
-	return h, ok
+	var out []DeadLetterHook
+	if h, ok := r.deadHooks[key]; ok {
+		out = append(out, h)
+	}
+	return append(out, r.anyDead...)
 }
 
 // MustGet panics if the key is not registered. Use at startup validation.

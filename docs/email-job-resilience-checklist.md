@@ -29,7 +29,7 @@ Re-verify line numbers if this file is read much later.
 - **Bulk invites**: org-invite-bulk handler
   (`backend/internal/orgs/handler.go`) chunks emails into groups of 50 and
   enqueues one `invite.bulk` job per chunk. Each job still sends serially,
-  one SMTP connection per recipient — see item 6, still open.
+  one SMTP connection per recipient — paced and tracked per invite, see items 6 and 8.
 
 ---
 
@@ -48,10 +48,11 @@ Re-verify line numbers if this file is read much later.
       "known email" (used to wait on a live SMTP round-trip) and "unknown
       email" (returned immediately) is narrowed — the known-email path now
       only does a fast `INSERT INTO jobs`, not a network call.
-- [ ] **Still open, deliberately out of scope**: `SendDuplicateRegistration`
-      and `SendPasskeyCloneAlert` (`auth/email.go`) remain synchronous. They
-      have no corresponding job-queue `type` case in `EmailHandler` today;
-      wiring them in is straightforward but wasn't part of this pass.
+- [x] **FIXED**: `SendDuplicateRegistration` and `SendPasskeyCloneAlert` are now
+      `auth.DuplicateRegistrationMessage` / `PasskeyCloneAlertMessage` builders;
+      `EmailHandler` handles types `duplicate_registration` and
+      `passkey_clone_alert`, enqueued with idempotency keys like
+      `enqueueAuthEmail`.
 
 ## 2. Job-level timeout doesn't actually bound the SMTP call — FIXED
 
@@ -74,20 +75,14 @@ Re-verify line numbers if this file is read much later.
       straight to `dead` regardless of retries remaining. `EmailHandler`'s
       `classifyErr` helper wires the two together for all four email types
       (`auth_verify`, `password_reset`, `eval_complete`, `notification`).
-- [ ] **Still open**: 4xx "too many messages" / provider-throttle replies are
-      *not* given special treatment beyond the existing exponential backoff —
-      there's no longer-than-normal backoff specifically for rate-limit
-      responses, and nothing pauses the whole handler when a burst of jobs
-      are all hitting the same throttle. Only matters once a real
-      rate-limited provider is in the loop (see item 6).
-- [ ] **Still open**: `to` address *shape* still isn't validated before a
-      worker attempts SMTP delivery for `eval_complete`/`notification`/
-      calendar-reminder jobs — only the org-invite-bulk endpoint validates
-      shape before enqueueing. A malformed `to` now correctly dies fast
-      instead of retrying (RCPT TO will 5xx), so the cost of this gap is
-      lower than before, but it's still a wasted round-trip per job.
-
-## 4. No dead-letter follow-through for email — PARTIALLY FIXED
+- [x] **FIXED**: SMTP 4xx/429 replies become `mailer.ThrottleError`, handled as
+      `jobs.RetryAfter` (min `EMAIL_THROTTLE_BACKOFF`, honoured by `jobs.Fail`,
+      does not consume retries). A Redis-backed circuit breaker
+      (`mailer/breaker.go`, `EMAIL_BREAKER_*`) pauses all sends after repeated
+      transient failures.
+- [x] **FIXED**: `EmailHandler.Handle` validates `to` with `net/mail` before
+      SMTP; malformed addresses fail via `jobs.Permanent`.
+## 4. No dead-letter follow-through for email — PARTIALLY FIXED (operators alerted; end users not)
 
 - [x] `handlers.NewEmailDeadHook()` and `handlers.NewInviteDeadHook()`
       (registered in `cmd/server/main.go`) log a structured, alertable
@@ -96,31 +91,31 @@ Re-verify line numbers if this file is read much later.
       dies. A downed relay or bad creds is now visible in logs at the moment
       it stops being retryable, not just discoverable by querying the `jobs`
       table's `last_error` column after the fact.
-- [ ] **Still open**: this is logging only, not a feedback loop. A dead
-      `password_reset`/`auth_verify` job still leaves the requesting user
-      with no signal beyond "check your email" and nothing ever arriving —
-      there's no UI-facing status to poll. Wiring that up is a larger,
-      product-facing decision (does the frontend poll job status? show a
-      banner?) that wasn't part of this pass.
-- [ ] **Still open**: for `invite.bulk`, the dead-letter hook logs the chunk
-      but doesn't (yet) do anything an org admin can see — see item 8.
+- [x] **Admin alerting**: every dead job (including `email.send` and
+      `invite.bulk`) now raises an in-app notification to the right operators
+      via `internal/opsalert` (org jobs -> that org's owners/admins, platform
+      jobs -> super admins; high-severity handlers also email, except a dead
+      `email.send` which never emails to avoid looping on an SMTP outage).
+      Repeats are deduped per window and bursts collapse into one storm alert;
+      `ops.health` (every 5 min) also alerts on a high `email.send` dead rate.
+      See [ops-alerts.md](ops-alerts.md).
+- [ ] Not built — needs product decision: the user-facing dead
+      `password_reset`/`auth_verify` banner. A dead job reaches operators only;
+      the requesting user has no status to poll.
+- [x] **FIXED** for `invite.bulk`: the dead hook marks the chunk's unsent invites
+      `email_status = failed`, visible to org admins (item 8).
 
-## 5. No delivery status / bounce tracking — still open
+## 5. No delivery status / bounce tracking — not built
 
-- [ ] No change. `job_runs.status` still only reflects "SMTP accepted the
-      send for relay," not actual delivery/bounce/complaint status — that
-      would require either a transactional-email provider with delivery
-      webhooks, or explicitly documenting the gap. Unchanged by this pass.
+- [ ] Not built — needs provider webhook. `job_runs.status` only reflects "SMTP
+      accepted the send for relay", not delivery/bounce/complaint.
 
-## 6. Bulk-provider / rate-limit posture — still open
+## 6. Bulk-provider / rate-limit posture — FIXED
 
-- [ ] `invite.bulk` still sends up to 50 emails one SMTP connection each,
-      serially, no throttle (`jobs/handlers/invite.go`) — now at least
-      context-bounded per connection (item 2), but no pacing between them.
-      Matters once a real rate-limited provider replaces the dev relay.
-- [ ] No per-org send-rate quota exists — `jobs.CheckEnqueueQuota` still only
-      caps pending+queued job *count* per org, not emails/minute against a
-      provider. Unchanged by this pass.
+- [x] `invite.bulk` paces sends inside a chunk by `INVITE_SEND_DELAY`.
+- [x] Per-org send quota (`EMAIL_ORG_MAX_PER_MINUTE` / `EMAIL_ORG_MAX_PER_DAY`,
+      overridable via `org_settings.jobs`) is enforced in `EmailHandler` for
+      org jobs; exceeding it returns `jobs.RetryAfter` (deferred, never dead).
 
 ## 7. Config safety net — FIXED
 
@@ -144,10 +139,9 @@ Re-verify line numbers if this file is read much later.
 - [x] Sends now go through the same context-bounded, classified SMTP path as
       everything else (items 2/3), and a permanently-dead chunk is now
       logged (item 4) instead of silent.
-- [ ] **Still open**: a failed *individual* invite email inside a chunk is
-      still swallowed as a warning (`invite.go`, "invite created, will need
-      resend") — the invite row exists and `InviteService.Resend` works, but
-      nothing surfaces to the inviting admin which specific emails in their
-      batch need a manual resend. Would need a per-invite delivery-status
-      column (or reusing `revoke_reason`-style tracking) surfaced on the
-      invite list — a small schema change, not done here.
+- [x] **FIXED**: migration 064 adds `org_invites.email_status`
+      (`pending`/`sent`/`failed`) and `email_error`. `invite.bulk` records the
+      result per invite, the dead-letter hook marks the chunk's unsent invites
+      failed, the invite API exposes both fields, and the invite list shows
+      "Failed — resend" using the existing Resend action (which resets the
+      status to `pending`).

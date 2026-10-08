@@ -44,7 +44,7 @@ func (s *BrevoAPISender) Send(ctx context.Context, to, subject, body string, hea
 
 // SendViaBrevoAPI delivers one plain-text email through Brevo's transactional
 // email API. Mirrors SendRaw's error classification: a 4xx response from
-// Brevo is wrapped as PermanentError (the request itself is malformed or
+// Brevo (except 429, a ThrottleError) is wrapped as PermanentError (the request itself is malformed or
 // rejected — retrying unchanged won't help); a network error or 5xx is left
 // as-is so normal retry/backoff applies.
 func SendViaBrevoAPI(ctx context.Context, apiKey, fromEmail, fromName, to, subject, body string) error {
@@ -84,6 +84,9 @@ func SendViaBrevoAPI(ctx context.Context, apiKey, fromEmail, fromName, to, subje
 
 	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 	sendErr := fmt.Errorf("mailer: brevo send to %s: status %d: %s", to, resp.StatusCode, respBody)
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return &ThrottleError{err: sendErr}
+	}
 	if resp.StatusCode >= 400 && resp.StatusCode < 500 {
 		return &PermanentError{err: sendErr}
 	}

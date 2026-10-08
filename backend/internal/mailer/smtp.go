@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/smtp"
 	"net/textproto"
@@ -52,48 +53,106 @@ func (s *SMTPSender) Send(ctx context.Context, to, subject, body string, headers
 // IsPermanent — so callers going through the job queue can skip straight to
 // dead instead of retrying an outcome that cannot change.
 func SendRaw(ctx context.Context, host, port, user, pass, envelopeFrom, to string, message []byte) error {
-	if _, ok := ctx.Deadline(); !ok {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, defaultTimeout)
-		defer cancel()
-	}
+	sess := NewSession(host, port, user, pass, envelopeFrom)
+	defer sess.Close()
+	return sess.Send(ctx, to, message)
+}
 
-	addr := host + ":" + port
+// Session reuses one SMTP connection across several messages — used by
+// invite.bulk so a 50-invite chunk costs one dial/handshake/auth instead of
+// fifty (which also trips provider connection-rate limits). The connection is
+// opened lazily on first Send and reopened automatically if a transport error
+// breaks it. Not safe for concurrent use.
+type Session struct {
+	host, port, user, pass, from string
+	conn                         net.Conn
+	client                       *smtp.Client
+}
+
+// NewSession returns a Session; no connection is made until the first Send.
+func NewSession(host, port, user, pass, envelopeFrom string) *Session {
+	return &Session{host: host, port: port, user: user, pass: pass, from: envelopeFrom}
+}
+
+// Close ends the session's connection, if any.
+func (s *Session) Close() {
+	if s.client != nil {
+		_ = s.client.Quit()
+		_ = s.client.Close()
+	}
+	s.client, s.conn = nil, nil
+}
+
+func (s *Session) open(ctx context.Context) error {
+	addr := s.host + ":" + s.port
+	dialCtx, cancel := context.WithDeadline(ctx, deadlineFor(ctx))
+	defer cancel()
 	var d net.Dialer
-	conn, err := d.DialContext(ctx, "tcp", addr)
+	conn, err := d.DialContext(dialCtx, "tcp", addr)
 	if err != nil {
 		return fmt.Errorf("dial %s: %w", addr, err)
 	}
-	if deadline, ok := ctx.Deadline(); ok {
-		// smtp.Client has no context awareness of its own; bounding the raw
-		// connection is what actually stops a stalled handshake or a slow
-		// DATA write from hanging past ctx's deadline.
-		_ = conn.SetDeadline(deadline)
-	}
-
-	client, err := smtp.NewClient(conn, host)
+	s.conn = conn
+	// Bounded per message in Send; the handshake gets the same bound.
+	_ = conn.SetDeadline(deadlineFor(ctx))
+	client, err := smtp.NewClient(conn, s.host)
 	if err != nil {
 		conn.Close()
+		s.conn = nil
 		return classify(fmt.Errorf("smtp handshake with %s: %w", addr, err))
 	}
-	defer client.Close()
-
-	if user != "" {
+	s.client = client
+	if s.user != "" {
 		if ok, _ := client.Extension("AUTH"); ok {
-			if err := client.Auth(smtp.PlainAuth("", user, pass, host)); err != nil {
+			if err := client.Auth(smtp.PlainAuth("", s.user, s.pass, s.host)); err != nil {
+				s.Close()
 				return classify(fmt.Errorf("smtp auth with %s: %w", addr, err))
 			}
 		}
 	}
+	return nil
+}
 
-	if err := client.Mail(envelopeFrom); err != nil {
-		return classify(fmt.Errorf("smtp MAIL FROM (%s): %w", envelopeFrom, err))
+// deadlineFor is ctx's deadline, or now+defaultTimeout when ctx has none.
+func deadlineFor(ctx context.Context) time.Time {
+	if d, ok := ctx.Deadline(); ok {
+		return d
 	}
-	if err := client.Rcpt(to); err != nil {
+	return time.Now().Add(defaultTimeout)
+}
+
+// Send delivers one message on the session's connection. See SendRaw for the
+// error classification (5xx permanent, 4xx throttle).
+func (s *Session) Send(ctx context.Context, to string, message []byte) error {
+	if s.client == nil {
+		if err := s.open(ctx); err != nil {
+			return err
+		}
+	} else {
+		// smtp.Client has no context awareness; bounding the raw connection is
+		// what stops a stalled DATA write from hanging past ctx's deadline.
+		_ = s.conn.SetDeadline(deadlineFor(ctx))
+		if err := s.client.Reset(); err != nil {
+			s.Close()
+			return s.Send(ctx, to, message)
+		}
+	}
+	err := s.deliver(to, message)
+	var protoErr *textproto.Error
+	if err != nil && !errors.As(err, &protoErr) {
+		s.Close() // transport-level failure: connection state is unknown
+	}
+	return err
+}
+
+func (s *Session) deliver(to string, message []byte) error {
+	if err := s.client.Mail(s.from); err != nil {
+		return classify(fmt.Errorf("smtp MAIL FROM (%s): %w", s.from, err))
+	}
+	if err := s.client.Rcpt(to); err != nil {
 		return classify(fmt.Errorf("smtp RCPT TO (%s): %w", to, err))
 	}
-
-	w, err := client.Data()
+	w, err := s.client.Data()
 	if err != nil {
 		return classify(fmt.Errorf("smtp DATA to %s: %w", to, err))
 	}
@@ -103,18 +162,22 @@ func SendRaw(ctx context.Context, host, port, user, pass, envelopeFrom, to strin
 	if err := w.Close(); err != nil {
 		return classify(fmt.Errorf("smtp finalize message to %s: %w", to, err))
 	}
-
-	_ = client.Quit()
 	return nil
 }
 
 // classify wraps err as permanent when the relay rejected it with a 5xx SMTP
-// reply. A 4xx reply (e.g. a temporary rate limit) or a connection-level
-// error is left as-is so normal retry/backoff applies.
+// reply, and as a ThrottleError for a 4xx reply (421/450/451/452 are the
+// rate-limit / try-later family). Connection-level errors are left as-is so
+// normal retry/backoff applies.
 func classify(err error) error {
 	var protoErr *textproto.Error
-	if errors.As(err, &protoErr) && protoErr.Code >= 500 && protoErr.Code < 600 {
-		return &PermanentError{err: err}
+	if errors.As(err, &protoErr) {
+		switch {
+		case protoErr.Code >= 500 && protoErr.Code < 600:
+			return &PermanentError{err: err}
+		case protoErr.Code >= 400 && protoErr.Code < 500:
+			return &ThrottleError{err: err}
+		}
 	}
 	return err
 }
@@ -130,6 +193,35 @@ func (e *PermanentError) Unwrap() error { return e.err }
 func IsPermanent(err error) bool {
 	var permErr *PermanentError
 	return errors.As(err, &permErr)
+}
+
+// ThrottleError marks a 4xx SMTP reply (or HTTP 429 from an API relay): the
+// provider asked us to slow down or come back later. Retrying immediately
+// makes it worse, so the job queue backs off for longer than normal (see
+// jobs.RetryAfter) and the circuit breaker counts it.
+type ThrottleError struct{ err error }
+
+func (e *ThrottleError) Error() string { return e.err.Error() }
+func (e *ThrottleError) Unwrap() error { return e.err }
+
+// IsThrottle reports whether err (or anything it wraps) is a ThrottleError.
+func IsThrottle(err error) bool {
+	var t *ThrottleError
+	return errors.As(err, &t)
+}
+
+// IsTransient reports whether err is a delivery-infrastructure failure worth
+// counting against the circuit breaker: a throttle reply, a network error, or
+// a timeout. Permanent rejections (bad recipient) are about one message, not
+// the relay's health, and do not count.
+func IsTransient(err error) bool {
+	if err == nil || IsPermanent(err) {
+		return false
+	}
+	var ne net.Error
+	return IsThrottle(err) || errors.As(err, &ne) ||
+		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) ||
+		errors.Is(err, context.DeadlineExceeded)
 }
 
 // crlf strips CR/LF from a value bound for a raw RFC 5322 header line — every

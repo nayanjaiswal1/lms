@@ -105,6 +105,20 @@ type Config struct {
 	// the original all-or-nothing behavior.
 	DevEmailAllowlist []string
 
+	// Outbound email resilience (see docs/email-job-resilience-checklist.md).
+	// Breaker: pause all sends for EmailBreakerCooldown after
+	// EmailBreakerThreshold consecutive transient/throttle failures.
+	// EmailThrottleBackoff is the minimum re-queue delay after a provider 4xx.
+	// EmailOrgMaxPerMinute/Day cap sends per org (org_settings.jobs
+	// email_max_per_minute/email_max_per_day override). InviteSendDelay paces
+	// sends inside an invite.bulk chunk.
+	EmailBreakerThreshold int
+	EmailBreakerCooldown  time.Duration
+	EmailThrottleBackoff  time.Duration
+	EmailOrgMaxPerMinute  int
+	EmailOrgMaxPerDay     int
+	InviteSendDelay       time.Duration
+
 	// Rate limiting
 	// Workspace holds the Project Workspace rate limits
 	// (docs/project-workspace-plan/02-auth-security.md §4.3); each field's
@@ -302,8 +316,13 @@ type Config struct {
 	WorkerDrainTimeout      time.Duration
 	OrphanReaperInterval    time.Duration
 	OrphanThreshold         time.Duration
-	SchedulerLeaderTTL      time.Duration
-	SchedulerLeaderRenew    time.Duration
+	// Ops health checks (jobs/handlers/ops_health.go).
+	OpsQueueStaleMinutes    int
+	OpsEmailDeadRatePercent int
+	OpsEmailDeadMinSample   int
+
+	SchedulerLeaderTTL   time.Duration
+	SchedulerLeaderRenew time.Duration
 
 	// Calendar reminder job — how far ahead of an event's starts_at the
 	// reminder email fires. No per-event/per-user override yet.
@@ -437,6 +456,12 @@ func Load() *Config {
 		SummaryRegenPerDay:       getEnvInt("WORKSPACE_SUMMARY_REGEN_PER_DAY", 3),
 		ExportPerUserHour:        getEnvInt("WORKSPACE_EXPORT_PER_USER_HOUR", 10),
 	}
+	cfg.EmailBreakerThreshold = getEnvInt("EMAIL_BREAKER_THRESHOLD", 5)
+	cfg.EmailBreakerCooldown = parseDuration("EMAIL_BREAKER_COOLDOWN", "2m")
+	cfg.EmailThrottleBackoff = parseDuration("EMAIL_THROTTLE_BACKOFF", "5m")
+	cfg.EmailOrgMaxPerMinute = getEnvInt("EMAIL_ORG_MAX_PER_MINUTE", 60)
+	cfg.EmailOrgMaxPerDay = getEnvInt("EMAIL_ORG_MAX_PER_DAY", 2000)
+	cfg.InviteSendDelay = parseDuration("INVITE_SEND_DELAY", "200ms")
 	cfg.AuthRateLimitWindow = parseDuration("AUTH_RATE_LIMIT_WINDOW", "1m")
 	cfg.PublicRateLimitMax = getEnvInt("PUBLIC_RATE_LIMIT_MAX", 120)
 	cfg.PublicRateLimitWindow = parseDuration("PUBLIC_RATE_LIMIT_WINDOW", "1m")
@@ -510,6 +535,9 @@ func Load() *Config {
 	cfg.WorkerDrainTimeout = parseDuration("WORKER_DRAIN_TIMEOUT", "30s")
 	cfg.OrphanReaperInterval = parseDuration("ORPHAN_REAPER_INTERVAL", "30s")
 	cfg.OrphanThreshold = parseDuration("ORPHAN_THRESHOLD", "60s")
+	cfg.OpsQueueStaleMinutes = getEnvInt("OPS_QUEUE_STALE_MINUTES", 15)
+	cfg.OpsEmailDeadRatePercent = getEnvInt("OPS_EMAIL_DEAD_RATE_PERCENT", 50)
+	cfg.OpsEmailDeadMinSample = getEnvInt("OPS_EMAIL_DEAD_MIN_SAMPLE", 5)
 	cfg.SchedulerLeaderTTL = parseDuration("SCHEDULER_LEADER_TTL", "30s")
 	cfg.SchedulerLeaderRenew = parseDuration("SCHEDULER_LEADER_RENEW", "10s")
 

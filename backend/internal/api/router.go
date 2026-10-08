@@ -47,6 +47,7 @@ import (
 	"github.com/mindforge/backend/internal/mistakes"
 	"github.com/mindforge/backend/internal/moderation"
 	"github.com/mindforge/backend/internal/notifications"
+	"github.com/mindforge/backend/internal/opsalert"
 	"github.com/mindforge/backend/internal/onboarding"
 	"github.com/mindforge/backend/internal/orgs"
 	"github.com/mindforge/backend/internal/payments"
@@ -594,6 +595,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// Job Management System — org job list/cancel/retry, admin stats, worker view.
 		jobsHandler := jobs.NewHTTPHandler(pool, rdb, cfg, jobsRegistry)
 		jobsHandler.RegisterRoutes(r)
+		opsalert.NewHTTPHandler(pool, opsalert.NewService(pool, notifications.NewService(pool, jobsRegistry))).RegisterRoutes(r)
 
 		// Rewards — XP, badges, leaderboard.
 		rewardsHandler.RegisterRoutes(r)

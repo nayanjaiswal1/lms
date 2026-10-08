@@ -91,6 +91,13 @@ with the provider in prod.
 that get real email even when `ENV=development`; every other address just
 logs to stdout (`DEV EMAIL: ...`).
 
+Resilience knobs (backend): `EMAIL_BREAKER_THRESHOLD` (5) / `EMAIL_BREAKER_COOLDOWN` (2m)
+pause all sends after that many consecutive transient/throttle failures (state in Redis,
+per-process if Redis is down); `EMAIL_THROTTLE_BACKOFF` (5m) is the minimum re-queue delay
+after a provider 4xx/429; `EMAIL_ORG_MAX_PER_MINUTE` (60) / `EMAIL_ORG_MAX_PER_DAY` (2000)
+cap per-org sends, overridable per org via `org_settings.jobs` keys `email_max_per_minute`
+/ `email_max_per_day`; `INVITE_SEND_DELAY` (200ms) paces sends inside an `invite.bulk` chunk.
+
 ## Server
 
 `ENV` must be `development`, `staging`, or `production` — `production` enables
@@ -312,6 +319,9 @@ revert both URLs to `localhost` when done.
 | `MAX_BODY_BYTES` | 8 MiB | Global request body cap |
 | `LABPROXY_ALLOWED_ORIGINS` | – (required) | Origins allowed to open lab terminals |
 | `LABS_PIDS_LIMIT`, `LABS_NETWORK_PER_SESSION`, `LABS_NETWORK_INTERNAL`, `LABS_PROXY_CONTAINER` | see docs/labs.md | Lab isolation |
+| `OPS_QUEUE_STALE_MINUTES` | `15` | ops.health alerts when a queued job has waited longer than this |
+| `OPS_EMAIL_DEAD_RATE_PERCENT` | `50` | ops.health alerts when this % of email.send jobs finished dead in the last 15 min |
+| `OPS_EMAIL_DEAD_MIN_SAMPLE` | `5` | Minimum finished email.send jobs in that window before the rate is evaluated |
 | `RETENTION_*_DAYS` | see `.env.example` | Retention windows (0 disables); includes `RETENTION_MCP_CONNECTION_DAYS` (default 90, revoked/expired MCP connections) |
 
 Frontend: `GRIEVANCE_OFFICER_NAME/EMAIL`, `SECURITY_CONTACT_EMAIL`, `DPA_CONTACT_EMAIL` (legal pages).

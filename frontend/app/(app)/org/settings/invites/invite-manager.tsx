@@ -22,6 +22,8 @@ export interface Invite {
   accepted_at: string | null;
   revoked_at: string | null;
   created_at: string;
+  email_status: "pending" | "sent" | "failed";
+  email_error?: string | null;
 }
 
 interface InviteManagerProps {
@@ -105,6 +107,18 @@ export function InviteManager({
     setUi((u) => ({ ...u, selected: new Set() }));
   }
 
+  async function handleResendOne(inviteId: string) {
+    const res = await batchResendAction(orgId, [inviteId]);
+    if (res.error) {
+      toast.error(res.error);
+      return;
+    }
+    setInvites((list) =>
+      list.map((i) => (i.id === inviteId ? { ...i, email_status: "pending", email_error: null } : i)),
+    );
+    toast.success("Invite email queued");
+  }
+
   const confirmInvite = ui.confirmId ? invites.find((i) => i.id === ui.confirmId) : undefined;
 
   return (
@@ -116,6 +130,7 @@ export function InviteManager({
         selected={ui.selected}
         onBatchResend={handleBatchResend}
         onBatchRevoke={() => setUi((u) => ({ ...u, confirmBatch: true }))}
+        onResend={handleResendOne}
         onRevoke={(inviteId) => setUi((u) => ({ ...u, confirmId: inviteId }))}
         onSelectionChange={(sel) => setUi((u) => ({ ...u, selected: sel }))}
       />

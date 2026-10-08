@@ -36,6 +36,11 @@ import (
 const (
 	emailSendHandler  = "email.send"
 	emailPriorityHigh = 2
+
+	// EmailHandler types for the account-security notices (mirror
+	// handlers.emailTypeDuplicateRegistration / emailTypePasskeyCloneAlert).
+	emailTypeDuplicateRegistration = "duplicate_registration"
+	emailTypePasskeyCloneAlert     = "passkey_clone_alert"
 )
 
 var emailRE = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
@@ -375,7 +380,10 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		// account holder out-of-band. This is unconditional — the previous
 		// version returned a plain 409 outside production, which turned a
 		// mis-set ENV into an account-enumeration oracle.
-		if err := SendDuplicateRegistration(h.cfg, req.Email); err != nil {
+		// Hour-bucketed key: repeated attempts within the hour send one notice
+		// (no mail-bombing the account holder), later attempts notify again.
+		if err := h.enqueueAuthEmail(r.Context(), emailTypeDuplicateRegistration, req.Email, "",
+			"dup_reg:"+HashToken(req.Email)+":"+time.Now().UTC().Format("2006010215")); err != nil {
 			slog.Error("auth: register notify existing account", "error", err)
 		}
 		httputil.WriteJSON(w, http.StatusCreated, map[string]string{
