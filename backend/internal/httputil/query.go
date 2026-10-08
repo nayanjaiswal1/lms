@@ -65,6 +65,15 @@ func QueryIntPositive(r *http.Request, key string, def int) int {
 	return n
 }
 
+// QueryLimit returns the ?limit= page size: def when absent, unparseable,
+// <= 0 or above max.
+func QueryLimit(r *http.Request, def, max int) int {
+	if n := QueryIntPositive(r, "limit", def); n <= max {
+		return n
+	}
+	return def
+}
+
 // QueryIntNonNegative returns the query parameter parsed as an int, or def
 // when absent, empty, unparseable, or negative. Zero is a valid value.
 func QueryIntNonNegative(r *http.Request, key string, def int) int {

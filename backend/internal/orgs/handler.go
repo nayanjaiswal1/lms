@@ -151,10 +151,7 @@ const (
 // ?search= filters by name/slug substring; ?limit=&cursor= paginate.
 func (h *Handler) handleAdminListOrgs(w http.ResponseWriter, r *http.Request) {
 	search := strings.TrimSpace(r.URL.Query().Get("search"))
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 || limit > adminOrgsMaxLimit {
-		limit = adminOrgsDefaultLimit
-	}
+	limit := httputil.QueryLimit(r, adminOrgsDefaultLimit, adminOrgsMaxLimit)
 	var afterID string
 	if cursor := r.URL.Query().Get("cursor"); cursor != "" {
 		raw, err := base64.RawURLEncoding.DecodeString(cursor)
@@ -741,10 +738,7 @@ func (h *Handler) handleListInvites(w http.ResponseWriter, r *http.Request) {
 
 	status := r.URL.Query().Get("status")
 	cursor := r.URL.Query().Get("cursor")
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
+	limit := httputil.QueryLimit(r, pagination.DefaultLimit, pagination.MaxLimit)
 
 	page, err := h.invSvc.List(r.Context(), orgCtx.OrgID, status, cursor, limit)
 	if err != nil {
@@ -1069,10 +1063,7 @@ func (h *Handler) handleListMembers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cursor := r.URL.Query().Get("cursor")
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
+	limit := httputil.QueryLimit(r, pagination.DefaultLimit, pagination.MaxLimit)
 
 	page, err := h.memSvc.List(r.Context(), orgCtx.OrgID, cursor, limit)
 	if err != nil {
@@ -1191,10 +1182,7 @@ func (h *Handler) handleListAuditLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cursor := r.URL.Query().Get("cursor")
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
+	limit := httputil.QueryLimit(r, pagination.DefaultLimit, pagination.MaxLimit)
 
 	cursorCreatedAt, cursorID, decErr := pagination.DecodeCursor(cursor, "orgs")
 	if decErr != nil {

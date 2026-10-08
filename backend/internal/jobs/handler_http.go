@@ -3,7 +3,6 @@ package jobs
 import (
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -90,10 +89,7 @@ func (h *HTTPHandler) handleOrgListJobs(w http.ResponseWriter, r *http.Request) 
 	}
 	filter.After = r.URL.Query().Get("after")
 
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 50 {
-		limit = 20
-	}
+	limit := httputil.QueryLimit(r, 20, 50)
 	filter.Limit = limit
 
 	jobs, nextCursor, err := List(r.Context(), h.pool, filter)
@@ -313,10 +309,7 @@ func (h *HTTPHandler) handleAdminListJobs(w http.ResponseWriter, r *http.Request
 	}
 	filter.After = r.URL.Query().Get("after")
 
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 50 {
-		limit = 20
-	}
+	limit := httputil.QueryLimit(r, 20, 50)
 	filter.Limit = limit
 
 	jobs, nextCursor, err := List(r.Context(), h.pool, filter)

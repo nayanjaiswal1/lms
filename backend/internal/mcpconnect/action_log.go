@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -156,10 +155,7 @@ func (rt *Router) ListMyActionLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
+	limit := httputil.QueryLimit(r, pagination.DefaultLimit, pagination.MaxLimit)
 	cursorCreatedAt, cursorID, err := pagination.DecodeCursor(r.URL.Query().Get("cursor"), "mcpconnect")
 	if err != nil {
 		cursorID = ""

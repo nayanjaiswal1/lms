@@ -23,8 +23,6 @@ func New(pool *pgxpool.Pool) *Handler {
 }
 
 const (
-	defaultLimit = 50
-	maxLimit     = 200
 	// tzOffsetBoundMin mirrors whatnow's ?tz= convention (UTC offset in
 	// minutes east of UTC, clamped to the real range of UTC-14..UTC+14).
 	tzOffsetBoundMin = 14 * 60
@@ -39,10 +37,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 || limit > maxLimit {
-		limit = defaultLimit
-	}
+	limit := httputil.QueryLimit(r, pagination.DefaultLimit, pagination.MaxLimit)
 
 	tzOffsetMin, tzErr := strconv.Atoi(r.URL.Query().Get("tz"))
 	if tzErr != nil || tzOffsetMin < -tzOffsetBoundMin || tzOffsetMin > tzOffsetBoundMin {
