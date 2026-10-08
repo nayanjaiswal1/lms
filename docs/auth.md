@@ -62,15 +62,17 @@ POST /api/auth/logout-all           → sets revoked_at on ALL refresh_tokens fo
 
 GET  /api/auth/me                   → current user + org memberships
 
-GET  /api/auth/sessions             → [planned (not built)] list active devices (distinct family_ids: device_hint, ip, created_at)
+GET  /api/auth/sessions             → list live devices (one per refresh-token family_id):
+                                      [{id, device_hint, ip (truncated), started_at, last_active_at, current}]
 
-DELETE /api/auth/sessions/:id       → [planned (not built)] revoke specific session family (adds its JTIs to blocklist)
+DELETE /api/auth/sessions/:id       → revokes that family's refresh tokens (404 if not the caller's or already revoked)
+                                    → emits auth_event session_revoked
+                                    → the device keeps its access token until it expires (access tokens carry no
+                                      family_id, so they cannot be blocklisted per device) but can no longer refresh
+                                    → revoking the CURRENT device also blocklists its jti and clears cookies
+                                      (response {revoked_current: true}; the UI redirects to /login)
 
-POST /api/auth/switch-org           [planned (not built)] body: {org_id}
-                                    → user must be member of org
-                                    → if target org has require_sso=true and current session auth_method
-                                      is not "saml" or "oidc" → 403 "SSO required"
-                                    → issues new access_token with org_id + org_role in claims
+Org switching is not an /api/auth endpoint: it ships as POST /api/orgs/switch (see docs/orgs.md).
 ```
 
 ### Email Verification
