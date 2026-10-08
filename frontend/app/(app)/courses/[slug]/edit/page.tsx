@@ -45,7 +45,7 @@ export default async function InstructorCourseDetailPage({ params }: Props) {
   const canComposeLabs = myPerms.includes(PERMISSIONS.LABAUTHOR.COMPOSE);
 
   const totalStudents = progress.length;
-  const completed = progress.filter((r) => r.total_modules > 0 && r.completed_modules === r.total_modules).length;
+  const completed = progress.filter((r) => r.total > 0 && r.completed === r.total).length;
   const completionPct = totalStudents > 0 ? Math.round((completed / totalStudents) * 100) : 0;
 
   return (

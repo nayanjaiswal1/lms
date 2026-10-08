@@ -153,6 +153,10 @@ type Config struct {
 	// request speed.
 	CouponRateLimitMax    int
 	CouponRateLimitWindow time.Duration
+	// Analytics reads per user per window. The queries aggregate over a
+	// course's whole enrollment, so they are budgeted per user.
+	AnalyticsRateLimitMax    int
+	AnalyticsRateLimitWindow time.Duration
 	// Lab-authoring AI ticket drafts per user per window. Only cache misses
 	// (real LLM calls) count; a repeated (recipe, persona) draft is free.
 	LabAuthorDraftRateMax    int
@@ -475,6 +479,8 @@ func Load() *Config {
 	cfg.LLMUserMaxPerDay = getEnvInt("LLM_USER_MAX_PER_DAY", 300)
 	cfg.CouponRateLimitMax = getEnvInt("COUPON_RATE_LIMIT_MAX", 10)
 	cfg.CouponRateLimitWindow = parseDuration("COUPON_RATE_LIMIT_WINDOW", "1m")
+	cfg.AnalyticsRateLimitMax = getEnvInt("ANALYTICS_RATE_LIMIT_MAX", 60)
+	cfg.AnalyticsRateLimitWindow = parseDuration("ANALYTICS_RATE_LIMIT_WINDOW", "1m")
 	cfg.LabAuthorDraftRateMax = getEnvInt("LABAUTHOR_DRAFT_RATE_MAX", 10)
 	cfg.LabAuthorDraftRateWindow = parseDuration("LABAUTHOR_DRAFT_RATE_WINDOW", "1h")
 	cfg.LabBuildsPerUserDay = getEnvInt("LAB_BUILDS_PER_USER_DAY", 10)
