@@ -1,1 +1,1 @@
-ALTER TABLE sheet_items ADD COLUMN metadata jsonb DEFAULT '{}'::jsonb NOT NULL;
+ALTER TABLE sheet_items ADD COLUMN IF NOT EXISTS metadata jsonb DEFAULT '{}'::jsonb NOT NULL;
