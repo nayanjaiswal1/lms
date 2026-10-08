@@ -71,8 +71,7 @@ export function ActiveLabsBar() {
           isExpanded ? "max-w-xs gap-3 px-2 pr-3" : "max-w-12 gap-0 px-2",
         )}
       >
-        <button
-          aria-expanded={isExpanded}
+        <Button aria-expanded={isExpanded}
           aria-label={
             isExpanded
               ? "Collapse lab session controls"
@@ -80,6 +79,7 @@ export function ActiveLabsBar() {
           }
           className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-card"
           type="button"
+          variant="unstyled"
           onClick={() => setIsExpanded((expanded) => !expanded)}
         >
           <Icon aria-hidden className={cn("h-4 w-4", isRunning ? "text-success" : "text-warning")} />
@@ -90,7 +90,7 @@ export function ActiveLabsBar() {
               isRunning ? "bg-success animate-pulse ring-success/10" : "bg-warning ring-warning/10",
             )}
           />
-        </button>
+        </Button>
 
         <div
           className={cn(

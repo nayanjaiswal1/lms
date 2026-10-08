@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useTransition } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,8 +25,7 @@ export function VoteButtons({ targetType, targetId, score, myVote }: VoteButtons
 
   return (
     <div className="flex flex-col items-center gap-0.5">
-      <button
-        aria-label="Upvote"
+      <Button aria-label="Upvote"
         aria-pressed={myVote === 1}
         className={cn(
           "touch-target flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted",
@@ -33,13 +33,13 @@ export function VoteButtons({ targetType, targetId, score, myVote }: VoteButtons
         )}
         disabled={isPending}
         type="button"
+        variant="unstyled"
         onClick={() => cast(1)}
       >
         <ChevronUp className="h-4 w-4" />
-      </button>
+      </Button>
       <span className="min-w-4 text-center text-xs font-semibold text-foreground">{score}</span>
-      <button
-        aria-label="Downvote"
+      <Button aria-label="Downvote"
         aria-pressed={myVote === -1}
         className={cn(
           "touch-target flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted",
@@ -47,10 +47,11 @@ export function VoteButtons({ targetType, targetId, score, myVote }: VoteButtons
         )}
         disabled={isPending}
         type="button"
+        variant="unstyled"
         onClick={() => cast(-1)}
       >
         <ChevronDown className="h-4 w-4" />
-      </button>
+      </Button>
     </div>
   );
 }

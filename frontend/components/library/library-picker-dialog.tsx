@@ -159,8 +159,7 @@ export function LibraryPickerDialog({ sectionId, open, onOpenChange, onAdded }: 
               </div>
               <div className="flex flex-wrap gap-1.5" role="tablist">
                 {KIND_FILTERS.map((f) => (
-                  <button
-                    aria-selected={list.kind === f.value}
+                  <Button aria-selected={list.kind === f.value}
                     className={cn(
                       "touch-target rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                       list.kind === f.value
@@ -170,10 +169,11 @@ export function LibraryPickerDialog({ sectionId, open, onOpenChange, onAdded }: 
                     key={f.value}
                     role="tab"
                     type="button"
+                    variant="unstyled"
                     onClick={() => handleKindChange(f.value)}
                   >
                     {f.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -184,8 +184,7 @@ export function LibraryPickerDialog({ sectionId, open, onOpenChange, onAdded }: 
                 <p className="text-xs text-muted-foreground">No items found.</p>
               )}
               {list.items.map((item) => (
-                <button
-                  className={cn(
+                <Button className={cn(
                     "touch-target flex flex-col items-start gap-1 rounded-md border p-3 text-left transition-colors",
                     selection?.item.id === item.id
                       ? "border-primary bg-muted"
@@ -193,6 +192,7 @@ export function LibraryPickerDialog({ sectionId, open, onOpenChange, onAdded }: 
                   )}
                   key={`${item.kind}-${item.id}`}
                   type="button"
+                  variant="unstyled"
                   onClick={() => handleSelect(item)}
                 >
                   <div className="flex w-full items-center gap-2">
@@ -200,10 +200,10 @@ export function LibraryPickerDialog({ sectionId, open, onOpenChange, onAdded }: 
                     <Badge className="shrink-0 capitalize" variant="outline">{item.kind}</Badge>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    <Badge className="text-[10px] capitalize" variant="secondary">{item.mode}</Badge>
-                    {item.platform && <Badge className="text-[10px]" variant="secondary">Platform</Badge>}
+                    <Badge className="text-xs capitalize" variant="secondary">{item.mode}</Badge>
+                    {item.platform && <Badge className="text-xs" variant="secondary">Platform</Badge>}
                   </div>
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -223,7 +223,7 @@ export function LibraryPickerDialog({ sectionId, open, onOpenChange, onAdded }: 
 
                 {isPreviewing && <Loader2 aria-hidden className="h-4 w-4 animate-spin text-muted-foreground" />}
                 {!isPreviewing && selection.preview !== null && (
-                  <pre className="max-h-40 overflow-y-auto rounded-md bg-muted p-2 text-[11px] whitespace-pre-wrap">
+                  <pre className="max-h-40 overflow-y-auto rounded-md bg-muted p-2 text-xs whitespace-pre-wrap">
                     {JSON.stringify(selection.preview, null, 2)}
                   </pre>
                 )}

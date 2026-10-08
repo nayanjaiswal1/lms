@@ -34,16 +34,16 @@ export function ReviewForm({ courseId, initialRating, onSubmitted }: ReviewFormP
 
       <div aria-label="Star rating" className="flex items-center gap-1" role="radiogroup">
         {[1, 2, 3, 4, 5].map((n) => (
-          <button
-            aria-label={`${n} star${n === 1 ? "" : "s"}`}
+          <Button aria-label={`${n} star${n === 1 ? "" : "s"}`}
             aria-pressed={rating >= n}
             className="touch-target text-primary"
             key={n}
             type="button"
+            variant="unstyled"
             onClick={() => setRating(n)}
           >
             <Star aria-hidden className="h-5 w-5" fill={rating >= n ? "currentColor" : "none"} />
-          </button>
+          </Button>
         ))}
       </div>
 

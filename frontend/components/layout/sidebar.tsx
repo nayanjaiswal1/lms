@@ -13,6 +13,7 @@ import ROUTES, { isCourseLearnRoute } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/lib/server/auth";
 
+import { Button } from "@/components/ui/button";
 interface Props {
   user: AuthUser | null;
 }
@@ -63,8 +64,7 @@ export function Sidebar({ user }: Props) {
       </aside>
 
       {/* Edge-mounted toggle — straddles the sidebar/content border, à la Linear/Notion/VS Code */}
-      <button
-        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      <Button aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         className={cn(
           "absolute top-9 -right-3 z-raised flex-center h-6 w-6 rounded-full",
           "border border-border bg-background text-muted-foreground shadow-card",
@@ -72,6 +72,7 @@ export function Sidebar({ user }: Props) {
           "transition-all duration-fast"
         )}
         type="button"
+        variant="unstyled"
         onClick={toggleCollapsed}
       >
         {collapsed ? (
@@ -79,7 +80,7 @@ export function Sidebar({ user }: Props) {
         ) : (
           <ChevronLeft aria-hidden="true" size={14} />
         )}
-      </button>
+      </Button>
     </div>
   );
 }

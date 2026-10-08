@@ -10,6 +10,7 @@ import { apiFetch } from "@/lib/client/api";
 import type { WikiPageDetail, WikiSearchResult } from "@/lib/server/wiki";
 import ROUTES from "@/lib/routes";
 
+import { Button } from "@/components/ui/button";
 const DEBOUNCE_MS = 300;
 
 interface WikiSearchProps {
@@ -64,11 +65,11 @@ export function WikiSearch({ spaceSlug }: WikiSearchProps) {
           {results.length === 0 && <p className="text-sm text-muted-foreground">No pages found.</p>}
           {results.map((r) => (
             <li key={r.page_id}>
-              <button className="card-base card-interactive block w-full p-4 text-left" type="button" onClick={() => void openResult(r)}>
+              <Button className="card-base card-interactive block w-full p-4 text-left" type="button" variant="unstyled" onClick={() => void openResult(r)}>
                 <p className="font-medium text-foreground">{r.title}</p>
                 <p className="text-xs text-muted-foreground">{r.space_name}</p>
                 {r.excerpt && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{r.excerpt}</p>}
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

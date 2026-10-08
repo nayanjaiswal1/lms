@@ -81,9 +81,9 @@ export function QuestionComposer({ workspaceId, onAsked, onViewThread }: Questio
             {similar.map((q) => (
               <li className="flex items-center justify-between gap-2 text-sm" key={q.id}>
                 <span className="min-w-0 truncate">{q.question}</span>
-                <button className="shrink-0 text-xs text-primary hover:underline" type="button" onClick={() => onViewThread(q)}>
+                <Button className="shrink-0 text-xs text-primary hover:underline" type="button" variant="unstyled" onClick={() => onViewThread(q)}>
                   Already asked — view thread
-                </button>
+                </Button>
               </li>
             ))}
           </ul>

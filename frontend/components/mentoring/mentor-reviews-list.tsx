@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { Eye, Star, UserRound } from "lucide-react";
 import type { PublicReview } from "@/lib/server/feedback";
@@ -21,14 +22,14 @@ export function MentorReviewsList({ reviews }: Props) {
     <section className="card-raised">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Recent mentees feedback</h2>
-        <button
-          className="flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+        <Button className="flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
           type="button"
+          variant="unstyled"
           onClick={() => void setOpen(open ? null : true)}
         >
           <Eye aria-hidden className="h-4 w-4" />
           {open ? "Hide reviews" : "View recent reviews"}
-        </button>
+        </Button>
       </div>
 
       {open && (

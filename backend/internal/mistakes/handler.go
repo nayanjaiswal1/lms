@@ -24,9 +24,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrNotFound: {Status: http.StatusNotFound, Message: "Not found."},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.")
 
 // HandleList handles GET /api/mistakes?category=&context_tag=&from=&to=
 // (from/to are RFC3339 timestamps).

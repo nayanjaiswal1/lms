@@ -10,6 +10,7 @@ import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@
 import type { ChecklistOption } from "@/components/shared/checklist-grid";
 import { cn } from "@/lib/utils";
 
+import { Button } from "@/components/ui/button";
 interface Props {
   options: ChecklistOption[];
   selected: Set<string>;
@@ -135,15 +136,15 @@ export function MultiSelectDropdown({
           {selectedOptions.map((opt) => (
             <Badge className="gap-1 pr-1" key={opt.id} variant="secondary">
               {opt.label}
-              <button
-                aria-label={`Remove ${opt.label}`}
+              <Button aria-label={`Remove ${opt.label}`}
                 className="rounded-full hover:bg-foreground/10"
                 disabled={disabled}
                 type="button"
+                variant="unstyled"
                 onClick={() => onToggle(opt.id)}
               >
                 <X className="h-3 w-3" />
-              </button>
+              </Button>
             </Badge>
           ))}
         </div>

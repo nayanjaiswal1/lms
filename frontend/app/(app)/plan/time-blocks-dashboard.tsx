@@ -165,9 +165,9 @@ export function TimeBlocksDashboard({ events, onEventClick }: TimeBlocksDashboar
               : undefined;
 
             return (
-              <button
-                className="group flex w-full items-start gap-3 rounded-lg border border-border/50 bg-card p-3.5 text-left transition-colors hover:bg-muted/50 hover:border-border"
+              <Button className="group flex w-full items-start gap-3 rounded-lg border border-border/50 bg-card p-3.5 text-left transition-colors hover:bg-muted/50 hover:border-border"
                 key={event.id}
+                variant="unstyled"
                 onClick={() => onEventClick(event.id)}
               >
                 {/* Status indicator */}
@@ -228,7 +228,7 @@ export function TimeBlocksDashboard({ events, onEventClick }: TimeBlocksDashboar
                     )}
                   </div>
                 </div>
-              </button>
+              </Button>
             );
           })}
         </div>

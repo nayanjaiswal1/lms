@@ -58,8 +58,7 @@ function DomainCard({ domain, orgId }: DomainCardProps) {
             <input name="org_id" type="hidden" value={orgId} />
             <input name="domain_id" type="hidden" value={domain.id} />
             <input name="enabled" type="hidden" value={domain.auto_join_enabled ? "false" : "true"} />
-            <button
-              aria-checked={domain.auto_join_enabled}
+            <Button aria-checked={domain.auto_join_enabled}
               aria-label={
                 domain.auto_join_enabled
                   ? `Disable auto-join for ${domain.domain}`
@@ -71,6 +70,7 @@ function DomainCard({ domain, orgId }: DomainCardProps) {
               ].join(" ")}
               role="switch"
               type="submit"
+              variant="unstyled"
             >
               <span
                 className={[
@@ -78,7 +78,7 @@ function DomainCard({ domain, orgId }: DomainCardProps) {
                   domain.auto_join_enabled ? "translate-x-4" : "translate-x-0",
                 ].join(" ")}
               />
-            </button>
+            </Button>
             <span className="text-xs text-muted-foreground ml-1">
               {domain.auto_join_enabled ? "ON" : "OFF"}
             </span>

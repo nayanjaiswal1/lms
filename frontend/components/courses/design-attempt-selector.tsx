@@ -41,8 +41,7 @@ export function DesignAttemptSelector({ moduleId, attempts, selectedAttemptId, o
   return (
     <div className="flex items-center gap-1.5">
       {attempts.map((a) => (
-        <button
-          aria-current={a.id === selectedAttemptId}
+        <Button aria-current={a.id === selectedAttemptId}
           aria-label={`Attempt ${a.attempt_number}${a.has_feedback ? " (has feedback)" : ""}`}
           className={cn(
             "touch-target flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold transition-colors duration-fast",
@@ -52,10 +51,11 @@ export function DesignAttemptSelector({ moduleId, attempts, selectedAttemptId, o
           )}
           key={a.id}
           type="button"
+          variant="unstyled"
           onClick={() => onSelect(a.id)}
         >
           {a.attempt_number}
-        </button>
+        </Button>
       ))}
       <Button
         aria-label="Start a new attempt"

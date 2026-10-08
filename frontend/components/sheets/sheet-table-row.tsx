@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useTransition } from "react";
 import { Check, Circle, ExternalLink, RotateCcw, Star, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -115,21 +116,20 @@ export function SheetTableRow({ sheetId, item, index, isOwner, isEditMode, isAct
           : undefined
       }
     >
-      <button
-        aria-label={STATUS_LABEL[item.status]}
+      <Button aria-label={STATUS_LABEL[item.status]}
         className={cn(
           "touch-target flex items-center justify-center rounded-full border shrink-0",
           STATUS_CLASS[item.status],
         )}
         disabled={isPending}
         type="button"
+        variant="unstyled"
         onClick={cycleStatus}
       >
         <StatusIcon aria-hidden className="h-4 w-4" />
-      </button>
+      </Button>
 
-      <button
-        aria-label={item.is_starred ? "Unstar" : "Star"}
+      <Button aria-label={item.is_starred ? "Unstar" : "Star"}
         aria-pressed={item.is_starred}
         className={cn(
           "touch-target shrink-0 text-muted-foreground hover:text-primary",
@@ -137,10 +137,11 @@ export function SheetTableRow({ sheetId, item, index, isOwner, isEditMode, isAct
         )}
         disabled={isPending}
         type="button"
+        variant="unstyled"
         onClick={toggleStarred}
       >
         <Star aria-hidden className={cn("h-4 w-4", item.is_starred && "fill-current")} />
-      </button>
+      </Button>
 
       <div className="min-w-0 flex-1">
         {item.external_url ? (
@@ -179,15 +180,15 @@ export function SheetTableRow({ sheetId, item, index, isOwner, isEditMode, isAct
       </div>
 
       {isOwner && isEditMode && (
-        <button
-          aria-label={`Delete ${item.title}`}
+        <Button aria-label={`Delete ${item.title}`}
           className="touch-target shrink-0 text-muted-foreground hover:text-destructive"
           disabled={isPending}
           type="button"
+          variant="unstyled"
           onClick={remove}
         >
           <Trash2 aria-hidden className="h-4 w-4" />
-        </button>
+        </Button>
       )}
     </li>
   );

@@ -37,6 +37,4 @@ var domainErrors = map[error]httputil.ErrSpec{
 	tickets.ErrForbidden: {Status: http.StatusForbidden, Message: "You do not have permission to do that."},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.")

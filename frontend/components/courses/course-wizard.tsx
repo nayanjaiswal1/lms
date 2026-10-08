@@ -260,8 +260,7 @@ export function CourseWizard({ course, finalTest, certificateRule }: Props) {
       {/* Tab bar */}
       <div className="flex gap-1 border-b border-border" role="tablist">
         {TABS.filter((tab) => tab.id !== "final-test" || course).map((tab) => (
-          <button
-            aria-selected={wiz.activeTab === tab.id}
+          <Button aria-selected={wiz.activeTab === tab.id}
             className={cn(
               "px-4 py-2.5 text-sm transition-colors border-b-2 -mb-px",
               wiz.activeTab === tab.id
@@ -271,10 +270,11 @@ export function CourseWizard({ course, finalTest, certificateRule }: Props) {
             key={tab.id}
             role="tab"
             type="button"
+            variant="unstyled"
             onClick={() => wiz.setActiveTab(tab.id)}
           >
             {tab.label}
-          </button>
+          </Button>
         ))}
       </div>
 

@@ -133,14 +133,14 @@ export function OnboardingWizard() {
       {/* Sticky action bar — always visible, independent of how tall the content is */}
       <div className="safe-bottom sticky bottom-0 border-t border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <button
-            className="text-sm text-muted-foreground underline-offset-4 hover:underline disabled:opacity-50"
+          <Button className="text-sm text-muted-foreground underline-offset-4 hover:underline disabled:opacity-50"
             disabled={isPending}
             type="button"
+            variant="unstyled"
             onClick={handleSkip}
           >
             Skip setup →
-          </button>
+          </Button>
           <Button
             className="gap-2"
             disabled={!watchedGoal || !watchedSkill || isPending}

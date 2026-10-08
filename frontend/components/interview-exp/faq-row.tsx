@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useTransition } from "react";
 import Link from "next/link";
 import { Check, Circle, ExternalLink, Flame, RotateCcw, Star } from "lucide-react";
@@ -57,18 +58,18 @@ export function FaqRow({ item }: FaqRowProps) {
 
   return (
     <li className="flex items-center gap-3 px-4 py-3">
-      <button
-        aria-label={STATUS_LABEL[item.status]}
+      <Button aria-label={STATUS_LABEL[item.status]}
         className={cn(
           "touch-target flex items-center justify-center rounded-full border shrink-0",
           STATUS_CLASS[item.status],
         )}
         disabled={isPending}
         type="button"
+        variant="unstyled"
         onClick={cycleStatus}
       >
         <StatusIcon className="h-4 w-4" />
-      </button>
+      </Button>
 
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium text-foreground">{item.question}</p>
@@ -82,16 +83,16 @@ export function FaqRow({ item }: FaqRowProps) {
         {item.score}
       </span>
 
-      <button
-        aria-label={item.is_starred ? "Unstar" : "Star"}
+      <Button aria-label={item.is_starred ? "Unstar" : "Star"}
         aria-pressed={item.is_starred}
         className="touch-target flex items-center justify-center shrink-0"
         disabled={isPending}
         type="button"
+        variant="unstyled"
         onClick={toggleStarred}
       >
         <Star className={cn("h-4 w-4", item.is_starred ? "fill-primary text-primary" : "text-muted-foreground")} />
-      </button>
+      </Button>
 
       <Link
         aria-label={`Open ${item.question}`}

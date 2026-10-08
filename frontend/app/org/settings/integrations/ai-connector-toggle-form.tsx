@@ -38,8 +38,7 @@ export function AIConnectorToggleForm({ orgId, config }: AIConnectorToggleFormPr
             Nothing is connected until a member opts in individually.
           </p>
         </div>
-        <button
-          aria-checked={enabled}
+        <Button aria-checked={enabled}
           aria-label="Toggle AI Connector"
           className={[
             "relative inline-flex h-5 w-9 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-[--duration-normal] flex-shrink-0 mt-0.5",
@@ -48,6 +47,7 @@ export function AIConnectorToggleForm({ orgId, config }: AIConnectorToggleFormPr
           id="ai-connector-toggle"
           role="switch"
           type="button"
+          variant="unstyled"
           onClick={() => setEnabled((v) => !v)}
         >
           <span
@@ -56,7 +56,7 @@ export function AIConnectorToggleForm({ orgId, config }: AIConnectorToggleFormPr
               enabled ? "translate-x-4" : "translate-x-0",
             ].join(" ")}
           />
-        </button>
+        </Button>
       </div>
 
       {state.error && (

@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useRef, useState, useTransition } from "react";
 import { Input } from "@/components/ui/input";
 import { searchWorkItemsAction } from "@/lib/workspace/items-actions";
@@ -58,13 +59,13 @@ export function ItemSearchPicker({ workspaceId, filterTypes, excludeItemId, valu
         <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-md border border-border p-1">
           {results.map((r) => (
             <li key={r.id}>
-              <button
-                className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted"
+              <Button className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted"
                 type="button"
+                variant="unstyled"
                 onClick={() => { onChange(r); setQuery(""); setResults([]); }}
               >
                 <span className="font-mono text-xs text-muted-foreground">{r.key}</span> {r.title}
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

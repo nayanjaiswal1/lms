@@ -26,18 +26,18 @@ function AssetInput({ url, accept, label, onUrl, onFile }: AssetInputProps) {
     <div className="flex flex-col gap-2">
       <div className="flex gap-1 text-xs">
         {(["url", "upload"] as const).map((t) => (
-          <button
-            className={cn(
+          <Button className={cn(
               "flex items-center gap-1 rounded px-2 py-1 transition-colors",
               tab === t ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground",
             )}
             key={t}
             type="button"
+            variant="unstyled"
             onClick={() => setTab(t)}
           >
             {t === "url" ? <LinkIcon className="h-3 w-3" /> : <Upload className="h-3 w-3" />}
             {t === "url" ? "Paste URL" : "Upload file"}
-          </button>
+          </Button>
         ))}
       </div>
       {tab === "url" ? (

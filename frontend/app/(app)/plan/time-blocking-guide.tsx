@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import * as React from "react";
 import { X, Lightbulb, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 
@@ -81,16 +82,16 @@ export function TimeBlockingGuide({ onDismiss }: TimeBlockingGuideProps) {
         </div>
 
         {/* Close button */}
-        <button
-          aria-label="Dismiss guide"
+        <Button aria-label="Dismiss guide"
           className="flex-shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+          variant="unstyled"
           onClick={() => {
             setDismissed(true);
             onDismiss?.();
           }}
         >
           <X className="h-5 w-5" />
-        </button>
+        </Button>
       </div>
     </div>
   );

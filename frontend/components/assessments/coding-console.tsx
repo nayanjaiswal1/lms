@@ -2,6 +2,7 @@ import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RunResult } from "@/lib/assessments/types";
 
+import { Button } from "@/components/ui/button";
 interface SampleCase {
   stdin: string;
   expected: string;
@@ -33,22 +34,22 @@ export function CodingConsole({ sampleCases, tab, running, result, error, onTabC
   return (
     <div className="flex h-full flex-col border-t border-border">
       <div className="flex items-center gap-1 border-b border-border bg-muted/30 px-3 py-1.5">
-        <button
-          className={cn(
+        <Button className={cn(
             "rounded px-2.5 py-1 text-xs font-medium transition-colors",
             tab === "testcase" ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground",
           )}
           type="button"
+          variant="unstyled"
           onClick={() => onTabChange("testcase")}
         >
           Testcase
-        </button>
-        <button
-          className={cn(
+        </Button>
+        <Button className={cn(
             "flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors",
             tab === "result" ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground",
           )}
           type="button"
+          variant="unstyled"
           onClick={() => onTabChange("result")}
         >
           Result
@@ -59,7 +60,7 @@ export function CodingConsole({ sampleCases, tab, running, result, error, onTabC
               <XCircle aria-hidden className="h-3 w-3 text-destructive" />
             )
           )}
-        </button>
+        </Button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3">

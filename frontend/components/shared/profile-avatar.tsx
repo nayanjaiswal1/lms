@@ -1,5 +1,7 @@
 "use client"
 
+import { Button } from "@/components/ui/button";
+
 import { Camera } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAvatarUpload } from "@/lib/use-avatar-upload"
@@ -83,8 +85,7 @@ export function ProfileAvatar({
             type="file"
             onChange={handleFileChange}
           />
-          <button
-            aria-label="Change profile picture"
+          <Button aria-label="Change profile picture"
             className={cn(
               "absolute bottom-0 right-0",
               "w-7 h-7 rounded-full",
@@ -94,10 +95,11 @@ export function ProfileAvatar({
               "touch-target"
             )}
             type="button"
+            variant="unstyled"
             onClick={() => inputRef.current?.click()}
           >
             <Camera className="text-foreground" size={icon} />
-          </button>
+          </Button>
           <AvatarCropDialog
             file={pendingFile}
             onCancel={handleCropCancel}

@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -46,8 +47,7 @@ export function ScopeTabs({ tabs, activeScope, activeScopeId, activeFeatureType 
       {tabs.map((tab) => {
         const active = isActive(tab);
         return (
-          <button
-            aria-selected={active}
+          <Button aria-selected={active}
             className={cn(
               "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               active
@@ -56,10 +56,11 @@ export function ScopeTabs({ tabs, activeScope, activeScopeId, activeFeatureType 
             )}
             key={`${tab.scope}-${tab.scopeId ?? ""}-${tab.featureType ?? ""}`}
             role="tab"
+            variant="unstyled"
             onClick={() => handleSelect(tab)}
           >
             {tab.label}
-          </button>
+          </Button>
         );
       })}
     </div>

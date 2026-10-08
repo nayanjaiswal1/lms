@@ -63,19 +63,19 @@ export function WikiCommentRow({
           <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
             <span>{new Date(comment.created_at).toLocaleString()}</span>
             {!isReply && !comment.deleted && (
-              <button className="hover:text-foreground disabled:pointer-events-none disabled:opacity-50" disabled={pending} type="button" onClick={() => onSetActiveAction(isReplying ? null : { type: "reply", id: comment.id })}>
+              <Button className="hover:text-foreground disabled:pointer-events-none disabled:opacity-50" disabled={pending} type="button" variant="unstyled" onClick={() => onSetActiveAction(isReplying ? null : { type: "reply", id: comment.id })}>
                 Reply
-              </button>
+              </Button>
             )}
             {canEdit && (
-              <button className="hover:text-foreground disabled:pointer-events-none disabled:opacity-50" disabled={pending} type="button" onClick={() => onSetActiveAction({ type: "edit", id: comment.id })}>
+              <Button className="hover:text-foreground disabled:pointer-events-none disabled:opacity-50" disabled={pending} type="button" variant="unstyled" onClick={() => onSetActiveAction({ type: "edit", id: comment.id })}>
                 Edit
-              </button>
+              </Button>
             )}
             {canDelete && (
-              <button className="hover:text-destructive disabled:pointer-events-none disabled:opacity-50" disabled={pending} type="button" onClick={() => onDelete(comment.id)}>
+              <Button className="hover:text-destructive disabled:pointer-events-none disabled:opacity-50" disabled={pending} type="button" variant="unstyled" onClick={() => onDelete(comment.id)}>
                 Delete
-              </button>
+              </Button>
             )}
           </div>
         )}

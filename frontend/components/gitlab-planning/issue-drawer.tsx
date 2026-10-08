@@ -113,8 +113,7 @@ export function IssueDrawer({ issue, onClose }: IssueDrawerProps) {
           </dl>
           <div className="mt-3 flex items-center gap-4 overflow-x-auto" role="tablist">
             {tabs.map((t) => (
-              <button
-                aria-selected={tab === t.key}
+              <Button aria-selected={tab === t.key}
                 className={cn(
                   "flex shrink-0 items-center gap-1.5 whitespace-nowrap py-1.5 text-xs font-semibold transition-colors",
                   tab === t.key ? "border-b-2 border-(--m-primary) text-primary" : "text-muted-foreground hover:text-foreground",
@@ -122,13 +121,14 @@ export function IssueDrawer({ issue, onClose }: IssueDrawerProps) {
                 key={t.key}
                 role="tab"
                 type="button"
+                variant="unstyled"
                 onClick={() => setTab(t.key)}
               >
                 <span>{t.label}</span>
                 {t.count !== undefined && (
                   <span className={cn("rounded-full px-1.5 text-xs", tab === t.key ? "bg-(--m-primary-fixed) text-(--m-on-primary-fixed)" : "bg-muted text-muted-foreground")}>{t.count}</span>
                 )}
-              </button>
+              </Button>
             ))}
           </div>
         </div>

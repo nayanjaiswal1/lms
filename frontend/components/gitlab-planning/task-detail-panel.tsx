@@ -6,6 +6,7 @@ import type { AeChangeLogEntry, AeTaskDetail } from "@/lib/server/gitlab-plannin
 import ROUTES from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
+import { Button } from "@/components/ui/button";
 interface TaskDetailPanelProps {
   task: AeTaskDetail;
   changeLog: AeChangeLogEntry[];
@@ -37,9 +38,9 @@ export function TaskDetailPanel({ task, changeLog, activeTab, className }: TaskD
             </span>
             <span className="flex size-5 items-center justify-center rounded bg-primary text-xs font-bold text-(--ae-card)">{task.assignee.initial}</span>
             <span className="text-xs font-medium text-foreground">{task.assignee.name}</span>
-            <button aria-label="More task actions" className="text-muted-foreground hover:text-muted-foreground" type="button">
+            <Button aria-label="More task actions" className="text-muted-foreground hover:text-muted-foreground" type="button" variant="unstyled">
               <MoreVertical aria-hidden className="size-4" />
-            </button>
+            </Button>
           </div>
         </div>
         <p className="text-xs text-muted-foreground">{task.description}</p>

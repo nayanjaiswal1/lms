@@ -24,9 +24,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 }
 
 // writeDomainError maps domain errors to HTTP responses.
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.")
 
 // GetDueCards handles GET /api/srs/due.
 // Returns up to 20 cards due for review today.

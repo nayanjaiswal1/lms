@@ -1,9 +1,11 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import type { CSSProperties } from "react";
 import { formatTimeLabel } from "@/app/(app)/calendar/calendar-math";
 import { CALENDAR_LAYER_OPTIONS, CALENDAR_PRIORITY_OPTIONS } from "@/lib/calendar/types";
 import type { CalendarEvent, CalendarLayer } from "@/lib/calendar/types";
+import { Checkbox } from "@/components/ui/checkbox";
 
 /** Picks the first matching layer's swatch/badge so an event that belongs to
  * more than one layer (e.g. a mentor session that's also "mine") still gets
@@ -59,21 +61,20 @@ export function EventBlock({
 
   if (variant === "agenda") {
     return (
-      <button
-        className={`${base} w-full flex-row items-center gap-2 py-2`}
+      <Button className={`${base} w-full flex-row items-center gap-2 py-2`}
         type="button"
+        variant="unstyled"
         onClick={(e) => {
           e.stopPropagation();
           onClick();
         }}
       >
         {onToggleComplete ? (
-          <input
+          <Checkbox
             aria-label={completed ? "Mark task not done" : "Mark task done"}
             checked={completed}
             className="h-4 w-4 shrink-0"
-            type="checkbox"
-            onChange={(e) => onToggleComplete(e.target.checked)}
+            onCheckedChange={(v) => onToggleComplete(v === true)}
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
@@ -90,17 +91,17 @@ export function EventBlock({
             title={`Priority: ${priorityMeta.label}`}
           />
         )}
-      </button>
+      </Button>
     );
   }
 
   if (variant === "month") {
     return (
-      <button
-        className={`${base} w-full truncate`}
+      <Button className={`${base} w-full truncate`}
         draggable={draggable}
         title={event.title}
         type="button"
+        variant="unstyled"
         onClick={(e) => {
           e.stopPropagation();
           onClick();
@@ -111,7 +112,7 @@ export function EventBlock({
           {!event.all_day && <span className="mr-1 tabular-nums opacity-80">{formatTimeLabel(start)}</span>}
           {event.title}
         </span>
-      </button>
+      </Button>
     );
   }
 
@@ -123,9 +124,9 @@ export function EventBlock({
       style={style}
       onDragStart={onDragStart}
     >
-      <button
-        className="flex min-h-0 flex-1 flex-col items-start overflow-hidden text-left"
+      <Button className="flex min-h-0 flex-1 flex-col items-start overflow-hidden text-left"
         type="button"
+        variant="unstyled"
         onClick={(e) => {
           e.stopPropagation();
           onClick();
@@ -137,7 +138,7 @@ export function EventBlock({
             overflow, rendering the title as a near-invisible sliver. */}
         <span className="truncate shrink-0 font-medium">{event.title}</span>
         <span className="shrink-0 tabular-nums opacity-80">{formatTimeLabel(start)}</span>
-      </button>
+      </Button>
       {resizeHandlers && !cancelled && (
         <div
           aria-hidden

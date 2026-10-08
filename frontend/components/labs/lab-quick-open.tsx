@@ -1,5 +1,7 @@
 "use client"
 
+import { Button } from "@/components/ui/button";
+
 import { useState, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -103,19 +105,19 @@ export function LabQuickOpen({ files, onOpen }: LabQuickOpenProps) {
             const dir = dirname(file.path)
             return (
               <li key={file.path}>
-                <button
-                  className={cn(
+                <Button className={cn(
                     "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm",
                     i === highlighted ? "bg-primary/10 text-primary" : "hover:bg-muted",
                   )}
                   type="button"
+                  variant="unstyled"
                   onClick={() => openResult(file.path)}
                   onMouseEnter={() => setState((prev) => ({ ...prev, index: i }))}
                 >
                   <Icon aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="shrink-0">{basename(file.path)}</span>
                   {dir && <span className="truncate text-xs text-muted-foreground">{dir}</span>}
-                </button>
+                </Button>
               </li>
             )
           })}

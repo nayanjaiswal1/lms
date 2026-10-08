@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useState, useTransition } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
@@ -41,9 +42,9 @@ export function BoardTaskRow({ task, allTasks, diaryEntries, projects }: BoardTa
     <li className="flex flex-col gap-2 rounded-md border border-border bg-card p-3">
       <div className="flex items-start gap-2.5">
         <Checkbox checked={isDone} className="mt-0.5" onCheckedChange={toggle} />
-        <button
-          className="flex flex-1 items-start gap-1.5 text-left"
+        <Button className="flex flex-1 items-start gap-1.5 text-left"
           type="button"
+          variant="unstyled"
           onClick={() => setExpanded((e) => !e)}
         >
           <span
@@ -59,7 +60,7 @@ export function BoardTaskRow({ task, allTasks, diaryEntries, projects }: BoardTa
               ? <ChevronDown aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
               : <ChevronRight aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           )}
-        </button>
+        </Button>
       </div>
 
       {expanded && task.body && (

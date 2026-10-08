@@ -33,8 +33,7 @@ function TaskPill({ task, completion, isSelected, onSelect }: TaskPillProps) {
   const status: TaskStatus = completion?.status ?? "pending"
 
   return (
-    <button
-      aria-current={isSelected ? "true" : undefined}
+    <Button aria-current={isSelected ? "true" : undefined}
       aria-label={`Task ${task.position}: ${task.title}${status === "passed" ? " — passed" : status === "skipped" ? " — skipped" : ""}`}
       className={cn(
         "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums transition-colors duration-fast",
@@ -46,6 +45,7 @@ function TaskPill({ task, completion, isSelected, onSelect }: TaskPillProps) {
           : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground",
       )}
       type="button"
+      variant="unstyled"
       onClick={onSelect}
     >
       {status === "passed" ? (
@@ -55,7 +55,7 @@ function TaskPill({ task, completion, isSelected, onSelect }: TaskPillProps) {
       ) : (
         task.position
       )}
-    </button>
+    </Button>
   )
 }
 

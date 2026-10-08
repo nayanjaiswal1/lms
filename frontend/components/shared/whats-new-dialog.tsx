@@ -100,20 +100,20 @@ export function WhatsNewDialog() {
               </div>
               <div className="flex gap-1 overflow-x-auto px-2 pb-2 sm:flex-col sm:overflow-y-auto sm:px-2 sm:pb-4">
                 {list.entries.map((entry) => (
-                  <button
-                    className={cn(
+                  <Button className={cn(
                       "shrink-0 rounded-md px-3 py-2 text-left transition-colors duration-fast sm:shrink",
                       entry.id === selected.id ? "bg-accent text-accent-foreground" : "hover:bg-accent/50",
                     )}
                     key={entry.id}
                     type="button"
+                    variant="unstyled"
                     onClick={() => setSelectedId(entry.id)}
                   >
                     <span className="block whitespace-nowrap text-sm font-medium sm:whitespace-normal">
                       {entry.title}
                     </span>
                     <span className="block text-xs text-muted-foreground">{formatDate(entry.published_at)}</span>
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>

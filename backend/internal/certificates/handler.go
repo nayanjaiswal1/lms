@@ -35,9 +35,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrInvalidThreshold:    {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"threshold_percent": "must be between 1 and 100"}},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.")
 
 // UpsertFinalTest handles PUT /api/courses/{courseID}/final-test
 func (h *Handler) UpsertFinalTest(w http.ResponseWriter, r *http.Request) {

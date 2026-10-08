@@ -6,6 +6,7 @@ import { Camera, ChevronDown, ChevronUp, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CameraVideo } from "@/components/assessments/camera-video";
 
+import { Button } from "@/components/ui/button";
 interface CameraPipProps {
   stream: MediaStream | null;
   phoneConnected: boolean;
@@ -18,10 +19,10 @@ export function CameraPip({ stream, phoneConnected }: CameraPipProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <button
-        aria-expanded={!collapsed}
+      <Button aria-expanded={!collapsed}
         aria-label={collapsed ? "Show cameras" : "Hide cameras"}
         className="flex-between text-xs font-medium text-muted-foreground transition-colors duration-fast hover:text-foreground"
+        variant="unstyled"
         onClick={() => setCollapsed((v) => !v)}
       >
         <span>Cameras</span>
@@ -30,7 +31,7 @@ export function CameraPip({ stream, phoneConnected }: CameraPipProps) {
         ) : (
           <ChevronUp aria-hidden className="h-3.5 w-3.5" />
         )}
-      </button>
+      </Button>
 
       {!collapsed && (
         <div className="flex flex-col gap-2">

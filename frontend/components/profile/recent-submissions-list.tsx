@@ -1,5 +1,6 @@
 'use client'
 
+import { Button } from "@/components/ui/button"
 import { parseAsStringLiteral, useQueryState } from 'nuqs'
 import { History, ListChecks } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -58,8 +59,7 @@ export function RecentSubmissionsList({ items }: Props) {
           const isActive = tab === activity
           const Icon = TAB_ICON[tab]
           return (
-            <button
-              aria-selected={isActive}
+            <Button aria-selected={isActive}
               className={cn(
                 'flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors duration-fast',
                 isActive
@@ -69,11 +69,12 @@ export function RecentSubmissionsList({ items }: Props) {
               key={tab}
               role="tab"
               type="button"
+              variant="unstyled"
               onClick={() => void setActivity(tab)}
             >
               <Icon aria-hidden="true" size={14} />
               {TAB_LABEL[tab]}
-            </button>
+            </Button>
           )
         })}
       </div>

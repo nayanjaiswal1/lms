@@ -1,5 +1,7 @@
 "use client"
 
+import { Button } from "@/components/ui/button";
+
 import type { ReactNode } from "react"
 import { Plus, X, TerminalSquare, FlaskConical } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -54,8 +56,7 @@ export function SandboxTerminalPanel({
             )}
             key={id}
           >
-            <button
-              aria-selected={activeTab === id}
+            <Button aria-selected={activeTab === id}
               className={cn(
                 // Compact tabs: desktop-only surface, no 44px touch-target here.
                 "flex items-center gap-1.5 pl-3 pr-1 py-1 text-xs font-medium",
@@ -63,38 +64,38 @@ export function SandboxTerminalPanel({
               )}
               role="tab"
               type="button"
+              variant="unstyled"
               onClick={() => onSelectTab(id)}
             >
               <TerminalSquare aria-hidden className="h-3.5 w-3.5" />
               Terminal {index + 1}
-            </button>
+            </Button>
             {terminalIds.length > 1 && (
-              <button
-                aria-label={`Close terminal ${index + 1}`}
+              <Button aria-label={`Close terminal ${index + 1}`}
                 className="p-1 text-muted-foreground hover:text-foreground"
                 type="button"
+                variant="unstyled"
                 onClick={() => onCloseTerminal(id)}
               >
                 <X aria-hidden className="h-3 w-3" />
-              </button>
+              </Button>
             )}
           </div>
         ))}
 
         {terminalIds.length < MAX_SANDBOX_TERMINALS && (
-          <button
-            aria-label="Open a new terminal"
+          <Button aria-label="Open a new terminal"
             className="p-1.5 text-muted-foreground hover:text-foreground"
             type="button"
+            variant="unstyled"
             onClick={onAddTerminal}
           >
             <Plus aria-hidden className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         )}
 
         {showTests && (
-          <button
-            aria-selected={activeTab === "tests"}
+          <Button aria-selected={activeTab === "tests"}
             className={cn(
               "ml-auto flex items-center gap-1.5 px-3 py-1 text-xs font-medium border-b-2 -mb-px",
               activeTab === "tests"
@@ -103,11 +104,12 @@ export function SandboxTerminalPanel({
             )}
             role="tab"
             type="button"
+            variant="unstyled"
             onClick={() => onSelectTab("tests")}
           >
             <FlaskConical aria-hidden className="h-3.5 w-3.5" />
             Tests
-          </button>
+          </Button>
         )}
       </div>
 

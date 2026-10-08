@@ -1,6 +1,7 @@
 "use client";
 
 import { Controller, type Control } from "react-hook-form";
+import { Switch } from "@/components/ui/switch";
 import type { AssessmentConfigFormData } from "@/lib/assessments/config-schema";
 
 // Shared visual pieces for the assessment config form — used by both the
@@ -22,28 +23,19 @@ export function ToggleRow({
       control={control}
       name={name}
       render={({ field }) => (
-        <label className="flex cursor-pointer items-start justify-between gap-4 py-3">
+        <label className="flex cursor-pointer items-start justify-between gap-4 py-3" htmlFor={`toggle-${name}`}>
           <span className="space-y-0.5">
             <span className="block text-sm font-medium text-foreground">{label}</span>
             <span className="block text-xs text-muted-foreground">{description}</span>
           </span>
-          <span className="relative mt-0.5 inline-flex h-5 w-9 flex-shrink-0">
-            <input
-              aria-label={label}
-              checked={Boolean(field.value)}
-              className="peer sr-only"
-              type="checkbox"
-              onChange={(e) => field.onChange(e.target.checked)}
-            />
-            <span
-              aria-hidden="true"
-              className="absolute inset-0 rounded-full border border-border bg-muted transition-colors duration-fast peer-checked:border-primary peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2"
-            />
-            <span
-              aria-hidden="true"
-              className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-background shadow-card transition-transform duration-fast peer-checked:translate-x-4"
-            />
-          </span>
+          <Switch
+            aria-label={label}
+            checked={Boolean(field.value)}
+            className="mt-0.5 h-5 w-9 border-border data-[state=checked]:border-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            id={`toggle-${name}`}
+            thumbClassName="h-4 w-4 shadow-card data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0.5"
+            onCheckedChange={field.onChange}
+          />
         </label>
       )}
     />

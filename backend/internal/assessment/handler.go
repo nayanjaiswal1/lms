@@ -56,9 +56,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 }
 
 // writeDomainError maps domain/service errors to HTTP responses.
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong. Please try again.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong. Please try again.")
 
 var slugInvalid = regexp.MustCompile(`[^a-z0-9]+`)
 

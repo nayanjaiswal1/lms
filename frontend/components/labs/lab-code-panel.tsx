@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { RotateCcw, Columns2, Rows2, Loader2, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CodeEditor } from "@/components/shared/code-editor"
 import { LabCodeConsole } from "@/components/labs/lab-code-console"
 import {
@@ -74,23 +75,18 @@ export function LabCodePanel({
             {LANGUAGE_LABELS[language]}
           </span>
         ) : (
-          <>
-            <label className="sr-only" htmlFor="lab-language">
-              Language
-            </label>
-            <select
-              className="text-xs bg-background border border-border rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              id="lab-language"
-              value={language}
-              onChange={(e) => onLanguageChange(e.target.value as LabCodeLanguage)}
-            >
-              {LANGUAGES.map((l) => (
-                <option key={l.value} value={l.value}>
-                  {l.label}
-                </option>
-              ))}
-            </select>
-          </>
+          <Select value={language} onValueChange={(v) => onLanguageChange(v as LabCodeLanguage)}>
+              <SelectTrigger aria-label="Language" className="h-auto w-auto gap-1 px-2 py-1 text-xs" id="lab-language">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LANGUAGES.map((l) => (
+                  <SelectItem key={l.value} value={l.value}>
+                    {l.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
         )}
 
         <div aria-hidden className="mx-2 h-4 w-px bg-border shrink-0" />

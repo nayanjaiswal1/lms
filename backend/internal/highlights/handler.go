@@ -31,9 +31,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrAIUnavailable: {Status: http.StatusServiceUnavailable, Message: "AI provider is not configured."},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong.")
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 

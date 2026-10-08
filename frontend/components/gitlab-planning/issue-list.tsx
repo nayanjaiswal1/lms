@@ -7,6 +7,8 @@ import { IssueDrawer } from "@/components/gitlab-planning/issue-drawer";
 import { IssueRow } from "@/components/gitlab-planning/issue-row";
 import type { AeIssue } from "@/lib/server/gitlab-planning";
 
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 interface IssueListProps {
   issues: AeIssue[];
   compact: boolean;
@@ -43,11 +45,10 @@ export function IssueList({ issues, compact, bulk }: IssueListProps) {
         <div className="flex flex-col justify-between gap-1.5 rounded-xl bg-muted px-2 py-1.5 shadow-card sm:flex-row sm:items-center">
           <div className="flex items-center gap-2">
             <label className="flex cursor-pointer select-none items-center gap-1">
-              <input
+              <Checkbox
                 checked={allSelected}
-                className="size-4 cursor-pointer rounded accent-primary"
-                type="checkbox"
-                onChange={() => setSelected(allSelected ? new Set() : new Set(issues.map((i) => i.id)))}
+                className="size-4 cursor-pointer rounded"
+                onCheckedChange={() => setSelected(allSelected ? new Set() : new Set(issues.map((i) => i.id)))}
               />
               <span className="m-headline-sm text-foreground">Select all {issues.length} issues displayed</span>
             </label>
@@ -55,15 +56,15 @@ export function IssueList({ issues, compact, bulk }: IssueListProps) {
           </div>
           <div className="flex flex-wrap items-center gap-1">
             {BATCH_ACTIONS.map(({ label, icon: Icon, tone }) => (
-              <button
-                className="m-label-md flex h-7 items-center gap-1 rounded-lg bg-card px-1.5 text-foreground shadow-card transition-colors hover:bg-muted disabled:opacity-50"
+              <Button className="m-label-md flex h-7 items-center gap-1 rounded-lg bg-card px-1.5 text-foreground shadow-card transition-colors hover:bg-muted disabled:opacity-50"
                 disabled={selected.size === 0}
                 key={label}
                 type="button"
+                variant="unstyled"
               >
                 <Icon aria-hidden className="size-3.5 text-(--mc)" data-mtone={tone} />
                 <span>{label}</span>
-              </button>
+              </Button>
             ))}
           </div>
         </div>

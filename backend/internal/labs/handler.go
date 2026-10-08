@@ -49,90 +49,63 @@ func NewHandler(repo *Repo, service *Service, pool *pgxpool.Pool, rdb *redis.Cli
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
-// writeDomainError maps labs domain errors to appropriate HTTP responses.
-func writeDomainError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, ErrNotFound):
-		httputil.WriteErrorCode(w, http.StatusNotFound, CodeNotFound, "Not found.")
-	case errors.Is(err, ErrForbidden):
-		httputil.WriteErrorCode(w, http.StatusForbidden, CodeForbidden, "Forbidden.")
-	case errors.Is(err, ErrSessionActive):
-		// StartSession resolves this internally on the normal path (returns
-		// the existing session instead of the error); reaching here means the
-		// race-resolution lookup itself failed, so surface a real error
-		// rather than a silent empty 200 the client would misread as "session
-		// started".
-		httputil.WriteErrorCode(w, http.StatusConflict, CodeSessionActive, "A session for this lab is already active.")
-	case errors.Is(err, ErrCapacityReached):
-		httputil.WriteErrorCode(w, http.StatusTooManyRequests, CodeCapacityReached, "Lab capacity reached, try again shortly.")
-	case errors.Is(err, ErrUserHasActiveSession):
-		httputil.WriteErrorCode(w, http.StatusConflict, CodeUserHasActiveSession, "You already have a lab running. End it before starting another.")
-	case errors.Is(err, ErrSessionNotRunning):
-		httputil.WriteErrorCode(w, http.StatusConflict, CodeSessionNotRunning, "Session is not running.")
-	case errors.Is(err, ErrNoRunScript):
-		httputil.WriteErrorCode(w, http.StatusBadRequest, CodeNoRunScript, "This lab has no run script.")
-	case errors.Is(err, ErrSessionTerminal):
-		httputil.WriteErrorCode(w, http.StatusConflict, CodeSessionAlreadyEnded, "Session has already ended.")
-	case errors.Is(err, ErrLabNotPublished):
-		httputil.WriteErrorCode(w, http.StatusConflict, CodeLabNotPublished, "Lab is not published.")
-	case errors.Is(err, ErrMaxResetsReached):
-		httputil.WriteErrorCode(w, http.StatusConflict, CodeMaxResetsReached, "Maximum resets reached.")
-	case errors.Is(err, ErrTaskAlreadyPassed):
-		// finalizeTaskPass already handles the common idempotent-retry case
-		// inline (returns Passed:true with the cached attempt count); reaching
-		// here is the rarer concurrent-duplicate-pass race. Still succeeded
-		// from the caller's point of view — the task IS passed — so 200 with
-		// an explicit shape rather than an empty object the client can't use.
+// domainErrors maps labs domain errors to HTTP responses.
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound: {Status: http.StatusNotFound, Code: CodeNotFound, Message: "Not found."},
+	ErrForbidden: {Status: http.StatusForbidden, Code: CodeForbidden, Message: "Forbidden."},
+	ErrSessionActive: {Status: http.StatusConflict, Code: CodeSessionActive, Message: "A session for this lab is already active."},
+	ErrCapacityReached: {Status: http.StatusTooManyRequests, Code: CodeCapacityReached, Message: "Lab capacity reached, try again shortly."},
+	ErrUserHasActiveSession: {Status: http.StatusConflict, Code: CodeUserHasActiveSession, Message: "You already have a lab running. End it before starting another."},
+	ErrSessionNotRunning: {Status: http.StatusConflict, Code: CodeSessionNotRunning, Message: "Session is not running."},
+	ErrNoRunScript: {Status: http.StatusBadRequest, Code: CodeNoRunScript, Message: "This lab has no run script."},
+	ErrSessionTerminal: {Status: http.StatusConflict, Code: CodeSessionAlreadyEnded, Message: "Session has already ended."},
+	ErrLabNotPublished: {Status: http.StatusConflict, Code: CodeLabNotPublished, Message: "Lab is not published."},
+	ErrMaxResetsReached: {Status: http.StatusConflict, Code: CodeMaxResetsReached, Message: "Maximum resets reached."},
+	ErrMaxHintsReached: {Status: http.StatusTooManyRequests, Code: CodeMaxHintsReached, Message: "Maximum hints reached for this task."},
+	ErrTaskNotOptional: {Status: http.StatusConflict, Code: CodeTaskNotOptional, Message: "Task cannot be skipped."},
+	ErrExecutorUnavailable: {Status: http.StatusServiceUnavailable, Code: CodeExecutorUnavailable, Message: "Code executor is not configured on this server."},
+	ErrInvalidPath: {Status: http.StatusBadRequest, Code: CodeInvalidPath, Message: "Invalid file path."},
+	ErrImageNotAllowed: {Status: http.StatusForbidden, Code: CodeImageNotAllowed, Message: "This lab is not available for your organization."},
+	ErrLabProvisioningUnstable: {Status: http.StatusServiceUnavailable, Code: CodeProvisioningUnstable, Message: "This lab is temporarily unavailable — it has failed to start repeatedly. Our team has been notified."},
+	ErrSessionCompletedAtDeadline: {Status: http.StatusConflict, Code: CodeSessionCompletedAtDeadline, Message: "Time's up — your lab was completed."},
+	ErrSessionExpired: {Status: http.StatusConflict, Code: CodeSessionExpired, Message: "This lab session has expired."},
+	ErrResetFailed: {Status: http.StatusInternalServerError, Code: CodeResetFailed, Message: "Could not reset this lab — the session has been ended. Please start a new one."},
+	ErrLabTypeUnsupported: {Status: http.StatusConflict, Code: CodeLabTypeUnsupported, Message: "This action is not available for this lab type."},
+	ErrContentTooLarge: {Status: http.StatusRequestEntityTooLarge, Code: CodeContentTooLarge, Message: "File is too large."},
+	ErrAICircuitOpen: {Status: http.StatusServiceUnavailable, Code: CodeAIUnavailable, Message: "AI hints are temporarily unavailable — try again in a couple of minutes."},
+	ErrAIUnavailable: {Status: http.StatusServiceUnavailable, Code: CodeAIUnavailable, Message: "AI hints are not available right now."},
+	ErrKindLabNotBuilt: {Status: http.StatusConflict, Code: CodeKindLabNotBuilt, Message: "This lab has no runnable build yet."},
+	ErrBundleStoreUnavailable: {Status: http.StatusServiceUnavailable, Code: CodeBundleStoreUnavailable, Message: "Lab content storage is not available right now."},
+	ErrGradeBusy: {Status: http.StatusServiceUnavailable, Code: CodeGraderBusy, Message: "The grader is busy — try again in a few seconds."},
+	ErrMaxWriteupReviewsReached: {Status: http.StatusTooManyRequests, Code: CodeWriteupReviewLimit, Message: "Maximum write-up reviews reached for this session."},
+	ErrHintNotSupported: {Status: http.StatusUnprocessableEntity, Code: CodeHintNotSupported, Message: "Hints are not available for this task."},
+	ErrNoDebrief: {Status: http.StatusConflict, Code: CodeNoDebrief, Message: "The debrief is available once the lab is completed."},
+}
+
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong. Please try again.",
+	// finalizeTaskPass already handles the common idempotent-retry case
+	// inline (returns Passed:true with the cached attempt count); reaching
+	// here is the rarer concurrent-duplicate-pass race. Still succeeded
+	// from the caller's point of view — the task IS passed — so 200 with
+	// an explicit shape rather than an empty object the client can't use.
+	func(w http.ResponseWriter, err error) bool {
+		if !errors.Is(err, ErrTaskAlreadyPassed) {
+			return false
+		}
 		httputil.WriteJSON(w, http.StatusOK, map[string]any{"passed": true})
-	case errors.Is(err, ErrMaxHintsReached):
-		httputil.WriteErrorCode(w, http.StatusTooManyRequests, CodeMaxHintsReached, "Maximum hints reached for this task.")
-	case errors.Is(err, ErrTaskNotOptional):
-		httputil.WriteErrorCode(w, http.StatusConflict, CodeTaskNotOptional, "Task cannot be skipped.")
-	case errors.Is(err, ErrRateLimited):
+		return true
+	},
+	func(w http.ResponseWriter, err error) bool {
+		if !errors.Is(err, ErrRateLimited) {
+			return false
+		}
 		var limited *RateLimitedError
 		if errors.As(err, &limited) {
 			w.Header().Set("Retry-After", strconv.Itoa(ratelimit.RetryAfterSeconds(limited.RetryAfter)))
 		}
 		httputil.WriteErrorCode(w, http.StatusTooManyRequests, CodeRateLimited, "Too many requests — wait a moment.")
-	case errors.Is(err, ErrExecutorUnavailable):
-		httputil.WriteErrorCode(w, http.StatusServiceUnavailable, CodeExecutorUnavailable, "Code executor is not configured on this server.")
-	case errors.Is(err, ErrInvalidPath):
-		httputil.WriteErrorCode(w, http.StatusBadRequest, CodeInvalidPath, "Invalid file path.")
-	case errors.Is(err, ErrImageNotAllowed):
-		httputil.WriteErrorCode(w, http.StatusForbidden, CodeImageNotAllowed, "This lab is not available for your organization.")
-	case errors.Is(err, ErrLabProvisioningUnstable):
-		httputil.WriteErrorCode(w, http.StatusServiceUnavailable, CodeProvisioningUnstable, "This lab is temporarily unavailable — it has failed to start repeatedly. Our team has been notified.")
-	case errors.Is(err, ErrSessionCompletedAtDeadline):
-		// 409 like the expired case (the session resource still exists — 410 Gone
-		// would misstate that); the code is what tells the client the lab succeeded.
-		httputil.WriteErrorCode(w, http.StatusConflict, CodeSessionCompletedAtDeadline, "Time's up — your lab was completed.")
-	case errors.Is(err, ErrSessionExpired):
-		httputil.WriteErrorCode(w, http.StatusConflict, CodeSessionExpired, "This lab session has expired.")
-	case errors.Is(err, ErrResetFailed):
-		httputil.WriteErrorCode(w, http.StatusInternalServerError, CodeResetFailed, "Could not reset this lab — the session has been ended. Please start a new one.")
-	case errors.Is(err, ErrLabTypeUnsupported):
-		httputil.WriteErrorCode(w, http.StatusConflict, CodeLabTypeUnsupported, "This action is not available for this lab type.")
-	case errors.Is(err, ErrContentTooLarge):
-		httputil.WriteErrorCode(w, http.StatusRequestEntityTooLarge, CodeContentTooLarge, "File is too large.")
-	case errors.Is(err, ErrAICircuitOpen):
-		httputil.WriteErrorCode(w, http.StatusServiceUnavailable, CodeAIUnavailable, "AI hints are temporarily unavailable — try again in a couple of minutes.")
-	case errors.Is(err, ErrAIUnavailable):
-		httputil.WriteErrorCode(w, http.StatusServiceUnavailable, CodeAIUnavailable, "AI hints are not available right now.")
-	case errors.Is(err, ErrKindLabNotBuilt):
-		httputil.WriteErrorCode(w, http.StatusConflict, CodeKindLabNotBuilt, "This lab has no runnable build yet.")
-	case errors.Is(err, ErrBundleStoreUnavailable):
-		httputil.WriteErrorCode(w, http.StatusServiceUnavailable, CodeBundleStoreUnavailable, "Lab content storage is not available right now.")
-	case errors.Is(err, ErrGradeBusy):
-		httputil.WriteErrorCode(w, http.StatusServiceUnavailable, CodeGraderBusy, "The grader is busy — try again in a few seconds.")
-	case errors.Is(err, ErrMaxWriteupReviewsReached):
-		httputil.WriteErrorCode(w, http.StatusTooManyRequests, CodeWriteupReviewLimit, "Maximum write-up reviews reached for this session.")
-	case errors.Is(err, ErrHintNotSupported):
-		httputil.WriteErrorCode(w, http.StatusUnprocessableEntity, CodeHintNotSupported, "Hints are not available for this task.")
-	case errors.Is(err, ErrNoDebrief):
-		httputil.WriteErrorCode(w, http.StatusConflict, CodeNoDebrief, "The debrief is available once the lab is completed.")
-	default:
-		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong. Please try again.")
-	}
-}
+		return true
+	},
+)
 
 // decodeJSON deserialises the request body into dst, writing 400 on failure.

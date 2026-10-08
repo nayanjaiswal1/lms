@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Library } from "lucide-react";
 import { LibraryPickerDialog } from "@/components/library/library-picker-dialog";
 
+import { Button } from "@/components/ui/button";
 interface SectionLibraryMenuProps {
   sectionId: string;
 }
@@ -17,14 +18,14 @@ export function SectionLibraryMenu({ sectionId }: SectionLibraryMenuProps) {
 
   return (
     <>
-      <button
-        className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+      <Button className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-bold text-primary hover:underline"
         type="button"
+        variant="unstyled"
         onClick={() => setOpen(true)}
       >
         <Library aria-hidden className="h-3.5 w-3.5" />
         Add from library
-      </button>
+      </Button>
       <LibraryPickerDialog open={open} sectionId={sectionId} onAdded={() => {}} onOpenChange={setOpen} />
     </>
   );

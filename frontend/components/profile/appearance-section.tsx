@@ -1,5 +1,6 @@
 "use client"
 
+import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react"
 import { Monitor, Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
@@ -29,8 +30,7 @@ export function AppearanceSection() {
           {THEME_OPTIONS.map(({ value, label, Icon }) => {
             const active = mounted && theme === value
             return (
-              <button
-                aria-pressed={active}
+              <Button aria-pressed={active}
                 className={cn(
                   "flex flex-1 flex-col items-center justify-center gap-1.5 h-16 rounded-lg border text-xs font-medium transition-colors",
                   active
@@ -39,11 +39,12 @@ export function AppearanceSection() {
                 )}
                 key={value}
                 type="button"
+                variant="unstyled"
                 onClick={() => setTheme(value)}
               >
                 <Icon aria-hidden className="h-4 w-4 shrink-0" />
                 {label}
-              </button>
+              </Button>
             )
           })}
         </div>

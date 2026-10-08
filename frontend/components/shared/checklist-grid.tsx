@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, BookOpen, ClipboardCheck, Dumbbell, Users, FileText, ShieldCheck, Layers, type LucideIcon } from "lucide-react";
+import { BookOpen, ClipboardCheck, Dumbbell, Users, FileText, ShieldCheck, Layers, type LucideIcon } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
@@ -74,25 +74,13 @@ function OptionList({
             htmlFor={`checklist-${opt.id}`}
             key={opt.id}
           >
-            <input
+            <Checkbox
               checked={checked}
-              className="sr-only"
+              className="absolute right-6 top-3 flex h-5 w-5 items-center justify-center rounded-full border-2 bg-background transition-colors duration-fast ease-smooth"
               disabled={disabled}
               id={`checklist-${opt.id}`}
-              type="checkbox"
-              onChange={() => onToggle(opt.id)}
+              onCheckedChange={() => onToggle(opt.id)}
             />
-            <span
-              aria-hidden="true"
-              className={cn(
-                "absolute top-3 right-6 flex h-5 w-5 items-center justify-center rounded-full border-2 transition-colors duration-fast ease-smooth",
-                checked
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background text-transparent",
-              )}
-            >
-              <Check className="h-3 w-3" strokeWidth={3} />
-            </span>
             <p className="font-medium text-sm truncate">{opt.label}</p>
             {opt.sublabel && <span className="text-xs text-muted-foreground">{opt.sublabel}</span>}
           </label>

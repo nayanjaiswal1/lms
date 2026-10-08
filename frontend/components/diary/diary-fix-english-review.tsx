@@ -121,29 +121,29 @@ export function DiaryFixEnglishReviewPanel({
             const addSeg = state.segments[i + 1];
             return (
               <span key={i}>
-                <button
-                  className={cn(
+                <Button className={cn(
                     "rounded-sm px-0.5 line-through",
                     accepted ? "bg-muted text-muted-foreground" : "bg-destructive/10 text-destructive",
                   )}
                   title="Click to keep the original wording"
                   type="button"
+                  variant="unstyled"
                   onClick={() => onToggle(i)}
                 >
                   {seg.text}
-                </button>{" "}
+                </Button>{" "}
                 {addSeg && (
-                  <button
-                    className={cn(
+                  <Button className={cn(
                       "rounded-sm px-0.5",
                       accepted ? "bg-success/10 text-success" : "bg-muted text-muted-foreground line-through",
                     )}
                     title="Click to accept the correction"
                     type="button"
+                    variant="unstyled"
                     onClick={() => onToggle(i)}
                   >
                     {addSeg.text}
-                  </button>
+                  </Button>
                 )}{" "}
               </span>
             );

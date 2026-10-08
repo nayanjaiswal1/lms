@@ -39,31 +39,31 @@ export function RevisionDateBadge({ topicTag, revisionAt, isDue, disabled, onAdv
   // no longer due.
   if (isDue && onAdvance) {
     return (
-      <button
-        aria-label="Due — click to mark this revision done and schedule the next one"
+      <Button aria-label="Due — click to mark this revision done and schedule the next one"
         className="inline-flex items-center border-0 p-0 text-xs font-medium tabular-nums text-primary hover:underline"
         disabled={disabled}
         type="button"
+        variant="unstyled"
         onClick={(e) => {
           e.stopPropagation();
           onAdvance();
         }}
       >
         Revise {formatDate(revisionAt)}
-      </button>
+      </Button>
     );
   }
 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
-          className="hidden items-center border-0 p-0 text-xs tabular-nums text-muted-foreground hover:text-foreground hover:underline sm:inline-flex"
+        <Button className="hidden items-center border-0 p-0 text-xs tabular-nums text-muted-foreground hover:text-foreground hover:underline sm:inline-flex"
           type="button"
+          variant="unstyled"
           onClick={(e) => e.stopPropagation()}
         >
           Revise {formatDate(revisionAt)}
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-56" onClick={(e) => e.stopPropagation()}>
         <form className="form-stack" onSubmit={save}>

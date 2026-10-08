@@ -1,5 +1,7 @@
 "use client"
 
+import { Button } from "@/components/ui/button";
+
 import type { ReactNode } from "react"
 import { Search } from "lucide-react"
 import {
@@ -136,16 +138,16 @@ export function LabMenuBar({ fileActions, viewActions, runActions, terminalActio
         <ActionItems actions={terminalActions} />
       </MenuButton>
 
-      <button
-        aria-label="Go to file"
+      <Button aria-label="Go to file"
         className="ml-4 flex h-6 w-full max-w-sm items-center gap-2 rounded-sm border border-border bg-background px-2.5 text-xs text-muted-foreground hover:border-ring"
         type="button"
+        variant="unstyled"
         onClick={triggerGoToFile}
       >
         <Search aria-hidden className="h-3 w-3 shrink-0" />
         <span className="flex-1 truncate text-left">Go to File</span>
         <kbd className="hidden text-xs text-muted-foreground/70 sm:inline">Ctrl+P</kbd>
-      </button>
+      </Button>
     </div>
   )
 }

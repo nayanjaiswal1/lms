@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 // global-error catches errors thrown in the ROOT layout itself — the one case
 // app/error.tsx cannot handle, because it lives inside that layout. It must
 // render its own <html>/<body> since it replaces the entire shell.
@@ -20,13 +21,13 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
               {error.digest ? `Error ID: ${error.digest}` : "An unexpected error occurred."}
             </p>
           </div>
-          <button
-            className="inline-flex h-10 items-center rounded-md border border-border bg-background px-5 text-sm font-medium hover:bg-accent"
+          <Button className="inline-flex h-10 items-center rounded-md border border-border bg-background px-5 text-sm font-medium hover:bg-accent"
             type="button"
+            variant="unstyled"
             onClick={reset}
           >
             Try again
-          </button>
+          </Button>
         </main>
       </body>
     </html>

@@ -29,9 +29,7 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrTooManySelected:        {Status: http.StatusConflict, Message: "More applications are selected than this requirement's team size allows."},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong. Please try again.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong. Please try again.")
 
 // Length caps on user-submitted free text — cheap to enforce at the
 // boundary, expensive to retrofit once a giant paste has already inflated

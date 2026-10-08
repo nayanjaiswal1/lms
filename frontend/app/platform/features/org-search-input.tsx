@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useTransition } from "react";
 import { useQueryState } from "nuqs";
 import { Loader2, Search as SearchIcon, X } from "lucide-react";
@@ -37,14 +38,14 @@ export function OrgSearchInput() {
         />
       ) : (
         search && (
-          <button
-            aria-label="Clear search"
+          <Button aria-label="Clear search"
             className="touch-target absolute right-0 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
             type="button"
+            variant="unstyled"
             onClick={() => void setSearch("")}
           >
             <X aria-hidden className="h-4 w-4" />
-          </button>
+          </Button>
         )
       )}
     </div>

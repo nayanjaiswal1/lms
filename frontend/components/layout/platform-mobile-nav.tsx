@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import ROUTES from "@/lib/routes";
 import type { AuthUser } from "@/lib/server/auth";
 
+import { Button } from "@/components/ui/button";
 interface Props {
   user: AuthUser;
 }
@@ -23,23 +24,23 @@ export function PlatformMobileNav({ user }: Props) {
   return (
     <>
       <header className="app-header lg:hidden">
-        <button
-          aria-label="Open menu"
+        <Button aria-label="Open menu"
           className="touch-target -ml-2 flex items-center justify-center rounded-md hover:bg-accent/60 transition-colors duration-fast"
+          variant="unstyled"
           onClick={() => setOpen(true)}
         >
           <Menu aria-hidden className="h-5 w-5" />
-        </button>
+        </Button>
         <Link aria-label="Go to your home page" href={user.default_landing_page || ROUTES.DASHBOARD}>
           <BrandMark />
         </Link>
       </header>
 
       {open && (
-        <button
-          aria-label="Close navigation"
+        <Button aria-label="Close navigation"
           className="sidebar-drawer-backdrop"
           type="button"
+          variant="unstyled"
           onClick={() => setOpen(false)}
         />
       )}
@@ -58,13 +59,13 @@ export function PlatformMobileNav({ user }: Props) {
           >
             <BrandMark />
           </Link>
-          <button
-            aria-label="Close menu"
+          <Button aria-label="Close menu"
             className="touch-target flex items-center justify-center rounded-md hover:bg-accent/60 transition-colors duration-fast"
+            variant="unstyled"
             onClick={() => setOpen(false)}
           >
             <X aria-hidden className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
 
         <nav className="flex flex-col gap-6 px-3 py-6">

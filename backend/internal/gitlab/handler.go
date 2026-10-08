@@ -32,6 +32,4 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrOverrideNotAllowed:    {Status: http.StatusForbidden, Message: "This organization does not allow per-project GitLab overrides."},
 }
 
-func writeDomainError(w http.ResponseWriter, err error) {
-	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong. Please try again.")
-}
+var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong. Please try again.")
