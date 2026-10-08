@@ -6,10 +6,6 @@
 
 import ROUTES from "@/lib/routes";
 
-// "What Now?" is a personal, single-user room — not org/plan gated, so it
-// doesn't go through FEATURES/<AccessGate>. Restricted to one email instead,
-// configured via NEXT_PUBLIC_NOW_ALLOWED_EMAIL (see frontend/.env.example).
-export const NOW_FEATURE_ALLOWED_EMAIL = process.env.NEXT_PUBLIC_NOW_ALLOWED_EMAIL ?? "";
 
 // Sidebar/mobile-nav logo click destination and post-login/app-open landing, user-configurable in Settings >
 // Profile > Preferences. Mirrors backend/internal/profile/models.go's
@@ -34,14 +30,13 @@ export const LAST_PAGE_SYNC_INTERVAL_MS = 60_000;
 
 // ─────────────────────────────────────────────
 
-export const CONTENT_REPORT_REASON = {
+const CONTENT_REPORT_REASON = {
   ILLEGAL:     "illegal",
   COPYRIGHT:   "copyright",
   SPAM:        "spam",
   HARASSMENT:  "harassment",
   OTHER:       "other",
 } as const;
-export type ContentReportReason = (typeof CONTENT_REPORT_REASON)[keyof typeof CONTENT_REPORT_REASON];
 
 export const CONTENT_REPORT_REASON_OPTIONS = [
   { label: "Illegal content",  value: CONTENT_REPORT_REASON.ILLEGAL },
@@ -51,13 +46,12 @@ export const CONTENT_REPORT_REASON_OPTIONS = [
   { label: "Other",            value: CONTENT_REPORT_REASON.OTHER },
 ] as const;
 
-export const CONTENT_REPORT_STATUS = {
+const CONTENT_REPORT_STATUS = {
   PENDING:   "pending",
   REVIEWING: "reviewing",
   REMOVED:   "removed",
   DISMISSED: "dismissed",
 } as const;
-export type ContentReportStatus = (typeof CONTENT_REPORT_STATUS)[keyof typeof CONTENT_REPORT_STATUS];
 
 export const CONTENT_REPORT_STATUS_OPTIONS = [
   { label: "Pending",   value: CONTENT_REPORT_STATUS.PENDING },
@@ -66,7 +60,7 @@ export const CONTENT_REPORT_STATUS_OPTIONS = [
   { label: "Dismissed", value: CONTENT_REPORT_STATUS.DISMISSED },
 ] as const;
 
-export const DIFFICULTY = {
+const DIFFICULTY = {
   EASY:   "easy",
   MEDIUM: "medium",
   HARD:   "hard",
@@ -81,11 +75,10 @@ export const DIFFICULTY_OPTIONS = [
 
 // ─────────────────────────────────────────────
 
-export const ORG_MEMBER_STATUS = {
+const ORG_MEMBER_STATUS = {
   ACTIVE:    "active",
   SUSPENDED: "suspended",
 } as const;
-export type OrgMemberStatus = (typeof ORG_MEMBER_STATUS)[keyof typeof ORG_MEMBER_STATUS];
 
 export const ORG_MEMBER_STATUS_OPTIONS = [
   { label: "Active",    value: ORG_MEMBER_STATUS.ACTIVE },
@@ -94,26 +87,11 @@ export const ORG_MEMBER_STATUS_OPTIONS = [
 
 // ─────────────────────────────────────────────
 
-export const PROBLEM_STATUS = {
-  UNSOLVED:  "unsolved",
-  ATTEMPTED: "attempted",
-  SOLVED:    "solved",
-  SKIPPED:   "skipped",
-  REVISIT:   "revisit",
-} as const;
-export type ProblemStatus = (typeof PROBLEM_STATUS)[keyof typeof PROBLEM_STATUS];
 
-export const PROBLEM_STATUS_OPTIONS = [
-  { label: "Unsolved",  value: PROBLEM_STATUS.UNSOLVED },
-  { label: "Attempted", value: PROBLEM_STATUS.ATTEMPTED },
-  { label: "Solved",    value: PROBLEM_STATUS.SOLVED },
-  { label: "Skipped",   value: PROBLEM_STATUS.SKIPPED },
-  { label: "Revisit",   value: PROBLEM_STATUS.REVISIT },
-] as const;
 
 // ─────────────────────────────────────────────
 
-export const CODE_LANGUAGE = {
+const CODE_LANGUAGE = {
   PYTHON:     "python",
   JAVASCRIPT: "javascript",
   TYPESCRIPT: "typescript",
@@ -122,7 +100,6 @@ export const CODE_LANGUAGE = {
   CPP:        "cpp",
   RUST:       "rust",
 } as const;
-export type CodeLanguage = (typeof CODE_LANGUAGE)[keyof typeof CODE_LANGUAGE];
 
 export const CODE_LANGUAGE_OPTIONS = [
   { label: "Python",     value: CODE_LANGUAGE.PYTHON },
@@ -136,100 +113,32 @@ export const CODE_LANGUAGE_OPTIONS = [
 
 // ─────────────────────────────────────────────
 
-export const MODULE_TYPE = {
-  LESSON:        "lesson",
-  CODING:        "coding",
-  QUIZ:          "quiz",
-  SYSTEM_DESIGN: "system_design",
-  LAB:           "lab",
-} as const;
-export type ModuleType = (typeof MODULE_TYPE)[keyof typeof MODULE_TYPE];
 
-export const MODULE_TYPE_OPTIONS = [
-  { label: "Lesson",        value: MODULE_TYPE.LESSON },
-  { label: "Coding",        value: MODULE_TYPE.CODING },
-  { label: "Quiz",          value: MODULE_TYPE.QUIZ },
-  { label: "System Design", value: MODULE_TYPE.SYSTEM_DESIGN },
-  { label: "Lab",           value: MODULE_TYPE.LAB },
-] as const;
 
 // ─────────────────────────────────────────────
 
-export const COURSE_STATUS = {
-  DRAFT:     "draft",
-  PUBLISHED: "published",
-  ARCHIVED:  "archived",
-} as const;
-export type CourseStatus = (typeof COURSE_STATUS)[keyof typeof COURSE_STATUS];
 
-export const COURSE_STATUS_OPTIONS = [
-  { label: "Draft",     value: COURSE_STATUS.DRAFT },
-  { label: "Published", value: COURSE_STATUS.PUBLISHED },
-  { label: "Archived",  value: COURSE_STATUS.ARCHIVED },
-] as const;
 
 // ─────────────────────────────────────────────
 
-export const SORT_ORDER = {
-  NEWEST:  "newest",
-  OLDEST:  "oldest",
-  POPULAR: "popular",
-  AZ:      "az",
-} as const;
-export type SortOrder = (typeof SORT_ORDER)[keyof typeof SORT_ORDER];
 
-export const SORT_ORDER_OPTIONS = [
-  { label: "Newest",  value: SORT_ORDER.NEWEST },
-  { label: "Oldest",  value: SORT_ORDER.OLDEST },
-  { label: "Popular", value: SORT_ORDER.POPULAR },
-  { label: "A → Z",   value: SORT_ORDER.AZ },
-] as const;
 
 // ─────────────────────────────────────────────
 
-export const INTERVIEW_VERDICT = {
-  STRONG_HIRE: "strong_hire",
-  HIRE:        "hire",
-  NO_HIRE:     "no_hire",
-  STRONG_NO:   "strong_no_hire",
-} as const;
-export type InterviewVerdict = (typeof INTERVIEW_VERDICT)[keyof typeof INTERVIEW_VERDICT];
 
-export const INTERVIEW_VERDICT_OPTIONS = [
-  { label: "Strong Hire",    value: INTERVIEW_VERDICT.STRONG_HIRE },
-  { label: "Hire",           value: INTERVIEW_VERDICT.HIRE },
-  { label: "No Hire",        value: INTERVIEW_VERDICT.NO_HIRE },
-  { label: "Strong No Hire", value: INTERVIEW_VERDICT.STRONG_NO },
-] as const;
 
 // ─────────────────────────────────────────────
 
-export const LOAD_TEST_METHOD = {
-  GET:    "GET",
-  POST:   "POST",
-  PUT:    "PUT",
-  PATCH:  "PATCH",
-  DELETE: "DELETE",
-} as const;
-export type LoadTestMethod = (typeof LOAD_TEST_METHOD)[keyof typeof LOAD_TEST_METHOD];
 
-export const LOAD_TEST_METHOD_OPTIONS = [
-  { label: "GET",    value: LOAD_TEST_METHOD.GET },
-  { label: "POST",   value: LOAD_TEST_METHOD.POST },
-  { label: "PUT",    value: LOAD_TEST_METHOD.PUT },
-  { label: "PATCH",  value: LOAD_TEST_METHOD.PATCH },
-  { label: "DELETE", value: LOAD_TEST_METHOD.DELETE },
-] as const;
 
 // ─────────────────────────────────────────────
 
-export const USER_ROLE = {
+const USER_ROLE = {
   STUDENT:    "student",
   INSTRUCTOR: "instructor",
   MENTOR:     "mentor",
   ORG_ADMIN:  "admin",
 } as const;
-export type UserRole = (typeof USER_ROLE)[keyof typeof USER_ROLE];
 
 export const ORG_ROLE_OPTIONS = [
   { label: "Student",    value: USER_ROLE.STUDENT },
@@ -245,20 +154,18 @@ export const QUESTION_TYPE = {
   MCQ:    "mcq",
   CODING: "coding",
 } as const;
-export type QuestionType = (typeof QUESTION_TYPE)[keyof typeof QUESTION_TYPE];
 
 export const QUESTION_TYPE_OPTIONS = [
   { label: "Multiple Choice", value: QUESTION_TYPE.MCQ },
   { label: "Coding",          value: QUESTION_TYPE.CODING },
 ] as const;
 
-export const ASSESSMENT_DIFFICULTY = {
+const ASSESSMENT_DIFFICULTY = {
   BEGINNER:     "beginner",
   INTERMEDIATE: "intermediate",
   ADVANCED:     "advanced",
   EXPERT:       "expert",
 } as const;
-export type AssessmentDifficulty = (typeof ASSESSMENT_DIFFICULTY)[keyof typeof ASSESSMENT_DIFFICULTY];
 
 export const ASSESSMENT_DIFFICULTY_OPTIONS = [
   { label: "Beginner",     value: ASSESSMENT_DIFFICULTY.BEGINNER },
@@ -296,7 +203,7 @@ export const WHATS_NEW_ICON_OPTIONS = [
   { label: "Star",      value: WHATS_NEW_ICON.STAR },
 ] as const;
 
-export const ASSESSMENT_STATUS = {
+const ASSESSMENT_STATUS = {
   DRAFT:     "draft",
   PUBLISHED: "published",
   SCHEDULED: "scheduled",
@@ -304,7 +211,6 @@ export const ASSESSMENT_STATUS = {
   COMPLETED: "completed",
   ARCHIVED:  "archived",
 } as const;
-export type AssessmentStatus = (typeof ASSESSMENT_STATUS)[keyof typeof ASSESSMENT_STATUS];
 
 export const ASSESSMENT_STATUS_OPTIONS = [
   { label: "Draft",     value: ASSESSMENT_STATUS.DRAFT },
@@ -338,30 +244,15 @@ export const ASSESSMENT_PARENT_TYPE = {
 } as const;
 export type AssessmentParentType = (typeof ASSESSMENT_PARENT_TYPE)[keyof typeof ASSESSMENT_PARENT_TYPE];
 
-export const ASSESSMENT_PARENT_TYPE_OPTIONS = [
-  { label: "Standalone",          value: ASSESSMENT_PARENT_TYPE.STANDALONE },
-  { label: "Course",              value: ASSESSMENT_PARENT_TYPE.COURSE },
-  { label: "Module",              value: ASSESSMENT_PARENT_TYPE.MODULE },
-  { label: "Roadmap",             value: ASSESSMENT_PARENT_TYPE.ROADMAP },
-  { label: "Batch",               value: ASSESSMENT_PARENT_TYPE.BATCH },
-  { label: "Bootcamp",            value: ASSESSMENT_PARENT_TYPE.BOOTCAMP },
-  { label: "Hiring / Recruitment", value: ASSESSMENT_PARENT_TYPE.HIRING },
-] as const;
 
-export const ASSIGNEE_TYPE = {
-  STUDENT: "student",
-  BATCH:   "batch",
-} as const;
-export type AssigneeType = (typeof ASSIGNEE_TYPE)[keyof typeof ASSIGNEE_TYPE];
 
 // ─────────────────────────────────────────────
 
-export const EXPERIENCE_LEVEL = {
+const EXPERIENCE_LEVEL = {
   BEGINNER:     "beginner",
   INTERMEDIATE: "intermediate",
   ADVANCED:     "advanced",
 } as const;
-export type ExperienceLevel = (typeof EXPERIENCE_LEVEL)[keyof typeof EXPERIENCE_LEVEL];
 
 export const EXPERIENCE_LEVEL_OPTIONS = [
   { label: "Beginner",     value: EXPERIENCE_LEVEL.BEGINNER },
@@ -371,7 +262,7 @@ export const EXPERIENCE_LEVEL_OPTIONS = [
 
 // ─────────────────────────────────────────────
 
-export const SKILL_LEVEL = {
+const SKILL_LEVEL = {
   BEGINNER:     "beginner",
   INTERMEDIATE: "intermediate",
   ADVANCED:     "advanced",
@@ -386,13 +277,12 @@ export const SKILL_LEVEL_OPTIONS = [
 
 // ─────────────────────────────────────────────
 
-export const LEARNING_STYLE = {
+const LEARNING_STYLE = {
   VIDEO:    "video",
   READING:  "reading",
   HANDS_ON: "hands_on",
   MIXED:    "mixed",
 } as const;
-export type LearningStyle = (typeof LEARNING_STYLE)[keyof typeof LEARNING_STYLE];
 
 export const LEARNING_STYLE_OPTIONS = [
   { label: "Video",    value: LEARNING_STYLE.VIDEO },
@@ -403,7 +293,7 @@ export const LEARNING_STYLE_OPTIONS = [
 
 // ─────────────────────────────────────────────
 
-export const LEARNING_GOAL = {
+const LEARNING_GOAL = {
   GET_FIRST_JOB:    "get_first_job",
   SWITCH_COMPANY:   "switch_company",
   BECOME_SENIOR:    "become_senior",
@@ -424,7 +314,7 @@ export const LEARNING_GOAL_OPTIONS = [
 
 // ─────────────────────────────────────────────
 
-export const LEARNING_DOMAIN = {
+const LEARNING_DOMAIN = {
   BACKEND:          "backend",
   FRONTEND:         "frontend",
   DEVOPS:           "devops",
@@ -435,7 +325,6 @@ export const LEARNING_DOMAIN = {
   CYBERSECURITY:    "cybersecurity",
   SYSTEM_DESIGN:    "system_design",
 } as const;
-export type LearningDomain = (typeof LEARNING_DOMAIN)[keyof typeof LEARNING_DOMAIN];
 
 export const LEARNING_DOMAIN_OPTIONS = [
   { label: "Backend",          value: LEARNING_DOMAIN.BACKEND },
@@ -455,13 +344,12 @@ export const LEARNING_DOMAIN_OPTIONS = [
 // Course content module types (Phase 5)
 // ─────────────────────────────────────────────
 
-export const MODULE_CONTENT_TYPE = {
+const MODULE_CONTENT_TYPE = {
   VIDEO:      "video",
   PDF:        "pdf",
   NOTES:      "notes",
   ASSESSMENT: "assessment",
 } as const;
-export type ModuleContentType = (typeof MODULE_CONTENT_TYPE)[keyof typeof MODULE_CONTENT_TYPE];
 
 export const MODULE_CONTENT_TYPE_OPTIONS = [
   { label: "Video",      value: MODULE_CONTENT_TYPE.VIDEO },
@@ -472,12 +360,11 @@ export const MODULE_CONTENT_TYPE_OPTIONS = [
 
 // ─────────────────────────────────────────────
 
-export const COURSE_DIFFICULTY = {
+const COURSE_DIFFICULTY = {
   BEGINNER:     "beginner",
   INTERMEDIATE: "intermediate",
   ADVANCED:     "advanced",
 } as const;
-export type CourseDifficulty = (typeof COURSE_DIFFICULTY)[keyof typeof COURSE_DIFFICULTY];
 
 export const COURSE_DIFFICULTY_OPTIONS = [
   { label: "Beginner",     value: COURSE_DIFFICULTY.BEGINNER },
@@ -509,29 +396,6 @@ export const PRACTICE_QUESTION_COUNT_OPTIONS = [
   { label: "20 questions", value: 20 },
 ] as const;
 
-export const PRACTICE_TECHNOLOGY_OPTIONS = [
-  { label: "Go",              value: "Go" },
-  { label: "Python",          value: "Python" },
-  { label: "JavaScript",      value: "JavaScript" },
-  { label: "TypeScript",      value: "TypeScript" },
-  { label: "Java",            value: "Java" },
-  { label: "Rust",            value: "Rust" },
-  { label: "C++",             value: "C++" },
-  { label: "React",           value: "React" },
-  { label: "Next.js",         value: "Next.js" },
-  { label: "Node.js",         value: "Node.js" },
-  { label: "PostgreSQL",      value: "PostgreSQL" },
-  { label: "Redis",           value: "Redis" },
-  { label: "Docker",          value: "Docker" },
-  { label: "Kubernetes",      value: "Kubernetes" },
-  { label: "AWS",             value: "AWS" },
-  { label: "System Design",   value: "System Design" },
-  { label: "Data Structures", value: "Data Structures" },
-  { label: "Algorithms",      value: "Algorithms" },
-  { label: "GraphQL",         value: "GraphQL" },
-  { label: "REST APIs",       value: "REST APIs" },
-  { label: "Microservices",   value: "Microservices" },
-] as const;
 
 // ─────────────────────────────────────────────
 
@@ -560,13 +424,15 @@ export const MENTOR_REPORT_STATUS = {
   RESOLVED:  "resolved",
   DISMISSED: "dismissed",
 } as const;
-export type MentorReportStatus = (typeof MENTOR_REPORT_STATUS)[keyof typeof MENTOR_REPORT_STATUS];
 
 export const MENTOR_CHANGE_REQUEST_STATUS = {
   PENDING:  "pending",
   APPROVED: "approved",
   DENIED:   "denied",
 } as const;
+
+export type MentorReportStatus = (typeof MENTOR_REPORT_STATUS)[keyof typeof MENTOR_REPORT_STATUS];
+
 export type MentorChangeRequestStatus =
   (typeof MENTOR_CHANGE_REQUEST_STATUS)[keyof typeof MENTOR_CHANGE_REQUEST_STATUS];
 
@@ -618,7 +484,7 @@ export const SUGGESTED_SKILLS = [
 // Sheet tracker spaced-repetition growth schemes — how far the revision date
 // jumps forward with each successful "Reviewed" click, given a per-sheet
 // base interval in days.
-export const GROWTH_SCHEME = {
+const GROWTH_SCHEME = {
   DOUBLING: "doubling",
   LADDER:   "ladder",
   LINEAR:   "linear",
@@ -636,7 +502,7 @@ export const GROWTH_SCHEME_OPTIONS = [
 const REVISION_LADDER = [1, 3, 7, 14, 30, 90] as const;
 
 /** How many days until the revision after `reviewCount` successful reviews (0 = the first scheduling). */
-export function revisionIntervalDays(scheme: GrowthScheme, base: number, reviewCount: number): number {
+function revisionIntervalDays(scheme: GrowthScheme, base: number, reviewCount: number): number {
   switch (scheme) {
     case "ladder":
       return REVISION_LADDER[Math.min(reviewCount, REVISION_LADDER.length - 1)];
@@ -656,7 +522,7 @@ export function revisionSchedulePreview(scheme: GrowthScheme, base: number, step
 // Mirrors backend/internal/mistakes/models.go's category constants and the
 // mistake_entries_category_check DB constraint — keep all three in sync.
 
-export const MISTAKE_CATEGORY = {
+const MISTAKE_CATEGORY = {
   TENSE:                   "tense",
   ARTICLE:                 "article",
   PREPOSITION:             "preposition",
@@ -668,7 +534,6 @@ export const MISTAKE_CATEGORY = {
   PUNCTUATION:             "punctuation",
   OTHER:                   "other",
 } as const;
-export type MistakeCategory = (typeof MISTAKE_CATEGORY)[keyof typeof MISTAKE_CATEGORY];
 
 export const MISTAKE_CATEGORY_OPTIONS = [
   { label: "Tense",                    value: MISTAKE_CATEGORY.TENSE },
@@ -688,18 +553,17 @@ export const MISTAKE_CATEGORY_OPTIONS = [
 // gitlab/models.go's constants; keep both in sync).
 // ─────────────────────────────────────────────
 
-export const PROJECT_VISIBILITY = {
+const PROJECT_VISIBILITY = {
   PRIVATE:  "private",
   INTERNAL: "internal",
 } as const;
-export type ProjectVisibilityConst = (typeof PROJECT_VISIBILITY)[keyof typeof PROJECT_VISIBILITY];
 
 export const PROJECT_VISIBILITY_OPTIONS = [
   { label: "Private",  value: PROJECT_VISIBILITY.PRIVATE },
   { label: "Internal", value: PROJECT_VISIBILITY.INTERNAL },
 ] as const;
 
-export const PROJECT_TEAM_MEMBER_ROLE = {
+const PROJECT_TEAM_MEMBER_ROLE = {
   LEAD:   "lead",
   MEMBER: "member",
 } as const;
@@ -710,7 +574,7 @@ export const PROJECT_TEAM_MEMBER_ROLE_OPTIONS = [
 ] as const;
 
 // GitLab's own numeric access-level scale (project_team_members.gitlab_access_level).
-export const GITLAB_ACCESS_LEVEL = {
+const GITLAB_ACCESS_LEVEL = {
   REPORTER:   20,
   DEVELOPER:  30,
   MAINTAINER: 40,
@@ -931,13 +795,12 @@ export const SESSION_SLOT_LENGTH_OPTIONS = [
 // CHECK constraints; keep all three in sync).
 // ─────────────────────────────────────────────
 
-export const NOTE_COLOR = {
+const NOTE_COLOR = {
   YELLOW: "yellow",
   BLUE:   "blue",
   PINK:   "pink",
   GREEN:  "green",
 } as const;
-export type NoteColorConst = (typeof NOTE_COLOR)[keyof typeof NOTE_COLOR];
 
 export const NOTE_COLOR_OPTIONS = [
   NOTE_COLOR.YELLOW,
@@ -952,7 +815,6 @@ export const NOTE_CATEGORY = {
   STUDY:    "study",
   URGENT:   "urgent",
 } as const;
-export type NoteCategoryFilter = (typeof NOTE_CATEGORY)[keyof typeof NOTE_CATEGORY];
 
 export const NOTE_CATEGORY_FILTER_OPTIONS = [
   { label: "All",      value: NOTE_CATEGORY.ALL },
@@ -966,7 +828,7 @@ export const NOTE_CATEGORY_FILTER_OPTIONS = [
 // `bg-habit-*`/`fill-habit-*` utilities in globals.css. Order matches the
 // backend's ColorPalette (habit/models.go), which is also the default
 // rotation a new habit is assigned.
-export const HABIT_COLOR = {
+const HABIT_COLOR = {
   BLUE:    "blue",
   ORANGE:  "orange",
   AQUA:    "aqua",
@@ -1002,7 +864,7 @@ export type TicketKind = (typeof TICKET_KIND)[keyof typeof TICKET_KIND];
 
 // Union of both kinds' status vocabularies — in_progress/resolved are
 // support-only, assigned is mentorship-only (mirrors tickets.IsValidStatus).
-export const TICKET_STATUS = {
+const TICKET_STATUS = {
   OPEN:        "open",
   IN_PROGRESS: "in_progress",
   ASSIGNED:    "assigned",
@@ -1018,14 +880,9 @@ export const SUPPORT_STATUS_OPTIONS = [
   { label: "Closed",      value: TICKET_STATUS.CLOSED },
 ] as const;
 
-export const MENTOR_STATUS_OPTIONS = [
-  { label: "Open",     value: TICKET_STATUS.OPEN },
-  { label: "Assigned", value: TICKET_STATUS.ASSIGNED },
-  { label: "Closed",   value: TICKET_STATUS.CLOSED },
-] as const;
 
 // Category/priority — support tickets only.
-export const TICKET_CATEGORY = {
+const TICKET_CATEGORY = {
   TECHNICAL:      "technical",
   BILLING:        "billing",
   ACCOUNT:        "account",
@@ -1042,7 +899,7 @@ export const TICKET_CATEGORY_OPTIONS = [
   { label: "Other",           value: TICKET_CATEGORY.OTHER },
 ] as const;
 
-export const TICKET_PRIORITY = {
+const TICKET_PRIORITY = {
   LOW:    "low",
   NORMAL: "normal",
   HIGH:   "high",

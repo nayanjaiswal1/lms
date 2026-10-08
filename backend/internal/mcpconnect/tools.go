@@ -69,7 +69,7 @@ func optString(args map[string]any, key string) *string {
 func argTime(args map[string]any, key string) (time.Time, error) {
 	raw, err := argString(args, key)
 	if err != nil {
-		return time.Time{}, err
+		return time.Time{}, fmt.Errorf("mcpconnect.argTime: %w", err)
 	}
 	t, err := time.Parse(time.RFC3339, raw)
 	if err != nil {
@@ -176,7 +176,7 @@ func argRawJSON(args map[string]any, key string) (json.RawMessage, error) {
 func requireSheetOwner(ctx context.Context, rt *Router, userID, sheetID string) error {
 	isOwner, err := rt.sheetsRepo.IsOwner(ctx, userID, sheetID)
 	if err != nil {
-		return err
+		return fmt.Errorf("mcpconnect.requireSheetOwner: %w", err)
 	}
 	if !isOwner {
 		return fmt.Errorf("mcpconnect: you don't own this sheet")
@@ -189,7 +189,7 @@ func requireSheetOwner(ctx context.Context, rt *Router, userID, sheetID string) 
 func requireSheetAccess(ctx context.Context, rt *Router, userID, sheetID string) error {
 	hasAccess, err := rt.sheetsRepo.UserHasAccess(ctx, userID, sheetID)
 	if err != nil {
-		return err
+		return fmt.Errorf("mcpconnect.requireSheetAccess: %w", err)
 	}
 	if !hasAccess {
 		return fmt.Errorf("mcpconnect: you don't have access to this sheet")
@@ -203,7 +203,7 @@ func requireSheetAccess(ctx context.Context, rt *Router, userID, sheetID string)
 func findSheetItem(ctx context.Context, rt *Router, sheetID, itemID, userID string) (sheets.SheetItem, error) {
 	items, err := rt.sheetsRepo.ListItemsWithProgress(ctx, sheetID, userID)
 	if err != nil {
-		return sheets.SheetItem{}, err
+		return sheets.SheetItem{}, fmt.Errorf("mcpconnect.findSheetItem: %w", err)
 	}
 	for _, it := range items {
 		if it.ID == itemID {
@@ -2579,13 +2579,13 @@ func (rt *Router) callTool(ctx context.Context, id mcpIdentity, name string, arg
 		var err error
 		before, err = tool.BeforeState(ctx, rt, id, args)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("mcpconnect.callTool: %w", err)
 		}
 	}
 
 	result, err := tool.Call(ctx, rt, id, args)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("mcpconnect.callTool: %w", err)
 	}
 
 	rt.logAction(ctx, id, tool, args, before, result)

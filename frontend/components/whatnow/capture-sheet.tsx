@@ -67,8 +67,8 @@ export function CaptureSheet({ onCaptured }: { onCaptured: (task: Task) => void 
           {error}{" "}
           <Button
             className="h-auto p-0"
-            variant="link"
             type="button"
+            variant="link"
             onClick={() => void doCapture(value.trim())}
           >
             Retry

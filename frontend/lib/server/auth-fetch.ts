@@ -1,6 +1,6 @@
 import "server-only";
 
-import { baseURL, clientIpHeaders } from "@/lib/server/api";
+import { baseURL, clientIpHeaders, jsonBody } from "@/lib/server/api";
 import { forwardSetCookies } from "@/lib/server/set-cookie";
 
 // Shared unauthenticated backend fetch for flows that mint or rotate session
@@ -16,7 +16,7 @@ import { forwardSetCookies } from "@/lib/server/set-cookie";
 // plus the parsed body so callers keep their own error mapping
 // (resolveError/getError/actionErrorMessage). Throws on missing config or
 // network failure — callers translate those into their own copy.
-export interface AuthFetchResult {
+interface AuthFetchResult {
   response: Response;
   body: unknown;
 }
@@ -33,7 +33,7 @@ export async function authFetchWithCookies(
       ...(await clientIpHeaders()),
       ...init?.headers,
     },
-    body: payload !== undefined ? JSON.stringify(payload) : undefined,
+    body: jsonBody(payload),
     cache: "no-store",
   });
   await forwardSetCookies(res.headers).catch(() => undefined);

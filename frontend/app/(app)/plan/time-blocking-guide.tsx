@@ -23,7 +23,6 @@ export function TimeBlockingGuide({ onDismiss }: TimeBlockingGuideProps) {
           </div>
 
           <div className="space-y-3 text-sm">
-            {/* Tip 1 */}
             <div className="flex gap-3">
               <div className="mt-0.5 flex-shrink-0">
                 <Clock className="h-4 w-4 text-ai" />
@@ -34,7 +33,6 @@ export function TimeBlockingGuide({ onDismiss }: TimeBlockingGuideProps) {
               </div>
             </div>
 
-            {/* Tip 2 */}
             <div className="flex gap-3">
               <div className="mt-0.5 flex-shrink-0">
                 <CheckCircle2 className="h-4 w-4 text-ai" />
@@ -45,7 +43,6 @@ export function TimeBlockingGuide({ onDismiss }: TimeBlockingGuideProps) {
               </div>
             </div>
 
-            {/* Tip 3 */}
             <div className="flex gap-3">
               <div className="mt-0.5 flex-shrink-0">
                 <AlertCircle className="h-4 w-4 text-ai" />
@@ -56,7 +53,6 @@ export function TimeBlockingGuide({ onDismiss }: TimeBlockingGuideProps) {
               </div>
             </div>
 
-            {/* Tip 4 */}
             <div className="flex gap-3">
               <div className="mt-0.5 flex-shrink-0">
                 <Clock className="h-4 w-4 text-ai" />
@@ -68,7 +64,6 @@ export function TimeBlockingGuide({ onDismiss }: TimeBlockingGuideProps) {
             </div>
           </div>
 
-          {/* Quick start */}
           <div className="rounded-md bg-background/50 p-3">
             <p className="text-xs font-medium text-muted-foreground mb-2">Quick start:</p>
             <ol className="space-y-1.5 text-xs text-muted-foreground">
@@ -81,7 +76,6 @@ export function TimeBlockingGuide({ onDismiss }: TimeBlockingGuideProps) {
           </div>
         </div>
 
-        {/* Close button */}
         <Button aria-label="Dismiss guide"
           className="flex-shrink-0 text-muted-foreground transition-colors hover:text-foreground"
           variant="unstyled"

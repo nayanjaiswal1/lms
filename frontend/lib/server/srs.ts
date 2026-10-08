@@ -17,7 +17,7 @@ export interface SRSCard {
   created_at: string;
 }
 
-export interface DueCardsResponse {
+interface DueCardsResponse {
   cards: SRSCard[];
   total: number;
 }

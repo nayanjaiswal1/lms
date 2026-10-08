@@ -84,7 +84,7 @@ func normalizeAndValidateEvent(e Event) (Event, error) {
 func (s *Service) CreateEvent(ctx context.Context, e Event, attendeeUserIDs []string) (Event, error) {
 	e, err := normalizeAndValidateEvent(e)
 	if err != nil {
-		return Event{}, err
+		return Event{}, fmt.Errorf("calendar.CreateEvent: %w", err)
 	}
 
 	var created Event
@@ -108,7 +108,7 @@ func (s *Service) CreateEvent(ctx context.Context, e Event, attendeeUserIDs []st
 		return nil
 	})
 	if err != nil {
-		return Event{}, err
+		return Event{}, fmt.Errorf("calendar.CreateEvent: %w", err)
 	}
 	return created, nil
 }
@@ -118,22 +118,22 @@ func (s *Service) CreateEvent(ctx context.Context, e Event, attendeeUserIDs []st
 func (s *Service) GetEvent(ctx context.Context, orgID, eventID, callerID string) (Event, []Attendee, []EventInvite, error) {
 	event, err := s.repo.GetByID(ctx, orgID, eventID)
 	if err != nil {
-		return Event{}, nil, nil, err
+		return Event{}, nil, nil, fmt.Errorf("calendar.GetEvent: %w", err)
 	}
 	canView, err := s.canView(ctx, orgID, eventID, callerID)
 	if err != nil {
-		return Event{}, nil, nil, err
+		return Event{}, nil, nil, fmt.Errorf("calendar.GetEvent: %w", err)
 	}
 	if !canView {
 		return Event{}, nil, nil, ErrForbidden
 	}
 	attendees, err := s.repo.GetAttendees(ctx, eventID)
 	if err != nil {
-		return Event{}, nil, nil, err
+		return Event{}, nil, nil, fmt.Errorf("calendar.GetEvent: %w", err)
 	}
 	pendingInvites, err := s.repo.ListPendingInvitesByEvent(ctx, eventID)
 	if err != nil {
-		return Event{}, nil, nil, err
+		return Event{}, nil, nil, fmt.Errorf("calendar.GetEvent: %w", err)
 	}
 	return event, attendees, pendingInvites, nil
 }
@@ -156,7 +156,7 @@ func (s *Service) ListRange(ctx context.Context, orgID, callerID string, from, t
 func (s *Service) canView(ctx context.Context, orgID, eventID, callerID string) (bool, error) {
 	ok, err := s.repo.CanAccessEvent(ctx, orgID, eventID, callerID)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("calendar.canView: %w", err)
 	}
 	if ok {
 		return true, nil
@@ -170,7 +170,7 @@ func (s *Service) canView(ctx context.Context, orgID, eventID, callerID string) 
 func (s *Service) canMutate(ctx context.Context, orgID, eventID, callerID string) (bool, error) {
 	role, ok, err := s.repo.GetAttendeeRole(ctx, eventID, callerID)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("calendar.canMutate: %w", err)
 	}
 	if ok && (role == AttendeeRoleOwner || role == AttendeeRoleEditor) {
 		return true, nil
@@ -194,15 +194,15 @@ func (s *Service) canMutate(ctx context.Context, orgID, eventID, callerID string
 func (s *Service) UpdateEvent(ctx context.Context, orgID, eventID, callerID, scope string, occurrenceStartsAt *time.Time, patch Event) (Event, error) {
 	patch, err := normalizeAndValidateEvent(patch)
 	if err != nil {
-		return Event{}, err
+		return Event{}, fmt.Errorf("calendar.UpdateEvent: %w", err)
 	}
 	base, err := s.repo.GetByID(ctx, orgID, eventID)
 	if err != nil {
-		return Event{}, err
+		return Event{}, fmt.Errorf("calendar.UpdateEvent: %w", err)
 	}
 	allowed, err := s.canMutate(ctx, orgID, eventID, callerID)
 	if err != nil {
-		return Event{}, err
+		return Event{}, fmt.Errorf("calendar.UpdateEvent: %w", err)
 	}
 	if !allowed {
 		return Event{}, ErrForbidden
@@ -219,7 +219,7 @@ func (s *Service) UpdateEvent(ctx context.Context, orgID, eventID, callerID, sco
 	patch.ID = base.ID
 	updated, err := s.repo.Update(ctx, orgID, patch)
 	if err != nil {
-		return Event{}, err
+		return Event{}, fmt.Errorf("calendar.UpdateEvent: %w", err)
 	}
 	return updated, nil
 }
@@ -267,7 +267,7 @@ func (s *Service) detachOccurrence(ctx context.Context, orgID string, base Event
 		return s.repo.AddExcludedOccurrenceTx(ctx, tx, orgID, base.ID, occurrenceStartsAt)
 	})
 	if err != nil {
-		return Event{}, err
+		return Event{}, fmt.Errorf("calendar.detachOccurrence: %w", err)
 	}
 	return detached, nil
 }
@@ -278,7 +278,7 @@ func (s *Service) detachOccurrence(ctx context.Context, orgID string, base Event
 func (s *Service) UpdateNotes(ctx context.Context, orgID, eventID, callerID string, notes *string) (Event, error) {
 	allowed, err := s.canMutate(ctx, orgID, eventID, callerID)
 	if err != nil {
-		return Event{}, err
+		return Event{}, fmt.Errorf("calendar.UpdateNotes: %w", err)
 	}
 	if !allowed {
 		return Event{}, ErrForbidden
@@ -292,7 +292,7 @@ func (s *Service) UpdateNotes(ctx context.Context, orgID, eventID, callerID stri
 func (s *Service) SetCompleted(ctx context.Context, orgID, eventID, callerID string, completed bool) (Event, error) {
 	allowed, err := s.canMutate(ctx, orgID, eventID, callerID)
 	if err != nil {
-		return Event{}, err
+		return Event{}, fmt.Errorf("calendar.SetCompleted: %w", err)
 	}
 	if !allowed {
 		return Event{}, ErrForbidden
@@ -307,11 +307,11 @@ func (s *Service) SetCompleted(ctx context.Context, orgID, eventID, callerID str
 func (s *Service) DeleteEvent(ctx context.Context, orgID, eventID, callerID, scope string, occurrenceStartsAt *time.Time) error {
 	base, err := s.repo.GetByID(ctx, orgID, eventID)
 	if err != nil {
-		return err
+		return fmt.Errorf("calendar.DeleteEvent: %w", err)
 	}
 	allowed, err := s.canMutate(ctx, orgID, eventID, callerID)
 	if err != nil {
-		return err
+		return fmt.Errorf("calendar.DeleteEvent: %w", err)
 	}
 	if !allowed {
 		return ErrForbidden
@@ -338,7 +338,7 @@ func (s *Service) DeleteEvent(ctx context.Context, orgID, eventID, callerID, sco
 func (s *Service) RestoreEvent(ctx context.Context, orgID, eventID, callerID string) (Event, error) {
 	allowed, err := s.canMutate(ctx, orgID, eventID, callerID)
 	if err != nil {
-		return Event{}, err
+		return Event{}, fmt.Errorf("calendar.RestoreEvent: %w", err)
 	}
 	if !allowed {
 		return Event{}, ErrForbidden
@@ -355,7 +355,7 @@ func (s *Service) RSVP(ctx context.Context, eventID, callerID, status string) (A
 	}
 	attendee, err := s.repo.UpdateRSVP(ctx, eventID, callerID, status)
 	if err != nil {
-		return Attendee{}, err
+		return Attendee{}, fmt.Errorf("calendar.RSVP: %w", err)
 	}
 	return attendee, nil
 }
@@ -377,7 +377,7 @@ var ErrFeedTokenExists = errors.New("calendar: feed token already issued")
 func (s *Service) GetOrCreateFeedURL(ctx context.Context, backendURL, orgID, callerID string, rotate bool) (string, error) {
 	_, exists, err := s.repo.GetFeedTokenHash(ctx, callerID, orgID)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("calendar.GetOrCreateFeedURL: %w", err)
 	}
 	if exists && !rotate {
 		return "", ErrFeedTokenExists
@@ -388,7 +388,7 @@ func (s *Service) GetOrCreateFeedURL(ctx context.Context, backendURL, orgID, cal
 		return "", fmt.Errorf("calendar: generate feed token: %w", err)
 	}
 	if err := s.repo.UpsertFeedTokenHash(ctx, callerID, orgID, hash); err != nil {
-		return "", err
+		return "", fmt.Errorf("calendar.GetOrCreateFeedURL: %w", err)
 	}
 	return backendURL + "/api/calendar/events.ics?token=" + rawToken, nil
 }

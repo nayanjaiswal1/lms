@@ -71,7 +71,6 @@ func (r *Repo) NextStepPosition(ctx context.Context, db DBTX, projectID string) 
 	return *max + 1, nil
 }
 
-// InsertOnboardingStep creates a step.
 func (r *Repo) InsertOnboardingStep(ctx context.Context, db DBTX, projectID, title string, wikiPageID *string, required bool, position int) (*OnboardingStep, error) {
 	return scanOnboardingStep(db.QueryRow(ctx,
 		`INSERT INTO onboarding_steps (project_id, title, wiki_page_id, required, position)

@@ -136,7 +136,7 @@ func (h *Handler) mfaLimited(w http.ResponseWriter, r *http.Request, userID stri
 func (h *Handler) beginMFASetup(ctx context.Context, userID, email string) (secret, uri string, err error) {
 	raw, err := newTOTPSecret()
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("auth.beginMFASetup: %w", err)
 	}
 	enc, err := h.vault.Encrypt(raw)
 	if err != nil {
@@ -184,14 +184,14 @@ func (h *Handler) confirmMFA(ctx context.Context, userID, code string) ([]string
 	}
 	plain, hashes, err := newRecoveryCodes()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("auth.confirmMFA: %w", err)
 	}
 	if _, err := tx.Exec(ctx,
 		`UPDATE user_mfa SET enabled_at = now(), last_step = $2 WHERE user_id = $1`, userID, step); err != nil {
 		return nil, fmt.Errorf("enable mfa: %w", err)
 	}
 	if err := insertRecoveryCodes(ctx, tx, userID, hashes); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("auth.confirmMFA: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit: %w", err)
@@ -218,11 +218,11 @@ func (h *Handler) regenerateRecoveryCodes(ctx context.Context, userID, code stri
 		return nil, errMFABadCode
 	}
 	if _, err := h.checkSecondFactor(ctx, userID, code); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("auth.regenerateRecoveryCodes: %w", err)
 	}
 	plain, hashes, err := newRecoveryCodes()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("auth.regenerateRecoveryCodes: %w", err)
 	}
 	tx, err := h.pool.Begin(ctx)
 	if err != nil {
@@ -233,7 +233,7 @@ func (h *Handler) regenerateRecoveryCodes(ctx context.Context, userID, code stri
 		return nil, fmt.Errorf("delete old recovery codes: %w", err)
 	}
 	if err := insertRecoveryCodes(ctx, tx, userID, hashes); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("auth.regenerateRecoveryCodes: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit: %w", err)

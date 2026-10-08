@@ -24,7 +24,6 @@ export function AchievementsCard({ stats, achievements }: Props) {
       <h2 className="section-title mb-4">Achievements</h2>
 
       <div className="space-y-4">
-        {/* Badges — real earned achievements from the rewards domain */}
         <div>
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">
             Badges

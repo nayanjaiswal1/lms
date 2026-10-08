@@ -2,7 +2,7 @@
 
 import { apiAction } from "@/lib/server/api";
 
-export interface ResolveMistakeResult {
+interface ResolveMistakeResult {
   ok: boolean;
   error?: string;
 }

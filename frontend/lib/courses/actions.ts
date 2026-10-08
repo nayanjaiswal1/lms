@@ -166,13 +166,6 @@ export async function updateCourseAction(
   return result;
 }
 
-export async function generateOutlineAction(input: {
-  topic: string;
-  level: string;
-  module_count: number;
-}): Promise<ActionResult<unknown>> {
-  return apiAction<unknown>("POST", "/api/courses/generate-outline", input);
-}
 
 export async function createSectionAction(input: {
   course_id: string;

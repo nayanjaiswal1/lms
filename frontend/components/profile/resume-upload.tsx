@@ -41,7 +41,6 @@ export function ResumeUpload({ parseAction, applyAction }: Props) {
         links automatically.
       </p>
 
-      {/* Step 1 — upload form */}
       <form action={parseDispatch} className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="resume-file">Resume (PDF, max 5 MB)</Label>
@@ -77,7 +76,6 @@ export function ResumeUpload({ parseAction, applyAction }: Props) {
         </Button>
       </form>
 
-      {/* Step 2 — extracted preview + apply */}
       {extracted && (
         <div className="ai-surface rounded-lg p-4 space-y-4">
           <div className="flex items-center gap-2">

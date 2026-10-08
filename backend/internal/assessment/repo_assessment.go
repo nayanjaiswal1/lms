@@ -153,7 +153,7 @@ func (r *Repo) ListAssessments(ctx context.Context, orgID string, f AssessmentFi
 	for rows.Next() {
 		a, err := scanAssessment(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("assessment.ListAssessments: %w", err)
 		}
 		out = append(out, a)
 	}
@@ -252,7 +252,7 @@ func (r *Repo) AddQuestion(ctx context.Context, orgID, assessmentID, questionID 
 		return recomputeTotals(ctx, tx, assessmentID)
 	})
 	if err != nil {
-		return AssessmentQuestion{}, err
+		return AssessmentQuestion{}, fmt.Errorf("assessment.AddQuestion: %w", err)
 	}
 	return aq, nil
 }
@@ -452,7 +452,7 @@ func (r *Repo) CreateAssignments(ctx context.Context, orgID, assessmentID, assig
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("assessment.CreateAssignments: %w", err)
 	}
 	return ids, nil
 }

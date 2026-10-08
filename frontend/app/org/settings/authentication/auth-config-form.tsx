@@ -46,7 +46,6 @@ export function AuthConfigForm({ orgId, config }: AuthConfigFormProps) {
         <input name="sso_provider" type="hidden" value={ssoProvider} />
       )}
 
-      {/* SSO toggle */}
       <div className="flex items-start gap-4">
         <div className="flex-1">
           <Label className="text-sm font-medium text-foreground" htmlFor="sso-toggle">
@@ -77,7 +76,6 @@ export function AuthConfigForm({ orgId, config }: AuthConfigFormProps) {
         </Button>
       </div>
 
-      {/* Provider select — only when SSO is on */}
       {ssoEnabled && (
         <div className="space-y-1.5 pl-0">
           <Label htmlFor="sso-provider">SSO Provider</Label>
@@ -100,7 +98,6 @@ export function AuthConfigForm({ orgId, config }: AuthConfigFormProps) {
         </div>
       )}
 
-      {/* Allowed domains (read-only reference) */}
       {config.allowed_domains.length > 0 && (
         <div className="space-y-1.5">
           <Label>Allowed Domains</Label>

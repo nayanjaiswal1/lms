@@ -44,8 +44,11 @@ const ttydCredentialUser = "mindforge"
 // never stored in the database or handed to the browser. See that
 // function's doc comment for the full rationale (docs/labs.md "Proxy ↔
 // Container Channel Security"; docs/debug-labs.md Phase 0).
-// containerCredentialDomain prefixes the HMAC input — must match the copy in
-// the other process (internal/labs/credential.go ↔ cmd/labproxy/proxy.go).
+// containerCredentialDomain prefixes the ttyd credential's HMAC input — must
+// match the copy in the other process (internal/labs/credential.go ↔
+// cmd/labproxy/proxy.go). Domain separation: the secret also signs auth JWTs
+// and the student can read their own credential inside the container, so the
+// HMAC input must never be able to coincide with a JWT signing input.
 const containerCredentialDomain = "mindforge/container-credential/v1:"
 
 // ideCredentialDomain must match labs.ideCredentialDomain
@@ -61,11 +64,10 @@ func deriveIDECredential(secret, sessionID string) string {
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
+// deriveContainerCredential must stay byte-for-byte identical to
+// labs.DeriveContainerCredential.
 func deriveContainerCredential(secret, sessionID string) string {
 	mac := hmac.New(sha256.New, []byte(secret))
-	// Domain-separation prefix: the secret also signs auth JWTs and the
-	// student can read their own credential inside the container, so the
-	// HMAC input must never be able to coincide with a JWT signing input.
 	mac.Write([]byte(containerCredentialDomain + sessionID))
 	return hex.EncodeToString(mac.Sum(nil))
 }
@@ -81,7 +83,6 @@ type labSession struct {
 	ID            string
 	UserID        string
 	Status        string
-	ContainerID   *string
 	ContainerHost *string
 }
 
@@ -123,11 +124,20 @@ func NewProxyHandler(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer
 	}
 }
 
+// rejectIfDraining answers 503 and reports true once shutdown has begun, so
+// no new preview or terminal request starts while connections are draining.
+func (h *ProxyHandler) rejectIfDraining(w http.ResponseWriter) bool {
+	if !h.draining.Load() {
+		return false
+	}
+	writeJSONError(w, http.StatusServiceUnavailable, "service draining")
+	return true
+}
+
 // ServeHTTP handles the full lifecycle of a proxied lab session:
 // JWT validation → session load → optional unpause → WS upgrade → relay.
 func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if h.draining.Load() {
-		writeJSONError(w, http.StatusServiceUnavailable, "service draining")
+	if h.rejectIfDraining(w) {
 		return
 	}
 
@@ -137,49 +147,9 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, err := validateWSToken(tokenStr, h.jwtSecret, h.jwtIssuer)
-	if err != nil {
-		slog.Warn("labproxy: invalid token", "error", err)
-		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-	if !h.tokenIsLive(r.Context(), tokenStr) {
-		writeJSONError(w, http.StatusUnauthorized, "token revoked or expired")
-		return
-	}
-
-	var sess labSession
-	err = h.pool.QueryRow(r.Context(),
-		`SELECT id, user_id, status, container_id, container_host
-		 FROM lab_sessions WHERE id=$1`,
-		claims.SessionID,
-	).Scan(&sess.ID, &sess.UserID, &sess.Status, &sess.ContainerID, &sess.ContainerHost)
-	if err != nil {
-		writeJSONError(w, http.StatusNotFound, "session not found")
-		return
-	}
-
-	// IDOR guard: token's user_id must match the session's owner.
-	if sess.UserID != claims.UserID {
-		writeJSONError(w, http.StatusForbidden, "forbidden")
-		return
-	}
-
-	// labproxy has no Docker/Kubernetes API access — resuming a paused
-	// container is the main API's job, done synchronously inside
-	// labs.Service.MintWSToken before it ever hands out the token this
-	// request is authenticated with (see that method's own doc comment).
-	// The client always mints a fresh token before connecting, so reaching
-	// here with status still "paused" means the token is stale (session got
-	// idle-paused again after minting) rather than something this process
-	// can fix — reject and let the client re-mint, which resumes it.
-	if sess.Status != "running" {
-		writeJSONError(w, http.StatusConflict, "session not running — mint a fresh session_token and reconnect")
-		return
-	}
-
-	if sess.ContainerHost == nil || *sess.ContainerHost == "" {
-		writeJSONError(w, http.StatusServiceUnavailable, "container not ready")
+	sess, status, msg := h.authorizeSession(r, tokenStr)
+	if status != 0 {
+		writeJSONError(w, status, msg)
 		return
 	}
 
@@ -196,27 +166,7 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	browserConn.SetReadLimit(wsReadLimitBytes)
 
-	// ttyd only accepts connections that negotiate the "tty" WebSocket
-	// subprotocol; without it, it silently accepts the upgrade but never
-	// spawns the shell.
-	ttydDialer := &websocket.Dialer{Subprotocols: []string{"tty"}}
-	// Basic-auth credential (docs/labs.md "Proxy ↔ Container Channel
-	// Security"; docs/debug-labs.md Phase 0): recomputed here from the
-	// session ID rather than stored anywhere, and presented on every
-	// upstream connect. entrypoint.sh (lab-images/shared/entrypoint.sh)
-	// starts ttyd with the matching -c user:pass written into the container
-	// at claim/start time (labs.writeTTYDCredential) — a co-located
-	// container on the shared bridge that reaches this port directly still
-	// cannot attach without it.
-	cred := deriveContainerCredential(h.jwtSecret, sess.ID)
-	authHeader := http.Header{"Authorization": {
-		"Basic " + base64.StdEncoding.EncodeToString([]byte(ttydCredentialUser+":"+cred)),
-	}}
-	containerConn, _, dialErr := ttydDialer.DialContext(
-		r.Context(),
-		"ws://"+*sess.ContainerHost+"/ws",
-		authHeader,
-	)
+	containerConn, dialErr := h.dialTTYD(r.Context(), sess)
 	if dialErr != nil {
 		slog.Error("labproxy: dial container",
 			"host", *sess.ContainerHost, "session", sess.ID, "error", dialErr)
@@ -229,20 +179,7 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.wg.Add(1)
 	defer h.wg.Done()
 
-	// Debounced last_active_at: update every 5s while the relay is alive.
-	stopHeartbeat := make(chan struct{})
-	go func() {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				h.writeHeartbeat(context.Background(), sess.ID)
-			case <-stopHeartbeat:
-				return
-			}
-		}
-	}()
+	stopHeartbeat := h.startHeartbeat(sess.ID)
 
 	// Bidirectional relay: when either side closes, signal done so we can
 	// clean up both connections.
@@ -259,9 +196,41 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	<-done
-	close(stopHeartbeat)
+	stopHeartbeat()
 	_ = browserConn.Close()
 	_ = containerConn.Close()
+}
+
+// dialTTYD opens the upstream ttyd WebSocket for sess. The "tty" subprotocol is
+// required (ttyd otherwise never spawns the shell), and the basic-auth
+// credential matches the -c user:pass entrypoint.sh gives ttyd
+// (docs/labs.md "Proxy ↔ Container Channel Security").
+func (h *ProxyHandler) dialTTYD(ctx context.Context, sess labSession) (*websocket.Conn, error) {
+	ttydDialer := &websocket.Dialer{Subprotocols: []string{"tty"}}
+	cred := deriveContainerCredential(h.jwtSecret, sess.ID)
+	authHeader := http.Header{"Authorization": {
+		"Basic " + base64.StdEncoding.EncodeToString([]byte(ttydCredentialUser+":"+cred)),
+	}}
+	conn, _, err := ttydDialer.DialContext(ctx, "ws://"+*sess.ContainerHost+"/ws", authHeader)
+	return conn, err
+}
+
+// startHeartbeat refreshes last_active_at every 5s until stop is called.
+func (h *ProxyHandler) startHeartbeat(sessionID string) (stop func()) {
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				h.writeHeartbeat(context.Background(), sessionID)
+			case <-done:
+				return
+			}
+		}
+	}()
+	return func() { close(done) }
 }
 
 // relay copies WebSocket messages from src to dst until either connection
@@ -339,13 +308,6 @@ func validateWSToken(tokenStr, secret, issuer string) (*wsClaims, error) {
 	return claims, nil
 }
 
-// tokenIsLive checks the Redis registry MintWSToken writes every token into
-// (labs.Service.MintWSToken's doc comment) — a second factor alongside the
-// JWT signature/expiry that lets a specific token be revoked (DEL) without
-// needing to end the session it belongs to. Fails CLOSED on a Redis error
-// (audit M-20): without the registry a revoked token could not be told from
-// a live one, so a Redis outage rejects new terminal connects (existing
-// relays are unaffected) rather than accepting possibly-revoked tokens.
 // previewHeartbeatDebounce bounds how often preview traffic (HTTP passthrough
 // and WebSocket upgrades — see previewTarget in preview.go, the single
 // choke point every preview request resolves through) is allowed to write
@@ -391,6 +353,13 @@ func (h *ProxyHandler) heartbeatPreview(ctx context.Context, sessionID string) {
 	h.writeHeartbeat(ctx, sessionID)
 }
 
+// tokenIsLive checks the Redis registry MintWSToken writes every token into
+// (labs.Service.MintWSToken's doc comment) — a second factor alongside the
+// JWT signature/expiry that lets a specific token be revoked (DEL) without
+// needing to end the session it belongs to. Fails CLOSED on a Redis error
+// (audit M-20): without the registry a revoked token could not be told from
+// a live one, so a Redis outage rejects new terminal connects (existing
+// relays are unaffected) rather than accepting possibly-revoked tokens.
 func (h *ProxyHandler) tokenIsLive(ctx context.Context, tokenStr string) bool {
 	_, err := h.rdb.Get(ctx, "lab:wstoken:"+tokenStr).Result()
 	if err == redis.Nil {
@@ -401,4 +370,47 @@ func (h *ProxyHandler) tokenIsLive(ctx context.Context, tokenStr string) bool {
 		return false
 	}
 	return true
+}
+
+// authorizeSession validates the WebSocket token and loads its session; a
+// non-zero status is the rejection to answer with.
+func (h *ProxyHandler) authorizeSession(r *http.Request, tokenStr string) (sess labSession, status int, msg string) {
+	claims, err := validateWSToken(tokenStr, h.jwtSecret, h.jwtIssuer)
+	if err != nil {
+		slog.Warn("labproxy: invalid token", "error", err)
+		return labSession{}, http.StatusUnauthorized, "unauthorized"
+	}
+	if !h.tokenIsLive(r.Context(), tokenStr) {
+		return labSession{}, http.StatusUnauthorized, "token revoked or expired"
+	}
+
+	err = h.pool.QueryRow(r.Context(),
+		`SELECT id, user_id, status, container_host
+		 FROM lab_sessions WHERE id=$1`,
+		claims.SessionID,
+	).Scan(&sess.ID, &sess.UserID, &sess.Status, &sess.ContainerHost)
+	if err != nil {
+		return labSession{}, http.StatusNotFound, "session not found"
+	}
+
+	// IDOR guard: token's user_id must match the session's owner.
+	if sess.UserID != claims.UserID {
+		return labSession{}, http.StatusForbidden, "forbidden"
+	}
+
+	// labproxy has no Docker/Kubernetes API access — resuming a paused
+	// container is the main API's job, done synchronously inside
+	// labs.Service.MintWSToken before it ever hands out the token this
+	// request is authenticated with (see that method's own doc comment).
+	// The client always mints a fresh token before connecting, so reaching
+	// here with status still "paused" means the token is stale (session got
+	// idle-paused again after minting) rather than something this process
+	// can fix — reject and let the client re-mint, which resumes it.
+	if sess.Status != "running" {
+		return labSession{}, http.StatusConflict, "session not running — mint a fresh session_token and reconnect"
+	}
+	if sess.ContainerHost == nil || *sess.ContainerHost == "" {
+		return labSession{}, http.StatusServiceUnavailable, "container not ready"
+	}
+	return sess, 0, ""
 }

@@ -5,6 +5,9 @@ import (
 	"strings"
 )
 
+// previewRefreshOKPath is the silent cookie-refresh landing path.
+const previewRefreshOKPath = "/__mf/ok"
+
 // previewTokenCookieName is the __Host-prefixed, per-origin cookie that
 // carries the preview token once a browser has completed the handshake on a
 // preview subdomain (see ServePreviewAuth). __Host- is browser-enforced:
@@ -14,9 +17,6 @@ import (
 // independent cookies — this is the fix for the old design's single shared
 // port cookie, which could only resolve one port's absolute-path assets at a
 // time (ponytail: "upgrade: subdomain-per-port routing").
-// previewRefreshOKPath is the silent cookie-refresh landing path.
-const previewRefreshOKPath = "/__mf/ok"
-
 const previewTokenCookieName = "__Host-mf_preview_token"
 
 // localPreviewDomain is the dev preview domain. "localhost" has no registrable
@@ -44,8 +44,7 @@ func previewCookieSameSite(previewDomain string) http.SameSite {
 // set session A's token as B's cookie. On success it sets the per-origin
 // cookie and redirects to next.
 func (h *ProxyHandler) ServePreviewAuth(w http.ResponseWriter, r *http.Request, port int, sessionID string) {
-	if h.draining.Load() {
-		writeJSONError(w, http.StatusServiceUnavailable, "service draining")
+	if h.rejectIfDraining(w) {
 		return
 	}
 
@@ -101,8 +100,7 @@ func (h *ProxyHandler) ServePreviewAuth(w http.ResponseWriter, r *http.Request, 
 // ordinary same-origin requests — relative or absolute path, HTML document
 // or subresource — just resolve correctly on their own.
 func (h *ProxyHandler) ServePreviewPassthrough(w http.ResponseWriter, r *http.Request, port int, sessionID string) {
-	if h.draining.Load() {
-		writeJSONError(w, http.StatusServiceUnavailable, "service draining")
+	if h.rejectIfDraining(w) {
 		return
 	}
 

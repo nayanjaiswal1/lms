@@ -13,7 +13,6 @@ import (
 	"github.com/mindforge/backend/internal/config"
 )
 
-// Claims is the JWT payload for MindForge access tokens.
 type Claims struct {
 	UserID         string `json:"user_id"`
 	OrgID          string `json:"org_id"`
@@ -118,7 +117,7 @@ func csrfSignature(cfg *config.Config, rnd string) string {
 func randomHex(n int) (string, error) {
 	buf := make([]byte, n)
 	if _, err := rand.Read(buf); err != nil {
-		return "", err
+		return "", fmt.Errorf("auth.randomHex: %w", err)
 	}
 	return hex.EncodeToString(buf), nil
 }

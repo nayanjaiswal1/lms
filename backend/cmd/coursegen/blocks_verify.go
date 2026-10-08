@@ -19,6 +19,9 @@ import (
 // verifyTimeout bounds one recipe's whole render + matrix.
 const verifyTimeout = 60 * time.Minute
 
+// debugLabImage is the local debug-lab image (built by scripts/push-lab-images.sh).
+const debugLabImage = "mindforge/lab-debug:1"
+
 // runBlocksVerify builds and verifies each recipe file against the local
 // block tree in local Docker (labbuild.VerifyLocal).
 func runBlocksVerify(args []string) error {
@@ -36,7 +39,7 @@ func runBlocksVerify(args []string) error {
 
 	loaded, err := labauthor.LoadBlockTree(*in)
 	if err != nil {
-		return err
+		return fmt.Errorf("blocks verify: load block tree: %w", err)
 	}
 	versions := map[string]*labblock.ResolvedBlock{}
 	payloads := map[string][]byte{}
@@ -50,7 +53,7 @@ func runBlocksVerify(args []string) error {
 		}
 	}
 	rt := labs.NewDockerContainerService(map[string]labs.ImageProfile{
-		"mindforge/lab-debug:1": labs.DebugIDEProfile(),
+		debugLabImage: labs.DebugIDEProfile(),
 	})
 
 	reports := map[string]*labbuild.Report{}

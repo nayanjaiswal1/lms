@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiAction, authHeaders, baseURL } from "@/lib/server/api";
+import { apiAction, authHeaders, tryBaseURL } from "@/lib/server/api";
 import type { ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 import type {
@@ -18,12 +18,9 @@ import type {
   PeerFeedbackInput,
   Release,
   ReleaseNotes,
-  SetItemReleaseInput,
-  SetItemSprintInput,
   Sprint,
   UpdateReleaseInput,
   WeeklySummary,
-  WorkItem,
 } from "@/lib/workspace/types";
 
 // ── Releases ─────────────────────────────────────────────────────────────────
@@ -53,15 +50,6 @@ export async function getReleaseNotesAction(
   return apiAction<ReleaseNotes>("GET", `/api/workspaces/${workspaceId}/releases/${releaseId}/notes${qs}`);
 }
 
-export async function setItemReleaseAction(
-  workspaceId: string,
-  itemId: string,
-  input: SetItemReleaseInput,
-): Promise<ActionResult<WorkItem>> {
-  const result = await apiAction<WorkItem>("PUT", `/api/workspaces/${workspaceId}/items/${itemId}/release`, input);
-  if (result.ok) revalidatePath(ROUTES.workspaceReleases(workspaceId));
-  return result;
-}
 
 // ── Sprints ──────────────────────────────────────────────────────────────────
 
@@ -87,15 +75,6 @@ export async function closeSprintAction(
   return result;
 }
 
-export async function setItemSprintAction(
-  workspaceId: string,
-  itemId: string,
-  input: SetItemSprintInput,
-): Promise<ActionResult<WorkItem>> {
-  const result = await apiAction<WorkItem>("PUT", `/api/workspaces/${workspaceId}/items/${itemId}/sprint`, input);
-  if (result.ok) revalidatePath(ROUTES.workspaceSprints(workspaceId));
-  return result;
-}
 
 // ── Completion: feedback, member report, certificates, showcase ─────────────
 
@@ -153,12 +132,8 @@ export async function getWeeklySummaryAction(workspaceId: string, regenerate: bo
 // authHeaders() (the same building blocks, not a raw hand-built Cookie
 // header) rather than forcing a non-JSON response through the JSON helpers.
 export async function exportWorkspaceCSVAction(workspaceId: string, kind: ExportKind): Promise<ActionResult<string>> {
-  let url: string;
-  try {
-    url = baseURL();
-  } catch {
-    return { error: "Service unavailable." };
-  }
+  const url = tryBaseURL();
+  if (!url) return { error: "Service unavailable." };
   try {
     const res = await fetch(`${url}/api/workspaces/${workspaceId}/export/${kind}.csv`, {
       headers: await authHeaders(),

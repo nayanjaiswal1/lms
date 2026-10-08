@@ -63,7 +63,7 @@ func (r *Repo) ListPosts(ctx context.Context, f ListFilter) ([]Post, error) {
 	for rows.Next() {
 		p, err := scanPost(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("interviewexp.ListPosts: %w", err)
 		}
 		out = append(out, p)
 	}
@@ -112,7 +112,7 @@ func (r *Repo) ListEntries(ctx context.Context, postID string) ([]Entry, error) 
 	for rows.Next() {
 		e, err := scanEntry(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("interviewexp.ListEntries: %w", err)
 		}
 		out = append(out, e)
 	}
@@ -163,7 +163,7 @@ func (r *Repo) ListQnaByPost(ctx context.Context, postID string) ([]Qna, error) 
 	for rows.Next() {
 		q, err := scanQna(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("interviewexp.ListQnaByPost: %w", err)
 		}
 		out = append(out, q)
 	}
@@ -241,7 +241,7 @@ func (r *Repo) ListCommentsByQnaIDs(ctx context.Context, qnaIDs []string) ([]Com
 	for rows.Next() {
 		c, err := scanComment(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("interviewexp.ListCommentsByQnaIDs: %w", err)
 		}
 		if c.Deleted {
 			c.Content = "[deleted]"

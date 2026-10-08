@@ -40,10 +40,6 @@ export function ExplanationPanel({
   // null` narrowing into a nested `function` declaration.
   const { selected_text: selectedText, explanation: explanationText } = explanation
 
-  // Replaces the old standalone "Ask your AI" panel — same context blob,
-  // now built from the highlight actually being explained instead of a
-  // generic "help me with this lesson" prompt, and copied from right where
-  // the student is already looking instead of a separate top-level button.
   async function copyPrompt() {
     const blob = [
       `I'm looking at the MindForge lesson "${moduleTitle}" (${lessonUrl}).`,

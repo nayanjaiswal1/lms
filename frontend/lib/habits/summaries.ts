@@ -53,7 +53,7 @@ export function sleepSeriesForMonth(habit: Habit, month: string, metadata: Metad
   return points;
 }
 
-export interface SleepTimes {
+interface SleepTimes {
   sleptAt: string;
   wokeUp: string;
 }

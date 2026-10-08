@@ -20,6 +20,7 @@ import {
   setDefaultGitlabInstallationAction,
   disconnectGitlabInstallationAction,
 } from "@/app/(app)/settings/integrations/actions";
+import { formatOptionalDate } from "@/components/settings/format-optional-date";
 
 export interface GitlabInstallationStatus {
   id: string;
@@ -35,11 +36,6 @@ export interface GitlabInstallationStatus {
   last_error?: string | null;
   last_verified_at?: string | null;
   created_at?: string | null;
-}
-
-function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "Never";
-  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
 interface GitlabInstallationCardProps {
@@ -93,7 +89,7 @@ export function GitlabInstallationCard({ installation }: GitlabInstallationCardP
             {installation.auth_kind === "oauth" ? "OAuth service account" : "Personal access token"}
             {installation.gitlab_username ? ` · @${installation.gitlab_username}` : ""}
             {" · Last verified "}
-            {formatDate(installation.last_verified_at)}
+            {formatOptionalDate(installation.last_verified_at)}
           </p>
           <div className="mt-1 flex flex-wrap gap-1">
             <Badge variant={installation.status === "active" ? "secondary" : "destructive"}>

@@ -61,7 +61,7 @@ func (r *Repo) tx(ctx context.Context, fn func(pgx.Tx) error) error {
 	}
 	if err := fn(tx); err != nil {
 		_ = tx.Rollback(ctx)
-		return err
+		return fmt.Errorf("courses.tx: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("courses: commit tx: %w", err)
@@ -93,7 +93,7 @@ func (r *Repo) CreateCourse(ctx context.Context, c Course) (Course, error) {
 		return nil
 	})
 	if err != nil {
-		return Course{}, err
+		return Course{}, fmt.Errorf("courses.CreateCourse: %w", err)
 	}
 	return c, nil
 }
@@ -122,7 +122,6 @@ func (r *Repo) GetCourse(ctx context.Context, orgID, id string) (Course, error) 
 	return c, nil
 }
 
-// CourseFilter is used by ListCourses.
 type CourseFilter struct {
 	Status     string
 	Difficulty string
@@ -372,7 +371,7 @@ func (r *Repo) GetPublicCourseBySlug(ctx context.Context, slug string) (Course, 
 func (r *Repo) GetPublicCourseTreeBySlug(ctx context.Context, slug string) (CourseTree, error) {
 	c, err := r.GetPublicCourseBySlug(ctx, slug)
 	if err != nil {
-		return CourseTree{}, err
+		return CourseTree{}, fmt.Errorf("courses.GetPublicCourseTreeBySlug: %w", err)
 	}
 	return r.buildCourseTree(ctx, c)
 }
@@ -381,7 +380,7 @@ func (r *Repo) GetPublicCourseTreeBySlug(ctx context.Context, slug string) (Cour
 func (r *Repo) GetCourseTree(ctx context.Context, orgID, userID, courseID string) (CourseTree, error) {
 	c, err := r.GetCourse(ctx, orgID, courseID)
 	if err != nil {
-		return CourseTree{}, err
+		return CourseTree{}, fmt.Errorf("courses.GetCourseTree: %w", err)
 	}
 	return r.buildCourseTree(ctx, c)
 }
@@ -391,7 +390,7 @@ func (r *Repo) GetCourseTree(ctx context.Context, orgID, userID, courseID string
 func (r *Repo) GetCourseTreeBySlug(ctx context.Context, orgID, userID, slug string) (CourseTree, error) {
 	c, err := r.GetCourseBySlug(ctx, orgID, slug)
 	if err != nil {
-		return CourseTree{}, err
+		return CourseTree{}, fmt.Errorf("courses.GetCourseTreeBySlug: %w", err)
 	}
 	return r.buildCourseTree(ctx, c)
 }
@@ -408,7 +407,7 @@ func (r *Repo) buildCourseTree(ctx context.Context, c Course) (CourseTree, error
 	g.Go(func() (err error) { sections, err = r.listCourseSections(gctx, c.ID); return })
 	g.Go(func() (err error) { modsBySectionID, err = r.listCourseModulesBySection(gctx, c.ID); return })
 	if err := g.Wait(); err != nil {
-		return CourseTree{}, err
+		return CourseTree{}, fmt.Errorf("courses.buildCourseTree: %w", err)
 	}
 
 	tree := CourseTree{Course: c}
@@ -1200,7 +1199,7 @@ func (r *Repo) InsertCheckAttempt(ctx context.Context, a LessonCheckAttempt) (Le
 		return nil
 	})
 	if err != nil {
-		return LessonCheckAttempt{}, err
+		return LessonCheckAttempt{}, fmt.Errorf("courses.InsertCheckAttempt: %w", err)
 	}
 	return a, nil
 }
@@ -1310,7 +1309,7 @@ func (r *Repo) ForkCourse(ctx context.Context, orgID, originalID, creatorID, new
 		return copySectionsAndModules(ctx, tx, originalID, newCourse.ID)
 	})
 	if err != nil {
-		return Course{}, err
+		return Course{}, fmt.Errorf("courses.ForkCourse: %w", err)
 	}
 	return newCourse, nil
 }

@@ -43,7 +43,7 @@ func (s *Service) LogMistake(ctx context.Context, userID string, req LogRequest)
 
 	entry, err := s.repo.Create(ctx, userID, req)
 	if err != nil {
-		return Entry{}, err
+		return Entry{}, fmt.Errorf("mistakes.LogMistake: %w", err)
 	}
 
 	err = srs.MaybeCreateCard(ctx, s.pool, userID, srs.CreateCardRequest{

@@ -70,7 +70,7 @@ func (r *Repo) CreateQuestion(ctx context.Context, q Question, content json.RawM
 		return nil
 	})
 	if err != nil {
-		return Question{}, err
+		return Question{}, fmt.Errorf("assessment.CreateQuestion: %w", err)
 	}
 	q.Content = content
 	q.Status = StatusActive
@@ -113,7 +113,7 @@ func (r *Repo) UpdateQuestion(ctx context.Context, orgID string, q Question, con
 		return nil
 	})
 	if err != nil {
-		return Question{}, err
+		return Question{}, fmt.Errorf("assessment.UpdateQuestion: %w", err)
 	}
 	q.OrgID = orgID
 	q.Content = content

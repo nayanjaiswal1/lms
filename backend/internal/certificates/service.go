@@ -126,22 +126,22 @@ func (s *Service) completionGate(ctx context.Context, userID, courseID string) e
 
 func (s *Service) GetFinalTestForStudent(ctx context.Context, userID, courseID string) (StudentFinalTest, error) {
 	if err := s.completionGate(ctx, userID, courseID); err != nil {
-		return StudentFinalTest{}, err
+		return StudentFinalTest{}, fmt.Errorf("certificates.GetFinalTestForStudent: %w", err)
 	}
 	ft, err := s.repo.GetFinalTestByCourse(ctx, courseID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return StudentFinalTest{}, ErrNoFinalTest
 		}
-		return StudentFinalTest{}, err
+		return StudentFinalTest{}, fmt.Errorf("certificates.GetFinalTestForStudent: %w", err)
 	}
 	used, err := s.repo.CountAttempts(ctx, userID, ft.ID)
 	if err != nil {
-		return StudentFinalTest{}, err
+		return StudentFinalTest{}, fmt.Errorf("certificates.GetFinalTestForStudent: %w", err)
 	}
 	passed, err := s.repo.HasPassedAttempt(ctx, userID, ft.ID)
 	if err != nil {
-		return StudentFinalTest{}, err
+		return StudentFinalTest{}, fmt.Errorf("certificates.GetFinalTestForStudent: %w", err)
 	}
 	result := StudentFinalTest{
 		ID:                  ft.ID,
@@ -156,7 +156,7 @@ func (s *Service) GetFinalTestForStudent(ctx context.Context, userID, courseID s
 	if passed {
 		cert, err := s.repo.GetCertificateForCourse(ctx, userID, courseID)
 		if err != nil {
-			return StudentFinalTest{}, err
+			return StudentFinalTest{}, fmt.Errorf("certificates.GetFinalTestForStudent: %w", err)
 		}
 		result.CertUUID = &cert.CertUUID
 	}
@@ -171,19 +171,19 @@ func (s *Service) GetFinalTestForStudent(ctx context.Context, userID, courseID s
 // checks GetCertificateForCourse first).
 func (s *Service) SubmitAttempt(ctx context.Context, orgID, userID, courseID string, req SubmitAttemptRequest) (SubmitAttemptResponse, error) {
 	if err := s.completionGate(ctx, userID, courseID); err != nil {
-		return SubmitAttemptResponse{}, err
+		return SubmitAttemptResponse{}, fmt.Errorf("certificates.SubmitAttempt: %w", err)
 	}
 	ft, err := s.repo.GetFinalTestByCourse(ctx, courseID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return SubmitAttemptResponse{}, ErrNoFinalTest
 		}
-		return SubmitAttemptResponse{}, err
+		return SubmitAttemptResponse{}, fmt.Errorf("certificates.SubmitAttempt: %w", err)
 	}
 
 	used, err := s.repo.CountAttempts(ctx, userID, ft.ID)
 	if err != nil {
-		return SubmitAttemptResponse{}, err
+		return SubmitAttemptResponse{}, fmt.Errorf("certificates.SubmitAttempt: %w", err)
 	}
 	if used >= ft.MaxAttempts {
 		return SubmitAttemptResponse{}, ErrAttemptsExhausted
@@ -241,7 +241,7 @@ func (s *Service) SubmitAttempt(ctx context.Context, orgID, userID, courseID str
 	}
 	attempt, err := s.repo.CreateAttempt(ctx, userID, ft.ID, answersRaw, score, total, passed)
 	if err != nil {
-		return SubmitAttemptResponse{}, err
+		return SubmitAttemptResponse{}, fmt.Errorf("certificates.SubmitAttempt: %w", err)
 	}
 
 	resp := SubmitAttemptResponse{Attempt: attempt}
@@ -251,7 +251,7 @@ func (s *Service) SubmitAttempt(ctx context.Context, orgID, userID, courseID str
 		case errors.Is(err, ErrNotFound):
 			cert, err := s.repo.IssueCertificate(ctx, userID, courseID, &attempt.ID, nil, IssueTypeFinalTest)
 			if err != nil {
-				return SubmitAttemptResponse{}, err
+				return SubmitAttemptResponse{}, fmt.Errorf("certificates.SubmitAttempt: %w", err)
 			}
 			resp.Certificate = &cert
 		case err != nil:
@@ -278,7 +278,7 @@ func (s *Service) GetMyCertificateForCourse(ctx context.Context, userID, courseI
 		if errors.Is(err, ErrNotFound) {
 			return nil, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("certificates.GetMyCertificateForCourse: %w", err)
 	}
 	return &cert, nil
 }
@@ -392,7 +392,7 @@ func (s *Service) GetCertificateThreshold(ctx context.Context, orgID, courseID s
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("certificates.GetCertificateThreshold: %w", err)
 	}
 	return threshold, nil
 }
@@ -450,7 +450,7 @@ func (s *Service) CheckThresholdIssue(ctx context.Context, orgID, userID, course
 
 	cert, err := s.repo.IssueCertificate(ctx, userID, courseID, nil, nil, IssueTypeThreshold)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("certificates.CheckThresholdIssue: %w", err)
 	}
 	return &cert, nil
 }

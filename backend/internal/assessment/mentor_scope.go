@@ -17,11 +17,10 @@ import (
 func mentorBatchScope(pool *pgxpool.Pool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			claims, ok := auth.GetClaims(r.Context())
-			if !ok {
-				httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-				return
-			}
+			claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
 			role, _ := middleware.LiveOrgRole(r.Context(), pool, claims.UserID, claims.OrgID)
 			if role != middleware.RoleMentor {
 				next.ServeHTTP(w, r)
@@ -88,11 +87,10 @@ func mentorGate(pool *pgxpool.Pool, deny string,
 	visible func(ctx context.Context, r *http.Request, batchIDs []string) (bool, error)) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			claims, ok := auth.GetClaims(r.Context())
-			if !ok {
-				httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-				return
-			}
+			claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
 			ids, scoped, err := mentorScopeIDs(r.Context(), pool, claims)
 			if err != nil {
 				httputil.WriteError(w, http.StatusInternalServerError, "Could not verify access.")

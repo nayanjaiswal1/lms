@@ -82,7 +82,7 @@ func (r *Repo) AssessmentAnalytics(ctx context.Context, orgID, assessmentID stri
 	}
 	bucketRows.Close()
 	if err := bucketRows.Err(); err != nil {
-		return out, err
+		return out, fmt.Errorf("assessment.AssessmentAnalytics: %w", err)
 	}
 
 	// Per-question correctness.
@@ -111,7 +111,7 @@ func (r *Repo) AssessmentAnalytics(ctx context.Context, orgID, assessmentID stri
 		out.QuestionStats = append(out.QuestionStats, qs)
 	}
 	if err := qRows.Err(); err != nil {
-		return out, err
+		return out, fmt.Errorf("assessment.AssessmentAnalytics: %w", err)
 	}
 
 	// Attempts with any critical proctoring event.

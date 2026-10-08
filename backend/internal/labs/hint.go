@@ -160,10 +160,10 @@ func recordAISuccess(ctx context.Context, rdb redisClient) {
 func (s *Service) RequestHint(ctx context.Context, sessionID, taskID, userID, idemKey string) (*HintResult, error) {
 	session, err := s.repo.GetSession(ctx, sessionID, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.RequestHint: %w", err)
 	}
 	if err := s.requireSessionLive(ctx, session); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.RequestHint: %w", err)
 	}
 	if session.Status != SessionStatusRunning && session.Status != SessionStatusPaused {
 		return nil, ErrSessionNotRunning
@@ -186,7 +186,7 @@ func (s *Service) RequestHint(ctx context.Context, sessionID, taskID, userID, id
 
 	rateLimitKey := fmt.Sprintf("lab:hint:rate:%s:%s", sessionID, taskID)
 	if err := s.acquireCooldown(ctx, rateLimitKey, time.Duration(HintRateLimitSeconds)*time.Second, "labs.Service.RequestHint"); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.RequestHint: %w", err)
 	}
 
 	tasks, err := s.repo.GetPublishedVersion(ctx, session.TaskVersionID)
@@ -250,7 +250,7 @@ func (s *Service) RequestHint(ctx context.Context, sessionID, taskID, userID, id
 		} else {
 			content, err = s.generateHint(ctx, task, level, attempts, sessionID, taskID, cacheKey, extra)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("labs.RequestHint: %w", err)
 			}
 		}
 	}

@@ -32,7 +32,7 @@ func (r *Repo) tx(ctx context.Context, fn func(pgx.Tx) error) error {
 	}
 	if err := fn(tx); err != nil {
 		_ = tx.Rollback(ctx)
-		return err
+		return fmt.Errorf("messaging.tx: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("messaging: commit tx: %w", err)

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -108,16 +107,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 // opted in to AI processing: every capture is read by a vision/text model, so
 // nothing may be stored for processing without consent (DPDP s.6).
 func (h *Handler) requireAIConsent(w http.ResponseWriter, r *http.Request, userID string) bool {
-	err := privacy.RequireAIConsent(r.Context(), h.pool, userID)
-	if err == nil {
-		return true
-	}
-	if errors.Is(err, privacy.ErrAIConsentRequired) {
-		httputil.WriteError(w, http.StatusForbidden, aiConsentMessage)
-	} else {
-		httputil.WriteError(w, http.StatusInternalServerError, "Could not verify your AI consent.")
-	}
-	return false
+	return privacy.EnforceAIConsent(w, r, h.pool, userID, aiConsentMessage)
 }
 
 // createUpload handles one or many files in a single request — the browser
@@ -369,7 +359,7 @@ func (h *Handler) similarMatches(r *http.Request, userID string, capture Capture
 	}
 	entries, err := h.journal.FindSimilarEntries(r.Context(), userID, *capture.Title, "")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("captures.similarMatches: %w", err)
 	}
 	out := make([]SimilarMatch, len(entries))
 	for i, e := range entries {
@@ -577,7 +567,7 @@ func extensionForMIME(mime string) string {
 func randomHex(n int) (string, error) {
 	buf := make([]byte, n)
 	if _, err := rand.Read(buf); err != nil {
-		return "", err
+		return "", fmt.Errorf("captures.randomHex: %w", err)
 	}
 	return hex.EncodeToString(buf), nil
 }

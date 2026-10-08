@@ -160,7 +160,7 @@ func (e *judge0Executor) Run(ctx context.Context, lang, source string, content C
 			MemoryLimit:    content.MemoryLimitKb,
 		})
 		if err != nil {
-			return RunResult{Status: "error"}, err
+			return RunResult{Status: "error"}, fmt.Errorf("assessment.Run: %w", err)
 		}
 
 		// Judge0 compile error (status 6) aborts the whole submission.
@@ -359,7 +359,7 @@ func (e *pistonExecutor) Run(ctx context.Context, lang, source string, content C
 			Stdin:    tc.Stdin,
 		})
 		if err != nil {
-			return RunResult{Status: "error"}, err
+			return RunResult{Status: "error"}, fmt.Errorf("assessment.Run: %w", err)
 		}
 
 		// A non-zero compile exit code means compile error.

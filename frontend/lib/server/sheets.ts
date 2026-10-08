@@ -28,7 +28,7 @@ export interface UserSheetSummary extends Sheet {
   solved_count: number;
 }
 
-export interface SheetPreview extends Sheet {
+interface SheetPreview extends Sheet {
   is_subscribed: boolean;
 }
 
@@ -57,7 +57,7 @@ export interface SheetItem {
   created_at: string;
 }
 
-export interface SheetItemsResponse {
+interface SheetItemsResponse {
   sheet: Sheet;
   items: SheetItem[];
 }

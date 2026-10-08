@@ -53,14 +53,14 @@ func runBlocksSync(args []string) error {
 
 	blocks, err := labauthor.LoadBlockTree(*in)
 	if err != nil {
-		return err
+		return fmt.Errorf("blocks sync: load block tree: %w", err)
 	}
 	payloads := 0
 	for _, b := range blocks {
 		if b.Payload != nil {
 			payloads++
 		}
-		fmt.Printf("  %s@%s  %s  %s\n", b.Manifest.ID, b.Manifest.Version, b.ContentHash[:12], payloadNote(b))
+		fmt.Printf("  %s@%s  %.12s  %s\n", b.Manifest.ID, b.Manifest.Version, b.ContentHash, payloadNote(b))
 	}
 	fmt.Printf("coursegen blocks sync: %d block version(s), %d payload(s)\n", len(blocks), payloads)
 	if *dry {
@@ -70,21 +70,21 @@ func runBlocksSync(args []string) error {
 	if !*noUpload && payloads > 0 {
 		store, err := storage.NewPrivateMinioClient(config.LoadMinioOnly())
 		if err != nil {
-			return err
+			return fmt.Errorf("blocks sync: private store: %w", err)
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), uploadTimeout)
 		defer cancel()
 		if err := store.EnsureBucket(ctx); err != nil {
-			return err
+			return fmt.Errorf("blocks sync: ensure private bucket: %w", err)
 		}
 		if err := labauthor.UploadPayloads(ctx, store, blocks); err != nil {
-			return err
+			return fmt.Errorf("blocks sync: upload payloads: %w", err)
 		}
 	}
 
 	sql, err := labauthor.RenderSyncSQL(blocks)
 	if err != nil {
-		return err
+		return fmt.Errorf("blocks sync: render sql: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Dir(*out), 0o755); err != nil {
 		return fmt.Errorf("blocks sync: %w", err)

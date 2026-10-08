@@ -22,7 +22,7 @@ const MODE_LABEL: Record<PrepMode, string> = {
 };
 const OTHER_MODE: Record<PrepMode, PrepMode> = { quick: "targeted", targeted: "quick" };
 
-// One field replaces the old two-form toggle: quick vs targeted is
+// One field: quick vs targeted is
 // auto-classified from what the user typed (see lib/interview-prep/classify),
 // with a one-click override if the guess is wrong. Advanced options only
 // apply to quick mode — targeted mode's difficulty/skills come from AI

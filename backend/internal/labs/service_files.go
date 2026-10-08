@@ -81,10 +81,10 @@ func shellQuote(s string) string {
 func (s *Service) loadRunnableSession(ctx context.Context, sessionID, userID string) (*LabSession, error) {
 	session, err := s.repo.GetSession(ctx, sessionID, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.loadRunnableSession: %w", err)
 	}
 	if err := s.requireSessionLive(ctx, session); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.loadRunnableSession: %w", err)
 	}
 	// requireSessionLive alone would also accept 'provisioning' (no container
 	// yet) — file ops need a container to exec into, so narrow further here
@@ -105,7 +105,7 @@ func (s *Service) loadRunnableSession(ctx context.Context, sessionID, userID str
 func (s *Service) ListFiles(ctx context.Context, sessionID, userID string) ([]LabFileEntry, error) {
 	session, err := s.loadRunnableSession(ctx, sessionID, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.ListFiles: %w", err)
 	}
 
 	// `find -printf` is GNU-only — lab images built on Alpine/BusyBox (e.g.
@@ -148,11 +148,11 @@ func (s *Service) ListFiles(ctx context.Context, sessionID, userID string) ([]La
 func (s *Service) ReadFile(ctx context.Context, sessionID, userID, relPath string) (string, error) {
 	session, err := s.loadRunnableSession(ctx, sessionID, userID)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("labs.ReadFile: %w", err)
 	}
 	rel, err := resolveWorkdirPath(relPath)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("labs.ReadFile: %w", err)
 	}
 
 	script := fmt.Sprintf("cat %s", shellQuote(containerPath(rel)))
@@ -177,11 +177,11 @@ func (s *Service) WriteFile(ctx context.Context, sessionID, userID, relPath, con
 
 	session, err := s.loadRunnableSession(ctx, sessionID, userID)
 	if err != nil {
-		return err
+		return fmt.Errorf("labs.WriteFile: %w", err)
 	}
 	rel, err := resolveWorkdirPath(relPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("labs.WriteFile: %w", err)
 	}
 
 	full := containerPath(rel)
@@ -217,11 +217,11 @@ func (s *Service) WriteFile(ctx context.Context, sessionID, userID, relPath, con
 func (s *Service) CreateDirectory(ctx context.Context, sessionID, userID, relPath string) error {
 	session, err := s.loadRunnableSession(ctx, sessionID, userID)
 	if err != nil {
-		return err
+		return fmt.Errorf("labs.CreateDirectory: %w", err)
 	}
 	rel, err := resolveWorkdirPath(relPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("labs.CreateDirectory: %w", err)
 	}
 
 	script := fmt.Sprintf("mkdir -p %s", shellQuote(containerPath(rel)))
@@ -242,15 +242,15 @@ func (s *Service) CreateDirectory(ctx context.Context, sessionID, userID, relPat
 func (s *Service) RenameFile(ctx context.Context, sessionID, userID, fromPath, toPath string) error {
 	session, err := s.loadRunnableSession(ctx, sessionID, userID)
 	if err != nil {
-		return err
+		return fmt.Errorf("labs.RenameFile: %w", err)
 	}
 	from, err := resolveWorkdirPath(fromPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("labs.RenameFile: %w", err)
 	}
 	to, err := resolveWorkdirPath(toPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("labs.RenameFile: %w", err)
 	}
 
 	fullFrom, fullTo := containerPath(from), containerPath(to)
@@ -272,11 +272,11 @@ func (s *Service) RenameFile(ctx context.Context, sessionID, userID, fromPath, t
 func (s *Service) DeleteFile(ctx context.Context, sessionID, userID, relPath string) error {
 	session, err := s.loadRunnableSession(ctx, sessionID, userID)
 	if err != nil {
-		return err
+		return fmt.Errorf("labs.DeleteFile: %w", err)
 	}
 	rel, err := resolveWorkdirPath(relPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("labs.DeleteFile: %w", err)
 	}
 
 	script := fmt.Sprintf("rm -rf %s", shellQuote(containerPath(rel)))
@@ -299,7 +299,7 @@ func (s *Service) DeleteFile(ctx context.Context, sessionID, userID, relPath str
 func (s *Service) ValidateFile(ctx context.Context, sessionID, userID, relPath string) (*ValidateResult, error) {
 	session, err := s.loadRunnableSession(ctx, sessionID, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.ValidateFile: %w", err)
 	}
 	lab, err := s.repo.GetLab(ctx, session.LabID, session.OrgID)
 	if err != nil {
@@ -310,7 +310,7 @@ func (s *Service) ValidateFile(ctx context.Context, sessionID, userID, relPath s
 	}
 	rel, err := resolveWorkdirPath(relPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.ValidateFile: %w", err)
 	}
 
 	script := fmt.Sprintf("kubectl apply --dry-run=server -f %s", shellQuote(containerPath(rel)))
@@ -330,7 +330,7 @@ func (s *Service) ValidateFile(ctx context.Context, sessionID, userID, relPath s
 func (s *Service) GetResources(ctx context.Context, sessionID, userID string) (json.RawMessage, error) {
 	session, err := s.loadRunnableSession(ctx, sessionID, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.GetResources: %w", err)
 	}
 	lab, err := s.repo.GetLab(ctx, session.LabID, session.OrgID)
 	if err != nil {

@@ -168,7 +168,6 @@ type Session struct {
 	BatchName   *string `json:"batch_name,omitempty"`
 }
 
-// Feedback is one mentor_session_feedback row.
 type Feedback struct {
 	ID         string    `json:"id"`
 	SessionID  string    `json:"session_id"`
@@ -204,7 +203,6 @@ type CreditPack struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
-// LedgerEntry is one session_credit_ledger row.
 type LedgerEntry struct {
 	ID        string    `json:"id"`
 	Delta     int       `json:"delta"`
@@ -214,7 +212,6 @@ type LedgerEntry struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// PackPurchase is one session_pack_purchases row.
 type PackPurchase struct {
 	ID          string `json:"id"`
 	OrgID       string `json:"org_id"`

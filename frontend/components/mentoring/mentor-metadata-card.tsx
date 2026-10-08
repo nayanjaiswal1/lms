@@ -9,8 +9,7 @@ interface Props {
 }
 
 // Sidebar "Metadata" card — last-active is the one field here with no other
-// home on the page (unlike hours/joined, which used to sit in a bare <p>
-// list); grouping all three under one heading matches the mockup's split
+// home on the page; grouping all three under one heading matches the mockup's split
 // between "live stats" (insights card above) and "static facts" (this one).
 export function MentorMetadataCard({ lastActiveAt, totalMentorshipHours, joinedAt }: Props) {
   const lastActiveLabel = formatLastActive(lastActiveAt);

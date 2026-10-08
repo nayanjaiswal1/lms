@@ -43,7 +43,7 @@ func (s *Service) FixEnglish(ctx context.Context, userID, content string) ([]Fix
 		return nil, ErrAIUnavailable
 	}
 	if err := privacy.RequireAIConsent(ctx, s.repo.pool, userID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("diary.FixEnglish: %w", err)
 	}
 	resp, err := s.provider.Complete(ctx, ai.CompletionRequest{
 		SystemPrompt: ai.DiaryFixEnglishSystemPrompt,
@@ -72,11 +72,11 @@ func (s *Service) Preview(ctx context.Context, userID, entryDate, content string
 		return nil, ErrAIUnavailable
 	}
 	if err := privacy.RequireAIConsent(ctx, s.repo.pool, userID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("diary.Preview: %w", err)
 	}
 	habits, openTasks, err := s.vocabulary(ctx, userID, entryDate)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("diary.Preview: %w", err)
 	}
 
 	resp, err := s.provider.Complete(ctx, ai.CompletionRequest{
@@ -107,7 +107,7 @@ func (s *Service) Preview(ctx context.Context, userID, entryDate, content string
 func (s *Service) Apply(ctx context.Context, entry Entry, edited []Highlight) ([]Highlight, error) {
 	habits, openTasks, err := s.vocabulary(ctx, entry.UserID, entry.EntryDate)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("diary.Apply: %w", err)
 	}
 	resolved, applyErr := s.applyHighlights(ctx, entry, edited, habits, openTasks)
 	// Save whatever succeeded even if a later highlight in the batch failed —

@@ -12,7 +12,6 @@ import (
 	"github.com/mindforge/backend/internal/middleware"
 )
 
-// Router wires the wiki domain into the main chi router.
 type Router struct {
 	handler *Handler
 	pool    *pgxpool.Pool

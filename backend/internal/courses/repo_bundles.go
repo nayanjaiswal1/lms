@@ -261,7 +261,7 @@ func (r *Repo) EnrollInBundle(ctx context.Context, orgID, userID, bundleID strin
 		return paid.Err()
 	})
 	if err != nil {
-		return BundleEnrollResult{}, err
+		return BundleEnrollResult{}, fmt.Errorf("courses.EnrollInBundle: %w", err)
 	}
 	return res, nil
 }

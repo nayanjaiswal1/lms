@@ -25,11 +25,10 @@ import (
 // the frontend falls back per part the same way it did for the separate call.
 func bootstrapHandler(mux http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		claims, ok := auth.GetClaims(r.Context())
-		if !ok {
-			httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-			return
-		}
+		claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
 
 		parts := map[string]string{
 			"me":                  "/api/auth/me",

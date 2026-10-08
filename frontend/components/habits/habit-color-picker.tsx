@@ -31,19 +31,6 @@ export const HABIT_FILL_CLASS: Record<HabitColorValue, string> = {
   red: "fill-habit-red",
 };
 
-// Checked-state override for <Checkbox> — same static-literal-class
-// requirement as HABIT_SWATCH_CLASS above.
-export const HABIT_CHECKBOX_CLASS: Record<HabitColorValue, string> = {
-  blue: "data-[state=checked]:border-habit-blue data-[state=checked]:bg-habit-blue",
-  orange: "data-[state=checked]:border-habit-orange data-[state=checked]:bg-habit-orange",
-  aqua: "data-[state=checked]:border-habit-aqua data-[state=checked]:bg-habit-aqua",
-  yellow: "data-[state=checked]:border-habit-yellow data-[state=checked]:bg-habit-yellow",
-  magenta: "data-[state=checked]:border-habit-magenta data-[state=checked]:bg-habit-magenta",
-  green: "data-[state=checked]:border-habit-green data-[state=checked]:bg-habit-green",
-  violet: "data-[state=checked]:border-habit-violet data-[state=checked]:bg-habit-violet",
-  red: "data-[state=checked]:border-habit-red data-[state=checked]:bg-habit-red",
-};
-
 interface HabitColorPickerProps {
   habitName: string;
   color: HabitColorValue;

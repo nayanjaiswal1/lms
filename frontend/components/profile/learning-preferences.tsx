@@ -35,7 +35,6 @@ export function LearningPreferences({ profile, updateAction }: Props) {
       <h2 className="section-title mb-6">Learning Preferences</h2>
 
       <form action={updateAction} className="form-stack">
-        {/* Experience Level */}
         <fieldset className="space-y-3">
           <legend className="text-sm font-medium text-foreground">
             Experience Level
@@ -59,7 +58,6 @@ export function LearningPreferences({ profile, updateAction }: Props) {
           </RadioGroup>
         </fieldset>
 
-        {/* Learning Domains */}
         <fieldset className="space-y-3">
           <legend className="text-sm font-medium text-foreground">
             Learning Domains
@@ -84,7 +82,6 @@ export function LearningPreferences({ profile, updateAction }: Props) {
           </div>
         </fieldset>
 
-        {/* Learning Goal */}
         <div className="space-y-2">
           <Label htmlFor="learning-goal-select">Learning Goal</Label>
           <Select
@@ -104,7 +101,6 @@ export function LearningPreferences({ profile, updateAction }: Props) {
           </Select>
         </div>
 
-        {/* Preferred Style */}
         <fieldset className="space-y-3">
           <legend className="text-sm font-medium text-foreground">
             Preferred Learning Style

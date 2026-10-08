@@ -22,7 +22,7 @@ func NewService(repo *Repo) *Service {
 func (s *Service) Status(ctx context.Context, userID string) ([]string, error) {
 	latest, err := s.repo.LatestVersions(ctx, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("legal.Status: %w", err)
 	}
 	var needed []string
 	for _, docType := range AllDocTypes {

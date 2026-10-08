@@ -35,7 +35,7 @@ export interface SimilarFAQ {
   similarity: number;
 }
 
-export interface GetBatchMessagesOptions {
+interface GetBatchMessagesOptions {
   before?: string;
   limit?: number;
   type?: string;

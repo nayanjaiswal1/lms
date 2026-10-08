@@ -16,7 +16,6 @@ import (
 	"github.com/mindforge/backend/internal/profile"
 )
 
-// Service is the project marketplace domain's business logic layer.
 type Service struct {
 	repo         *Repo
 	pool         *pgxpool.Pool

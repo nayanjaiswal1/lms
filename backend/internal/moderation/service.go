@@ -32,7 +32,7 @@ func (s *Service) CreateReport(ctx context.Context, callerOrgID, reporterID, con
 
 	orgID, err := s.repo.ContentOrgID(ctx, contentType, contentID)
 	if err != nil {
-		return Report{}, err
+		return Report{}, fmt.Errorf("moderation.CreateReport: %w", err)
 	}
 
 	// A caller may only report content in their own tenant; anything else is
@@ -71,7 +71,7 @@ func (s *Service) Resolve(ctx context.Context, orgID, reportID, status, resolved
 	}
 	rp, err := s.repo.GetReport(ctx, orgID, reportID)
 	if err != nil {
-		return Report{}, err
+		return Report{}, fmt.Errorf("moderation.Resolve: %w", err)
 	}
 
 	var notePtr *string
@@ -80,12 +80,12 @@ func (s *Service) Resolve(ctx context.Context, orgID, reportID, status, resolved
 	}
 	updated, err := s.repo.Resolve(ctx, orgID, reportID, status, resolvedBy, notePtr)
 	if err != nil {
-		return Report{}, err
+		return Report{}, fmt.Errorf("moderation.Resolve: %w", err)
 	}
 
 	if status == StatusRemoved {
 		if err := s.repo.TakeDownContent(ctx, rp.ContentType, rp.ContentID); err != nil {
-			return Report{}, err
+			return Report{}, fmt.Errorf("moderation.Resolve: %w", err)
 		}
 	}
 	return updated, nil

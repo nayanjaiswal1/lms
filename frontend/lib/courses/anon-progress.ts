@@ -10,7 +10,7 @@
 
 const KEY_PREFIX = "mf_anon_progress:";
 
-export interface AnonCourseProgress {
+interface AnonCourseProgress {
   completedModuleIds: string[];
   notes: Record<string, string>;
   reflections: Record<string, string>;

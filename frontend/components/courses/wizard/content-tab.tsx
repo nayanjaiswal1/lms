@@ -34,7 +34,6 @@ export function ContentTab({
 
   return (
     <div className="flex gap-6 min-h-[500px]">
-      {/* Left: module list */}
       <aside className="w-56 shrink-0 flex flex-col gap-3">
         <p className="section-label">Lessons</p>
         {totalModules === 0 ? (
@@ -72,7 +71,6 @@ export function ContentTab({
         )}
       </aside>
 
-      {/* Right: block editor */}
       <div className="flex-1 min-w-0">
         {!activeModuleId || !activeSectionLocalId || !activeModule ? (
           <div className="flex h-full items-center justify-center text-center">

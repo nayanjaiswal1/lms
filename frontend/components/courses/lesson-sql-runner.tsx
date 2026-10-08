@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { Loader2, Play, RotateCcw } from "lucide-react";
 import type { Database, SqlValue } from "sql.js";
 import { createSeededDatabase } from "@/lib/courses/sql-playground";
+import { formatSqlCell } from "@/components/courses/format-sql-cell";
 import { CodeEditor } from "@/components/shared/code-editor";
 import { Button } from "@/components/ui/button";
 
@@ -16,12 +17,6 @@ type Outcome =
   | { kind: "rows"; columns: string[]; values: SqlValue[][] }
   | { kind: "affected"; count: number }
   | { kind: "error"; message: string };
-
-function formatCell(value: SqlValue): string {
-  if (value === null) return "NULL";
-  if (value instanceof Uint8Array) return "[blob]";
-  return String(value);
-}
 
 // Runs entirely client-side against an in-browser SQLite engine (sql.js) —
 // the w3schools-style "Try it Yourself" box for the SQL Mastery course. No
@@ -124,7 +119,7 @@ export function LessonSqlRunner({ initialQuery }: LessonSqlRunnerProps) {
                       <tr className="whitespace-nowrap border-b border-border/50" key={rowIndex}>
                         {row.map((cell, cellIndex) => (
                           <td className="px-2 py-1 font-mono text-foreground" key={cellIndex}>
-                            {formatCell(cell)}
+                            {formatSqlCell(cell)}
                           </td>
                         ))}
                       </tr>

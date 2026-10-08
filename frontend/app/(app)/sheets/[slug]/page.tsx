@@ -146,7 +146,7 @@ export default async function SheetDetailPage({ params, searchParams }: SheetDet
             </div>
           </div>
           {isTableView ? (
-            <SheetGridView items={visibleItems} />
+            <SheetGridView items={visibleItems} sheetId={itemsResponse.sheet.id} />
           ) : (
             <SheetSplitView
               cancelAddItemHref={baseSheetUrl}

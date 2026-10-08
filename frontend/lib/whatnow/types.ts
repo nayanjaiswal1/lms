@@ -2,7 +2,7 @@
 
 export type Energy = "sharp" | "tired";
 
-export type ChipKind = "deadline" | "category" | "duration" | "vague";
+type ChipKind = "deadline" | "category" | "duration" | "vague";
 
 export interface Chip {
   id: string;
@@ -59,7 +59,7 @@ export interface StuckResolution {
   task?: Task;
 }
 
-export interface BreakdownStep {
+interface BreakdownStep {
   id: string;
   title: string;
   durationMin?: number;

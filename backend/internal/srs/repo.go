@@ -9,12 +9,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Repo is the data-access layer for the SRS domain.
 type Repo struct {
 	pool *pgxpool.Pool
 }
 
-// NewRepo constructs a Repo over the shared connection pool.
 func NewRepo(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }

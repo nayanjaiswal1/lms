@@ -52,7 +52,7 @@ func (r *Repo) TierName(ctx context.Context, tierID string) (string, error) {
 func (r *Repo) TierAudience(ctx context.Context, tierID string) (string, error) {
 	var audience string
 	if err := r.pool.QueryRow(ctx, `SELECT audience FROM pricing_tiers WHERE id = $1`, tierID).Scan(&audience); err != nil {
-		return "", err
+		return "", fmt.Errorf("entitlements.TierAudience: %w", err)
 	}
 	return audience, nil
 }

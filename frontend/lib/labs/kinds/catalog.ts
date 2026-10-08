@@ -6,7 +6,7 @@ export interface CatalogOption {
   label: string
 }
 
-export interface CatalogGroup {
+interface CatalogGroup {
   id: string
   label: string
   description: string
@@ -40,7 +40,7 @@ const UNGROUPED: CatalogGroup = {
   categories: [],
 }
 
-export interface GroupedCatalog {
+interface GroupedCatalog {
   group: CatalogGroup
   entries: LabCatalogEntry[]
 }

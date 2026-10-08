@@ -84,4 +84,3 @@ export const PERMISSIONS = {
   },
 } as const
 
-export type PermissionCode = string

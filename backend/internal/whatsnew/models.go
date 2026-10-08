@@ -1,8 +1,7 @@
 // Package whatsnew is the platform's release-notes feed shown in the
 // sidebar's sparkle-icon panel (frontend/components/shared/whats-new-dialog.tsx).
-// Previously a hardcoded WHATS_NEW array in frontend/lib/whats-new.ts — every
-// entry required a rebuild+redeploy. A platform admin now publishes entries
-// from /platform/whats-new instead, same rationale as internal/pricing.
+// A platform admin publishes entries from /platform/whats-new, so no
+// rebuild+redeploy is needed, same rationale as internal/pricing.
 package whatsnew
 
 import (
@@ -24,7 +23,6 @@ var AllowedIcons = map[string]struct{}{
 	"rocket": {}, "megaphone": {}, "zap": {}, "star": {},
 }
 
-// Entry is one whats_new_entries row.
 type Entry struct {
 	ID          string
 	Title       string

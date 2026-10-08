@@ -143,7 +143,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// profile can list a learner's certificates — same *pool-backed Repo
 	// shape certificatesRouter constructs internally for its own routes.
 	profileCertsRepo := certificates.NewRepo(pool)
-	profileHandler := profile.New(pool, cfg, store, profileCertsRepo)
+	profileHandler := profile.New(pool, cfg, store, profileCertsRepo, aiProvider)
 
 	// Courses service is built explicitly (rather than via courses.New) so its
 	// *courses.Service can be shared with the assessment and labs handlers below —

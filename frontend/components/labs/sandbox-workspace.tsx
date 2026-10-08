@@ -96,7 +96,6 @@ export function SandboxWorkspace({ sessionId, lab, onScoreChange }: SandboxWorks
 
   return (
     <>
-      {/* Mobile: the IDE needs a real screen. */}
       <IconMessage className="bg-muted/50 md:hidden" icon={MonitorOff} variant="strip">
         The sandbox workspace requires a larger screen.
       </IconMessage>

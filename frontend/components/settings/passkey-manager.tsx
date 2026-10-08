@@ -39,6 +39,7 @@ import {
   prepareCreationOptions,
   serializeCreatedCredential,
 } from "@/lib/webauthn";
+import { formatOptionalDate } from "@/components/settings/format-optional-date";
 
 export interface PasskeyCredential {
   id: string;
@@ -46,11 +47,6 @@ export interface PasskeyCredential {
   created_at: string;
   last_used_at: string | null;
   backup_state: boolean;
-}
-
-function formatDate(iso: string | null): string {
-  if (!iso) return "Never";
-  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
 interface PasskeyManagerProps {
@@ -160,7 +156,7 @@ export function PasskeyManager({ credentials }: PasskeyManagerProps) {
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{cred.nickname}</p>
                 <p className="text-xs text-muted-foreground">
-                  Added {formatDate(cred.created_at)} · Last used {formatDate(cred.last_used_at)}
+                  Added {formatOptionalDate(cred.created_at)} · Last used {formatOptionalDate(cred.last_used_at)}
                 </p>
               </div>
               <DropdownMenu>

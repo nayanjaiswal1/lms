@@ -12,7 +12,7 @@ export const labCatalogParsers = {
   difficulty: parseAsString.withDefault(CATALOG_ALL),
 }
 
-export type LabCatalogFilters = {
+type LabCatalogFilters = {
   [K in keyof typeof labCatalogParsers]: string
 }
 

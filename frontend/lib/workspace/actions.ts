@@ -6,7 +6,6 @@ import type { ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 import type {
   CreateProjectInput,
-  Interest,
   Member,
   OnboardingStep,
   Project,
@@ -20,9 +19,7 @@ import type {
 } from "@/lib/workspace/types";
 
 // ── Request-body shapes the contract names but that types.ts (lead-owned)
-// doesn't declare — kept local per the brief's "add a local type in your own
-// file" instruction. Flagged in the final report for the lead to fold into
-// types.ts if another agent needs the same shape. ──────────────────────────
+// doesn't declare. ──────────────────────────
 
 interface SetStatusInput {
   status: ProjectStatus;
@@ -49,7 +46,7 @@ interface RespondInviteInput {
   accept: boolean;
 }
 
-export interface TrackInput {
+interface TrackInput {
   name: string;
   lead_user_id?: string | null;
 }
@@ -58,7 +55,7 @@ interface TrackMembershipInput {
   user_id: string;
 }
 
-export interface OnboardingStepInput {
+interface OnboardingStepInput {
   title: string;
   wiki_page_id?: string | null;
   required: boolean;
@@ -144,9 +141,6 @@ export async function rejectInterestAction(workspaceId: string, interestId: stri
   return result;
 }
 
-export async function rankInterestAction(workspaceId: string, interestId: string): Promise<ActionResult<Interest>> {
-  return apiAction<Interest>("POST", `/api/workspaces/${workspaceId}/interests/${interestId}/rank`);
-}
 
 // ── Members ──────────────────────────────────────────────────────────────────
 
@@ -235,15 +229,6 @@ export async function createOnboardingStepAction(workspaceId: string, input: Onb
   return result;
 }
 
-export async function updateOnboardingStepAction(
-  workspaceId: string,
-  stepId: string,
-  input: Partial<OnboardingStepInput>,
-): Promise<ActionResult<OnboardingStep>> {
-  const result = await apiAction<OnboardingStep>("PATCH", `/api/workspaces/${workspaceId}/onboarding/${stepId}`, input);
-  if (result.ok) revalidatePath(ROUTES.workspaceOnboarding(workspaceId));
-  return result;
-}
 
 export async function deleteOnboardingStepAction(workspaceId: string, stepId: string): Promise<ActionResult> {
   const result = await apiAction("DELETE", `/api/workspaces/${workspaceId}/onboarding/${stepId}`);

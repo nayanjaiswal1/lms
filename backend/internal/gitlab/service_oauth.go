@@ -23,7 +23,7 @@ const oauthStateTTL = 10 * time.Minute
 func (s *Service) CreateInstallationPAT(ctx context.Context, orgID, createdBy, name, baseURL, pat, oauthClientID, oauthClientSecret string) (*GitlabInstallation, error) {
 	user, tier, accessTokenEnc, clientIDPtr, secretEnc, err := s.verifyAndEncryptPAT(ctx, baseURL, pat, oauthClientID, oauthClientSecret)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.CreateInstallationPAT: %w", err)
 	}
 	return s.repo.CreateInstallationPAT(ctx, orgID, name, baseURL, tier, user.ID, user.Username, accessTokenEnc, clientIDPtr, secretEnc, createdBy)
 }
@@ -33,7 +33,7 @@ func (s *Service) CreateInstallationPAT(ctx context.Context, orgID, createdBy, n
 func (s *Service) UpdateInstallationPAT(ctx context.Context, orgID, id, baseURL, pat, oauthClientID, oauthClientSecret string) (*GitlabInstallation, error) {
 	user, tier, accessTokenEnc, clientIDPtr, secretEnc, err := s.verifyAndEncryptPAT(ctx, baseURL, pat, oauthClientID, oauthClientSecret)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gitlab.UpdateInstallationPAT: %w", err)
 	}
 	return s.repo.UpdateInstallationPAT(ctx, orgID, id, baseURL, tier, user.ID, user.Username, accessTokenEnc, clientIDPtr, secretEnc)
 }
@@ -91,7 +91,7 @@ func (s *Service) StartInstallOAuth(ctx context.Context, orgID, userID string, i
 func (s *Service) StartConnect(ctx context.Context, orgID, userID string) (authorizeURL string, err error) {
 	inst, err := s.repo.GetDefaultInstallation(ctx, orgID)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("gitlab.StartConnect: %w", err)
 	}
 	if inst.OAuthClientID == nil || *inst.OAuthClientID == "" {
 		return "", ErrNoOAuthApp
@@ -110,11 +110,11 @@ func (s *Service) StartConnect(ctx context.Context, orgID, userID string) (autho
 func (s *Service) startOAuthFlow(ctx context.Context, orgID, userID, purpose string, name, installationID *string, baseURL, oauthClientID, oauthClientSecret string, scopes []string) (string, error) {
 	verifier, challenge, err := GeneratePKCE()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("gitlab.startOAuthFlow: %w", err)
 	}
 	state, err := randomState()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("gitlab.startOAuthFlow: %w", err)
 	}
 
 	var secretEnc []byte
@@ -138,7 +138,7 @@ func (s *Service) startOAuthFlow(ctx context.Context, orgID, userID, purpose str
 		InstallationID:       installationID,
 		ExpiresAt:            time.Now().Add(oauthStateTTL),
 	}); err != nil {
-		return "", err
+		return "", fmt.Errorf("gitlab.startOAuthFlow: %w", err)
 	}
 
 	return AuthorizeURL(baseURL, oauthClientID, s.callbackURL(), state, challenge, scopes), nil
@@ -152,7 +152,7 @@ func (s *Service) startOAuthFlow(ctx context.Context, orgID, userID, purpose str
 func (s *Service) CompleteCallback(ctx context.Context, state, code string) (purpose string, err error) {
 	st, err := s.repo.GetOAuthState(ctx, state)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("gitlab.CompleteCallback: %w", err)
 	}
 	if st.BaseURL == nil || st.OAuthClientID == nil {
 		return "", fmt.Errorf("gitlab: oauth state missing base_url/client_id")
@@ -170,7 +170,7 @@ func (s *Service) CompleteCallback(ctx context.Context, state, code string) (pur
 	httpClient := netguard.NewHTTPClient(15 * time.Second)
 	tok, err := ExchangeCode(ctx, httpClient, *st.BaseURL, *st.OAuthClientID, clientSecret, code, st.CodeVerifier, s.callbackURL())
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("gitlab.CompleteCallback: %w", err)
 	}
 
 	glClient := NewClient(*st.BaseURL, tok.AccessToken)
@@ -206,7 +206,7 @@ func (s *Service) CompleteCallback(ctx context.Context, state, code string) (pur
 		}
 		if st.InstallationID != nil {
 			if _, err := s.repo.FinalizeInstallationOAuthUpdate(ctx, state, st.OrgID, *st.InstallationID, *st.BaseURL, tier, user.ID, user.Username, accessTokenEnc, tok.ExpiresAt(), refreshTokenEnc, st.OAuthClientID, secretEnc); err != nil {
-				return "", err
+				return "", fmt.Errorf("gitlab.CompleteCallback: %w", err)
 			}
 			return OAuthPurposeInstallation, nil
 		}
@@ -215,7 +215,7 @@ func (s *Service) CompleteCallback(ctx context.Context, state, code string) (pur
 			name = *st.Name
 		}
 		if _, err := s.repo.FinalizeInstallationOAuthCreate(ctx, state, st.OrgID, name, *st.BaseURL, tier, user.ID, user.Username, accessTokenEnc, tok.ExpiresAt(), refreshTokenEnc, st.OAuthClientID, secretEnc, st.UserID); err != nil {
-			return "", err
+			return "", fmt.Errorf("gitlab.CompleteCallback: %w", err)
 		}
 		return OAuthPurposeInstallation, nil
 
@@ -228,7 +228,7 @@ func (s *Service) CompleteCallback(ctx context.Context, state, code string) (pur
 			avatar = &user.AvatarURL
 		}
 		if _, err := s.repo.FinalizeConnectionOAuth(ctx, state, st.OrgID, st.UserID, user.ID, user.Username, email, avatar, accessTokenEnc, tok.ExpiresAt(), refreshTokenEnc, ConnectionOAuthScopes); err != nil {
-			return "", err
+			return "", fmt.Errorf("gitlab.CompleteCallback: %w", err)
 		}
 		return OAuthPurposeConnection, nil
 

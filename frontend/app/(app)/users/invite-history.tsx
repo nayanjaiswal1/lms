@@ -78,12 +78,18 @@ interface Props {
 // sent" is only useful here, so it isn't worth carrying on every page load.
 export function InviteHistory({ orgId }: Props) {
   const [invites, setInvites] = React.useState<Invite[] | null>(null);
+  const [loadFailed, setLoadFailed] = React.useState(false);
 
   React.useEffect(() => {
-    void apiFetch<{ invites: Invite[] }>(`/orgs/${orgId}/invites?status=all&limit=100`).then(
-      (res) => setInvites(res?.invites ?? []),
-    );
+    void apiFetch<{ invites: Invite[] }>(`/orgs/${orgId}/invites?status=all&limit=100`).then((res) => {
+      if (res) setInvites(res.invites ?? []);
+      else setLoadFailed(true);
+    });
   }, [orgId]);
+
+  if (loadFailed) {
+    return <p className="text-sm text-destructive">Could not load invite history.</p>;
+  }
 
   if (invites === null) {
     return (

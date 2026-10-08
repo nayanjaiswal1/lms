@@ -1,6 +1,5 @@
 "use server"
 
-import Anthropic from '@anthropic-ai/sdk'
 import { revalidatePath } from 'next/cache'
 import { apiAction, apiUpload } from '@/lib/server/api'
 import type { ResumeExtract } from '@/lib/profile/types'
@@ -126,53 +125,16 @@ export async function parseResumeAction(
   _prev: unknown,
   formData: FormData
 ): Promise<{ data?: ResumeExtract; error?: string }> {
-  const file = formData.get('resume') as File | null
-  if (!file) return { error: 'No file provided.' }
-  if (file.type !== 'application/pdf') return { error: 'File must be a PDF.' }
-  if (file.size > 5 * 1024 * 1024) return { error: 'File must be under 5 MB.' }
+  const file = formData.get('resume')
+  if (!(file instanceof File)) return { error: 'No file provided.' }
 
-  const bytes = await file.arrayBuffer()
-  const base64 = Buffer.from(bytes).toString('base64')
-
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
-  try {
-    const stream = anthropic.messages.stream({
-      model: 'claude-opus-4-8',
-      max_tokens: 2048,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'document',
-              source: { type: 'base64', media_type: 'application/pdf', data: base64 },
-            },
-            {
-              type: 'text',
-              text: `Extract the following from this resume as a JSON object (omit any fields not found):
-{
-  "name": string,
-  "bio": string (2-3 sentence professional summary),
-  "current_role": string,
-  "years_of_experience": number,
-  "skills": [{"skill_name": string, "skill_level": "beginner"|"intermediate"|"advanced"}] (max 10, most relevant),
-  "social_links": {"linkedin": string|null, "github": string|null, "portfolio": string|null}
-}
-Respond with ONLY the JSON object — no markdown fences, no explanation.`,
-            },
-          ],
-        },
-      ],
-    })
-
-    const msg = await stream.finalMessage()
-    const text = msg.content[0]?.type === 'text' ? msg.content[0].text.trim() : ''
-    const data = JSON.parse(text) as ResumeExtract
-    return { data }
-  } catch {
-    return { error: 'Failed to parse resume. Please try again.' }
+  const upload = new FormData()
+  upload.append('resume', file)
+  const result = await apiUpload<ResumeExtract>('/api/profile/me/resume/parse', upload)
+  if (!result.ok) {
+    return { error: result.error ?? 'Failed to parse resume. Please try again.' }
   }
+  return { data: result.data }
 }
 
 export async function applyResumeAction(

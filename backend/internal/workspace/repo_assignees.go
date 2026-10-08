@@ -71,7 +71,6 @@ func (r *Repo) InsertAssignee(ctx context.Context, tx pgx.Tx, itemID, userID, ro
 	return nil
 }
 
-// DeleteAssignee removes one assignee row.
 func (r *Repo) DeleteAssignee(ctx context.Context, tx pgx.Tx, itemID, userID, role string) error {
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM work_item_assignees WHERE item_id = $1 AND user_id = $2 AND role = $3`,

@@ -7,7 +7,7 @@ import { PLACEHOLDER_DOMAIN } from "@/lib/constants";
 // aggregation, NULL handling (an open loan has no return_date), dates, a
 // self-join (members.referred_by), and a "never happened" subquery (a book
 // with zero loans).
-export const SEED_SQL = `
+const SEED_SQL = `
 CREATE TABLE genres (
   id   INTEGER PRIMARY KEY,
   name TEXT NOT NULL UNIQUE
@@ -117,7 +117,7 @@ let sqlJsPromise: Promise<SqlJsStatic> | null = null;
 // Lazily loads the sql.js WASM engine once per page session (module-level
 // cache, shared by every LessonSqlRunner instance) — no useEffect needed
 // since this is only ever invoked from an event handler.
-export function loadSqlJs(): Promise<SqlJsStatic> {
+function loadSqlJs(): Promise<SqlJsStatic> {
   if (!sqlJsPromise) {
     sqlJsPromise = initSqlJs({ locateFile: () => "/sql-wasm.wasm" });
   }
@@ -138,7 +138,7 @@ function lastResultRows(results: QueryExecResult[]): SqlValue[][] {
   return results[results.length - 1].values;
 }
 
-export interface GradeResult {
+interface GradeResult {
   correct: boolean;
   reason?: string;
 }

@@ -89,12 +89,6 @@ function parseKnowledgeCheck(source: string): KnowledgeCheckQuestion[] {
   return parsed.questions.map(({ correct: _correct, ...question }) => question);
 }
 
-export interface LessonImage {
-  src: string;
-  alt: string;
-  caption?: string;
-  headingId: string | null;
-}
 
 interface ParsedModuleContent {
   segments: Segment[];
@@ -225,15 +219,9 @@ function markdownToSegments(body: string): Segment[] {
       // Fence info string is "<language>" normally, or "<language> +" to mark
       // this fence as another language variant of the code segment directly
       // above it (same snippet, translated) rather than a new segment of its
-      // own — e.g. authoring the same algorithm in Python then Java:
-      //   ```python
-      //   ...
-      //   ```
-      //   ```java +
-      //   ...
-      //   ```
-      // This is opt-in and explicit on purpose: two unrelated fenced blocks
-      // that merely happen to sit back to back (common throughout existing
+      // own (e.g. the same algorithm in Python, then Java). This is opt-in
+      // and explicit on purpose: two unrelated fenced blocks that merely
+      // happen to sit back to back (common throughout existing
       // lessons) must never silently merge into one switcher and hide the
       // second block.
       const fenceInfo = ((token.lang as string | undefined) ?? "").trim();

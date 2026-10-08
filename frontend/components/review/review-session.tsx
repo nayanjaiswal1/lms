@@ -119,7 +119,6 @@ export function ReviewSession({ cards }: ReviewSessionProps) {
   return (
     <main className="page-container">
       <div className="mx-auto max-w-2xl">
-        {/* Header: back link + progress */}
         <div className="mb-6 flex flex-col gap-3">
           <div className="flex-between gap-4">
             <Button asChild size="sm" variant="ghost">
@@ -142,7 +141,6 @@ export function ReviewSession({ cards }: ReviewSessionProps) {
           </div>
         </div>
 
-        {/* Card face */}
         <div className="card-base flex min-h-64 flex-col gap-6 p-8">
           {sessionState === "idle" ? (
             <>

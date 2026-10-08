@@ -102,7 +102,7 @@ func (s *Service) checkInput(ctx context.Context, orgID string, in *RecipeInput,
 
 	vers, err := s.repo.ResolveVersions(ctx, orgID, versionIDs(in.Spec))
 	if err != nil {
-		return err
+		return fmt.Errorf("labauthor.checkInput: %w", err)
 	}
 	prev := map[string]bool{}
 	if previous != nil {
@@ -137,7 +137,7 @@ func (s *Service) checkInput(ctx context.Context, orgID string, in *RecipeInput,
 // unacceptable input is refused.
 func (s *Service) CreateRecipe(ctx context.Context, orgID, userID string, in RecipeInput) (*Recipe, error) {
 	if err := s.checkInput(ctx, orgID, &in, nil); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.CreateRecipe: %w", err)
 	}
 	return s.repo.CreateRecipe(ctx, orgID, userID, in.LabKind, in.Title, in.Spec, in.TargetPlacement)
 }
@@ -146,7 +146,7 @@ func (s *Service) CreateRecipe(ctx context.Context, orgID, userID string, in Rec
 func (s *Service) UpdateRecipe(ctx context.Context, orgID, id string, in RecipeInput) (*Recipe, error) {
 	cur, err := s.repo.GetRecipe(ctx, orgID, id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.UpdateRecipe: %w", err)
 	}
 	if in.LabKind == "" {
 		in.LabKind = cur.LabKind
@@ -155,7 +155,7 @@ func (s *Service) UpdateRecipe(ctx context.Context, orgID, id string, in RecipeI
 		return nil, fmt.Errorf("%w: lab_kind cannot change", ErrInvalidInput)
 	}
 	if err := s.checkInput(ctx, orgID, &in, &cur.Spec); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.UpdateRecipe: %w", err)
 	}
 	return s.repo.UpdateRecipe(ctx, orgID, id, in.Title, in.Spec, in.TargetPlacement, in.Revision)
 }
@@ -165,7 +165,7 @@ func (s *Service) UpdateRecipe(ctx context.Context, orgID, id string, in RecipeI
 func (s *Service) Resolve(ctx context.Context, rc *Recipe) (*labblock.Recipe, []labblock.Issue, error) {
 	vers, err := s.repo.ResolveVersions(ctx, rc.OrgID, versionIDs(rc.Spec))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("labauthor.Resolve: %w", err)
 	}
 	r, issues := BuildRecipe(rc.LabKind, rc.OrgID, rc.Spec, vers)
 	return r, issues, nil
@@ -175,7 +175,7 @@ func (s *Service) Resolve(ctx context.Context, rc *Recipe) (*labblock.Recipe, []
 func (s *Service) Validate(ctx context.Context, orgID, id string) (*Analysis, error) {
 	rc, err := s.repo.GetRecipe(ctx, orgID, id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.Validate: %w", err)
 	}
 	return s.analyze(ctx, rc)
 }
@@ -183,7 +183,7 @@ func (s *Service) Validate(ctx context.Context, orgID, id string) (*Analysis, er
 func (s *Service) analyze(ctx context.Context, rc *Recipe) (*Analysis, error) {
 	r, missing, err := s.Resolve(ctx, rc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.analyze: %w", err)
 	}
 	if len(missing) > 0 {
 		return &Analysis{Issues: missing}, nil
@@ -255,7 +255,7 @@ func (s *Service) updatesFor(ctx context.Context, groups [][]BlockRefView) ([][]
 	}
 	live, err := s.repo.LiveVersions(ctx, ids)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.updatesFor: %w", err)
 	}
 	latest := map[string]VersionRef{}
 	for _, l := range live {
@@ -284,19 +284,19 @@ func (s *Service) updatesFor(ctx context.Context, groups [][]BlockRefView) ([][]
 func (s *Service) GetRecipeView(ctx context.Context, orgID, id string) (*RecipeView, error) {
 	rc, err := s.repo.GetRecipe(ctx, orgID, id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.GetRecipeView: %w", err)
 	}
 	if err := s.attachState(ctx, orgID, []*Recipe{rc}); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.GetRecipeView: %w", err)
 	}
 	vers, err := s.repo.ResolveVersions(ctx, orgID, versionIDs(rc.Spec))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.GetRecipeView: %w", err)
 	}
 	blocks := blockViews(rc.Spec, vers)
 	updates, err := s.updatesFor(ctx, [][]BlockRefView{blocks})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.GetRecipeView: %w", err)
 	}
 	return &RecipeView{Recipe: rc, Blocks: blocks, Updates: updates[0]}, nil
 }
@@ -306,10 +306,10 @@ func (s *Service) GetRecipeView(ctx context.Context, orgID, id string) (*RecipeV
 func (s *Service) ListRecipes(ctx context.Context, orgID string, limit, offset int) ([]*Recipe, error) {
 	rs, err := s.repo.ListRecipes(ctx, orgID, limit, offset)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.ListRecipes: %w", err)
 	}
 	if err := s.attachState(ctx, orgID, rs); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labauthor.ListRecipes: %w", err)
 	}
 	return rs, nil
 }
@@ -317,7 +317,7 @@ func (s *Service) ListRecipes(ctx context.Context, orgID string, limit, offset i
 // attachState fills each recipe's latest build, update count and yanked count.
 func (s *Service) attachState(ctx context.Context, orgID string, rs []*Recipe) error {
 	if err := s.repo.AttachLatestBuilds(ctx, rs); err != nil {
-		return err
+		return fmt.Errorf("labauthor.attachState: %w", err)
 	}
 	var ids []string
 	for _, rc := range rs {
@@ -325,7 +325,7 @@ func (s *Service) attachState(ctx context.Context, orgID string, rs []*Recipe) e
 	}
 	vers, err := s.repo.ResolveVersions(ctx, orgID, ids)
 	if err != nil {
-		return err
+		return fmt.Errorf("labauthor.attachState: %w", err)
 	}
 	groups := make([][]BlockRefView, len(rs))
 	for i, rc := range rs {
@@ -333,7 +333,7 @@ func (s *Service) attachState(ctx context.Context, orgID string, rs []*Recipe) e
 	}
 	updates, err := s.updatesFor(ctx, groups)
 	if err != nil {
-		return err
+		return fmt.Errorf("labauthor.attachState: %w", err)
 	}
 	for i, rc := range rs {
 		rc.UpdatesAvailable = len(updates[i])
@@ -395,7 +395,7 @@ func prepareTextManifest(m *labblock.Manifest, defaultVersion string) error {
 // CreateTextBlock creates an org-owned text block with its first version.
 func (s *Service) CreateTextBlock(ctx context.Context, orgID, userID string, m labblock.Manifest) (blockID, versionID string, err error) {
 	if err := prepareTextManifest(&m, initialVersion); err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("labauthor.CreateTextBlock: %w", err)
 	}
 	return s.repo.CreateTextBlock(ctx, orgID, userID, &m, m.Changelog)
 }
@@ -406,7 +406,7 @@ func (s *Service) CreateTextBlock(ctx context.Context, orgID, userID string, m l
 func (s *Service) UpdateTextBlock(ctx context.Context, orgID, userID, blockID string, m labblock.Manifest) (string, error) {
 	prev, err := s.repo.LatestManifest(ctx, orgID, blockID)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("labauthor.UpdateTextBlock: %w", err)
 	}
 	next := initialVersion
 	if pv, perr := labblock.ParseVersion(prev.Version); perr == nil {
@@ -414,7 +414,7 @@ func (s *Service) UpdateTextBlock(ctx context.Context, orgID, userID, blockID st
 	}
 	m.ID, m.Kind = prev.ID, prev.Kind // identity is fixed across versions
 	if err := prepareTextManifest(&m, next); err != nil {
-		return "", err
+		return "", fmt.Errorf("labauthor.UpdateTextBlock: %w", err)
 	}
 	return s.repo.AddTextVersion(ctx, orgID, userID, blockID, &m, m.Changelog)
 }

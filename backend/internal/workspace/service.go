@@ -70,7 +70,6 @@ type Service struct {
 	now      func() time.Time
 }
 
-// NewService builds the Service from d.
 func NewService(d Deps) *Service {
 	now := d.Now
 	if now == nil {

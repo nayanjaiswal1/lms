@@ -1,6 +1,7 @@
 import { Clock, HelpCircle, LogOut, Send, ShieldAlert, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { formatCountdown } from "@/components/assessments/format-countdown";
 
 interface ProctorBannerProps {
   secondsLeft: number;
@@ -11,14 +12,6 @@ interface ProctorBannerProps {
   onHelp: () => void;
   onSubmit: () => void;
   submitDisabled: boolean;
-}
-
-function formatTime(total: number): string {
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 export function ProctorBanner({
@@ -39,7 +32,6 @@ export function ProctorBanner({
     <div className="shrink-0 border-b border-border bg-background/95 backdrop-blur-sm">
       <div className="flex h-12 items-center gap-3 px-4 sm:px-6">
 
-        {/* Monitoring status */}
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {violations > 0 ? (
             <ShieldAlert aria-hidden className="h-4 w-4 shrink-0 text-destructive" />
@@ -59,7 +51,6 @@ export function ProctorBanner({
           )}
         </div>
 
-        {/* Progress — centre */}
         <div className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground">
           <span className="tabular-nums">
             <span className="font-semibold text-foreground">{answered}</span>
@@ -69,10 +60,9 @@ export function ProctorBanner({
           <span className="hidden text-xs sm:inline">answered</span>
         </div>
 
-        {/* Timer + exit */}
         <div className="flex flex-1 items-center justify-end gap-2">
           <span
-            aria-label={`${formatTime(secondsLeft)} remaining`}
+            aria-label={`${formatCountdown(secondsLeft)} remaining`}
             aria-live="polite"
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-sm font-semibold tabular-nums transition-colors duration-normal",
@@ -86,7 +76,7 @@ export function ProctorBanner({
             )}
           >
             <Clock aria-hidden className="h-3.5 w-3.5" />
-            {formatTime(secondsLeft)}
+            {formatCountdown(secondsLeft)}
           </span>
 
           {onExit && (

@@ -126,7 +126,7 @@ const ratingStyles: Record<RatingButtonProps["variant"], string> = {
 
 // One joined pill instead of 4 separate boxed buttons — each segment keeps
 // its own rating color, a shared divider (border-l, skipped on the first)
-// replaces the individual borders the container used to draw.
+// replaces the individual borders.
 function RatingButton({ label, variant, disabled, onClick }: RatingButtonProps) {
   return (
     <Button className={`touch-target flex-1 border-l border-border text-xs font-semibold transition-colors duration-fast ease-smooth first:border-l-0 disabled:pointer-events-none disabled:opacity-50 ${ratingStyles[variant]}`}

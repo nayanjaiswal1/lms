@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { compressImage } from "@/lib/courses/compress-image";
 
-export type CoverCompressionStatus = "idle" | "compressing" | "ready" | "error";
+type CoverCompressionStatus = "idle" | "compressing" | "ready" | "error";
 
 interface CoverCompressionState {
   status:               CoverCompressionStatus;

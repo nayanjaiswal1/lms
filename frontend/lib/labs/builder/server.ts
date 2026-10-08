@@ -62,7 +62,7 @@ export async function getBuild(id: string): Promise<BuildView> {
   return apiGet<BuildView>(`${BASE}/builds/${id}`);
 }
 
-export interface BlockListFilter {
+interface BlockListFilter {
   kind?: string;
   stack?: string;
   category?: string;

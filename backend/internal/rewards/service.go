@@ -5,7 +5,6 @@ import (
 	"log/slog"
 )
 
-// Service implements all business logic for the rewards domain.
 type Service struct {
 	repo *Repo
 }
@@ -143,7 +142,6 @@ func (s *Service) GetUserRank(ctx context.Context, key, userID string) (rank int
 	return r + 1, score, nil // convert 0-based to 1-based
 }
 
-// ListDefinitions returns all badge/achievement definitions.
 func (s *Service) ListDefinitions(ctx context.Context) ([]RewardDefinition, error) {
 	return s.repo.GetAllDefinitions(ctx)
 }

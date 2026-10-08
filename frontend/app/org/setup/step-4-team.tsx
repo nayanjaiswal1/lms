@@ -102,7 +102,6 @@ export function Step4Team({ orgId }: Step4TeamProps) {
         </p>
       )}
 
-      {/* Invite rows */}
       <div className="flex flex-col gap-3">
         {rows.map((row, index) => (
           <div className="flex items-end gap-2" key={row.id}>

@@ -5,6 +5,7 @@ import { GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { disconnectGitlabAction } from "@/app/(app)/settings/integrations/actions";
+import { formatOptionalDate } from "@/components/settings/format-optional-date";
 
 export interface GitlabConnectionStatus {
   connected: boolean;
@@ -13,11 +14,6 @@ export interface GitlabConnectionStatus {
   scopes?: string[];
   last_used_at?: string | null;
   created_at?: string | null;
-}
-
-function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "Never";
-  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
 interface GitlabConnectionManagerProps {
@@ -65,7 +61,7 @@ export function GitlabConnectionManager({ connection, installationConnected }: G
             <div className="min-w-0">
               <p className="text-sm font-medium text-foreground truncate">@{connection.gitlab_username}</p>
               <p className="text-xs text-muted-foreground">
-                Connected {formatDate(connection.created_at)} · Last used {formatDate(connection.last_used_at)}
+                Connected {formatOptionalDate(connection.created_at)} · Last used {formatOptionalDate(connection.last_used_at)}
               </p>
               <div className="mt-1 flex flex-wrap gap-1">
                 <Badge variant={connection.status === "active" ? "secondary" : "destructive"}>

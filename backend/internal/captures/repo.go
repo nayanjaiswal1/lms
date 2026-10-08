@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Repo is the data-access layer for the captures domain.
 type Repo struct {
 	pool *pgxpool.Pool
 }
@@ -46,7 +45,7 @@ func scanCapture(row scanner) (Capture, error) {
 		&c.ErrorMessage, &c.CreatedAt, &c.ProcessedAt,
 	)
 	if err != nil {
-		return Capture{}, err
+		return Capture{}, fmt.Errorf("captures.scanCapture: %w", err)
 	}
 	return c, nil
 }

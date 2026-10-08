@@ -77,3 +77,52 @@ func TestCreateShellAndGetForUser(t *testing.T) {
 		t.Fatalf("expected ErrNotFound for wrong owner, got %v", err)
 	}
 }
+
+// TestListPublicPages exercises ListPublic's limit/offset against a real
+// database — only public, active roadmaps are listed, and the pages partition
+// the gallery without overlap.
+func TestListPublicPages(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+	repo := NewRepo(pool)
+
+	userID := seedUser(t, ctx, pool)
+	for i := 0; i < 3; i++ {
+		shell, err := repo.CreateShell(ctx, Roadmap{UserID: userID, Title: "Public Roadmap", GoalDescription: "g"})
+		if err != nil {
+			t.Fatalf("CreateShell: %v", err)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE roadmaps SET is_public = true, status = $1 WHERE id = $2`, StatusActive, shell.ID); err != nil {
+			t.Fatalf("publish roadmap: %v", err)
+		}
+	}
+	private, err := repo.CreateShell(ctx, Roadmap{UserID: userID, Title: "Private Roadmap", GoalDescription: "g"})
+	if err != nil {
+		t.Fatalf("CreateShell private: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE roadmaps SET status = $1 WHERE id = $2`, StatusActive, private.ID); err != nil {
+		t.Fatalf("activate private roadmap: %v", err)
+	}
+
+	first, err := repo.ListPublic(ctx, 2, 0)
+	if err != nil {
+		t.Fatalf("ListPublic page 1: %v", err)
+	}
+	second, err := repo.ListPublic(ctx, 2, 2)
+	if err != nil {
+		t.Fatalf("ListPublic page 2: %v", err)
+	}
+	if len(first) != 2 || len(second) != 1 {
+		t.Fatalf("expected pages of 2 and 1, got %d and %d", len(first), len(second))
+	}
+	seen := map[string]bool{}
+	for _, rm := range append(first, second...) {
+		if rm.ID == private.ID {
+			t.Fatal("private roadmap leaked into the public gallery")
+		}
+		if seen[rm.ID] {
+			t.Fatalf("roadmap %s appeared on two pages", rm.ID)
+		}
+		seen[rm.ID] = true
+	}
+}

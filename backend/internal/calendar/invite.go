@@ -44,7 +44,7 @@ func hashToken(payload string) string {
 func newFeedToken(userID, orgID string) (rawToken, hash string, err error) {
 	raw, err := generateRawToken()
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("calendar.newFeedToken: %w", err)
 	}
 	payload := userID + ":" + orgID + ":" + raw
 	return payload, hashToken(payload), nil
@@ -69,12 +69,12 @@ func (s *Service) InviteExternal(ctx context.Context, orgID, eventID, callerID, 
 	// same order UpdateEvent/DeleteEvent use (org-scoped existence check
 	// before the mutate-permission check).
 	if _, err := s.repo.GetByID(ctx, orgID, eventID); err != nil {
-		return EventInvite{}, "", err
+		return EventInvite{}, "", fmt.Errorf("calendar.InviteExternal: %w", err)
 	}
 
 	allowed, err := s.canMutate(ctx, orgID, eventID, callerID)
 	if err != nil {
-		return EventInvite{}, "", err
+		return EventInvite{}, "", fmt.Errorf("calendar.InviteExternal: %w", err)
 	}
 	if !allowed {
 		return EventInvite{}, "", ErrForbidden
@@ -91,7 +91,7 @@ func (s *Service) InviteExternal(ctx context.Context, orgID, eventID, callerID, 
 		ExpiresAt: time.Now().Add(inviteTokenTTL),
 	})
 	if err != nil {
-		return EventInvite{}, "", err
+		return EventInvite{}, "", fmt.Errorf("calendar.InviteExternal: %w", err)
 	}
 
 	rawHex, err := generateRawToken()
@@ -103,7 +103,7 @@ func (s *Service) InviteExternal(ctx context.Context, orgID, eventID, callerID, 
 
 	created, err = s.repo.SetInviteTokenHash(ctx, created.ID, tokenHash)
 	if err != nil {
-		return EventInvite{}, "", err
+		return EventInvite{}, "", fmt.Errorf("calendar.InviteExternal: %w", err)
 	}
 
 	return created, deliverableToken, nil
@@ -126,7 +126,7 @@ func (s *Service) AcceptInvite(ctx context.Context, rawToken string) (Event, err
 
 	inv, err := s.repo.GetInviteByTokenHash(ctx, expectedHash)
 	if err != nil {
-		return Event{}, err
+		return Event{}, fmt.Errorf("calendar.AcceptInvite: %w", err)
 	}
 	if inv.ID != inviteID {
 		return Event{}, fmt.Errorf("%w: invalid invite token", ErrInvalid)
@@ -140,7 +140,7 @@ func (s *Service) AcceptInvite(ctx context.Context, rawToken string) (Event, err
 
 	event, err := s.repo.GetEventUnscoped(ctx, inv.EventID)
 	if err != nil {
-		return Event{}, err
+		return Event{}, fmt.Errorf("calendar.AcceptInvite: %w", err)
 	}
 
 	userID, err := auth.FindOrCreateUserByEmail(ctx, s.repo.pool, event.OrgID, inv.Email, nameFromEmail(inv.Email))
@@ -155,7 +155,7 @@ func (s *Service) AcceptInvite(ctx context.Context, rawToken string) (Event, err
 		return s.repo.AcceptInviteTx(ctx, tx, inv.ID)
 	})
 	if err != nil {
-		return Event{}, err
+		return Event{}, fmt.Errorf("calendar.AcceptInvite: %w", err)
 	}
 	return event, nil
 }

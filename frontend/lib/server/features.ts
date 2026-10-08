@@ -58,17 +58,6 @@ export async function requireOrgFeature(feature: Feature): Promise<void> {
   if (!orgFeatures.includes(feature)) notFound();
 }
 
-/**
- * Redirect to billing if the user is not entitled to this feature.
- * Entitlement = plan + add-ons, resolved server-side.
- * Use when the feature exists for the org but the user hasn't unlocked it.
- */
-export async function requireEntitlement(feature: Feature): Promise<void> {
-  const { entitlements } = await getFeatureConfig();
-  if (!entitlements.includes(feature)) {
-    redirect(`${ROUTES.BILLING}?feature=${feature}`);
-  }
-}
 
 /**
  * Combines both checks: org must have the feature enabled

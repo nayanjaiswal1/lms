@@ -47,7 +47,7 @@ type ExplainedState = {
 
 type FlowState = IdleState | SelectedState | ExplainedState
 
-export interface HighlightFlow {
+interface HighlightFlow {
   selection: Anchor | null
   existing: Highlight | null
   response: ExplainResponse | null

@@ -12,12 +12,10 @@ import (
 	"github.com/mindforge/backend/internal/httputil"
 )
 
-// Handler exposes the sheets domain over HTTP.
 type Handler struct {
 	repo *Repo
 }
 
-// NewHandler constructs the sheets handler from a connection pool.
 func NewHandler(pool *pgxpool.Pool) *Handler {
 	return &Handler{repo: NewRepo(pool)}
 }

@@ -8,7 +8,7 @@ export interface TestCase {
   hidden: boolean;
 }
 
-export interface CodingRunResult {
+interface CodingRunResult {
   status: "passed" | "failed" | "error";
   tests_total: number;
   tests_passed: number;
@@ -26,7 +26,7 @@ export interface CodingItem {
   passed?: boolean | null;
 }
 
-export interface PrepRound {
+interface PrepRound {
   id: string;
   plan_id: string;
   round_type: "conceptual" | "behavioral" | "coding";

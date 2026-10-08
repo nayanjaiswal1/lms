@@ -2,6 +2,7 @@ package assessment
 
 import (
 	"crypto/rand"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -81,7 +82,7 @@ func generateShortCode() (string, error) {
 	const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
 	buf := make([]byte, 10)
 	if _, err := rand.Read(buf); err != nil {
-		return "", err
+		return "", fmt.Errorf("assessment.generateShortCode: %w", err)
 	}
 	out := make([]byte, 10)
 	for i, b := range buf {

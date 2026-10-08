@@ -32,7 +32,6 @@ export function SettingsTab({
 }: SettingsTabProps) {
   return (
     <div className="flex flex-col gap-8 max-w-lg">
-      {/* Publication status */}
       <div className="flex flex-col gap-3">
         <Label className="text-base font-semibold">Publication status</Label>
         <RadioGroup className="flex flex-col gap-3" value={status} onValueChange={(v) => onChange(v as CourseDraft["status"])}>
@@ -69,7 +68,6 @@ export function SettingsTab({
         </RadioGroup>
       </div>
 
-      {/* Code runner */}
       <div className="flex flex-col gap-3">
         <Label className="text-base font-semibold">Code blocks</Label>
         <div className="flex items-start gap-3 rounded-lg border border-border p-4">
@@ -92,7 +90,6 @@ export function SettingsTab({
         </div>
       </div>
 
-      {/* Reflection */}
       <div className="flex flex-col gap-3">
         <Label className="text-base font-semibold">Lesson reflection</Label>
         <div className="flex items-start gap-3 rounded-lg border border-border p-4">
@@ -114,7 +111,6 @@ export function SettingsTab({
         </div>
       </div>
 
-      {/* Knowledge check */}
       <div className="flex flex-col gap-3">
         <Label className="text-base font-semibold">Knowledge check</Label>
         <div className="flex items-start gap-3 rounded-lg border border-border p-4">
@@ -136,7 +132,6 @@ export function SettingsTab({
         </div>
       </div>
 
-      {/* Video privacy note */}
       <div className="rounded-md border border-border bg-muted/50 p-4 text-sm">
         <p className="font-medium mb-1">Uploaded video privacy</p>
         <p className="text-muted-foreground text-xs leading-relaxed">

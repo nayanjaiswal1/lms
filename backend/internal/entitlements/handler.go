@@ -23,9 +23,8 @@ func newHandler(service *Service) *Handler {
 // (labs) and not reported here; a tier with no limit for a key is simply
 // omitted (unlimited).
 func (h *Handler) GetMyUsage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.GetClaims(r.Context())
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
 		return
 	}
 
@@ -84,9 +83,8 @@ type upsertPlanLimitRequest struct {
 
 // AdminSetPlanLimit writes one gate or quota row for {tier_id}/{key}.
 func (h *Handler) AdminSetPlanLimit(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.GetClaims(r.Context())
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
 		return
 	}
 	tierID := chi.URLParam(r, "tier_id")
@@ -121,9 +119,8 @@ func (h *Handler) AdminSetOrgTier(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) adminSetTier(w http.ResponseWriter, r *http.Request, kind string) {
-	claims, ok := auth.GetClaims(r.Context())
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
 		return
 	}
 	id := chi.URLParam(r, "id")

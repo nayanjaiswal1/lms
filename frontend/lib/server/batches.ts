@@ -27,7 +27,7 @@ export interface BatchMember {
   added_at: string;
 }
 
-export interface BatchMentor {
+interface BatchMentor {
   user_id: string;
   name: string;
   email: string;
@@ -45,7 +45,7 @@ export interface BatchInvitation {
   import_job_id: string | null;
 }
 
-export interface BatchCourse {
+interface BatchCourse {
   course_id: string;
   title: string;
   slug: string;
@@ -93,7 +93,7 @@ export interface ChapterHintStat {
   student_count: number;
 }
 
-export interface BlockerBucket {
+interface BlockerBucket {
   category: string;
   count: number;
 }
@@ -137,7 +137,7 @@ export interface ImportMemberRow {
   errors?: string[];
 }
 
-export interface FailedImportRow {
+interface FailedImportRow {
   email: string;
   full_name: string;
   error_message: string;
@@ -194,12 +194,8 @@ export async function getBatchMembers(batchId: string): Promise<BatchMember[]> {
   return data.members ?? [];
 }
 
-export async function getBatchMentors(batchId: string): Promise<BatchMentor[]> {
-  const data = await apiGet<{ mentors: BatchMentor[] }>(`/api/batches/${batchId}/mentors`);
-  return data.mentors ?? [];
-}
 
-export interface BatchRoster {
+interface BatchRoster {
   members: BatchMember[];
   mentors: BatchMentor[];
 }
@@ -234,7 +230,7 @@ export async function getBatchAnalytics(batchId: string): Promise<BatchAnalytics
   return apiGet<BatchAnalytics>(`/api/batches/${batchId}/analytics`);
 }
 
-export interface OfflineTestSummary {
+interface OfflineTestSummary {
   test_id: string;
   test_name: string;
   test_date: string;
@@ -243,14 +239,14 @@ export interface OfflineTestSummary {
   avg_score: number;
 }
 
-export interface OfflineTestScoreRow {
+interface OfflineTestScoreRow {
   user_id: string;
   user_name: string;
   email: string;
   score: number;
 }
 
-export interface OfflineTestDetail {
+interface OfflineTestDetail {
   test_id: string;
   test_name: string;
   test_date: string;

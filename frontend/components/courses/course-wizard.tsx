@@ -257,7 +257,6 @@ export function CourseWizard({ course, finalTest, certificateRule }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Tab bar */}
       <div className="flex gap-1 border-b border-border" role="tablist">
         {TABS.filter((tab) => tab.id !== "final-test" || course).map((tab) => (
           <Button aria-selected={wiz.activeTab === tab.id}
@@ -278,7 +277,6 @@ export function CourseWizard({ course, finalTest, certificateRule }: Props) {
         ))}
       </div>
 
-      {/* Tab panels */}
       <div className="min-h-[480px]">
         {wiz.activeTab === "info" && (
           <InfoTab
@@ -330,7 +328,6 @@ export function CourseWizard({ course, finalTest, certificateRule }: Props) {
         )}
       </div>
 
-      {/* Footer */}
       <div className="flex-between border-t border-border pt-4">
         <p className="text-xs text-muted-foreground">
           {wiz.draft.sections.length} section{wiz.draft.sections.length !== 1 ? "s" : ""} · {totalModules} lesson{totalModules !== 1 ? "s" : ""}

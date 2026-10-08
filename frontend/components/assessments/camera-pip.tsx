@@ -35,7 +35,6 @@ export function CameraPip({ stream, phoneConnected }: CameraPipProps) {
 
       {!collapsed && (
         <div className="flex flex-col gap-2">
-          {/* Primary — you */}
           <div className="flex flex-col gap-1">
             <div className="relative h-20 w-full overflow-hidden rounded-lg border border-border bg-muted">
               {stream ? (
@@ -61,7 +60,6 @@ export function CameraPip({ stream, phoneConnected }: CameraPipProps) {
             <p className="text-xs text-muted-foreground">Primary</p>
           </div>
 
-          {/* Secondary — phone */}
           <div className="flex flex-col gap-1">
             <div
               className={cn(

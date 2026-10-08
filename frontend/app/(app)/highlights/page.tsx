@@ -67,10 +67,8 @@ function HighlightCard({ highlight }: { highlight: Highlight }) {
 
   return (
     <article className="card-base p-5 flex flex-col gap-4">
-      {/* Context block */}
       <ContextBlock highlight={highlight} />
 
-      {/* Personal note */}
       {highlight.note && (
         <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
           <div className="flex items-center gap-1.5 mb-1">
@@ -83,7 +81,6 @@ function HighlightCard({ highlight }: { highlight: Highlight }) {
         </div>
       )}
 
-      {/* AI explanation */}
       {highlight.explanation && (
         <div className="ai-surface rounded-lg p-3">
           <div className="flex items-center gap-1.5 mb-2">
@@ -96,7 +93,6 @@ function HighlightCard({ highlight }: { highlight: Highlight }) {
         </div>
       )}
 
-      {/* Footer: source badge + date + navigation */}
       <div className="flex-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <Badge className="text-xs" variant="secondary">

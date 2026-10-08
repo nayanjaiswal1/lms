@@ -124,7 +124,7 @@ func writeIDECredential(ctx context.Context, rt ContainerRuntime, containerID, s
 // simply ignore it.
 func writeContainerCredentials(ctx context.Context, rt ContainerRuntime, containerID, sessionID, jwtSecret string) error {
 	if err := writeTTYDCredential(ctx, rt, containerID, sessionID, jwtSecret); err != nil {
-		return err
+		return fmt.Errorf("labs.writeContainerCredentials: %w", err)
 	}
 	return writeIDECredential(ctx, rt, containerID, sessionID, jwtSecret)
 }

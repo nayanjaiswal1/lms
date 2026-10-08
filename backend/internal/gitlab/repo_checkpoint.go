@@ -315,7 +315,7 @@ func (r *Repo) ListTeamCheckpointsByCheckpoint(ctx context.Context, checkpointID
 	for rows.Next() {
 		t, err := scanTeamCheckpoint(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("gitlab.ListTeamCheckpointsByCheckpoint: %w", err)
 		}
 		out = append(out, *t)
 	}

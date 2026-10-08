@@ -87,7 +87,7 @@ export interface QuestionUsage {
   course_title: string | null;
 }
 
-export interface StudentMCQContent {
+interface StudentMCQContent {
   prompt: string;
   multiple: boolean;
   options: { id: string; text: string }[];
@@ -103,13 +103,13 @@ export interface StudentCodingContent {
   hidden_count: number;
 }
 
-export interface StudentSubjectiveContent {
+interface StudentSubjectiveContent {
   prompt: string;
 }
 
 // ─── Code execution (Run against sample cases) ────────────────────────────────
 
-export interface CaseResult {
+interface CaseResult {
   case_id: string;
   passed: boolean;
   hidden: boolean;
@@ -130,7 +130,7 @@ export interface RunResult {
   cases: CaseResult[];
 }
 
-export interface StudentMCQQuestion {
+interface StudentMCQQuestion {
   assessment_question_id: string;
   question_id: string;
   type: "mcq";
@@ -141,7 +141,7 @@ export interface StudentMCQQuestion {
   content: StudentMCQContent;
 }
 
-export interface StudentCodingQuestion {
+interface StudentCodingQuestion {
   assessment_question_id: string;
   question_id: string;
   type: "coding";
@@ -152,7 +152,7 @@ export interface StudentCodingQuestion {
   content: StudentCodingContent;
 }
 
-export interface StudentSubjectiveQuestion {
+interface StudentSubjectiveQuestion {
   assessment_question_id: string;
   question_id: string;
   type: "subjective";

@@ -46,7 +46,7 @@ export interface UpdateJournalEntryInput {
   content?: string;
 }
 
-export interface JournalEntriesFilter {
+interface JournalEntriesFilter {
   category?: string;
   subcategory?: string;
   search?: string;

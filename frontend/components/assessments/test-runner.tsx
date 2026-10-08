@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ProctorBanner } from "@/components/assessments/proctor-banner";
+import { formatCountdown } from "@/components/assessments/format-countdown";
 import { ProctorPreflight } from "@/components/assessments/proctor-preflight";
 import { MCQQuestion } from "@/components/shared/mcq-question";
 import { CodingQuestion } from "@/components/assessments/coding-question";
@@ -51,14 +52,6 @@ import {
 } from "@/lib/assessments/types";
 import { cn } from "@/lib/utils";
 import type { AttemptPayload, QuestionSection, StudentQuestion } from "@/lib/assessments/types";
-
-function formatSecondsLeft(total: number): string {
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
 
 interface TestRunnerProps {
   payload: AttemptPayload;
@@ -263,7 +256,6 @@ export function TestRunner({ payload }: TestRunnerProps) {
         </div>
       )}
 
-      {/* ── Camera pre-flight stage ──────────────────────────────────────── */}
       {stage === "camera" && (
         <div className="h-full overflow-y-auto">
           <ProctorPreflight
@@ -278,11 +270,9 @@ export function TestRunner({ payload }: TestRunnerProps) {
         </div>
       )}
 
-      {/* ── Active test stage — three-zone layout ────────────────────────── */}
       {stage === "active" && (
         <div className="relative flex h-full flex-col">
 
-          {/* Zone 1: ProctorBanner — shrink-0 at top */}
           <ProctorBanner
             answered={answeredCount}
             secondsLeft={proctor.secondsLeft}
@@ -294,10 +284,8 @@ export function TestRunner({ payload }: TestRunnerProps) {
             onSubmit={() => setConfirming("submit")}
           />
 
-          {/* Zone 2: Question content + right question palette */}
           <div className="relative flex flex-1 overflow-hidden">
 
-            {/* Exit confirmation overlay — covers question area + palette */}
             {confirming === "exit" && (
               <div className="absolute inset-0 z-overlay flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
                 <div className="w-full max-w-sm card-raised shadow-raised">
@@ -426,7 +414,6 @@ export function TestRunner({ payload }: TestRunnerProps) {
               </div>
             )}
 
-            {/* Left panel — section navigator (desktop only) */}
             <SectionSidebar currentType={current.type} sections={sectionsWithProgress} onJump={goto} />
 
             {/* Scrollable question content — coding gets a full-bleed, non-scrolling
@@ -444,7 +431,6 @@ export function TestRunner({ payload }: TestRunnerProps) {
                       "page-container py-6"
                 }
               >
-                {/* Section navigator — mobile/tablet horizontal tabs */}
                 <SectionTabs currentType={current.type} sections={sectionsWithProgress} onJump={goto} />
 
                 {/* Question meta — select-none prevents students from copy-pasting
@@ -507,7 +493,6 @@ export function TestRunner({ payload }: TestRunnerProps) {
                   <p className="text-sm font-medium text-muted-foreground">{current.title}</p>
                 </div>
 
-                {/* Question content */}
                 {isMCQQuestion(current) || isSubjectiveQuestion(current) ? (
                   <div className="card-base select-none p-6">
                     {isMCQQuestion(current) ? (
@@ -578,7 +563,6 @@ export function TestRunner({ payload }: TestRunnerProps) {
               </div>
             </div>
 
-            {/* Right panel — question palette (desktop only, collapsible) */}
             <QuestionPalette
               allowBacktrack={meta.allow_backtrack}
               answeredCount={answeredCount}
@@ -639,7 +623,7 @@ export function TestRunner({ payload }: TestRunnerProps) {
                     </p>
                     <div className="mt-4 flex items-center justify-center gap-1.5 font-mono text-2xl font-bold tabular-nums text-destructive">
                       <Clock aria-hidden className="h-5 w-5" />
-                      {formatSecondsLeft(proctor.secondsLeft)}
+                      {formatCountdown(proctor.secondsLeft)}
                     </div>
                   </>
                 ) : (
@@ -651,7 +635,7 @@ export function TestRunner({ payload }: TestRunnerProps) {
                     </p>
                     <div className="mt-4 flex items-center justify-center gap-1.5 font-mono text-2xl font-bold tabular-nums text-primary">
                       <Clock aria-hidden className="h-5 w-5" />
-                      {formatSecondsLeft(proctor.secondsLeft)}
+                      {formatCountdown(proctor.secondsLeft)}
                     </div>
                   </>
                 )}

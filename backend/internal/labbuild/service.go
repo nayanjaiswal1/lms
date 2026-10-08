@@ -91,7 +91,7 @@ func (s *Service) resolveSnapshot(ctx context.Context, snap Snapshot) (*resolved
 	}
 	vers, err := s.authoring.Repo().ResolveVersions(ctx, snap.OrgID, ids)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.resolveSnapshot: %w", err)
 	}
 	recipe, missing := labauthor.BuildRecipe(snap.LabKind, snap.OrgID, snap.Spec, vers)
 	if len(missing) > 0 {

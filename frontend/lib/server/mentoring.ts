@@ -73,7 +73,7 @@ export interface CouponPreview {
   original_amount_cents: number;
 }
 
-export interface MentorChangeRequest {
+interface MentorChangeRequest {
   id: string;
   org_id: string;
   ticket_id: string;
@@ -165,7 +165,7 @@ export async function getMentorChangeRequests(status?: MentorChangeRequestStatus
   return body.requests ?? [];
 }
 
-export interface MentorReport {
+interface MentorReport {
   id: string;
   org_id: string;
   mentor_id: string;
@@ -183,12 +183,10 @@ export interface MentorReport {
 // The single source of truth for a ticket's full lifecycle — the ticket,
 // its change requests, and (only when the caller holds
 // mentoring.manage_reports) reports. `reports` is undefined, not an empty
-// array, when the backend omitted it for lack of permission. Mentor-ticket
-// assignment history was dropped from the backend (it was synthetic — see
-// backend/internal/mentoring/models.go's TicketLifecycle doc comment) — the
+// array, when the backend omitted it for lack of permission. The
 // detail page derives its "assigned" timeline event from ticket.assigned_to
-// directly instead of a separate assignments list.
-export interface TicketLifecycle {
+// directly.
+interface TicketLifecycle {
   ticket: Ticket;
   change_requests: MentorChangeRequest[];
   reports?: MentorReport[];

@@ -1,7 +1,7 @@
 import { cache } from "react";
 import "server-only";
 
-import { apiGet, apiGetPublic } from "@/lib/server/api";
+import {  apiGetPublic } from "@/lib/server/api";
 
 export interface PublicTestInfo {
   id: string;
@@ -27,7 +27,7 @@ export interface PublicQuestion {
   };
 }
 
-export interface PublicSessionMeta {
+interface PublicSessionMeta {
   title: string;
   duration_minutes: number;
   allow_backtrack: boolean;
@@ -41,15 +41,6 @@ export interface PublicSession {
   meta: PublicSessionMeta;
 }
 
-export interface PublicResult {
-  name: string;
-  score: number | null;
-  max_score: number | null;
-  percentage: number | null;
-  passed: boolean | null;
-  duration_sec: number | null;
-  submitted_at: string | null;
-}
 
 export interface PublicCandidate {
   id: string;
@@ -72,18 +63,4 @@ export const getPublicTest = cache(async (code: string): Promise<PublicTestInfo>
   return apiGetPublic<PublicTestInfo>(`/api/p/${code}`, { revalidate: 60 });
 });
 
-export async function getPublicResult(code: string, token: string): Promise<PublicResult> {
-  return apiGetPublic<PublicResult>(`/api/p/${code}/result`, {
-    revalidate: 60,
-    headers: { "X-Attempt-Token": token },
-  });
-}
 
-export async function getPublicCandidates(assessmentId: string): Promise<PublicCandidate[]> {
-  try {
-    const data = await apiGet<{ candidates: PublicCandidate[] }>(`/api/assessments/${assessmentId}/candidates`);
-    return data?.candidates ?? [];
-  } catch {
-    return [];
-  }
-}

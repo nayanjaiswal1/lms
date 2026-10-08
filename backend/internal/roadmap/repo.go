@@ -490,11 +490,11 @@ func (r *Repo) ListForUser(ctx context.Context, userID string) ([]Roadmap, error
 }
 
 // ListPublic returns roadmaps their owners have marked public, most recent
-// first, capped at 50 — a browse gallery, not a paginated catalog.
-func (r *Repo) ListPublic(ctx context.Context) ([]Roadmap, error) {
+// first, one page at a time.
+func (r *Repo) ListPublic(ctx context.Context, limit, offset int) ([]Roadmap, error) {
 	return r.listWithCounts(ctx,
-		`WHERE is_public AND status IN ($1, $2) AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 50`,
-		StatusActive, StatusCompleted)
+		`WHERE is_public AND status IN ($1, $2) AND deleted_at IS NULL ORDER BY created_at DESC LIMIT $3 OFFSET $4`,
+		StatusActive, StatusCompleted, limit, offset)
 }
 
 // GetByID fetches a roadmap without an ownership filter — used only by the

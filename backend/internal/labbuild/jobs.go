@@ -122,19 +122,19 @@ func (s *Service) SyncPlatformRecipes(ctx context.Context) error {
 func (s *Service) syncOne(ctx context.Context, recipeID, orgID, labBuildID string) error {
 	rc, err := s.authoring.Repo().GetRecipe(ctx, orgID, recipeID)
 	if err != nil {
-		return err
+		return fmt.Errorf("labbuild.syncOne: %w", err)
 	}
 	snap := Snapshot{LabKind: rc.LabKind, OrgID: orgID, Spec: rc.Spec, AutoPublish: true}
 	res, err := s.resolveSnapshot(ctx, snap)
 	if err != nil {
-		return err
+		return fmt.Errorf("labbuild.syncOne: %w", err)
 	}
 	if !res.Analysis.Valid {
 		return &labauthor.InvalidRecipeError{Analysis: res.Analysis}
 	}
 	latest, err := s.repo.LatestBuild(ctx, rc.ID, res.Analysis.RecipeHash)
 	if err != nil {
-		return err
+		return fmt.Errorf("labbuild.syncOne: %w", err)
 	}
 	switch {
 	case latest == nil:

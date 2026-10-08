@@ -143,7 +143,7 @@ func (r *Repo) CreateAttempt(ctx context.Context, a Attempt, questions []Assessm
 		return nil
 	})
 	if err != nil {
-		return Attempt{}, err
+		return Attempt{}, fmt.Errorf("assessment.CreateAttempt: %w", err)
 	}
 	a.Status = AttemptInProgress
 	return a, nil
@@ -460,7 +460,7 @@ func (r *Repo) OverrideAnswerScore(ctx context.Context, orgID, attemptID, answer
 		return nil
 	})
 	if err != nil {
-		return Attempt{}, err
+		return Attempt{}, fmt.Errorf("assessment.OverrideAnswerScore: %w", err)
 	}
 	return r.GetAttempt(ctx, attemptID)
 }
@@ -549,7 +549,7 @@ func (r *Repo) AttemptReview(ctx context.Context, attemptID string) ([]ReviewIte
 		answerIDs = append(answerIDs, answerID)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("assessment.AttemptReview: %w", err)
 	}
 
 	if len(answerIDs) == 0 {

@@ -15,9 +15,9 @@ import ROUTES from "@/lib/routes";
 // Task type in lib/whatnow/types.ts is untouched and unrelated to this one.
 // ─────────────────────────────────────────────
 
-export type PlanTaskStatus = "inbox" | "planned" | "active" | "paused" | "done" | "decayed";
+type PlanTaskStatus = "inbox" | "planned" | "active" | "paused" | "done" | "decayed";
 
-export interface PlanChip {
+interface PlanChip {
   id: string;
   kind: "deadline" | "category" | "duration" | "vague";
   label: string;
@@ -83,11 +83,6 @@ export async function scheduleTaskAction(id: string, patch: SchedulePatch): Prom
   return result;
 }
 
-export async function completeTaskAction(id: string): Promise<ActionResult<{ unlockedTasks: PlanTask[] }>> {
-  const result = await apiAction<{ unlockedTasks: PlanTask[] }>("POST", `/api/whatnow/tasks/${id}/complete`);
-  if (result.ok) revalidatePath(ROUTES.PLAN);
-  return result;
-}
 
 // Reorders (and/or grows) the planned queue. taskIds must include every
 // currently-planned task's ID, not just the ones being reordered — the
@@ -107,7 +102,7 @@ export async function reorderBacklogAction(taskIds: string[]): Promise<ActionRes
 
 export type LinkTargetType = "task" | "diary_entry" | "journal_entry" | "project";
 
-export interface TaskLink {
+interface TaskLink {
   id: string;
   sourceTaskId: string;
   targetType: LinkTargetType;
@@ -129,7 +124,7 @@ export interface BoardTask {
 
 export type TemplateFieldKind = "text" | "textarea";
 
-export interface TemplateField {
+interface TemplateField {
   id: string;
   label: string;
   kind: TemplateFieldKind;
@@ -150,7 +145,7 @@ export async function getBoardAction(): Promise<ActionResult<{ tasks: BoardTask[
   }
 }
 
-export interface BoardTaskPatch {
+interface BoardTaskPatch {
   status?: PlanTaskStatus;
   category?: string;
   tags?: string[];

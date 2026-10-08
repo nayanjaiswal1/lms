@@ -72,51 +72,52 @@ export async function authHeaders(): Promise<Record<string, string>> {
 // permission/org/auth helpers they share) routinely GET the same resource in
 // one render. cache() is request-scoped, so nothing leaks across users, and it
 // is a no-op inside server actions, so post-mutation reads stay fresh.
-export const apiGet = cache(fetchGet) as <T>(path: string) => Promise<T>;
+export const apiGet = cache(<T,>(path: string) => fetchData<T>("GET", path)) as <T>(path: string) => Promise<T>;
 
-async function fetchGet<T>(path: string): Promise<T> {
+export function apiPost<T>(path: string, payload?: unknown): Promise<T> {
+  return fetchData<T>("POST", path, payload);
+}
+
+async function fetchData<T>(method: "GET" | "POST", path: string, payload?: unknown): Promise<T> {
   const res = await fetch(`${baseURL()}${path}`, {
+    method,
     headers: await authHeaders(),
+    body: jsonBody(payload),
     cache: "no-store",
   });
   if (res.status === 401) redirect("/login");
-  if (res.status === 429) {
-    const wait = retryAfterSeconds(res);
-    throw new Error(`Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} and refresh.`);
-  }
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { error?: string };
-    throw new Error(body.error ?? `GET ${path} failed: ${res.status}`);
-  }
+  await assertOk(res, method, path);
   const body = await res.json() as { data: T };
   return body.data;
 }
 
-export async function apiPost<T>(path: string, payload?: unknown): Promise<T> {
-  const res = await fetch(`${baseURL()}${path}`, {
-    method: "POST",
-    headers: await authHeaders(),
-    body: payload !== undefined ? JSON.stringify(payload) : undefined,
-    cache: "no-store",
-  });
-  if (res.status === 401) redirect("/login");
-  if (res.status === 429) {
-    const wait = retryAfterSeconds(res);
-    throw new Error(`Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} and refresh.`);
-  }
+// Throws the same message shape for every throw-on-error read (apiGet, apiPost,
+// apiGetPublic). 429 keeps the wait time so the user knows when to retry.
+async function assertOk(res: Response, method: string, path: string): Promise<void> {
+  if (res.status === 429) throw new Error(tooManyRequests(res, "and refresh."));
   if (!res.ok) {
     const body = await res.json().catch(() => ({})) as { error?: string };
-    throw new Error(body.error ?? `POST ${path} failed: ${res.status}`);
+    throw new Error(body.error ?? `${method} ${path} failed: ${res.status}`);
   }
-  const body = await res.json() as { data: T };
-  return body.data;
 }
 
-// The backend wraps every field-validation response in the same literal
-// "validation failed" placeholder (see httputil.WriteFieldErrors) — the real
-// reason lives in `fields`. Surfacing the placeholder verbatim as the action's
-// error message shows the user nothing actionable, so fall back to the first
-// field message whenever the top-level error is just that wrapper.
+export function jsonBody(payload: unknown): string | undefined {
+  return payload !== undefined ? JSON.stringify(payload) : undefined;
+}
+
+export function tryBaseURL(): string | null {
+  try {
+    return baseURL();
+  } catch {
+    return null;
+  }
+}
+
+function tooManyRequests(res: Response, tail: "and refresh." | "before trying again."): string {
+  const wait = retryAfterSeconds(res);
+  return `Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} ${tail}`;
+}
+
 // Shape of a backend response body: {data} on success, {error, code?, fields?}
 // on failure. `code` is the machine-readable error code (snake_case, owned by
 // the emitting domain package) — branch on it, never on `error` text.
@@ -127,6 +128,11 @@ interface ErrorEnvelope<T> {
   fields?: Record<string, string>;
 }
 
+// The backend wraps every field-validation response in the same literal
+// "validation failed" placeholder (see httputil.WriteFieldErrors) — the real
+// reason lives in `fields`. Surfacing the placeholder verbatim as the action's
+// error message shows the user nothing actionable, so fall back to the first
+// field message whenever the top-level error is just that wrapper.
 export function actionErrorMessage(json: { error?: string; fields?: Record<string, string> }, fallback: string): string {
   if (json.error && json.error !== "validation failed") return json.error;
   const firstFieldMessage = json.fields ? Object.values(json.fields)[0] : undefined;
@@ -147,14 +153,7 @@ export async function apiGetPublic<T>(
     headers: opts?.headers,
     next: { revalidate },
   });
-  if (res.status === 429) {
-    const wait = retryAfterSeconds(res);
-    throw new Error(`Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} and refresh.`);
-  }
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { error?: string };
-    throw new Error(body.error ?? `GET ${path} failed: ${res.status}`);
-  }
+  await assertOk(res, "GET", path);
   const body = await res.json() as { data: T };
   return body.data;
 }
@@ -167,12 +166,8 @@ export async function apiUpload<T = undefined>(
   path: string,
   formData: FormData,
 ): Promise<ActionResult<T>> {
-  let url: string;
-  try {
-    url = baseURL();
-  } catch {
-    return { error: "Service unavailable." };
-  }
+  const url = tryBaseURL();
+  if (!url) return { error: "Service unavailable." };
   try {
     // Omit Content-Type from authHeaders() so the browser sets the correct
     // multipart boundary automatically.
@@ -183,20 +178,7 @@ export async function apiUpload<T = undefined>(
       body:  formData,
       cache: "no-store",
     });
-    if (res.status === 429) {
-      const wait = retryAfterSeconds(res);
-      return { error: `Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} before trying again.` };
-    }
-    const json = await res.json().catch(() => ({})) as ErrorEnvelope<T>;
-    if (!res.ok) {
-      return {
-        error: actionErrorMessage(json, "Upload failed."),
-        code: json.code,
-        fieldErrors: json.fields,
-        conflict: res.status === 409 ? json.data : undefined,
-      };
-    }
-    return { ok: true, data: json.data };
+    return await actionResponse<T>(res, "Upload failed.");
   } catch {
     return { error: "Upload failed. Please try again." };
   }
@@ -213,33 +195,16 @@ export async function apiActionPublic<T = undefined>(
   payload?: unknown,
   extraHeaders?: Record<string, string>,
 ): Promise<ActionResult<T>> {
-  let url: string;
-  try {
-    url = baseURL();
-  } catch {
-    return { error: "Service unavailable." };
-  }
+  const url = tryBaseURL();
+  if (!url) return { error: "Service unavailable." };
   try {
     const res = await fetch(`${url}${path}`, {
       method,
       headers: { "Content-Type": "application/json", ...extraHeaders, ...(await clientIpHeaders()) },
-      body: payload !== undefined ? JSON.stringify(payload) : undefined,
+      body: jsonBody(payload),
       cache: "no-store",
     });
-    if (res.status === 429) {
-      const wait = retryAfterSeconds(res);
-      return { error: `Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} before trying again.` };
-    }
-    const json = await res.json().catch(() => ({})) as ErrorEnvelope<T>;
-    if (!res.ok) {
-      return {
-        error: actionErrorMessage(json, "Request failed."),
-        code: json.code,
-        fieldErrors: json.fields,
-        conflict: res.status === 409 ? json.data : undefined,
-      };
-    }
-    return { ok: true, data: json.data };
+    return await actionResponse<T>(res, "Request failed.");
   } catch {
     return { error: "Network error. Please try again." };
   }
@@ -251,28 +216,23 @@ export async function apiAction<T = undefined>(
   payload?: unknown,
   extraHeaders?: Record<string, string>,
 ): Promise<ActionResult<T>> {
-  let url: string;
-  try {
-    url = baseURL();
-  } catch {
-    return { error: "Service unavailable." };
-  }
+  const url = tryBaseURL();
+  if (!url) return { error: "Service unavailable." };
   try {
     const res = await fetch(`${url}${path}`, {
       method,
       headers: { ...(await authHeaders()), ...extraHeaders },
-      body: payload !== undefined ? JSON.stringify(payload) : undefined,
+      body: jsonBody(payload),
       cache: "no-store",
     });
     const json = await res.json().catch(() => ({})) as ErrorEnvelope<T>;
     if (res.status === 429) {
       // A plain rate limit gets the generic wait message; a 429 with its own
       // code (max hints, review limit, ...) keeps the backend's explanation.
-      const wait = retryAfterSeconds(res);
       const generic = !json.code || json.code === "rate_limited";
       return {
         error: generic
-          ? `Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} before trying again.`
+          ? tooManyRequests(res, "before trying again.")
           : actionErrorMessage(json, "Too many requests."),
         code: json.code,
         status: 429,
@@ -296,6 +256,23 @@ export async function apiAction<T = undefined>(
   } catch {
     return { error: "Network error. Please try again." };
   }
+}
+
+// Shared response mapping for the non-throwing multipart/anonymous helpers
+// (apiUpload, apiActionPublic). apiAction keeps its own mapping because it also
+// surfaces status and retryAfter.
+async function actionResponse<T>(res: Response, fallback: string): Promise<ActionResult<T>> {
+  if (res.status === 429) return { error: tooManyRequests(res, "before trying again.") };
+  const json = await res.json().catch(() => ({})) as ErrorEnvelope<T>;
+  if (!res.ok) {
+    return {
+      error: actionErrorMessage(json, fallback),
+      code: json.code,
+      fieldErrors: json.fields,
+      conflict: res.status === 409 ? json.data : undefined,
+    };
+  }
+  return { ok: true, data: json.data };
 }
 
 function parseRetryAfter(res: Response): number | undefined {

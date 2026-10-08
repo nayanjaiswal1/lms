@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Repo is the data-access layer for the notifications domain.
 type Repo struct {
 	pool *pgxpool.Pool
 }
@@ -87,7 +86,7 @@ func (r *Repo) List(ctx context.Context, userID string, limit int) ([]Notificati
 	for rows.Next() {
 		n, err := scanNotification(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("notifications.List: %w", err)
 		}
 		out = append(out, *n)
 	}

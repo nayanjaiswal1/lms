@@ -24,7 +24,7 @@ func runGenerate(args []string) error {
 	}
 
 	if err := generator.Generate(*in, *out); err != nil {
-		return err
+		return fmt.Errorf("generate: %w", err)
 	}
 	fmt.Printf("coursegen generate: wrote %s\n", *out)
 	return nil

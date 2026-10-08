@@ -14,7 +14,7 @@ export async function createBatchAction(input: { name: string; description?: str
   return result;
 }
 
-export interface UpdateBatchInput {
+interface UpdateBatchInput {
   name: string;
   description: string | null;
   mentor_id: string | null;
@@ -65,7 +65,7 @@ export async function importValidateAction(
   return apiAction("POST", `/api/batches/${batchId}/import/validate`, { rows });
 }
 
-export interface ConfirmImportInput {
+interface ConfirmImportInput {
   rows: ImportMemberRow[];
   course_ids: string[];
   mentor_ids: string[];
@@ -124,7 +124,7 @@ export async function revokeBatchInvitationAction(batchId: string, invitationId:
 
 // ─── Classroom Test Assessment Engine ───────────────────────────────────────
 
-export interface EnterOfflineTestScoresInput {
+interface EnterOfflineTestScoresInput {
   test_name: string;
   test_date: string; // YYYY-MM-DD
   max_score: number;
@@ -144,7 +144,7 @@ export async function enterOfflineTestScoresAction(
   return result;
 }
 
-export interface CreateTestTemplateInput {
+interface CreateTestTemplateInput {
   name: string;
   max_score: number;
 }

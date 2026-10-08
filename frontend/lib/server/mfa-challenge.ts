@@ -10,7 +10,7 @@ import ROUTES from "@/lib/routes";
 const COOKIE = "mfa_challenge";
 const TTL_SECONDS = 300;
 
-export interface MfaChallenge {
+interface MfaChallenge {
   challenge: string;
   enroll: boolean;
   next?: string;

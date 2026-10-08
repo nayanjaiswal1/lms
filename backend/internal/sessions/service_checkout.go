@@ -214,7 +214,6 @@ func (s *Service) RefundPack(ctx context.Context, orgID, purchaseID string) erro
 	return s.reverse(ctx, p)
 }
 
-// ListPacks returns the org's credit packs.
 func (s *Service) ListPacks(ctx context.Context, orgID string, activeOnly bool) ([]CreditPack, error) {
 	return s.repo.ListPacks(ctx, orgID, activeOnly)
 }

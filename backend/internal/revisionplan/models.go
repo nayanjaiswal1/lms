@@ -24,7 +24,6 @@ const (
 
 var ErrNotFound = errors.New("revisionplan: not found")
 
-// RevisionPlan is one learner's AI-generated post-course revision plan.
 type RevisionPlan struct {
 	ID              string     `json:"id"`
 	UserID          string     `json:"-"`

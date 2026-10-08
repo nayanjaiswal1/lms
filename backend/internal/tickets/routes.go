@@ -7,7 +7,6 @@ import (
 	"github.com/mindforge/backend/internal/config"
 )
 
-// Router wires the ticket HTTP API.
 type Router struct {
 	handler *Handler
 	Service *Service

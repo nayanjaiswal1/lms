@@ -2,9 +2,9 @@ import "server-only";
 
 import { apiGet } from "@/lib/server/api";
 
-export type CaptureType = "image" | "pdf" | "link" | "html";
+type CaptureType = "image" | "pdf" | "link" | "html";
 export type CaptureStatus = "pending" | "processing" | "ready" | "failed" | "promoted" | "dismissed";
-export type CaptureKind = "note" | "question";
+type CaptureKind = "note" | "question";
 
 export interface Capture {
   id: string;
@@ -26,7 +26,7 @@ export interface Capture {
   processed_at?: string;
 }
 
-export interface SimilarMatch {
+interface SimilarMatch {
   type: "journal_entry" | "srs_card";
   id: string;
   title: string;

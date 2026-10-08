@@ -234,7 +234,7 @@ func (s *Service) createQuickPlan(ctx context.Context, userID string, orgID *str
 func (s *Service) createTargetedPlan(ctx context.Context, userID string, orgID *string, input CreatePlanInput) (Plan, error) {
 	profile, model, err := s.extractProfile(ctx, input.JobTitle, input.JDText)
 	if err != nil {
-		return Plan{}, err
+		return Plan{}, fmt.Errorf("interviewprep.createTargetedPlan: %w", err)
 	}
 
 	category := practice.CategoryTechnical
@@ -417,7 +417,7 @@ func contains(list []string, v string) bool {
 func (s *Service) SubmitCodingItem(ctx context.Context, planID, roundID, itemID, userID, code, language string) (CodingItem, error) {
 	round, err := s.repo.GetRoundForUser(ctx, roundID, planID, userID)
 	if err != nil {
-		return CodingItem{}, err
+		return CodingItem{}, fmt.Errorf("interviewprep.SubmitCodingItem: %w", err)
 	}
 	if round.RoundType != RoundCoding {
 		return CodingItem{}, fmt.Errorf("interviewprep: round %s is not a coding round", roundID)
@@ -489,7 +489,7 @@ func (s *Service) SubmitCodingItem(ctx context.Context, planID, roundID, itemID,
 	}
 
 	if err := s.repo.SaveRoundItems(ctx, roundID, round.Items, allAttempted, score); err != nil {
-		return CodingItem{}, err
+		return CodingItem{}, fmt.Errorf("interviewprep.SubmitCodingItem: %w", err)
 	}
 	return item, nil
 }

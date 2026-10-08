@@ -5,15 +5,9 @@
 import {
   Bug,
   Bookmark,
-  CheckCircle2,
   CircleDot,
   Flag,
   ListTree,
-  Loader2,
-  Ban,
-  RotateCcw,
-  ShieldAlert,
-  TestTube2,
 } from "lucide-react";
 import type {
   BugSeverity,
@@ -63,27 +57,11 @@ export const ITEM_STATUS_VARIANT: Record<ItemStatus, Variant> = {
   wont_do: "outline",
 };
 
-export const ITEM_STATUS_ICON: Record<ItemStatus, typeof Bug> = {
-  todo: CircleDot,
-  in_progress: Loader2,
-  in_review: TestTube2,
-  testing: TestTube2,
-  done: CheckCircle2,
-  blocked: ShieldAlert,
-  reopened: RotateCcw,
-  wont_do: Ban,
-};
 
 // Board columns exclude epic/feature (roll-up only, no direct board card) and
 // wont_do (closed, lives in the list/filter view instead of taking board space).
 export const BOARD_STATUSES: ItemStatus[] = ["todo", "in_progress", "in_review", "testing", "done", "blocked", "reopened"];
 
-export const ITEM_PRIORITY_LABEL: Record<ItemPriority, string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  urgent: "Urgent",
-};
 
 export const ITEM_PRIORITY_VARIANT: Record<ItemPriority, Variant> = {
   low: "outline",
@@ -92,12 +70,6 @@ export const ITEM_PRIORITY_VARIANT: Record<ItemPriority, Variant> = {
   urgent: "destructive",
 };
 
-export const BUG_SEVERITY_LABEL: Record<BugSeverity, string> = {
-  S1: "S1 — Critical",
-  S2: "S2 — Major",
-  S3: "S3 — Minor",
-  S4: "S4 — Trivial",
-};
 
 export const BUG_SEVERITY_VARIANT: Record<BugSeverity, Variant> = {
   S1: "destructive",
@@ -114,12 +86,6 @@ export const DOC_STATUS_LABEL: Record<DocStatus, string> = {
   approved: "Approved",
 };
 
-export const DOC_STATUS_VARIANT: Record<DocStatus, Variant> = {
-  draft: "outline",
-  in_review: "secondary",
-  changes_requested: "destructive",
-  approved: "default",
-};
 
 // Derived from statemachine.go HierarchyRules (ITEM_CHILD_TYPES in types.ts):
 // which parent *type(s)* a given item type may attach to, and whether a

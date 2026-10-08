@@ -54,11 +54,11 @@ export interface QnaWithComments extends Qna {
   comments: Comment[];
 }
 
-export interface EntryWithQna extends Entry {
+interface EntryWithQna extends Entry {
   qna: QnaWithComments[];
 }
 
-export interface PostDetail extends Post {
+interface PostDetail extends Post {
   entries: EntryWithQna[];
   standalone_qna: QnaWithComments[];
 }
@@ -109,7 +109,7 @@ export interface FaqItem {
   created_at: string;
 }
 
-export interface FaqFilter {
+interface FaqFilter {
   company?: string;
   tag?: string;
   status?: FaqStatus;

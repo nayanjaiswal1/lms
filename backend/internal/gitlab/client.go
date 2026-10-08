@@ -80,7 +80,7 @@ func (c *Client) do(ctx context.Context, method, path string, reqBody []byte, ou
 
 		resp, body, err := c.doOnce(ctx, method, path, reqBody)
 		if err != nil {
-			return err
+			return fmt.Errorf("gitlab.do: %w", err)
 		}
 
 		if resp.StatusCode == http.StatusTooManyRequests && attempt < maxRetries {

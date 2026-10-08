@@ -56,7 +56,6 @@ var (
 	ErrTooEarly         = errors.New("a manager may mark a question as an assumption only after it is unanswered for 5 days")
 )
 
-// RequirementQuestion is one requirement_questions row.
 type RequirementQuestion struct {
 	ID                 string     `json:"id"`
 	RequirementVersion int        `json:"requirement_version"`
@@ -96,7 +95,6 @@ type RequirementGaps struct {
 	Gaps []string `json:"gaps"`
 }
 
-// BriefApproval is one brief_approvals row.
 type BriefApproval struct {
 	ApproverID   string    `json:"approver_id"`
 	ApproverName string    `json:"approver_name"`

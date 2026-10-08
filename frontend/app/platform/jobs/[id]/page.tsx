@@ -92,7 +92,6 @@ export default async function PlatformJobDetailPage({ params }: PageProps) {
       </div>
 
       <div className="mt-8 grid gap-6 md:grid-cols-2">
-        {/* Identity */}
         <div className="card-base p-6 space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Identity</h2>
           <InfoRow label="Priority" value={`${PRIORITY_LABEL[job.priority] ?? job.priority} (${job.priority})`} />
@@ -103,7 +102,6 @@ export default async function PlatformJobDetailPage({ params }: PageProps) {
           <InfoRow mono label="Idempotency key" value={job.idempotency_key ?? "—"} />
         </div>
 
-        {/* Timing */}
         <div className="card-base p-6 space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Timing</h2>
           <InfoRow label="Run at" value={fmtDate(job.run_at)} />
@@ -115,7 +113,6 @@ export default async function PlatformJobDetailPage({ params }: PageProps) {
           <InfoRow label="Created at" value={fmtDate(job.created_at)} />
         </div>
 
-        {/* Retry config */}
         <div className="card-base p-6 space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Retry Config</h2>
           <InfoRow label="Max retries" value={String(job.max_retries)} />
@@ -123,7 +120,6 @@ export default async function PlatformJobDetailPage({ params }: PageProps) {
           <InfoRow label="Timeout" value={fmtDuration(job.timeout_ms)} />
         </div>
 
-        {/* Error (if any) */}
         {job.last_error && (
           <div className="card-base p-6 border-destructive/30">
             <h2 className="text-sm font-semibold text-destructive uppercase tracking-wide mb-3">Last Error</h2>
@@ -134,7 +130,6 @@ export default async function PlatformJobDetailPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* Payload */}
       <div className="card-base p-6 mt-6">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Payload</h2>
         <pre className="text-xs font-mono text-foreground whitespace-pre-wrap break-all leading-relaxed max-h-60 overflow-y-auto">
@@ -142,7 +137,6 @@ export default async function PlatformJobDetailPage({ params }: PageProps) {
         </pre>
       </div>
 
-      {/* Run history */}
       <section className="mt-8">
         <h2 className="section-title mb-4">Run History</h2>
         <RunsTable runs={runs} />

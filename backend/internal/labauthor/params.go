@@ -242,7 +242,6 @@ func validateParamsSchema(m *labblock.Manifest) []labblock.Issue {
 	return issues
 }
 
-// randomize is a parsed `randomize` clause.
 type randomize struct {
 	choices        []any
 	min, max, step float64

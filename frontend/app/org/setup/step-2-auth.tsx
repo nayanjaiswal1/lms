@@ -57,7 +57,6 @@ export function Step2Auth({ orgId, authConfig }: Step2AuthProps) {
         </p>
       )}
 
-      {/* Allowed email domains */}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="allowed_domains">Allowed email domains</Label>
         <Input
@@ -75,7 +74,6 @@ export function Step2Auth({ orgId, authConfig }: Step2AuthProps) {
         )}
       </div>
 
-      {/* SSO toggle */}
       <div className="flex items-start gap-3 rounded-lg border border-border p-4">
         <Checkbox
           checked={ssoEnabled}

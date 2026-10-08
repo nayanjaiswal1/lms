@@ -15,10 +15,11 @@ export interface Column {
   label?: string;
   /**
    * `image`: the value is a URL shown as a small picture, not editable.
+   * `link`: the value is a URL shown as an "Open" link (new tab), not editable.
    * `select`: the value is picked from `options` in a dropdown.
    * `multiselect`: the value is a `string[]` ticked from `options` in a checkbox popover.
    */
-  type?: 'text' | 'number' | 'image' | 'select' | 'multiselect';
+  type?: 'text' | 'number' | 'image' | 'link' | 'select' | 'multiselect';
   /** The choices of a `select`/`multiselect` column. A row's value that isn't listed is still shown. */
   options?: string[];
   /** Width in px; omitted = flexible. */

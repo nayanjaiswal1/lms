@@ -96,8 +96,7 @@ type UpcomingItem =
 const UPCOMING_ITEMS_LIMIT = 5;
 
 // One merged, date-sorted timeline instead of two separate "upcoming"
-// sections — assessments and calendar events were previously split across
-// the main column and the right rail even though both answer "what's next".
+// sections.
 async function fetchUpcomingItems(): Promise<UpcomingItem[]> {
   const [assessments, events] = await Promise.all([fetchUpcomingAssessments(), fetchUpcomingEvents()]);
 

@@ -13,7 +13,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Repo is the data-access layer for the diary domain.
 type Repo struct {
 	pool *pgxpool.Pool
 }
@@ -41,7 +40,7 @@ func scanEntry(row scanner) (Entry, error) {
 	var analyzedHash *string
 	err := row.Scan(&e.ID, &e.UserID, &entryDate, &e.Content, &aiRaw, &analyzedHash, &e.AnalyzedAt, &e.CreatedAt, &e.UpdatedAt)
 	if err != nil {
-		return Entry{}, err
+		return Entry{}, fmt.Errorf("diary.scanEntry: %w", err)
 	}
 	e.EntryDate = entryDate.Format("2006-01-02")
 	if analyzedHash != nil {
@@ -216,7 +215,7 @@ const taskColumns = `id, title, description, kind, tags, done, source_entry_id, 
 func scanTask(row scanner) (Task, error) {
 	var t Task
 	if err := row.Scan(&t.ID, &t.Title, &t.Description, &t.Kind, &t.Tags, &t.Done, &t.SourceEntryID, &t.CreatedAt, &t.UpdatedAt); err != nil {
-		return Task{}, err
+		return Task{}, fmt.Errorf("diary.scanTask: %w", err)
 	}
 	return t, nil
 }

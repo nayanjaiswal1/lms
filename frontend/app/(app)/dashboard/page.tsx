@@ -43,7 +43,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       </Suspense>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        {/* Main column */}
         <div className="lg:col-span-2">
           <section className="mb-8">
             <DashboardSectionHeader
@@ -83,7 +82,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </section>
         </div>
 
-        {/* Right rail */}
         <aside className="flex flex-col gap-8 lg:col-span-1">
           <Suspense fallback={<Skeleton className="h-32" />}>
             <ReviewSection />

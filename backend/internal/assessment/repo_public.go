@@ -151,7 +151,7 @@ func (r *Repo) GetPublicAttemptByToken(ctx context.Context, token string) (Publi
 func (r *Repo) FinalizePublicAttempt(ctx context.Context, token string, answersRaw json.RawMessage, totalScore, maxScore, pct float64, passed bool, durationSec int) (PublicAttempt, error) {
 	att, err := r.GetPublicAttemptByToken(ctx, token)
 	if err != nil {
-		return PublicAttempt{}, err
+		return PublicAttempt{}, fmt.Errorf("assessment.FinalizePublicAttempt: %w", err)
 	}
 	if att.Status == "submitted" {
 		return att, nil

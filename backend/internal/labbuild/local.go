@@ -98,7 +98,7 @@ func contentReport(rep *Report, err error) (*Report, error) {
 // verifyRenderedLocal runs one rendered variant's whole matrix.
 func verifyRenderedLocal(ctx context.Context, rt labs.ContainerRuntime, grade gradeFunc, kind labkinds.Kind, recipeHash string, a renderedVariant, opts LocalOptions) (*VariantReport, error) {
 	if err := a.checkBudgets(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.verifyRenderedLocal: %w", err)
 	}
 	var m meta
 	if err := json.Unmarshal(a.Files["meta.json"], &m); err != nil {
@@ -110,7 +110,7 @@ func verifyRenderedLocal(ctx context.Context, rt labs.ContainerRuntime, grade gr
 	}
 	overlays, err := overlaysFromVerifyTar(a.Files["verify.tar.gz"])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labbuild.verifyRenderedLocal: %w", err)
 	}
 	bundles := &variantBundles{
 		view: &labkinds.VariantView{VariantKey: a.Key, WorkspaceBundle: a.Files["workspace.tar.gz"], GraderBundle: a.Files["grader.tar.gz"],

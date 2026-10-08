@@ -62,7 +62,7 @@ export default async function ProjectAssignmentPage({ params }: PageProps) {
   // come embedded in getAssignmentDashboard/getAssignmentCheckpoints below —
   // one request each for the whole assignment — rather than a
   // getProjectTeamMembers/getTeamActivity/getCheckpointSubmissions call per
-  // team/checkpoint (the N+1 fan-out this page used to do).
+  // team/checkpoint.
   const [batch, batchMembers, dashboard, leaderboard, burndown, checkpoints, originalityReports] = await Promise.all([
     getBatch(assignment.batch_id),
     getBatchMembers(assignment.batch_id),

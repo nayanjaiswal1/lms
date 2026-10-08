@@ -44,7 +44,7 @@ func (s *Service) RunSnippet(ctx context.Context, userID, language, code string)
 	// as VerifyTask).
 	rateLimitKey := fmt.Sprintf("lab:snippet:rate:%s", userID)
 	if err := s.acquireCooldown(ctx, rateLimitKey, snippetRateLimitSeconds*time.Second, "labs.Service.RunSnippet"); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("labs.RunSnippet: %w", err)
 	}
 
 	execCtx, cancel := context.WithTimeout(ctx, 30*time.Second)

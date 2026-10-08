@@ -51,7 +51,6 @@ export function IssuesToolbar({ page, state, density, bulk }: IssuesToolbarProps
         </div>
       </div>
 
-      {/* Status tabs */}
       <div className="flex-between rounded-xl bg-card px-2 shadow-card">
         <nav aria-label="Issue state" className="flex items-center gap-1.5 overflow-x-auto">
           {page.tabs.map((t) => {
@@ -98,7 +97,6 @@ export function IssuesToolbar({ page, state, density, bulk }: IssuesToolbarProps
         </div>
       </div>
 
-      {/* Search & filter bar */}
       <div className="flex flex-col gap-1.5 rounded-xl bg-card p-2 shadow-card">
         <div className="flex flex-col items-stretch gap-1.5 lg:flex-row lg:items-center">
           <div className="flex flex-1 flex-wrap items-center gap-1 rounded-lg bg-muted px-2 py-1.5 transition-colors focus-within:bg-muted">

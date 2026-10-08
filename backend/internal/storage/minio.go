@@ -182,7 +182,6 @@ func (m *PrivateMinioClient) EnsureBucket(ctx context.Context) error {
 	return nil
 }
 
-// Upload implements storage.PrivateStore.
 func (m *PrivateMinioClient) Upload(ctx context.Context, key, contentType string, r io.Reader, size int64) error {
 	if _, err := m.client.PutObject(ctx, m.bucket, key, r, size, minio.PutObjectOptions{
 		ContentType: contentType,
@@ -192,7 +191,6 @@ func (m *PrivateMinioClient) Upload(ctx context.Context, key, contentType string
 	return nil
 }
 
-// Download implements storage.PrivateStore.
 func (m *PrivateMinioClient) Download(ctx context.Context, key string) ([]byte, error) {
 	obj, err := m.client.GetObject(ctx, m.bucket, key, minio.GetObjectOptions{})
 	if err != nil {
@@ -206,7 +204,6 @@ func (m *PrivateMinioClient) Download(ctx context.Context, key string) ([]byte, 
 	return data, nil
 }
 
-// Delete implements storage.PrivateStore.
 func (m *PrivateMinioClient) Delete(ctx context.Context, key string) error {
 	if err := m.client.RemoveObject(ctx, m.bucket, key, minio.RemoveObjectOptions{}); err != nil {
 		return fmt.Errorf("storage: private delete %q: %w", key, err)
@@ -214,7 +211,6 @@ func (m *PrivateMinioClient) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-// List implements storage.PrivateStore.
 func (m *PrivateMinioClient) List(ctx context.Context, prefix string) ([]PrivateObject, error) {
 	var out []PrivateObject
 	for obj := range m.client.ListObjects(ctx, m.bucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true}) {

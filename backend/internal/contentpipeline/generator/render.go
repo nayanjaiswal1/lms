@@ -174,7 +174,7 @@ func renderCourse(out *strings.Builder, slug string, docs []*canonical.Document,
 				err = fmt.Errorf("unknown document kind %q at %s", doc.Kind, doc.Path)
 			}
 			if err != nil {
-				return err
+				return fmt.Errorf("generator.renderCourse: %w", err)
 			}
 		}
 	}

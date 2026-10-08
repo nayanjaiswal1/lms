@@ -5,7 +5,7 @@ import { apiAction } from "@/lib/server/api";
 import type { ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 
-export interface CohortGroupInput {
+interface CohortGroupInput {
   name: string;
   parent_id?: string | null;
   level_label?: string | null;

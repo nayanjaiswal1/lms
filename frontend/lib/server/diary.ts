@@ -60,7 +60,7 @@ export interface DiaryTask {
   updated_at: string;
 }
 
-export interface DiaryTaskListResponse {
+interface DiaryTaskListResponse {
   tasks: DiaryTask[];
 }
 
@@ -70,12 +70,12 @@ export interface DiaryEntryPreview {
   preview: string;
 }
 
-export interface DiaryHistoryPage {
+interface DiaryHistoryPage {
   entries: DiaryEntryPreview[];
   next_cursor: string | null;
 }
 
-export type FixEnglishSegmentKind = "same" | "del" | "add";
+type FixEnglishSegmentKind = "same" | "del" | "add";
 
 export interface FixEnglishSegment {
   kind: FixEnglishSegmentKind;
@@ -90,7 +90,7 @@ export async function getEntryByDate(date: string): Promise<DiaryEntry> {
   return apiGet<DiaryEntry>(`/api/diary/${encodeURIComponent(date)}`);
 }
 
-export interface DiaryHistoryFilter {
+interface DiaryHistoryFilter {
   from?: string;
   to?: string;
   cursor?: string;
@@ -107,7 +107,7 @@ export async function getDiaryHistory(filter?: DiaryHistoryFilter): Promise<Diar
   return apiGet<DiaryHistoryPage>(`/api/diary${query ? `?${query}` : ""}`);
 }
 
-export interface DiaryTaskFilter {
+interface DiaryTaskFilter {
   tag?: string;
   done?: boolean;
 }

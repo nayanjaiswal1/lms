@@ -131,8 +131,7 @@ export default async function ModuleLearnPage({ params, searchParams }: Props) {
         .find((v) => isRunnableLanguage(v.language))?.language ?? null
     : null;
   const isNotes = currentModule.type === "notes";
-  // One parallel round instead of six serial cross-region hops — each of these
-  // used to be awaited back to back, which made every sidebar click take seconds.
+  // One parallel round instead of six serial cross-region hops.
   const [myCourseFeedback, passedCheckIds, initialReflection, initialNote, initialHighlights, moduleLab] = await Promise.all([
     courseComplete ? getMyFeedback("course", tree.id).catch(() => null) : null,
     requiredCheckIds.length > 0 ? getMyCheckProgress(moduleId).catch(() => []) : [],
@@ -167,8 +166,7 @@ export default async function ModuleLearnPage({ params, searchParams }: Props) {
   // isWideLayout below), so this never doubles up with the inline
   // ModuleNotes copy's "End Lab" header.
   const showLabInRail = Boolean(moduleLab?.lab) && !isLabOpen;
-  // system_design no longer needs the wide/no-rail treatment: its default
-  // view is a compact guidance card like any other module, and the
+  // system_design uses the default layout: its view is a compact guidance card like any other module, and the
   // whiteboard opens in its own fixed-position overlay that already escapes
   // this page's layout — so it gets the same right rail (progress bar,
   // badges) and bottom nav footer (Mark as Complete, next module) as every

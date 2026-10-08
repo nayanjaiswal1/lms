@@ -49,7 +49,7 @@ func (s *Service) ConsumeTx(ctx context.Context, tx pgx.Tx, couponID, userID, pu
 func (s *Service) Preview(ctx context.Context, orgID, userID, courseID, code string, amountCents int) (Preview, error) {
 	c, err := s.repo.Validate(ctx, orgID, userID, courseID, NormalizeCode(code))
 	if err != nil {
-		return Preview{}, err
+		return Preview{}, fmt.Errorf("coupons.Preview: %w", err)
 	}
 	discount := DiscountCents(c, amountCents)
 	return Preview{

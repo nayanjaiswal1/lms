@@ -15,9 +15,7 @@ import type {
 // `subject_type` widened to `work_item` | `requirement_question`, but
 // types.ts (lead-owned) has no response shape for it — WikiComment
 // (lib/server/wiki.ts) is page-scoped and threaded, which this flat,
-// unthreaded contract doesn't ask for. Declared here per the brief's
-// "add a local type in your own file" instruction; flag for the lead to
-// fold into types.ts if another agent needs the same shape.
+// unthreaded contract doesn't ask for.
 export interface WorkspaceComment {
   id: string;
   subject_type: "work_item" | "requirement_question";
@@ -57,9 +55,6 @@ export async function listWorkspaceStandups(workspaceId: string, day?: string): 
   return apiGet<Standup[]>(`/api/workspaces/${workspaceId}/standups${qs}`);
 }
 
-export async function listQuestionComments(workspaceId: string, questionId: string, cursor?: string, limit?: number): Promise<Page<WorkspaceComment>> {
-  return apiGet<Page<WorkspaceComment>>(`/api/workspaces/${workspaceId}/questions/${questionId}/comments${pageQuery(cursor, limit)}`);
-}
 
 export async function listItemComments(workspaceId: string, itemId: string, cursor?: string, limit?: number): Promise<Page<WorkspaceComment>> {
   return apiGet<Page<WorkspaceComment>>(`/api/workspaces/${workspaceId}/items/${itemId}/comments${pageQuery(cursor, limit)}`);

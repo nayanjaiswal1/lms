@@ -1,4 +1,3 @@
-import type { Step } from "./types";
 
 export const DEFAULT_POINTER_NAMES = [
   "i", "j", "k", "left", "right", "low", "high", "mid", "lo", "hi",
@@ -55,6 +54,3 @@ export function arrayLocals(locals: Record<string, unknown>): [string, Primitive
   return Object.entries(locals).filter(([, v]) => isPrimitiveArray(v)) as [string, PrimitiveArrayValue[]][];
 }
 
-export function stepsTouchArray(steps: Step[]): boolean {
-  return steps.some((s) => arrayLocals(s.locals).length > 0);
-}

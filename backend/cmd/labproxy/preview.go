@@ -22,15 +22,11 @@ const ttydPort = 7681
 // ever sends one for multi-port labs), anything else is passed straight
 // through as the initial path to hand off as ServePreviewAuth's "next".
 //
-// This used to be ambiguous (ponytail: an all-digits app path segment could
-// be misread as a port) because the old design re-entered this same parser
-// on every relative link the previewed app followed. That's no longer true:
-// ServePreview now redirects to a preview subdomain exactly once per token,
-// and every request after that — including the app's own relative-link
-// navigation — resolves directly against the subdomain via ordinary
-// host-based routing (ServePreviewPassthrough in preview_host.go) and never
-// re-enters this function. Subdomain-per-port routing was the named upgrade;
-// this is it.
+// ServePreview redirects to a preview subdomain exactly once per token, and
+// every request after that — including the app's own relative-link
+// navigation — resolves directly against the subdomain via host-based
+// routing (ServePreviewPassthrough in preview_host.go) and never re-enters
+// this function, so an all-digits app path segment is not misread as a port.
 func splitEntryPort(path string) (int, string) {
 	seg, rest, _ := strings.Cut(path, "/")
 	port, err := strconv.Atoi(seg)
@@ -74,14 +70,14 @@ func (h *ProxyHandler) previewTarget(r *http.Request, tokenStr string, reqPort i
 	var previewPort, idePort int
 	// idePort is the pinned variant's IDE port (lab kinds only; 0 otherwise).
 	err = h.pool.QueryRow(r.Context(),
-		`SELECT s.id, s.user_id, s.status, s.container_id, s.container_host, l.preview_port,
+		`SELECT s.id, s.user_id, s.status, s.container_host, l.preview_port,
 		        COALESCE(v.ide_port, 0)
 		 FROM lab_sessions s
 		 JOIN lab_definitions l ON l.id = s.lab_id
 		 LEFT JOIN lab_build_variants v ON v.build_id = l.build_id AND v.variant_key = s.variant_key
 		 WHERE s.id=$1`,
 		claims.SessionID,
-	).Scan(&sess.ID, &sess.UserID, &sess.Status, &sess.ContainerID, &sess.ContainerHost, &previewPort, &idePort)
+	).Scan(&sess.ID, &sess.UserID, &sess.Status, &sess.ContainerHost, &previewPort, &idePort)
 	if err != nil {
 		return nil, 0, "", "", http.StatusNotFound, "session not found"
 	}
@@ -232,12 +228,7 @@ func (h *ProxyHandler) proxyPreview(w http.ResponseWriter, r *http.Request, targ
 // Stripping Domain forces every upstream cookie host-only to the preview
 // subdomain that set it, same as previewTokenCookieName's own __Host- cookie.
 func stripSetCookieDomain(resp *http.Response) {
-	cookies := resp.Header.Values("Set-Cookie")
-	if len(cookies) == 0 {
-		return
-	}
-	resp.Header.Del("Set-Cookie")
-	for _, raw := range cookies {
+	rewriteSetCookies(resp, func(raw string) string {
 		attrs := strings.Split(raw, ";")
 		kept := attrs[:1] // name=value always kept
 		for _, attr := range attrs[1:] {
@@ -246,7 +237,20 @@ func stripSetCookieDomain(resp *http.Response) {
 			}
 			kept = append(kept, attr)
 		}
-		resp.Header.Add("Set-Cookie", strings.Join(kept, ";"))
+		return strings.Join(kept, ";")
+	})
+}
+
+// rewriteSetCookies replaces every upstream Set-Cookie header value with
+// rewrite(value), preserving order. Headers are left untouched when none exist.
+func rewriteSetCookies(resp *http.Response, rewrite func(raw string) string) {
+	cookies := resp.Header.Values("Set-Cookie")
+	if len(cookies) == 0 {
+		return
+	}
+	resp.Header.Del("Set-Cookie")
+	for _, raw := range cookies {
+		resp.Header.Add("Set-Cookie", rewrite(raw))
 	}
 }
 
@@ -260,8 +264,7 @@ func stripSetCookieDomain(resp *http.Response) {
 // both authenticated *and* served the document; now it only ever issues one
 // redirect per token, and never proxies anything itself.
 func (h *ProxyHandler) ServePreview(w http.ResponseWriter, r *http.Request) {
-	if h.draining.Load() {
-		writeJSONError(w, http.StatusServiceUnavailable, "service draining")
+	if h.rejectIfDraining(w) {
 		return
 	}
 
@@ -305,7 +308,8 @@ func (h *ProxyHandler) ServePreview(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, target.String(), http.StatusFound)
 }
 
-// vscodeTokenName is openvscode-server's connection-token cookie/query name.
+// vscodeTokenCookie and vscodeTokenQuery are openvscode-server's
+// connection-token cookie and query parameter names.
 const (
 	vscodeTokenCookie = "vscode-tkn"
 	vscodeTokenQuery  = "tkn"
@@ -356,14 +360,12 @@ func adaptIDEResponse(resp *http.Response, sameSite http.SameSite) {
 	if sameSite != http.SameSiteNoneMode {
 		return
 	}
-	cookies := resp.Header.Values("Set-Cookie")
-	resp.Header.Del("Set-Cookie")
-	for _, raw := range cookies {
+	rewriteSetCookies(resp, func(raw string) string {
 		if strings.HasPrefix(strings.TrimSpace(raw), vscodeTokenCookie+"=") {
-			raw = noneSameSite(raw)
+			return noneSameSite(raw)
 		}
-		resp.Header.Add("Set-Cookie", raw)
-	}
+		return raw
+	})
 }
 
 // noneSameSite replaces any SameSite attribute of a Set-Cookie value with

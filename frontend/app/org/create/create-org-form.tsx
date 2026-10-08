@@ -82,7 +82,6 @@ export function CreateOrgForm() {
           </p>
         )}
 
-        {/* Name */}
         <FormField
           control={form.control}
           name="name"
@@ -108,7 +107,6 @@ export function CreateOrgForm() {
           )}
         />
 
-        {/* Slug */}
         <FormInputField
           control={form.control}
           disabled={isPending}
@@ -122,7 +120,6 @@ export function CreateOrgForm() {
           Your org URL: <span className="font-mono">mindforge.app/<span className="text-foreground">{form.watch("slug") || "your-slug"}</span></span>
         </p>
 
-        {/* Description */}
         <FormField
           control={form.control}
           name="description"
@@ -144,7 +141,6 @@ export function CreateOrgForm() {
           )}
         />
 
-        {/* Hidden idempotency key */}
         <input
           readOnly
           id={idempotencyId}

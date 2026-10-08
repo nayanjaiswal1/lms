@@ -46,15 +46,6 @@ interface AccessGateProps {
  * The lock overlay reads `lockedInfo` from context — the backend tells
  * us whether the path to unlock is a plan upgrade, an add-on, or both.
  * The frontend never hardcodes "upgrade to Pro" or any plan name.
- *
- * Usage:
- *   <AccessGate feature={FEATURES.INTERVIEW_BOARD}>
- *     <InterviewSection />
- *   </AccessGate>
- *
- *   <AccessGate feature={FEATURES.WIKI} mode="badge">
- *     <SidebarItem label="Wiki" />
- *   </AccessGate>
  */
 export function AccessGate({ feature, children, mode = "lock", className, collapsed = false }: AccessGateProps) {
   const orgEnabled  = useIsOrgFeatureEnabled(feature);

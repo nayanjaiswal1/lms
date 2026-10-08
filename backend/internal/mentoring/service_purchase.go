@@ -37,7 +37,7 @@ func newPendingProviderRef() string {
 func (s *Service) StartCheckout(ctx context.Context, req courses.CheckoutRequest) (courses.CheckoutSession, error) {
 	course, err := s.coursesRepo.GetCourse(ctx, req.OrgID, req.CourseID)
 	if err != nil {
-		return courses.CheckoutSession{}, err
+		return courses.CheckoutSession{}, fmt.Errorf("mentoring.StartCheckout: %w", err)
 	}
 	if course.IsFree || course.PriceCents <= 0 {
 		return courses.CheckoutSession{}, fmt.Errorf("%w: course is free", ErrInvalid)
@@ -53,7 +53,7 @@ func (s *Service) StartCheckout(ctx context.Context, req courses.CheckoutRequest
 
 	hasCompleted, err := s.repo.HasCompletedPurchase(ctx, req.UserID, req.CourseID)
 	if err != nil {
-		return courses.CheckoutSession{}, err
+		return courses.CheckoutSession{}, fmt.Errorf("mentoring.StartCheckout: %w", err)
 	}
 	if hasCompleted {
 		return courses.CheckoutSession{}, ErrAlreadyPurchased
@@ -61,7 +61,7 @@ func (s *Service) StartCheckout(ctx context.Context, req courses.CheckoutRequest
 
 	provider, err := s.providers.Get(req.Provider)
 	if err != nil {
-		return courses.CheckoutSession{}, err
+		return courses.CheckoutSession{}, fmt.Errorf("mentoring.StartCheckout: %w", err)
 	}
 
 	var couponID *string
@@ -79,7 +79,7 @@ func (s *Service) StartCheckout(ctx context.Context, req courses.CheckoutRequest
 		// Retire this student's own abandoned holds first, so a walked-away
 		// checkout doesn't keep the coupon locked (see ExpireStaleCouponHolds).
 		if err := s.repo.ExpireStaleCouponHolds(ctx, req.UserID, c.ID); err != nil {
-			return courses.CheckoutSession{}, err
+			return courses.CheckoutSession{}, fmt.Errorf("mentoring.StartCheckout: %w", err)
 		}
 		// c.RedeemedCount only counts webhook-confirmed redemptions; the live
 		// holds are checkouts already opened at the discounted price whose
@@ -195,11 +195,11 @@ func (s *Service) completeZeroTotalCheckout(ctx context.Context, purchase Purcha
 	}
 	eventRowID, shouldProcess, err := s.repo.InsertPaymentEvent(ctx, purchase.Provider, eventID, "zero_total", purchase.ProviderRef, &purchase.ID, payload)
 	if err != nil {
-		return courses.CheckoutSession{}, err
+		return courses.CheckoutSession{}, fmt.Errorf("mentoring.completeZeroTotalCheckout: %w", err)
 	}
 	if shouldProcess {
 		if _, _, err := s.confirmPurchase(ctx, purchase, "", eventRowID); err != nil {
-			return courses.CheckoutSession{}, err
+			return courses.CheckoutSession{}, fmt.Errorf("mentoring.completeZeroTotalCheckout: %w", err)
 		}
 	}
 	return courses.CheckoutSession{
@@ -215,7 +215,7 @@ func (s *Service) completeZeroTotalCheckout(ctx context.Context, purchase Purcha
 func (s *Service) PurchaseStatus(ctx context.Context, orgID, userID, courseID string) (courses.PurchaseStatus, error) {
 	p, err := s.repo.GetLatestPurchase(ctx, orgID, userID, courseID)
 	if err != nil {
-		return courses.PurchaseStatus{}, err
+		return courses.PurchaseStatus{}, fmt.Errorf("mentoring.PurchaseStatus: %w", err)
 	}
 	enrolled, err := s.coursesRepo.IsEnrolled(ctx, userID, courseID)
 	if err != nil {
@@ -231,7 +231,7 @@ func (s *Service) PurchaseStatus(ctx context.Context, orgID, userID, courseID st
 func (s *Service) GetReceipt(ctx context.Context, orgID, userID, purchaseID string) (courses.Receipt, error) {
 	p, err := s.repo.GetPurchase(ctx, orgID, purchaseID)
 	if err != nil {
-		return courses.Receipt{}, err
+		return courses.Receipt{}, fmt.Errorf("mentoring.GetReceipt: %w", err)
 	}
 	if p.UserID != userID {
 		return courses.Receipt{}, ErrNotFound
@@ -255,7 +255,7 @@ func (s *Service) GetReceipt(ctx context.Context, orgID, userID, purchaseID stri
 func (s *Service) Refund(ctx context.Context, orgID, purchaseID string) error {
 	p, err := s.repo.GetPurchase(ctx, orgID, purchaseID)
 	if err != nil {
-		return err
+		return fmt.Errorf("mentoring.Refund: %w", err)
 	}
 	if p.Status != PurchaseStatusCompleted && p.Status != PurchaseStatusRefunding {
 		return &clientErr{msg: "only a completed purchase can be refunded"}
@@ -266,20 +266,20 @@ func (s *Service) Refund(ctx context.Context, orgID, purchaseID string) error {
 
 	provider, err := s.providers.Get(p.Provider)
 	if err != nil {
-		return err
+		return fmt.Errorf("mentoring.Refund: %w", err)
 	}
 	// Persist the intent first: if we crash after the gateway refunds, the
 	// row is 'refunding' (retryable, and resolved by the charge.refunded
 	// webhook) rather than a refunded charge on a 'completed' purchase.
 	ok, err := s.repo.MarkPurchaseRefunding(ctx, p.ID)
 	if err != nil {
-		return err
+		return fmt.Errorf("mentoring.Refund: %w", err)
 	}
 	if !ok {
 		return &clientErr{msg: "only a completed purchase can be refunded"}
 	}
 	if err := provider.Refund(ctx, *p.PaymentRef, p.AmountCents); err != nil {
-		return err
+		return fmt.Errorf("mentoring.Refund: %w", err)
 	}
 
 	return s.revokePurchase(ctx, p, "")
@@ -361,17 +361,17 @@ func (s *Service) reversePack(ctx context.Context, providerName string, ev payme
 func (s *Service) HandleWebhook(ctx context.Context, providerName string, rawBody []byte, h http.Header) error {
 	provider, err := s.providers.Get(providerName)
 	if err != nil {
-		return err
+		return fmt.Errorf("mentoring.HandleWebhook: %w", err)
 	}
 
 	ev, err := provider.ParseWebhook(rawBody, h)
 	if err != nil {
-		return err
+		return fmt.Errorf("mentoring.HandleWebhook: %w", err)
 	}
 
 	eventRowID, shouldProcess, err := s.repo.InsertPaymentEvent(ctx, provider.Name(), ev.ID, ev.Type, ev.ProviderRef, nil, ev.Raw)
 	if err != nil {
-		return err
+		return fmt.Errorf("mentoring.HandleWebhook: %w", err)
 	}
 	if !shouldProcess {
 		// A gateway redelivering an event we've already fully processed is
@@ -422,7 +422,7 @@ func (s *Service) HandleWebhook(ctx context.Context, providerName string, rawBod
 
 	if ev.Status == payments.StatusFailed {
 		if err := s.repo.MarkPurchaseFailed(ctx, p.ID); err != nil {
-			return err
+			return fmt.Errorf("mentoring.HandleWebhook: %w", err)
 		}
 		return s.repo.MarkPaymentEventProcessed(ctx, eventRowID)
 	}
@@ -560,7 +560,7 @@ const DefaultReconcileStaleAfter = 30 * time.Minute
 func (s *Service) ReconcilePayments(ctx context.Context, staleAfter time.Duration) (int, error) {
 	purchases, err := s.repo.ListStalePendingPurchases(ctx, staleAfter)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("mentoring.ReconcilePayments: %w", err)
 	}
 	for _, p := range purchases {
 		slog.ErrorContext(ctx, "payments reconcile: purchase pending past threshold",
@@ -568,7 +568,7 @@ func (s *Service) ReconcilePayments(ctx context.Context, staleAfter time.Duratio
 	}
 	events, err := s.repo.ListStuckPaymentEvents(ctx, staleAfter)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("mentoring.ReconcilePayments: %w", err)
 	}
 	for _, e := range events {
 		slog.ErrorContext(ctx, "payments reconcile: payment event unprocessed past threshold",
