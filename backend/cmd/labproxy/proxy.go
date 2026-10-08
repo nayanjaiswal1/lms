@@ -17,8 +17,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
-
-	"github.com/mindforge/backend/internal/labs"
 )
 
 // wsTokenType must match labs.WSTokenType (internal/labs/service.go) — the
@@ -39,6 +37,20 @@ const wsTokenType = "lab_ws"
 // dependency graph.
 const ttydCredentialUser = "mindforge"
 
+// deriveContainerCredential must stay byte-for-byte identical to
+// labs.DeriveContainerCredential (internal/labs/credential.go): both
+// processes independently recompute the same per-session ttyd credential
+// from the session ID and the shared LABPROXY_JWT_SECRET (= JWT_SECRET),
+// never stored in the database or handed to the browser. See that
+// function's doc comment for the full rationale (docs/labs.md "Proxy ↔
+// Container Channel Security"; docs/debug-labs.md Phase 0).
+// containerCredentialDomain prefixes the ttyd credential's HMAC input — must
+// match the copy in the other process (internal/labs/credential.go ↔
+// cmd/labproxy/proxy.go). Domain separation: the secret also signs auth JWTs
+// and the student can read their own credential inside the container, so the
+// HMAC input must never be able to coincide with a JWT signing input.
+const containerCredentialDomain = "mindforge/container-credential/v1:"
+
 // ideCredentialDomain must match labs.ideCredentialDomain
 // (internal/labs/credential.go) — a distinct domain from the ttyd one so the
 // two credentials never coincide.
@@ -49,6 +61,14 @@ const ideCredentialDomain = "mindforge/container-credential/ide/v1:"
 func deriveIDECredential(secret, sessionID string) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(ideCredentialDomain + sessionID))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+// deriveContainerCredential must stay byte-for-byte identical to
+// labs.DeriveContainerCredential.
+func deriveContainerCredential(secret, sessionID string) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(containerCredentialDomain + sessionID))
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
@@ -187,7 +207,7 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // (docs/labs.md "Proxy ↔ Container Channel Security").
 func (h *ProxyHandler) dialTTYD(ctx context.Context, sess labSession) (*websocket.Conn, error) {
 	ttydDialer := &websocket.Dialer{Subprotocols: []string{"tty"}}
-	cred := labs.DeriveContainerCredential(h.jwtSecret, sess.ID)
+	cred := deriveContainerCredential(h.jwtSecret, sess.ID)
 	authHeader := http.Header{"Authorization": {
 		"Basic " + base64.StdEncoding.EncodeToString([]byte(ttydCredentialUser+":"+cred)),
 	}}
