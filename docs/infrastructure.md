@@ -158,6 +158,7 @@ Spaced repetition (SM-2): pure math — no AI.
   `/coupon/preview` and `/checkout` (default 10 / 1m). Keyed **per user**, not per IP:
   browser-facing calls all arrive from the Next.js server on one address, so an IP-keyed
   limit would let one attacker exhaust the budget for the entire user base.
+- `ANALYTICS_RATE_LIMIT_MAX` / `ANALYTICS_RATE_LIMIT_WINDOW` — per-user budget on the analytics endpoints (default 60 / 1m); the queries aggregate a whole course's enrollment.
 
 ---
 

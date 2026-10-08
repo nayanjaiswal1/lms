@@ -165,7 +165,7 @@ The count below drifts every time a permission is added — treat it as a snapsh
 | courses | `courses.edit` | Edit Courses |
 | courses | `courses.publish` | Publish Courses |
 | courses | `courses.delete` | Delete Courses |
-| courses | `courses.view_analytics` | Course Analytics |
+| courses | `courses.view_analytics` | Course Analytics (enforced via `authz.RequirePermission` on `/api/courses/{id}/analytics*` and `/api/analytics/*`; see [analytics.md](analytics.md)) |
 | assessments | `assessments.take` | Take Assessments |
 | assessments | `assessments.view_assigned` | View Assigned Tests |
 | assessments | `assessments.create` | Create Assessments |

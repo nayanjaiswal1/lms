@@ -4,6 +4,10 @@ Course structure, lifecycle, and student progress tracking. A course is a tree: 
 
 ---
 
+Instructor and org-level analytics over enrollment and progress (funnel, drop-off, hardest questions, at-risk students) live in [analytics.md](analytics.md).
+
+---
+
 ## Module Types
 
 | Type | Content storage | Notes |

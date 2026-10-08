@@ -31,6 +31,7 @@ import {
   Inbox,
   PenLine,
   Binary,
+  BarChart3,
   type LucideIcon,
 } from "lucide-react";
 import ROUTES from "@/lib/routes";
@@ -325,6 +326,14 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     requiredPermission:  PERMISSIONS.COURSES.CREATE,
     mode:                "badge",
   },
+  course_analytics: {
+    label:               "Course Analytics",
+    href:                ROUTES.TEACH_ANALYTICS,
+    icon:                BarChart3,
+    feature:             FEATURES.COURSES,
+    requiredPermission:  PERMISSIONS.COURSES.VIEW_ANALYTICS,
+    mode:                "badge",
+  },
 
   lab_builder: {
     label:               "Create Debug Lab",
@@ -458,6 +467,7 @@ export const TEACHING_HUB_GROUPS: NavGroup[] = [
     label: "Courses",
     items: [
       ALL_NAV_ITEMS.manage_courses,
+      ALL_NAV_ITEMS.course_analytics,
       ALL_NAV_ITEMS.lab_builder,
       ALL_NAV_ITEMS.lab_library,
     ],

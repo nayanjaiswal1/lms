@@ -9,14 +9,16 @@ interface LoadMoreButtonProps {
   defaultLimit: number;
   step: number;
   max: number;
+  /** Search param to bump; pages with several lists use distinct names. */
+  param?: string;
 }
 
-/** Bumps the shared `?limit=` search param, which the server component this
+/** Bumps the `?limit=` search param (or `param`), which the server component this
  * renders under re-reads to fetch a bigger page — see journal/mistakes
  * pages. `shallow: false` forces the server round trip nuqs otherwise skips. */
-export function LoadMoreButton({ hasMore, defaultLimit, step, max }: LoadMoreButtonProps) {
+export function LoadMoreButton({ hasMore, defaultLimit, step, max, param = "limit" }: LoadMoreButtonProps) {
   const [limit, setLimit] = useQueryState(
-    "limit",
+    param,
     parseAsInteger.withDefault(defaultLimit).withOptions({ shallow: false }),
   );
 

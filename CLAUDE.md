@@ -73,6 +73,7 @@ Each file is self-contained for its domain — features, API endpoints, DB schem
 | [docs/infrastructure.md](docs/infrastructure.md) | Project file structure, all env vars, AI rules, payments, SSRF denylist |
 | [docs/ops-alerts.md](docs/ops-alerts.md) | Admin alerting for dead-letter jobs and job-system health — routing, per-handler rules, dedupe/storm frequency control, ops.health + ops.digest crons, API |
 | [docs/activity.md](docs/activity.md) | Activity tracker — day-by-day timeline aggregating module/course completions, quiz attempts, MCP reflections, sheet progress, lab sessions, SM-2 reviews, API, DB schema |
+| [docs/analytics.md](docs/analytics.md) | Instructor & org analytics — completion funnel, per-lesson drop-off, hardest quiz questions, at-risk students, enrollment trend, API, RBAC, query cost |
 | [docs/frontend-gotchas.md](docs/frontend-gotchas.md) | Non-obvious frontend bugs and regressions worth not repeating (e.g. Popover-in-Dialog scroll lock) |
 | [docs/ai-pattern-learnings.md](docs/ai-pattern-learnings.md) | Shortcut patterns found in AI-written code (unthrottled endpoints, unlocked counters, unpaginated lists, trusted-input-as-validation, missing DB test infra) — updated as new instances are found, not just at the end of a review |
 

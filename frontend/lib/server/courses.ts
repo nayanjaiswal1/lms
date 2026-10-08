@@ -244,9 +244,9 @@ export interface StudentProgressRow {
   user_id: string;
   name: string;
   email: string;
-  completed_modules: number;
-  total_modules: number;
-  last_active: string | null;
+  completed: number;
+  total: number;
+  pct: number;
 }
 
 export async function getAllStudentProgress(courseID: string): Promise<StudentProgressRow[]> {

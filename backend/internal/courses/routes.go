@@ -61,6 +61,19 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/api/courses/{courseID}/purchases/{purchaseID}/refund", h.RefundPurchase)
 	})
 
+	// ─── Permission-gated: instructor & org analytics ─────────────────────────
+	// courses.view_analytics, rate-limited per user — the queries aggregate a
+	// whole course's enrollment.
+	r.Group(func(r chi.Router) {
+		r.Use(authz.RequirePermission(h.authzSvc, PermissionViewAnalytics))
+		r.Use(h.userRateLimit("analytics", h.cfg.AnalyticsRateLimitMax, h.cfg.AnalyticsRateLimitWindow))
+		r.Get("/api/courses/{courseID}/analytics", h.CourseAnalytics)
+		r.Get("/api/courses/{courseID}/analytics/questions", h.CourseHardQuestions)
+		r.Get("/api/courses/{courseID}/analytics/students", h.CourseStudentRisk)
+		r.Get("/api/analytics/courses", h.OrgCourseAnalytics)
+		r.Get("/api/analytics/enrollment-trend", h.OrgEnrollmentTrend)
+	})
+
 	// ─── All authenticated users: browse, enroll, learn ──────────────────────
 	r.Get("/api/courses", h.ListCourses)
 	r.Get("/api/courses/random-topic", h.GetRandomTopic)

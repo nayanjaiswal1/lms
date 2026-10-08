@@ -20,6 +20,9 @@ import (
 // backend/db/migrations/024_receipts_refunds.sql.
 const PermissionManageRefunds = "payments.manage_refunds"
 
+// PermissionViewAnalytics gates the instructor/org analytics endpoints.
+const PermissionViewAnalytics = "courses.view_analytics"
+
 const maxUploadSize = 500 << 20 // 500 MB
 
 // CheckoutRequest is what the courses handler asks a CoursePurchaser to

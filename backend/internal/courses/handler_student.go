@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/coupons"
@@ -140,14 +141,36 @@ func (h *Handler) StartCheckout(w http.ResponseWriter, r *http.Request) {
 // entire user base while never singling themselves out (the same reasoning
 // behind auth.Handler.limitByAccount).
 func (h *Handler) limitCouponAttempts(w http.ResponseWriter, r *http.Request, userID string) bool {
-	key := "rl:coupon:" + userID
-	allowed, retryAfter := h.limiter.Allow(r.Context(), key, h.cfg.CouponRateLimitMax, h.cfg.CouponRateLimitWindow)
+	return h.allowOrReject(w, r, "coupon", userID, h.cfg.CouponRateLimitMax, h.cfg.CouponRateLimitWindow,
+		"Too many coupon attempts. Please try again later.")
+}
+
+// allowOrReject spends one unit of the user's budget in bucket and, when it is
+// exhausted, writes the 429 + Retry-After and returns true.
+func (h *Handler) allowOrReject(w http.ResponseWriter, r *http.Request, bucket, userID string, max int, window time.Duration, msg string) bool {
+	allowed, retryAfter := h.limiter.Allow(r.Context(), "rl:"+bucket+":"+userID, max, window)
 	if allowed {
 		return false
 	}
 	w.Header().Set("Retry-After", strconv.Itoa(ratelimit.RetryAfterSeconds(retryAfter)))
-	httputil.WriteError(w, http.StatusTooManyRequests, "Too many coupon attempts. Please try again later.")
+	httputil.WriteError(w, http.StatusTooManyRequests, msg)
 	return true
+}
+
+// userRateLimit is middleware applying a per-user budget to a route group.
+func (h *Handler) userRateLimit(bucket string, max int, window time.Duration) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, ok := auth.RequireClaims(w, r)
+			if !ok {
+				return
+			}
+			if h.allowOrReject(w, r, bucket, claims.UserID, max, window, "Too many requests. Please try again later.") {
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // writeCouponError maps the coupons package's sentinel errors to their HTTP

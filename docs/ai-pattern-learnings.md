@@ -402,3 +402,11 @@ Patterns found across the backend and frontend during the audit pass. Each entry
 ### Helper copied per call site
 **Found in:** `formatDate` (4 copies), SQL cell formatter (2), countdown formatter (2), GetClaims+401 block (16), consent check (2).
 **Rule:** extract on the second use, not after the fifth.
+
+### Frontend/backend type drift
+**Found in:** frontend `StudentProgressRow` declared fields (`completed_modules`, `progress_pct`, ...) the backend `StudentProgress` (`completed`, `total`, `pct`) never sent.
+**Rule:** derive or generate the frontend type from the Go response struct; verify field names against the JSON tags before trusting a type.
+
+### Column read but never written
+**Found in:** `enrollments.completed_at` is read by activity/certificates code but no code path sets it.
+**Rule:** before relying on a column, grep for its writer; derive state from the source of truth (all modules completed) when no writer exists.

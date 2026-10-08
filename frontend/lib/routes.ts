@@ -32,6 +32,7 @@ const ROUTES = {
   LAST_VISITED:        "/last-visited",
   LEARN:               "/learn",
   TEACH:               "/teach",
+  TEACH_ANALYTICS:     "/teach/analytics",
   LIBRARY:             "/library",
   NOW:                 "/now",
   PLAN:                "/plan",
