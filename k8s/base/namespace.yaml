@@ -3,19 +3,28 @@ kind: Namespace
 metadata:
   name: mindforge
 ---
-# Runs Piston (privileged, sandboxes untrusted user code) and every lab
-# session Pod created at runtime by the backend via the Kubernetes API
-# (internal/labs/runtime_kubernetes.go). Pod Security Admission is set to
-# "privileged" here — Piston cannot run under baseline/restricted. Lab
-# session Pods themselves still opt into cap-drop ALL + non-privilege-escalation
-# individually (see runtime_kubernetes.go); this namespace label only lifts the
-# admission-time restriction that would otherwise reject Piston outright.
-# Isolation between lab Pods and the rest of the cluster is enforced by
-# networkpolicy-labs.yaml, not by this label.
+# Lab session Pods created at runtime by the backend via the Kubernetes API
+# (internal/labs/runtime_kubernetes.go). Piston lives in its own namespace
+# (mindforge-piston) so the backend's pod-create RBAC here can never mint a
+# privileged Pod. PSA enforces "baseline" (no privileged, no hostPath, no added
+# caps) rather than "restricted": the nested-docker profile runs as root inside
+# a sysbox user namespace (hostUsers:false), which restricted rejects. Standard
+# lab Pods do comply with restricted, so audit/warn use it.
 apiVersion: v1
 kind: Namespace
 metadata:
   name: mindforge-labs
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+# Piston is privileged (sandboxes untrusted code). Isolated here, with no
+# RBAC granted to any workload-creating ServiceAccount.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mindforge-piston
   labels:
     pod-security.kubernetes.io/enforce: privileged
     pod-security.kubernetes.io/audit: privileged

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -122,7 +121,7 @@ func main() {
 	// reaper job handlers below, so a Kubernetes deploy constructs exactly one
 	// in-cluster client rather than one per consumer.
 	//
-	labsImageProfiles, err := resolveLabsImageProfiles(cfg)
+	labsImageProfiles, err := labs.ResolveImageProfiles(cfg.LabsImageProfiles, cfg.LabsNestedDockerRuntime, cfg.LabsNestedDockerRuntimeClass)
 	if err != nil {
 		fatal("labs: invalid LABS_IMAGE_PROFILES", err)
 	}
@@ -136,9 +135,22 @@ func main() {
 		}
 		slog.Info("labs: kubernetes runtime ready", "namespace", cfg.LabsK8sNamespace, "image_registry", cfg.LabsImageRegistry)
 	default:
+		if cfg.LabsAgentURL != "" {
+			// Production: the Docker socket lives on a separate lab host behind
+			// the mTLS lab agent; this process never talks to a Docker daemon.
+			agent, agentErr := labs.NewAgentClient(labs.AgentClientConfig{
+				URL: cfg.LabsAgentURL, CAFile: cfg.LabsAgentCAFile, CertFile: cfg.LabsAgentCertFile, KeyFile: cfg.LabsAgentKeyFile,
+			}, labsImageProfiles)
+			if agentErr != nil {
+				fatal("labs: lab agent init failed", agentErr)
+			}
+			labsRuntime = agent
+			slog.Info("labs: lab agent runtime ready", "url", cfg.LabsAgentURL)
+			break
+		}
 		dockerRuntime := labs.NewDockerContainerService(labsImageProfiles)
 		dockerRuntime.SetHardening(
-			labs.RuntimeLimits{PidsLimit: cfg.LabsPidsLimit},
+			labs.RuntimeLimits{PidsLimit: cfg.LabsPidsLimit, StorageQuota: cfg.LabsStorageQuotaEnabled},
 			labs.NetworkPolicy{PerSession: cfg.LabsNetworkPerSession, Internal: cfg.LabsNetworkInternal, ProxyContainer: cfg.LabsProxyContainer})
 		labsRuntime = dockerRuntime
 		slog.Info("labs: docker runtime ready")
@@ -443,42 +455,3 @@ func fatal(msg string, err error) {
 	os.Exit(1)
 }
 
-// resolveLabsImageProfiles maps LABS_IMAGE_PROFILES entries to catalog profiles.
-func resolveLabsImageProfiles(cfg *config.Config) (map[string]labs.ImageProfile, error) {
-	// labsImageProfileCatalog is the small in-code catalog of named
-	// ImageProfiles LABS_IMAGE_PROFILES entries resolve against — today just
-	// "nested-docker" and "debug-ide" (see labs.ImageProfileNestedDocker / docs/labs.md
-	// "Nested Docker labs"). Adding a second real profile means adding one
-	// more entry here.
-	labsImageProfileCatalog := map[string]labs.ImageProfile{
-		labs.ImageProfileDebugIDE: labs.DebugIDEProfile(),
-		labs.ImageProfileNestedDocker: {
-			Name:                 labs.ImageProfileNestedDocker,
-			Elevated:             true,
-			CPU:                  labs.NestedContainerCPU,
-			MemoryMB:             labs.NestedContainerMemoryMB,
-			PidsLimit:            labs.NestedContainerPidsLimit,
-			Network:              labs.NestedLabNetwork,
-			SkipPreWarm:          true,
-			RequiresOrgAllowlist: true,
-			DockerMechanism: func() string {
-				if cfg.LabsNestedDockerRuntime == "sysbox-runc" {
-					return "sysbox-runc"
-				}
-				return "rootless-dind"
-			}(),
-			K8sRuntimeClass:      cfg.LabsNestedDockerRuntimeClass,
-			K8sExtraVolume:       true,
-			K8sExtraVolumeSizeGB: labs.NestedContainerDiskGB,
-		},
-	}
-	labsImageProfiles := make(map[string]labs.ImageProfile, len(cfg.LabsImageProfiles))
-	for image, profileName := range cfg.LabsImageProfiles {
-		profile, ok := labsImageProfileCatalog[profileName]
-		if !ok {
-			return nil, fmt.Errorf("labs: LABS_IMAGE_PROFILES image %q references unknown profile %q", image, profileName)
-		}
-		labsImageProfiles[image] = profile
-	}
-	return labsImageProfiles, nil
-}

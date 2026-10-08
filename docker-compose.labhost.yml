@@ -1,0 +1,97 @@
+# Lab host stack: runs on a DEDICATED machine, never on the app host that runs
+# Postgres/Redis/MinIO. This host owns /var/run/docker.sock; the app backend
+# reaches it only through labagent (typed API, mTLS, image allowlist).
+#
+# One-time host setup (see docs/labs-audit.md "Remediation"):
+#   - /var/lib/docker on its own XFS volume mounted with pquota (disk quota)
+#   - /etc/docker/daemon.json: {"default-address-pools":[{"base":"172.28.0.0/14","size":24}]}
+#   - sudo LAB_POOL=172.28.0.0/14 scripts/labhost-egress.sh   (egress filtering, persist it)
+#   - docker network create --subnet 172.28.0.0/24 mindforge-labs
+#     docker network create --subnet 172.28.1.0/24 mindforge-labs-dind
+#   - ./agent-certs/{server.pem,server.key,client-ca.pem} (server cert for the
+#     agent, CA that signed the backend's client cert) and ./.env.labhost
+#
+# Start: docker compose -f docker-compose.labhost.yml --env-file .env.labhost up -d
+version: "3.9"
+
+networks:
+  mindforge-labs:
+    name: mindforge-labs
+    external: true
+  mindforge-labs-dind:
+    name: mindforge-labs-dind
+    external: true
+
+services:
+  labagent:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.labagent
+    container_name: mindforge_labagent
+    restart: always
+    environment:
+      LABAGENT_LISTEN_ADDR: ":8443"
+      LABAGENT_TLS_CERT_FILE: /run/agent-certs/server.pem
+      LABAGENT_TLS_KEY_FILE: /run/agent-certs/server.key
+      LABAGENT_CLIENT_CA_FILE: /run/agent-certs/client-ca.pem
+      LABAGENT_ALLOWED_IMAGES: ${LABAGENT_ALLOWED_IMAGES}
+      LABS_IMAGE_PROFILES: ${LABS_IMAGE_PROFILES:-}
+      LABS_NESTED_DOCKER_RUNTIME: ${LABS_NESTED_DOCKER_RUNTIME:-}
+      LABS_PIDS_LIMIT: ${LABS_PIDS_LIMIT:-512}
+      LABS_NETWORK_PER_SESSION: "true"
+      LABS_NETWORK_INTERNAL: ${LABS_NETWORK_INTERNAL:-false}
+      LABS_PROXY_CONTAINER: mindforge_labproxy
+      # Startup fails if the host cannot enforce disk quotas (needs XFS pquota).
+      LABS_STORAGE_QUOTA_ENABLED: ${LABS_STORAGE_QUOTA_ENABLED:-true}
+    # Bind to the private interface only (WireGuard / VPC address of this host).
+    ports:
+      - "${LABHOST_PRIVATE_IP}:8443:8443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./agent-certs:/run/agent-certs:ro
+    # Docker socket group id on this host: `stat -c %g /var/run/docker.sock`
+    group_add:
+      - "${LABHOST_DOCKER_GID}"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # labproxy must live here: it dials lab containers by container hostname on
+  # the lab bridges, which are not routable from the app host. Caddy on the app
+  # host proxies to it via LABPROXY_UPSTREAM (private address, port 8081).
+  labproxy:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.labproxy
+    container_name: mindforge_labproxy
+    restart: always
+    environment:
+      LABPROXY_PORT: "8081"
+      LABPROXY_DB_URL: ${LABPROXY_DB_URL}
+      LABPROXY_REDIS_URL: ${LABPROXY_REDIS_URL}
+      LABPROXY_JWT_SECRET: ${JWT_SECRET}
+      LABPROXY_JWT_ISSUER: mindforge-labproxy
+      LABPROXY_PREVIEW_DOMAIN: ${LABPROXY_PREVIEW_DOMAIN}
+      LABPROXY_ALLOWED_ORIGINS: ${NEXT_PUBLIC_APP_URL}
+    ports:
+      - "${LABHOST_PRIVATE_IP}:8081:8081"
+    networks:
+      - mindforge-labs
+      - mindforge-labs-dind
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

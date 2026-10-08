@@ -200,6 +200,7 @@ export const LAB_ERROR_CODES = {
   hintNotSupported: 'hint_not_supported',
   maxHintsReached: 'max_hints_reached',
   writeupReviewLimit: 'writeup_review_limit',
+  snippetDailyLimit: 'snippet_daily_limit',
   aiUnavailable: 'ai_unavailable',
   notFound: 'lab_not_found',
   forbidden: 'lab_forbidden',

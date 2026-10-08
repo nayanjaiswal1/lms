@@ -134,3 +134,12 @@ func TestBuildRunArgs_PerSessionNetwork(t *testing.T) {
 	svc.SetHardening(RuntimeLimits{}, NetworkPolicy{PerSession: true, ProxyContainer: "proxy"})
 	assert.NotContains(t, svc.sessionNetworkCreateArgs("n"), "--internal")
 }
+
+func TestBuildRunArgs_StorageQuota(t *testing.T) {
+	svc := NewDockerContainerService(map[string]ImageProfile{"dbg": DebugIDEProfile()})
+	assert.NotContains(t, svc.buildRunArgs("n", "plain"), "--storage-opt", "quota is opt-in")
+
+	svc.SetHardening(RuntimeLimits{StorageQuota: true}, NetworkPolicy{})
+	assert.Contains(t, strings.Join(svc.buildRunArgs("n", "plain"), " "), "--storage-opt size=3G")
+	assert.Contains(t, strings.Join(svc.buildRunArgs("n", "dbg"), " "), "--storage-opt size=5G")
+}

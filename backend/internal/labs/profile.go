@@ -55,13 +55,9 @@ type ImageProfile struct {
 	// rules apply (empty list = unrestricted).
 	RequiresOrgAllowlist bool
 
-	// SetupAsImageUser, when true, makes the Docker runtime run the lab's
-	// setup_script as the image's unprivileged user instead of root, matching
-	// the Kubernetes runtime (which cannot override the Pod user). Required
-	// for images whose setup must not run privileged: a --cap-drop ALL root
-	// has no CAP_SETUID/SETGID, so it cannot drop privileges itself, and no
-	// CAP_DAC_OVERRIDE, so it cannot write the labuser-owned workspace either.
-	SetupAsImageUser bool
+	// DiskGB is the writable-layer quota (docker --storage-opt size). Zero
+	// falls back to ContainerDiskGB.
+	DiskGB int
 
 	// DockerMechanism selects the Docker-specific elevation applied by
 	// DockerContainerService.buildRunArgs. Ignored by the Kubernetes
@@ -92,6 +88,10 @@ type ImageProfile struct {
 	// CPU/MemoryMB falling back to ContainerCPU/ContainerMemoryMB. Ignored
 	// when K8sExtraVolume is false.
 	K8sExtraVolumeSizeGB int
+	// K8sInternetEgress labels the Pod K8sEgressLabel=K8sEgressInternet so
+	// k8s/base/networkpolicy-labs.yaml grants it public-internet egress
+	// (RFC1918/link-local still blocked). Unset = DNS only.
+	K8sInternetEgress bool
 }
 
 // ImageProfileNestedDocker names the one real non-standard profile that
@@ -111,6 +111,6 @@ func DebugIDEProfile() ImageProfile {
 		Name:             ImageProfileDebugIDE,
 		CPU:              DebugIDEContainerCPU,
 		MemoryMB:         DebugIDEContainerMemoryMB,
-		SetupAsImageUser: true,
+		DiskGB:           DebugIDEContainerDiskGB,
 	}
 }

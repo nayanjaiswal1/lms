@@ -31,6 +31,10 @@ type DockerContainerService struct {
 // DefaultContainerPidsLimit; an ImageProfile.PidsLimit overrides it per image.
 type RuntimeLimits struct {
 	PidsLimit int
+	// StorageQuota adds --storage-opt size=<ImageProfile.DiskGB>G to every
+	// container. Needs overlay2 on XFS mounted with pquota; ProbeStorageQuota
+	// verifies that once at startup (audit H2).
+	StorageQuota bool
 }
 
 // NetworkPolicy decides how lab containers are networked (audit H-13).
@@ -123,13 +127,17 @@ func (c *DockerContainerService) buildRunArgs(name, image string) []string {
 	mem := fmt.Sprintf("%dm", memMB)
 
 	// --memory-swap == --memory disables swap; pids/ulimits bound fork bombs
-	// and fd exhaustion. A read-only rootfs and --storage-opt size are NOT
-	// set: lab setup scripts install packages as root and storage-opt needs
-	// an xfs/pquota host (see docs/labs.md).
+	// and fd exhaustion. A read-only rootfs is NOT set: labs write freely
+	// under their workdir. --storage-opt size is gated on
+	// RuntimeLimits.StorageQuota because it needs an xfs/pquota host (see
+	// docs/labs-audit.md).
 	args := []string{"run", "-d", "--name", name, "--cpus", cpu, "--memory", mem, "--memory-swap", mem,
 		"--pids-limit", strconv.Itoa(pids),
 		"--ulimit", fmt.Sprintf("nofile=%d:%d", ContainerNofileLimit, ContainerNofileLimit),
 		"--ulimit", "core=0"}
+	if c.limits.StorageQuota {
+		args = append(args, "--storage-opt", storageOptSize(profile))
+	}
 
 	switch profile.DockerMechanism {
 	case "sysbox-runc":
@@ -174,6 +182,31 @@ func (c *DockerContainerService) buildRunArgs(name, image string) []string {
 	}
 
 	return append(args, "--network", network, "--restart", "no", image)
+}
+
+// storageOptSize is the --storage-opt value for profile's disk allowance.
+func storageOptSize(profile ImageProfile) string {
+	diskGB := profile.DiskGB
+	if diskGB == 0 {
+		diskGB = ContainerDiskGB
+	}
+	return fmt.Sprintf("size=%dG", diskGB)
+}
+
+// ProbeStorageQuota creates (never starts) and removes a throwaway container
+// with a --storage-opt size limit. It fails when the Docker storage backend
+// cannot enforce quotas (not overlay2 on XFS with pquota), so the lab host
+// refuses to start instead of silently running containers with no disk cap.
+// image must already be an allowed lab image.
+func (c *DockerContainerService) ProbeStorageQuota(ctx context.Context, image string) error {
+	name := ProbeContainerNamePrefix + strconv.FormatInt(time.Now().UnixNano(), 36)
+	if _, err := runCmd(ctx, "docker", "create", "--name", name, "--storage-opt", "size=1G", image); err != nil {
+		return fmt.Errorf("labs.DockerContainerService.ProbeStorageQuota: storage-opt unsupported (need overlay2 on XFS with pquota): %w", err)
+	}
+	if _, err := runCmd(ctx, "docker", "rm", "-f", name); err != nil {
+		return fmt.Errorf("labs.DockerContainerService.ProbeStorageQuota: remove probe: %w", err)
+	}
+	return nil
 }
 
 // networkFor returns the network a container joins: the profile's own
@@ -321,10 +354,11 @@ func (c *DockerContainerService) ExecStdin(ctx context.Context, containerID, scr
 	return c.execWithStdin(ctx, containerID, script, stdin, timeoutSec)
 }
 
-// ExecSetup runs a lab's setup_script as root. See ContainerRuntime.ExecSetup
+// ExecSetup runs a lab's setup_script as the image's default user (no --user
+// override), matching the Kubernetes runtime. See ContainerRuntime.ExecSetup
 // for why this is a separate method from Exec rather than a flag on it.
 func (c *DockerContainerService) ExecSetup(ctx context.Context, containerID, script string, timeoutSec int) (stdout, stderr string, exitCode int, err error) {
-	return c.execAs(ctx, "root", containerID, script, nil, timeoutSec)
+	return c.execAs(ctx, "", containerID, script, nil, timeoutSec)
 }
 
 // ExecCapture runs script as labuser with a caller-chosen output cap (see
@@ -357,7 +391,10 @@ func (c *DockerContainerService) execAs(ctx context.Context, user, containerID, 
 	if stdin != nil {
 		args = append(args, "-i")
 	}
-	args = append(args, "--user", user, containerID,
+	if user != "" {
+		args = append(args, "--user", user)
+	}
+	args = append(args, containerID,
 		"bash", "-c", fmt.Sprintf("timeout %d bash -c '%s'", timeoutSec, escaped))
 	cmd := exec.CommandContext(ctx, "docker", args...)
 	if stdin != nil {

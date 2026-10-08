@@ -1,0 +1,23 @@
+# ─── Stage 1: Build ──────────────────────────────────────────────────────────
+FROM golang:1.26.8-alpine AS builder
+
+WORKDIR /build
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -trimpath -ldflags="-s -w" -o /bin/labagent ./cmd/labagent
+
+# ─── Stage 2: Runtime ────────────────────────────────────────────────────────
+FROM alpine:3.19
+
+# The agent drives Docker through the CLI (internal/labs/container.go), so the
+# docker CLI must be present. It reaches the daemon via the mounted socket
+# (docker-compose.labhost.yml adds the socket's group instead of running root).
+RUN apk add --no-cache ca-certificates tzdata docker-cli
+RUN adduser -D -u 10002 labagent
+USER labagent
+
+COPY --from=builder /bin/labagent /app/labagent
+EXPOSE 8443
+ENTRYPOINT ["/app/labagent"]

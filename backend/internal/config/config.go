@@ -30,9 +30,13 @@ type Config struct {
 	RedisURL    string
 
 	// Secrets — enforced: non-empty, no "change_me" prefix, >= 32 bytes
-	JWTSecret     string
-	CookieSecret  string
-	EncryptionKey string
+	JWTSecret string
+	// LabTokenSecret signs lab ws-tokens and derives per-session container
+	// credentials. Distinct from JWTSecret so labproxy (which holds it) can
+	// never forge login tokens.
+	LabTokenSecret string
+	CookieSecret   string
+	EncryptionKey  string
 
 	// Password policy. The breach check is a k-anonymity lookup against the
 	// Pwned Passwords range API (see auth.checkBreachCorpus) — the password
@@ -172,6 +176,8 @@ type Config struct {
 	// pending until an instructor grades them manually — MCQ grading is unaffected.
 	PistonURL     string
 	PistonTimeout time.Duration
+	// LabSnippetDailyLimit caps POST /api/labs/run executions per user per 24h.
+	LabSnippetDailyLimit int
 	Judge0URL     string
 	Judge0Token   string
 	Judge0Timeout time.Duration
@@ -265,6 +271,18 @@ type Config struct {
 	LabsNetworkPerSession bool
 	LabsNetworkInternal   bool
 	LabsProxyContainer    string
+	// LabsStorageQuotaEnabled adds --storage-opt size to direct-Docker lab
+	// containers (LABS_STORAGE_QUOTA_ENABLED); needs overlay2 on XFS pquota.
+	// Off by default here (local dev); the lab agent defaults it on.
+	LabsStorageQuotaEnabled bool
+	// LabsAgentURL, when set, routes the Docker runtime through the lab agent
+	// on the separate lab host (LABS_AGENT_URL) over mTLS: LabsAgentCAFile
+	// verifies the agent's server cert, LabsAgentCertFile/KeyFile are this
+	// backend's client identity.
+	LabsAgentURL      string
+	LabsAgentCAFile   string
+	LabsAgentCertFile string
+	LabsAgentKeyFile  string
 
 	// Object storage (MinIO / S3-compatible).
 	// When MinioAccessKey is empty, avatar upload returns 503; other features unaffected.
@@ -385,6 +403,7 @@ func Load() *Config {
 		DatabaseURL:        os.Getenv("DATABASE_URL"),
 		RedisURL:           os.Getenv("REDIS_URL"),
 		JWTSecret:          os.Getenv("JWT_SECRET"),
+		LabTokenSecret:     os.Getenv("LAB_TOKEN_SECRET"),
 		CookieSecret:       os.Getenv("COOKIE_SECRET"),
 		EncryptionKey:      os.Getenv("ENCRYPTION_KEY"),
 		DefaultOrgID:       os.Getenv("DEFAULT_ORG_ID"),
@@ -418,6 +437,11 @@ func Load() *Config {
 
 	// Required secret fields: non-empty, not a change_me placeholder, >= 32 bytes
 	requireSecret("JWT_SECRET", cfg.JWTSecret)
+	requireSecret("LAB_TOKEN_SECRET", cfg.LabTokenSecret)
+	if cfg.LabTokenSecret == cfg.JWTSecret {
+		slog.Error("LAB_TOKEN_SECRET must differ from JWT_SECRET")
+		os.Exit(1)
+	}
 	requireSecret("COOKIE_SECRET", cfg.CookieSecret)
 	requireSecret("ENCRYPTION_KEY", cfg.EncryptionKey)
 
@@ -495,6 +519,7 @@ func Load() *Config {
 	// Code execution (optional — coding grading degrades gracefully when unset)
 	cfg.PistonURL = strings.TrimRight(os.Getenv("PISTON_URL"), "/")
 	cfg.PistonTimeout = parseDuration("PISTON_TIMEOUT", "30s")
+	cfg.LabSnippetDailyLimit = getEnvInt("LABS_SNIPPET_DAILY_LIMIT", 200)
 	cfg.Judge0URL = strings.TrimRight(os.Getenv("JUDGE0_URL"), "/")
 	cfg.Judge0Token = os.Getenv("JUDGE0_TOKEN")
 	cfg.Judge0Timeout = parseDuration("JUDGE0_TIMEOUT", "30s")
@@ -509,9 +534,14 @@ func Load() *Config {
 	cfg.LabsImageRegistry = os.Getenv("LABS_IMAGE_REGISTRY")
 	cfg.LabsPidsLimit = getEnvInt("LABS_PIDS_LIMIT", 512)
 	cfg.MaxBodyBytes = int64(getEnvInt("MAX_BODY_BYTES", 8<<20))
-	cfg.LabsNetworkPerSession = getEnvBool("LABS_NETWORK_PER_SESSION", false)
+	cfg.LabsNetworkPerSession = getEnvBool("LABS_NETWORK_PER_SESSION", true)
 	cfg.LabsNetworkInternal = getEnvBool("LABS_NETWORK_INTERNAL", false)
 	cfg.LabsProxyContainer = os.Getenv("LABS_PROXY_CONTAINER")
+	cfg.LabsStorageQuotaEnabled = getEnvBool("LABS_STORAGE_QUOTA_ENABLED", false)
+	cfg.LabsAgentURL = strings.TrimRight(os.Getenv("LABS_AGENT_URL"), "/")
+	cfg.LabsAgentCAFile = os.Getenv("LABS_AGENT_CA_FILE")
+	cfg.LabsAgentCertFile = os.Getenv("LABS_AGENT_CERT_FILE")
+	cfg.LabsAgentKeyFile = os.Getenv("LABS_AGENT_KEY_FILE")
 
 	applyMinioEnv(cfg)
 
@@ -828,9 +858,19 @@ func getEnvFloat(key string, fallback float64) float64 {
 // edge) so a typo'd env var fails loudly at startup instead of silently
 // leaving an image unclassified.
 func getEnvImageProfiles(key string) map[string]string {
-	raw := os.Getenv(key)
+	out, err := ParseImageProfiles(os.Getenv(key))
+	if err != nil {
+		slog.Error("invalid env var", "key", key, "error", err)
+		os.Exit(1)
+	}
+	return out
+}
+
+// ParseImageProfiles parses the LABS_IMAGE_PROFILES format; also used by the
+// lab agent, which has no full Config.
+func ParseImageProfiles(raw string) (map[string]string, error) {
 	if raw == "" {
-		return nil
+		return nil, nil
 	}
 	out := make(map[string]string)
 	for _, part := range strings.Split(raw, ",") {
@@ -840,13 +880,13 @@ func getEnvImageProfiles(key string) map[string]string {
 		}
 		i := strings.LastIndex(part, ":")
 		if i <= 0 || i == len(part)-1 {
-			slog.Error("invalid entry in env var — expected image:profileName", "key", key, "entry", part)
-			os.Exit(1)
+			return nil, fmt.Errorf("config.ParseImageProfiles: entry %q is not image:profileName", part)
 		}
 		out[part[:i]] = part[i+1:]
 	}
-	return out
+	return out, nil
 }
+
 
 // WorkspaceLimits are the Project Workspace rate limits, all overridable via
 // WORKSPACE_* env vars.

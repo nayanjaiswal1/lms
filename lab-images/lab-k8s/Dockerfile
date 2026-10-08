@@ -71,7 +71,7 @@ RUN mkdir -p /etc/kubernetes/kwok-stages \
     && curl -fsSL ${CURL_OPTS} -o /etc/kubernetes/kwok-stages/pod-delete.yaml \
       "https://raw.githubusercontent.com/kubernetes-sigs/kwok/${KWOK_VERSION}/kustomize/stage/pod/fast/pod-delete.yaml"
 
-RUN useradd --create-home --shell /bin/bash labuser \
+RUN useradd --uid 1001 --create-home --shell /bin/bash labuser \
     && mkdir -p /var/lib/etcd /var/run/kubernetes /etc/kubernetes/pki /var/log/mindforge-lab \
     && chown -R labuser:labuser /var/lib/etcd /var/run/kubernetes /etc/kubernetes /home/labuser /var/log/mindforge-lab
 
