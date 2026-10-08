@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { NextPageLink } from "@/components/shared/next-page-link";
 import { ArrowLeft, History } from 'lucide-react'
 import { fetchMyOverview, fetchMyProfile } from '@/lib/profile/server'
 import { getMyRank, getMyRewardProfile } from '@/lib/server/rewards'
@@ -31,7 +32,6 @@ import {
   parseResumeAction,
   applyResumeAction,
 } from './actions'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 const EDIT_TABS = [
@@ -178,13 +178,7 @@ export default async function SettingsProfilePage({
               <>
                 <ActivityTimeline entries={activityPage.entries} />
 
-                {activityPage.next_cursor && (
-                  <div className="flex justify-center pt-4">
-                    <Button asChild variant="secondary">
-                      <Link href={`?tab=activity&cursor=${encodeURIComponent(activityPage.next_cursor)}`}>Load more</Link>
-                    </Button>
-                  </div>
-                )}
+                <NextPageLink nextCursor={activityPage.next_cursor} searchParams={{ tab: "activity" }} />
               </>
             )
           )}
