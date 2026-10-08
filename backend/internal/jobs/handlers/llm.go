@@ -264,19 +264,21 @@ func (h *LLMHandler) handleInterviewReview(ctx context.Context, job jobs.Job, p 
 	if posRaw, ok := p.Params["position"]; ok {
 		pos := int(posRaw.(float64))
 		err = h.pool.QueryRow(ctx,
-			`SELECT id, answer->>'question_text', answer->>'user_answer'
-			 FROM attempt_answers
-			 WHERE attempt_id = $1 AND position = $2
-			   AND answer ? 'user_answer' AND evaluated_at IS NULL`,
+			`SELECT aa.id, aa.answer->>'question_text', aa.answer->>'user_answer'
+			 FROM attempt_answers aa
+			 JOIN assessment_questions aq ON aq.id = aa.assessment_question_id
+			 WHERE aa.attempt_id = $1 AND aq.position = $2
+			   AND aa.answer ? 'user_answer' AND aa.evaluated_at IS NULL`,
 			p.EntityID, pos,
 		).Scan(&itemID, &questionText, &userAnswer)
 	} else {
 		err = h.pool.QueryRow(ctx,
-			`SELECT id, answer->>'question_text', answer->>'user_answer'
-			 FROM attempt_answers
-			 WHERE attempt_id = $1
-			   AND answer ? 'user_answer' AND evaluated_at IS NULL
-			 ORDER BY position
+			`SELECT aa.id, aa.answer->>'question_text', aa.answer->>'user_answer'
+			 FROM attempt_answers aa
+			 JOIN assessment_questions aq ON aq.id = aa.assessment_question_id
+			 WHERE aa.attempt_id = $1
+			   AND aa.answer ? 'user_answer' AND aa.evaluated_at IS NULL
+			 ORDER BY aq.position
 			 LIMIT 1`,
 			p.EntityID,
 		).Scan(&itemID, &questionText, &userAnswer)
