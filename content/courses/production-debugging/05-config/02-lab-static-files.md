@@ -12,6 +12,7 @@ estimated_minutes: 30
 source:
     - docs/debug-labs.md
 max_duration: 90
+hint_penalty_pct: 10
 recipe: ../recipes/dj-static-files.yaml
 ---
 

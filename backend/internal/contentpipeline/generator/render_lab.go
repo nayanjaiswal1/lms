@@ -11,8 +11,10 @@ import (
 const (
 	defaultMaxDuration = 60 // minutes
 	defaultMaxResets   = 3
-	labFileHeredocTag  = "MFEOF"
-	labFileWorkdir     = "/home/labuser/work"
+	// A recipe (debug) lab whose front matter omits hint_penalty_pct still charges for hints.
+	defaultRecipeHintPenaltyPct = 10
+	labFileHeredocTag           = "MFEOF"
+	labFileWorkdir              = "/home/labuser/work"
 )
 
 // renderLab emits the linking course_modules(type='lab') row, then delegates

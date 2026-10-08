@@ -12,6 +12,7 @@ estimated_minutes: 35
 source:
     - docs/debug-labs.md
 max_duration: 90
+hint_penalty_pct: 10
 recipe: ../recipes/re-async-typeahead-out-of-order.yaml
 ---
 

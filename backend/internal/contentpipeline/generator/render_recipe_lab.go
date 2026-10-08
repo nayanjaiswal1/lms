@@ -41,6 +41,10 @@ func renderRecipeLabRows(out *strings.Builder, courseID, moduleID, idKey, title 
 	if maxResets <= 0 {
 		maxResets = defaultMaxResets
 	}
+	hintPenaltyPct := spec.HintPenaltyPct
+	if hintPenaltyPct <= 0 {
+		hintPenaltyPct = defaultRecipeHintPenaltyPct
+	}
 	workspaceLayout := spec.WorkspaceLayout
 	if workspaceLayout == "" {
 		workspaceLayout = "split"
@@ -49,7 +53,7 @@ func renderRecipeLabRows(out *strings.Builder, courseID, moduleID, idKey, title 
 		"INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)\nVALUES (%s, %s, %s, %s, 'module', %s, NULL, %s, %s, 0, %s, %s, %s, %s, %s, false, NULL, %s, %s)\nON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, setup_script=EXCLUDED.setup_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();\n\n",
 		sqlString(labID), sqlString(seededOrgID), sqlString(courseID), sqlString(moduleID), sqlString(title),
 		sqlString(kind.Name()), sqlString(kind.Image()), dollarQuote("script", kind.SetupScript()),
-		sqlInt(maxDuration), sqlInt(maxResets), sqlInt(spec.HintPenaltyPct), sqlBool(spec.IsRequired),
+		sqlInt(maxDuration), sqlInt(maxResets), sqlInt(hintPenaltyPct), sqlBool(spec.IsRequired),
 		sqlString(workspaceLayout), sqlString(seededInstructorID),
 	)
 	fmt.Fprintf(out,

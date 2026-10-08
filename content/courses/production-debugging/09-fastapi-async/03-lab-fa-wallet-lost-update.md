@@ -12,6 +12,7 @@ estimated_minutes: 50
 source:
     - docs/debug-labs.md
 max_duration: 90
+hint_penalty_pct: 10
 recipe: ../recipes/fa-wallet-lost-update.yaml
 ---
 
