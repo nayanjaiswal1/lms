@@ -151,7 +151,7 @@ Covers `internal/habit` end to end: list/create/update/delete habits and check/c
 
 ## Database Schema
 
-Introduced by migration `015_add_lesson_notes_and_mcp_connections.sql` (now folded into `001_baseline.sql` — migrations `002`–`027` were squashed 2026-07-30):
+Introduced by migration `015_add_lesson_notes_and_mcp_connections.sql` (now folded into `001_baseline.sql` — all migrations were squashed 2026-10-09):
 
 ```sql
 lesson_notes (id, org_id, user_id, module_id, content, source, created_at, updated_at)

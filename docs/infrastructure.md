@@ -128,7 +128,7 @@ CADDY_DNS_API_TOKEN=                          # Required (compose only) — zone
 labproxy runs on the lab network and must not be able to forge login tokens or read the app DB:
 
 - `LAB_TOKEN_SECRET` (backend + labproxy, min 32 bytes) signs lab ws-tokens and derives the per-session ttyd/IDE credentials. The backend refuses to start if it is empty or equal to `JWT_SECRET`. labproxy never receives `JWT_SECRET` (`LABPROXY_JWT_SECRET` is gone).
-- `LABPROXY_DB_URL` must use the `labproxy` role created (NOLOGIN) by migration `067_labproxy_role.sql`: `SELECT` on `lab_sessions`, `lab_definitions`, `lab_build_variants` and `UPDATE(last_active_at)` on `lab_sessions` only. Enable it once per environment, out of band:
+- `LABPROXY_DB_URL` must use the `labproxy` role created (NOLOGIN) by `001_baseline.sql` (end of file): `SELECT` on `lab_sessions`, `lab_definitions`, `lab_build_variants` and `UPDATE(last_active_at)` on `lab_sessions` only. Enable it once per environment, out of band:
   `ALTER ROLE labproxy LOGIN PASSWORD '<value from secrets store>';` then set `LABPROXY_DB_URL=postgres://labproxy:<password>@<host>/<db>` (compose prod: `LABPROXY_DB_PASSWORD`).
 - `LABS_SNIPPET_DAILY_LIMIT` (backend, default 200) caps `POST /api/labs/run` executions per user per rolling 24h (Redis, 429 when exceeded).
 - Per-user terminal cap (5) is global across labproxy replicas via the Redis semaphore (`labproxy:conns:<user>` leases, 30s TTL, auto-renewed).

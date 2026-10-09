@@ -9,9 +9,8 @@ import (
 // reference IDs the generated files created).
 func TestSeedRankOrdering(t *testing.T) {
 	names := []string{
-		"warm_pool_seed.sql",
+		"other.sql",
 		"java_mastery.generated.sql",
-		"grant_all_roles_jaiswal.sql",
 		"dev_seed.sql",
 		"interview-prep-45.generated.sql",
 	}
@@ -19,10 +18,9 @@ func TestSeedRankOrdering(t *testing.T) {
 
 	want := []string{
 		"dev_seed.sql",
-		"grant_all_roles_jaiswal.sql",
 		"interview-prep-45.generated.sql",
 		"java_mastery.generated.sql",
-		"warm_pool_seed.sql",
+		"other.sql",
 	}
 	for i, name := range want {
 		if names[i] != name {
@@ -37,7 +35,6 @@ func TestSeedRankOrdering(t *testing.T) {
 func TestSeedFixturesEmbedded(t *testing.T) {
 	required := []string{
 		"fixtures/dev_seed.sql",
-		"fixtures/grant_all_roles_jaiswal.sql",
 	}
 	for _, name := range required {
 		if _, err := devSeedFS.ReadFile(name); err != nil {

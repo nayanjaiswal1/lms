@@ -6,6 +6,8 @@ extracted from) has been deleted — its actionable items are folded in below
 with verified current status; anything below marked "fixed" or "open" was
 checked against the live baseline at that time, not assumed.
 
+**Re-squashed 2026-10-09:** migrations `002`–`070` folded into `001_baseline.sql` (191 tables); next migration is still `002_*`. Earlier note follows.
+
 **Re-squashed 2026-07-30:** migrations `002`–`027` (accumulated since the
 2026-07-21 audit) have been folded into `001_baseline.sql`, which now covers
 156 tables. **Next migration is still `002_*`.** None of migrations `002`–`027`

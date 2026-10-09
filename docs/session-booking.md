@@ -295,7 +295,7 @@ all of those.
 
 ## DB schema
 
-`backend/db/migrations/013_mentor_session_booking.sql` and `025_full_schema_consolidation.sql` (config moved to org_settings)
+`backend/db/migrations/001_baseline.sql` (config moved to org_settings)
 
 | Table | Purpose |
 |---|---|

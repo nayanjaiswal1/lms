@@ -98,7 +98,7 @@ Calendar events (and vice versa), live.
 
 ## Database Schema
 
-New migration (next number after `032_calendar_tasks.sql`):
+New migration (next number after `001_baseline.sql`, i.e. `002_*`):
 
 ```sql
 CREATE TABLE calendar_account_links (

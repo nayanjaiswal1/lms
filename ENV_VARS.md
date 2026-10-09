@@ -71,7 +71,7 @@ it is also the window in which a stolen rotated token is still honoured.
 ## Tenant
 
 `DEFAULT_ORG_ID` is the org self-registered users are assigned to — seeded in
-migration `001_init.sql`. Do not change this UUID unless you reseed.
+the schema baseline (`backend/db/migrations/001_baseline.sql`). Do not change this UUID unless you reseed.
 
 ## OAuth
 

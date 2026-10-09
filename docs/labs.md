@@ -1577,7 +1577,7 @@ browser re-establishes against a healthy node. Containers are untouched — they
 process — so a rolling deploy never destroys a student's environment, only briefly reconnects it.
 
 **Migrations.** Lab tables ship as forward-only numbered migrations following the repo convention
-(`backend/db/migrations/NNN_labs*.sql`, applied alphabetically, tracked in `schema_migrations`,
+(`backend/db/migrations/*.sql`, applied alphabetically, tracked in `schema_migrations`,
 `*.down.sql` provided for local rollback but skipped by the runtime runner). Split across phases so
 each phase's migration is independently deployable:
 `0NN_labs_core.sql` (10 core tables + indexes + the deferred `published_version_id` FK) →

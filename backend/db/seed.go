@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-//go:embed fixtures/dev_seed.sql fixtures/grant_all_roles_jaiswal.sql fixtures/*.generated.sql fixtures/warm_pool_seed.sql
+//go:embed fixtures/dev_seed.sql fixtures/*.generated.sql
 var devSeedFS embed.FS
 
 // seedRank buckets a fixture filename into its load-order group. Lower loads
@@ -33,17 +33,15 @@ func seedRank(name string) int {
 	switch {
 	case name == "dev_seed.sql":
 		return 0
-	case name == "grant_all_roles_jaiswal.sql":
-		return 1
 	case strings.HasSuffix(name, ".generated.sql"):
 		// Pipeline-generated course content (backend/cmd/coursegen) — each file
 		// is self-contained and idempotent, order among them doesn't matter, but
 		// all must load after dev_seed.sql since they reference its seeded org/users.
-		return 2
+		return 1
 	default:
-		// Anything else (e.g. warm_pool_seed.sql) may reference IDs from the
-		// generated files above, so it loads last.
-		return 3
+		// Anything else may reference IDs from the generated files above, so
+		// it loads last.
+		return 2
 	}
 }
 

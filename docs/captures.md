@@ -115,7 +115,7 @@ captures (
 
 Indexes: `(user_id, status, created_at DESC)` for the inbox; `idx_srs_cards_front_trgm_capture` (partial, `source_type = 'capture'`) added to the existing `srs_cards` table for the question-kind dedup.
 
-See `backend/db/migrations/033_captures.sql`.
+See `backend/db/migrations/001_baseline.sql`.
 
 ---
 
