@@ -8,7 +8,7 @@
 -- and grants are not in a dump, so the labproxy role (ex-067) is appended.
 -- Databases that already recorded 001_baseline skip it; their stale
 -- schema_migrations rows for the removed files are harmless.
--- pg_dump object-header comments stripped. Next migration is 002_*.
+-- Header comments stripped; PK/UNIQUE/EXCLUDE folded into CREATE TABLE; seed inserts batched per table. Next migration is 002_*.
 -- ══════════════════════════════════════════════════════════════════════════
 
 SET statement_timeout = 0;
@@ -215,7 +215,9 @@ CREATE TABLE public.assessment_attempts (
     overridden_by uuid,
     override_note text,
     overridden_at timestamp with time zone,
-    CONSTRAINT assessment_attempts_status_check CHECK ((status = ANY (ARRAY['created'::text, 'in_progress'::text, 'submitted'::text, 'evaluating'::text, 'evaluated'::text, 'eval_failed'::text, 'expired'::text])))
+    CONSTRAINT assessment_attempts_status_check CHECK ((status = ANY (ARRAY['created'::text, 'in_progress'::text, 'submitted'::text, 'evaluating'::text, 'evaluated'::text, 'eval_failed'::text, 'expired'::text]))),
+    CONSTRAINT assessment_attempts_assessment_id_user_id_attempt_number_key UNIQUE (assessment_id, user_id, attempt_number),
+    CONSTRAINT assessment_attempts_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.assessment_questions (
@@ -227,7 +229,9 @@ CREATE TABLE public.assessment_questions (
     points numeric(7,2) DEFAULT 1 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     content_version_id uuid,
-    CONSTRAINT assessment_questions_points_check CHECK ((points >= (0)::numeric))
+    CONSTRAINT assessment_questions_points_check CHECK ((points >= (0)::numeric)),
+    CONSTRAINT assessment_questions_assessment_id_question_id_key UNIQUE (assessment_id, question_id),
+    CONSTRAINT assessment_questions_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.assessments (
@@ -264,7 +268,10 @@ CREATE TABLE public.assessments (
     CONSTRAINT assessments_parent_type_check CHECK ((parent_type = ANY (ARRAY['standalone'::text, 'course'::text, 'module'::text, 'roadmap'::text, 'batch'::text, 'bootcamp'::text, 'hiring'::text]))),
     CONSTRAINT assessments_pass_percentage_check CHECK (((pass_percentage >= (0)::numeric) AND (pass_percentage <= (100)::numeric))),
     CONSTRAINT assessments_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'published'::text, 'scheduled'::text, 'active'::text, 'completed'::text, 'archived'::text]))),
-    CONSTRAINT assessments_type_check CHECK ((type = ANY (ARRAY['mcq'::text, 'coding'::text, 'mixed'::text, 'final_test'::text, 'offline'::text, 'practice'::text, 'knowledge_check'::text])))
+    CONSTRAINT assessments_type_check CHECK ((type = ANY (ARRAY['mcq'::text, 'coding'::text, 'mixed'::text, 'final_test'::text, 'offline'::text, 'practice'::text, 'knowledge_check'::text]))),
+    CONSTRAINT assessments_org_id_slug_key UNIQUE (org_id, slug),
+    CONSTRAINT assessments_pkey PRIMARY KEY (id),
+    CONSTRAINT assessments_short_code_key UNIQUE (short_code)
 );
 
 CREATE TABLE public.attempt_answers (
@@ -284,7 +291,9 @@ CREATE TABLE public.attempt_answers (
     override_note text,
     overridden_by uuid,
     overridden_at timestamp with time zone,
-    CONSTRAINT attempt_answers_transcript_check CHECK (((transcript IS NULL) OR (length(transcript) <= 50000)))
+    CONSTRAINT attempt_answers_transcript_check CHECK (((transcript IS NULL) OR (length(transcript) <= 50000))),
+    CONSTRAINT attempt_answers_attempt_id_assessment_question_id_key UNIQUE (attempt_id, assessment_question_id),
+    CONSTRAINT attempt_answers_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.attempt_events (
@@ -297,7 +306,8 @@ CREATE TABLE public.attempt_events (
     client_ts timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT attempt_events_event_type_check CHECK ((event_type = ANY (ARRAY['tab_switch'::text, 'focus_loss'::text, 'focus_gain'::text, 'fullscreen_exit'::text, 'fullscreen_enter'::text, 'copy'::text, 'paste'::text, 'cut'::text, 'right_click'::text, 'devtools_open'::text, 'visibility_hidden'::text, 'visibility_visible'::text, 'window_resize'::text, 'network_offline'::text, 'heartbeat'::text]))),
-    CONSTRAINT attempt_events_severity_check CHECK ((severity = ANY (ARRAY['info'::text, 'warning'::text, 'critical'::text])))
+    CONSTRAINT attempt_events_severity_check CHECK ((severity = ANY (ARRAY['info'::text, 'warning'::text, 'critical'::text]))),
+    CONSTRAINT attempt_events_pkey PRIMARY KEY (id)
 );
 
 COMMENT ON TABLE public.attempt_events IS 'Partitioning candidate — monthly range on created_at. See docs/schema-refactor-plan.md Phase 5.';
@@ -326,7 +336,8 @@ CREATE TABLE public.audit_logs (
     connection_id uuid,
     revertible boolean DEFAULT false NOT NULL,
     reverted_at timestamp with time zone,
-    reverted_by uuid
+    reverted_by uuid,
+    CONSTRAINT audit_logs_pkey PRIMARY KEY (id)
 );
 
 COMMENT ON TABLE public.audit_logs IS 'Partitioning candidate — monthly range on created_at.';
@@ -346,7 +357,8 @@ CREATE TABLE public.auth_events (
     event text NOT NULL,
     ip text,
     ua_hash text,
-    ts timestamp with time zone DEFAULT now() NOT NULL
+    ts timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT auth_events_pkey PRIMARY KEY (id)
 );
 
 CREATE SEQUENCE public.auth_events_id_seq
@@ -368,7 +380,8 @@ CREATE TABLE public.auth_tokens (
     expires_at timestamp with time zone NOT NULL,
     consumed_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT auth_tokens_purpose_check CHECK ((purpose = ANY (ARRAY['email_verify'::text, 'password_reset'::text, 'oauth_exchange'::text, 'calendar_feed'::text, 'mcp_auth_code'::text, 'mcp_access_token'::text, 'gitlab_oauth_state'::text, 'calendar_invite'::text])))
+    CONSTRAINT auth_tokens_purpose_check CHECK ((purpose = ANY (ARRAY['email_verify'::text, 'password_reset'::text, 'oauth_exchange'::text, 'calendar_feed'::text, 'mcp_auth_code'::text, 'mcp_access_token'::text, 'gitlab_oauth_state'::text, 'calendar_invite'::text]))),
+    CONSTRAINT auth_tokens_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.batch_invitations (
@@ -383,7 +396,10 @@ CREATE TABLE public.batch_invitations (
     accepted_at timestamp with time zone,
     declined_at timestamp with time zone,
     resent_at timestamp with time zone,
-    import_job_id uuid
+    import_job_id uuid,
+    CONSTRAINT batch_invitations_batch_id_email_key UNIQUE (batch_id, email),
+    CONSTRAINT batch_invitations_pkey PRIMARY KEY (id),
+    CONSTRAINT batch_invitations_token_hash_key UNIQUE (token_hash)
 );
 
 CREATE TABLE public.batch_member_details (
@@ -400,7 +416,8 @@ CREATE TABLE public.batch_member_details (
     error_message text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT batch_member_details_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'invited'::text, 'resent'::text, 'enrolled_existing'::text, 'failed'::text, 'skipped'::text])))
+    CONSTRAINT batch_member_details_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'invited'::text, 'resent'::text, 'enrolled_existing'::text, 'failed'::text, 'skipped'::text]))),
+    CONSTRAINT batch_member_details_pkey PRIMARY KEY (batch_id, email)
 );
 
 CREATE TABLE public.batch_members (
@@ -408,7 +425,8 @@ CREATE TABLE public.batch_members (
     user_id uuid NOT NULL,
     added_at timestamp with time zone DEFAULT now() NOT NULL,
     role text DEFAULT 'student'::text NOT NULL,
-    added_by uuid
+    added_by uuid,
+    CONSTRAINT batch_members_pkey PRIMARY KEY (batch_id, user_id)
 );
 
 CREATE TABLE public.batch_messages (
@@ -424,7 +442,8 @@ CREATE TABLE public.batch_messages (
     created_at timestamp with time zone DEFAULT now(),
     deleted_at timestamp with time zone,
     CONSTRAINT batch_messages_body_check CHECK (((length(body) >= 1) AND (length(body) <= 5000))),
-    CONSTRAINT batch_messages_type_check CHECK ((type = ANY (ARRAY['question'::text, 'answer'::text, 'announcement'::text, 'resource'::text])))
+    CONSTRAINT batch_messages_type_check CHECK ((type = ANY (ARRAY['question'::text, 'answer'::text, 'announcement'::text, 'resource'::text]))),
+    CONSTRAINT batch_messages_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.batches (
@@ -443,7 +462,9 @@ CREATE TABLE public.batches (
     cohort_group_id uuid,
     mentor_id uuid,
     CONSTRAINT batches_schedule_chk CHECK (((starts_at IS NULL) OR (ends_at IS NULL) OR (ends_at > starts_at))),
-    CONSTRAINT batches_status_check CHECK ((status = ANY (ARRAY['active'::text, 'archived'::text])))
+    CONSTRAINT batches_status_check CHECK ((status = ANY (ARRAY['active'::text, 'archived'::text]))),
+    CONSTRAINT batches_org_id_slug_key UNIQUE (org_id, slug),
+    CONSTRAINT batches_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.brief_approvals (
@@ -454,7 +475,8 @@ CREATE TABLE public.brief_approvals (
     wiki_version integer NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT brief_approvals_approver_role_check CHECK ((approver_role = ANY (ARRAY['owner'::text, 'manager'::text, 'track_lead'::text]))),
-    CONSTRAINT brief_approvals_wiki_version_check CHECK ((wiki_version >= 1))
+    CONSTRAINT brief_approvals_wiki_version_check CHECK ((wiki_version >= 1)),
+    CONSTRAINT brief_approvals_pkey PRIMARY KEY (project_id, requirement_version, approver_id)
 );
 
 CREATE TABLE public.calendar_event_attendees (
@@ -498,7 +520,8 @@ CREATE TABLE public.calendar_events (
     CONSTRAINT calendar_events_priority_check CHECK (((priority IS NULL) OR (priority = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text, 'urgent'::text])))),
     CONSTRAINT calendar_events_status_check CHECK ((status = ANY (ARRAY['scheduled'::text, 'cancelled'::text]))),
     CONSTRAINT calendar_events_title_check CHECK (((length(title) >= 1) AND (length(title) <= 200))),
-    CONSTRAINT calendar_events_visibility_check CHECK ((visibility = ANY (ARRAY['private'::text, 'shared'::text, 'public'::text])))
+    CONSTRAINT calendar_events_visibility_check CHECK ((visibility = ANY (ARRAY['private'::text, 'shared'::text, 'public'::text]))),
+    CONSTRAINT calendar_events_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.captures (
@@ -523,7 +546,8 @@ CREATE TABLE public.captures (
     CONSTRAINT captures_kind_check CHECK (((kind IS NULL) OR (kind = ANY (ARRAY['note'::text, 'question'::text])))),
     CONSTRAINT captures_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'ready'::text, 'failed'::text, 'promoted'::text, 'dismissed'::text]))),
     CONSTRAINT captures_title_len_check CHECK (((title IS NULL) OR ((char_length(title) >= 1) AND (char_length(title) <= 200)))),
-    CONSTRAINT captures_type_check CHECK ((type = ANY (ARRAY['image'::text, 'pdf'::text, 'link'::text, 'html'::text])))
+    CONSTRAINT captures_type_check CHECK ((type = ANY (ARRAY['image'::text, 'pdf'::text, 'link'::text, 'html'::text]))),
+    CONSTRAINT captures_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.certificates (
@@ -540,7 +564,10 @@ CREATE TABLE public.certificates (
     note text,
     CONSTRAINT certificates_course_xor_project CHECK (((course_id IS NOT NULL) <> (project_id IS NOT NULL))),
     CONSTRAINT certificates_issue_type_check CHECK ((issue_type = ANY (ARRAY['final_test'::text, 'manual'::text, 'threshold'::text, 'project_completion'::text]))),
-    CONSTRAINT certificates_note_check CHECK (((note IS NULL) OR (char_length(note) <= 2000)))
+    CONSTRAINT certificates_note_check CHECK (((note IS NULL) OR (char_length(note) <= 2000))),
+    CONSTRAINT certificates_attempt_unique UNIQUE (final_test_attempt_id),
+    CONSTRAINT certificates_cert_uuid_unique UNIQUE (cert_uuid),
+    CONSTRAINT certificates_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.change_requests (
@@ -557,7 +584,8 @@ CREATE TABLE public.change_requests (
     reviewed_at timestamp with time zone,
     result_id uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT change_requests_kind_check CHECK ((kind = ANY (ARRAY['mentor_reassignment'::text, 'course_content_proposal'::text])))
+    CONSTRAINT change_requests_kind_check CHECK ((kind = ANY (ARRAY['mentor_reassignment'::text, 'course_content_proposal'::text]))),
+    CONSTRAINT change_requests_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.coding_submissions (
@@ -574,7 +602,8 @@ CREATE TABLE public.coding_submissions (
     result jsonb DEFAULT '{}'::jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     evaluated_at timestamp with time zone,
-    CONSTRAINT coding_submissions_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'passed'::text, 'failed'::text, 'error'::text])))
+    CONSTRAINT coding_submissions_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'passed'::text, 'failed'::text, 'error'::text]))),
+    CONSTRAINT coding_submissions_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.cohort_groups (
@@ -589,7 +618,8 @@ CREATE TABLE public.cohort_groups (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT cohort_groups_no_self_parent CHECK (((parent_id IS NULL) OR (parent_id <> id))),
-    CONSTRAINT cohort_groups_status_check CHECK ((status = ANY (ARRAY['active'::text, 'archived'::text])))
+    CONSTRAINT cohort_groups_status_check CHECK ((status = ANY (ARRAY['active'::text, 'archived'::text]))),
+    CONSTRAINT cohort_groups_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.comments (
@@ -602,7 +632,8 @@ CREATE TABLE public.comments (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     deleted_at timestamp with time zone,
-    CONSTRAINT comments_subject_type_check CHECK ((subject_type = ANY (ARRAY['wiki_page'::text, 'interview_exp_qna'::text, 'requirement_question'::text, 'work_item'::text])))
+    CONSTRAINT comments_subject_type_check CHECK ((subject_type = ANY (ARRAY['wiki_page'::text, 'interview_exp_qna'::text, 'requirement_question'::text, 'work_item'::text]))),
+    CONSTRAINT comments_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.content_assignments (
@@ -616,7 +647,8 @@ CREATE TABLE public.content_assignments (
     assigned_by uuid,
     assigned_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT content_assignments_assignee_type_check CHECK ((assignee_type = ANY (ARRAY['user'::text, 'batch'::text, 'cohort_group'::text, 'org'::text]))),
-    CONSTRAINT content_assignments_content_type_check CHECK ((content_type = ANY (ARRAY['assessment'::text, 'course'::text, 'lab'::text, 'sheet'::text, 'roadmap'::text])))
+    CONSTRAINT content_assignments_content_type_check CHECK ((content_type = ANY (ARRAY['assessment'::text, 'course'::text, 'lab'::text, 'sheet'::text, 'roadmap'::text]))),
+    CONSTRAINT content_assignments_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.content_reactions (
@@ -626,7 +658,9 @@ CREATE TABLE public.content_reactions (
     target_id uuid NOT NULL,
     reaction text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT content_reactions_target_type_check CHECK ((target_type = ANY (ARRAY['batch_message'::text, 'interview_exp_qna'::text])))
+    CONSTRAINT content_reactions_target_type_check CHECK ((target_type = ANY (ARRAY['batch_message'::text, 'interview_exp_qna'::text]))),
+    CONSTRAINT content_reactions_pkey PRIMARY KEY (id),
+    CONSTRAINT content_reactions_user_id_target_type_target_id_reaction_key UNIQUE (user_id, target_type, target_id, reaction)
 );
 
 CREATE TABLE public.content_reports (
@@ -645,7 +679,8 @@ CREATE TABLE public.content_reports (
     resolved_at timestamp with time zone,
     CONSTRAINT content_reports_content_type_check CHECK ((content_type = ANY (ARRAY['wiki_page'::text, 'course_module'::text, 'mentor'::text, 'user'::text]))),
     CONSTRAINT content_reports_reason_check CHECK ((reason = ANY (ARRAY['illegal'::text, 'copyright'::text, 'spam'::text, 'harassment'::text, 'unresponsive'::text, 'inappropriate_behavior'::text, 'unqualified'::text, 'other'::text]))),
-    CONSTRAINT content_reports_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'reviewing'::text, 'removed'::text, 'dismissed'::text])))
+    CONSTRAINT content_reports_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'reviewing'::text, 'removed'::text, 'dismissed'::text]))),
+    CONSTRAINT content_reports_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.content_versions (
@@ -657,7 +692,9 @@ CREATE TABLE public.content_versions (
     content jsonb NOT NULL,
     created_by uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT content_versions_content_type_check CHECK ((content_type = ANY (ARRAY['question'::text, 'wiki_page'::text])))
+    CONSTRAINT content_versions_content_type_check CHECK ((content_type = ANY (ARRAY['question'::text, 'wiki_page'::text]))),
+    CONSTRAINT content_versions_content_type_content_id_version_key UNIQUE (content_type, content_id, version),
+    CONSTRAINT content_versions_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.conversations (
@@ -677,12 +714,14 @@ CREATE TABLE public.conversations (
     resolved_at timestamp with time zone,
     closed_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT conversations_kind_check CHECK ((kind = ANY (ARRAY['mentorship'::text, 'support'::text, 'direct'::text])))
+    CONSTRAINT conversations_kind_check CHECK ((kind = ANY (ARRAY['mentorship'::text, 'support'::text, 'direct'::text]))),
+    CONSTRAINT conversations_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.coupon_courses (
     coupon_id uuid NOT NULL,
-    course_id uuid NOT NULL
+    course_id uuid NOT NULL,
+    CONSTRAINT coupon_courses_pkey PRIMARY KEY (coupon_id, course_id)
 );
 
 CREATE TABLE public.coupon_redemptions (
@@ -692,7 +731,10 @@ CREATE TABLE public.coupon_redemptions (
     purchase_id uuid NOT NULL,
     discount_cents integer NOT NULL,
     redeemed_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT coupon_redemptions_discount_cents_check CHECK ((discount_cents >= 0))
+    CONSTRAINT coupon_redemptions_discount_cents_check CHECK ((discount_cents >= 0)),
+    CONSTRAINT coupon_redemptions_coupon_user_key UNIQUE (coupon_id, user_id),
+    CONSTRAINT coupon_redemptions_pkey PRIMARY KEY (id),
+    CONSTRAINT coupon_redemptions_purchase_key UNIQUE (purchase_id)
 );
 
 CREATE TABLE public.coupons (
@@ -716,14 +758,17 @@ CREATE TABLE public.coupons (
     CONSTRAINT coupons_max_discount_cents_check CHECK (((max_discount_cents IS NULL) OR (max_discount_cents > 0))),
     CONSTRAINT coupons_max_redemptions_check CHECK (((max_redemptions IS NULL) OR (max_redemptions > 0))),
     CONSTRAINT coupons_redeemed_count_check CHECK (((redeemed_count >= 0) AND ((max_redemptions IS NULL) OR (redeemed_count <= max_redemptions)))),
-    CONSTRAINT coupons_window_check CHECK (((starts_at IS NULL) OR (expires_at IS NULL) OR (expires_at > starts_at)))
+    CONSTRAINT coupons_window_check CHECK (((starts_at IS NULL) OR (expires_at IS NULL) OR (expires_at > starts_at))),
+    CONSTRAINT coupons_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.course_bundle_items (
     bundle_id uuid NOT NULL,
     course_id uuid NOT NULL,
     "position" integer NOT NULL,
-    CONSTRAINT course_bundle_items_position_check CHECK (("position" >= 0))
+    CONSTRAINT course_bundle_items_position_check CHECK (("position" >= 0)),
+    CONSTRAINT course_bundle_items_bundle_id_position_key UNIQUE (bundle_id, "position") DEFERRABLE INITIALLY DEFERRED,
+    CONSTRAINT course_bundle_items_pkey PRIMARY KEY (bundle_id, course_id)
 );
 
 CREATE TABLE public.course_bundles (
@@ -739,7 +784,9 @@ CREATE TABLE public.course_bundles (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT course_bundles_description_check CHECK (((description IS NULL) OR (char_length(description) <= 2000))),
     CONSTRAINT course_bundles_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'published'::text]))),
-    CONSTRAINT course_bundles_title_check CHECK (((char_length(title) >= 3) AND (char_length(title) <= 200)))
+    CONSTRAINT course_bundles_title_check CHECK (((char_length(title) >= 3) AND (char_length(title) <= 200))),
+    CONSTRAINT course_bundles_org_id_slug_key UNIQUE (org_id, slug),
+    CONSTRAINT course_bundles_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.course_faqs (
@@ -755,7 +802,8 @@ CREATE TABLE public.course_faqs (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
     CONSTRAINT course_faqs_answer_check CHECK (((length(answer) >= 10) AND (length(answer) <= 5000))),
-    CONSTRAINT course_faqs_question_check CHECK (((length(question) >= 10) AND (length(question) <= 500)))
+    CONSTRAINT course_faqs_question_check CHECK (((length(question) >= 10) AND (length(question) <= 500))),
+    CONSTRAINT course_faqs_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.course_modules (
@@ -785,7 +833,9 @@ CREATE TABLE public.course_modules (
     CONSTRAINT course_modules_schedule_chk CHECK (((starts_at IS NULL) OR (ends_at IS NULL) OR (ends_at > starts_at))),
     CONSTRAINT course_modules_title_check CHECK (((length(title) >= 1) AND (length(title) <= 200))),
     CONSTRAINT course_modules_type_check CHECK ((type = ANY (ARRAY['video'::text, 'pdf'::text, 'notes'::text, 'assessment'::text, 'lab'::text, 'system_design'::text]))),
-    CONSTRAINT lab_module_has_lab CHECK (((type = 'lab'::text) = (lab_id IS NOT NULL)))
+    CONSTRAINT lab_module_has_lab CHECK (((type = 'lab'::text) = (lab_id IS NOT NULL))),
+    CONSTRAINT course_modules_pkey PRIMARY KEY (id),
+    CONSTRAINT course_modules_section_id_position_key UNIQUE (section_id, "position") DEFERRABLE INITIALLY DEFERRED
 );
 
 CREATE TABLE public.course_sections (
@@ -796,7 +846,9 @@ CREATE TABLE public.course_sections (
     created_at timestamp with time zone DEFAULT now(),
     group_title text,
     CONSTRAINT course_sections_group_title_check CHECK (((group_title IS NULL) OR ((length(group_title) >= 1) AND (length(group_title) <= 200)))),
-    CONSTRAINT course_sections_title_check CHECK (((length(title) >= 1) AND (length(title) <= 200)))
+    CONSTRAINT course_sections_title_check CHECK (((length(title) >= 1) AND (length(title) <= 200))),
+    CONSTRAINT course_sections_course_id_position_key UNIQUE (course_id, "position") DEFERRABLE INITIALLY DEFERRED,
+    CONSTRAINT course_sections_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.courses (
@@ -829,7 +881,9 @@ CREATE TABLE public.courses (
     CONSTRAINT courses_price_cents_check CHECK ((price_cents >= 0)),
     CONSTRAINT courses_schedule_chk CHECK (((starts_at IS NULL) OR (ends_at IS NULL) OR (ends_at > starts_at))),
     CONSTRAINT courses_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'review'::text, 'published'::text, 'archived'::text]))),
-    CONSTRAINT courses_title_check CHECK (((length(title) >= 3) AND (length(title) <= 200)))
+    CONSTRAINT courses_title_check CHECK (((length(title) >= 3) AND (length(title) <= 200))),
+    CONSTRAINT courses_org_id_slug_key UNIQUE (org_id, slug),
+    CONSTRAINT courses_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.diary_entries (
@@ -842,7 +896,9 @@ CREATE TABLE public.diary_entries (
     analyzed_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT diary_entries_content_len_check CHECK ((char_length(content) <= 20000))
+    CONSTRAINT diary_entries_content_len_check CHECK ((char_length(content) <= 20000)),
+    CONSTRAINT diary_entries_pkey PRIMARY KEY (id),
+    CONSTRAINT diary_entries_user_date_unique UNIQUE (user_id, entry_date)
 );
 
 CREATE TABLE public.diary_tasks (
@@ -858,7 +914,8 @@ CREATE TABLE public.diary_tasks (
     description text DEFAULT ''::text NOT NULL,
     CONSTRAINT diary_tasks_description_len_check CHECK ((char_length(description) <= 2000)),
     CONSTRAINT diary_tasks_kind_check CHECK ((kind = ANY (ARRAY['todo'::text, 'buy'::text]))),
-    CONSTRAINT diary_tasks_title_len_check CHECK (((char_length(title) >= 1) AND (char_length(title) <= 300)))
+    CONSTRAINT diary_tasks_title_len_check CHECK (((char_length(title) >= 1) AND (char_length(title) <= 300))),
+    CONSTRAINT diary_tasks_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.enrollments (
@@ -868,7 +925,9 @@ CREATE TABLE public.enrollments (
     batch_id uuid,
     enrolled_by uuid,
     enrolled_at timestamp with time zone DEFAULT now(),
-    completed_at timestamp with time zone
+    completed_at timestamp with time zone,
+    CONSTRAINT enrollments_pkey PRIMARY KEY (id),
+    CONSTRAINT enrollments_user_id_course_id_key UNIQUE (user_id, course_id)
 );
 
 CREATE TABLE public.feedback (
@@ -887,14 +946,17 @@ CREATE TABLE public.feedback (
     CONSTRAINT feedback_answered_or_skipped CHECK (((skipped_at IS NOT NULL) OR ((kind = 'rating'::text) AND (rating IS NOT NULL)) OR ((kind = 'experience'::text) AND (experience IS NOT NULL)))),
     CONSTRAINT feedback_experience_check CHECK ((experience = ANY (ARRAY['smooth'::text, 'issue'::text, 'complaint'::text]))),
     CONSTRAINT feedback_rating_check CHECK (((rating >= 1) AND (rating <= 5))),
-    CONSTRAINT feedback_subject_type_check CHECK ((subject_type = ANY (ARRAY['course'::text, 'assessment'::text, 'lab'::text, 'mentor'::text, 'mentor_session'::text])))
+    CONSTRAINT feedback_subject_type_check CHECK ((subject_type = ANY (ARRAY['course'::text, 'assessment'::text, 'lab'::text, 'mentor'::text, 'mentor_session'::text]))),
+    CONSTRAINT feedback_kind_subject_user_key UNIQUE (kind, subject_type, subject_id, user_id),
+    CONSTRAINT feedback_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.focus_wall_categories (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
     name text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT focus_wall_categories_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.focus_wall_notes (
@@ -908,7 +970,8 @@ CREATE TABLE public.focus_wall_notes (
     rotation double precision DEFAULT 0 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT focus_wall_notes_color_check CHECK ((color = ANY (ARRAY['yellow'::text, 'blue'::text, 'pink'::text, 'green'::text])))
+    CONSTRAINT focus_wall_notes_color_check CHECK ((color = ANY (ARRAY['yellow'::text, 'blue'::text, 'pink'::text, 'green'::text]))),
+    CONSTRAINT focus_wall_notes_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.gitlab_commit_files (
@@ -920,7 +983,8 @@ CREATE TABLE public.gitlab_commit_files (
     author_gitlab_user_id bigint,
     author_user_id uuid,
     committed_at timestamp with time zone,
-    CONSTRAINT gitlab_commit_files_change_type_check CHECK ((change_type = ANY (ARRAY['added'::text, 'modified'::text, 'removed'::text])))
+    CONSTRAINT gitlab_commit_files_change_type_check CHECK ((change_type = ANY (ARRAY['added'::text, 'modified'::text, 'removed'::text]))),
+    CONSTRAINT gitlab_commit_files_pkey PRIMARY KEY (team_id, sha, file_path)
 );
 
 CREATE TABLE public.gitlab_commits (
@@ -939,7 +1003,9 @@ CREATE TABLE public.gitlab_commits (
     files_changed integer,
     is_merge boolean DEFAULT false NOT NULL,
     committed_at timestamp with time zone,
-    recorded_at timestamp with time zone DEFAULT now() NOT NULL
+    recorded_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT gitlab_commits_pkey PRIMARY KEY (id),
+    CONSTRAINT gitlab_commits_team_sha_key UNIQUE (team_id, sha)
 );
 
 CREATE TABLE public.gitlab_connections (
@@ -959,7 +1025,10 @@ CREATE TABLE public.gitlab_connections (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     revoked_at timestamp with time zone,
-    CONSTRAINT gitlab_connections_status_check CHECK ((status = ANY (ARRAY['active'::text, 'expired'::text, 'revoked'::text])))
+    CONSTRAINT gitlab_connections_status_check CHECK ((status = ANY (ARRAY['active'::text, 'expired'::text, 'revoked'::text]))),
+    CONSTRAINT gitlab_connections_org_gitlab_user_key UNIQUE (org_id, gitlab_user_id),
+    CONSTRAINT gitlab_connections_org_user_key UNIQUE (org_id, user_id),
+    CONSTRAINT gitlab_connections_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.gitlab_installations (
@@ -991,7 +1060,9 @@ CREATE TABLE public.gitlab_installations (
     CONSTRAINT gitlab_installations_base_url_not_blank_check CHECK ((btrim(base_url) <> ''::text)),
     CONSTRAINT gitlab_installations_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'error'::text, 'revoked'::text, 'expired'::text]))),
     CONSTRAINT gitlab_installations_tier_check CHECK ((tier = ANY (ARRAY['free'::text, 'premium'::text, 'ultimate'::text]))),
-    CONSTRAINT gitlab_installations_webhook_mode_check CHECK ((webhook_mode = ANY (ARRAY['webhook'::text, 'poll'::text])))
+    CONSTRAINT gitlab_installations_webhook_mode_check CHECK ((webhook_mode = ANY (ARRAY['webhook'::text, 'poll'::text]))),
+    CONSTRAINT gitlab_installations_org_name_key UNIQUE (org_id, name),
+    CONSTRAINT gitlab_installations_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.gitlab_merge_requests (
@@ -1022,7 +1093,9 @@ CREATE TABLE public.gitlab_merge_requests (
     CONSTRAINT gitlab_merge_requests_additions_check CHECK (((additions IS NULL) OR (additions >= 0))),
     CONSTRAINT gitlab_merge_requests_deletions_check CHECK (((deletions IS NULL) OR (deletions >= 0))),
     CONSTRAINT gitlab_merge_requests_head_pipeline_status_check CHECK (((head_pipeline_status IS NULL) OR (head_pipeline_status = ANY (ARRAY['pending'::text, 'running'::text, 'success'::text, 'failed'::text, 'canceled'::text])))),
-    CONSTRAINT gitlab_merge_requests_state_check CHECK ((state = ANY (ARRAY['opened'::text, 'merged'::text, 'closed'::text, 'locked'::text])))
+    CONSTRAINT gitlab_merge_requests_state_check CHECK ((state = ANY (ARRAY['opened'::text, 'merged'::text, 'closed'::text, 'locked'::text]))),
+    CONSTRAINT gitlab_merge_requests_pkey PRIMARY KEY (id),
+    CONSTRAINT gitlab_merge_requests_team_mr_iid_key UNIQUE (team_id, mr_iid)
 );
 
 CREATE TABLE public.gitlab_objects (
@@ -1033,7 +1106,9 @@ CREATE TABLE public.gitlab_objects (
     gitlab_id bigint NOT NULL,
     payload jsonb NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT gitlab_objects_object_type_check CHECK ((object_type = ANY (ARRAY['issue'::text, 'pipeline'::text, 'note'::text])))
+    CONSTRAINT gitlab_objects_object_type_check CHECK ((object_type = ANY (ARRAY['issue'::text, 'pipeline'::text, 'note'::text]))),
+    CONSTRAINT gitlab_objects_org_id_object_type_gitlab_id_key UNIQUE (org_id, object_type, gitlab_id),
+    CONSTRAINT gitlab_objects_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.gitlab_webhook_events (
@@ -1047,7 +1122,9 @@ CREATE TABLE public.gitlab_webhook_events (
     error text,
     received_at timestamp with time zone DEFAULT now() NOT NULL,
     processed_at timestamp with time zone,
-    CONSTRAINT gitlab_webhook_events_status_check CHECK ((status = ANY (ARRAY['received'::text, 'dispatched'::text, 'ignored'::text, 'failed'::text])))
+    CONSTRAINT gitlab_webhook_events_status_check CHECK ((status = ANY (ARRAY['received'::text, 'dispatched'::text, 'ignored'::text, 'failed'::text]))),
+    CONSTRAINT gitlab_webhook_events_org_event_uuid_key UNIQUE (org_id, event_uuid),
+    CONSTRAINT gitlab_webhook_events_pkey PRIMARY KEY (id)
 );
 
 COMMENT ON TABLE public.gitlab_webhook_events IS 'Retention candidate — drop processed rows after 30 days.';
@@ -1058,7 +1135,8 @@ CREATE TABLE public.habit_completions (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     count integer DEFAULT 1 NOT NULL,
     metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
-    CONSTRAINT habit_completions_count_check CHECK ((count > 0))
+    CONSTRAINT habit_completions_count_check CHECK ((count > 0)),
+    CONSTRAINT habit_completions_pkey PRIMARY KEY (habit_id, period_start)
 );
 
 CREATE TABLE public.habits (
@@ -1079,7 +1157,8 @@ CREATE TABLE public.habits (
     CONSTRAINT habits_color_check CHECK ((color = ANY (ARRAY['blue'::text, 'orange'::text, 'aqua'::text, 'yellow'::text, 'magenta'::text, 'green'::text, 'violet'::text, 'red'::text]))),
     CONSTRAINT habits_icon_check CHECK (((icon = ''::text) OR (icon = ANY (ARRAY['dumbbell'::text, 'moon'::text, 'book-open'::text, 'brain'::text, 'droplet'::text, 'utensils'::text, 'flower'::text, 'footprints'::text, 'phone-off'::text, 'heart'::text, 'music'::text, 'palette'::text, 'code'::text, 'piggy-bank'::text, 'leaf'::text, 'sun'::text, 'coffee'::text, 'pen-tool'::text, 'target'::text, 'users'::text, 'briefcase'::text, 'graduation-cap'::text, 'bike'::text, 'smile'::text])) OR (char_length(icon) <= 8))),
     CONSTRAINT habits_target_count_check CHECK (((target_count >= 1) AND (target_count <= 7))),
-    CONSTRAINT habits_type_check CHECK ((type = ANY (ARRAY['generic'::text, 'gym'::text, 'sleep'::text, 'reading'::text, 'custom'::text])))
+    CONSTRAINT habits_type_check CHECK ((type = ANY (ARRAY['generic'::text, 'gym'::text, 'sleep'::text, 'reading'::text, 'custom'::text]))),
+    CONSTRAINT habits_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.highlight_explanations (
@@ -1092,7 +1171,9 @@ CREATE TABLE public.highlight_explanations (
     serve_count integer DEFAULT 1 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    diagram text
+    diagram text,
+    CONSTRAINT highlight_explanations_pkey PRIMARY KEY (id),
+    CONSTRAINT highlight_explanations_text_hash_key UNIQUE (text_hash)
 );
 
 CREATE TABLE public.idempotency_keys (
@@ -1103,7 +1184,9 @@ CREATE TABLE public.idempotency_keys (
     request_hash text NOT NULL,
     status_code integer NOT NULL,
     response_body text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT idempotency_keys_idem_key_endpoint_user_id_key UNIQUE (idem_key, endpoint, user_id),
+    CONSTRAINT idempotency_keys_pkey PRIMARY KEY (id)
 );
 
 COMMENT ON TABLE public.idempotency_keys IS 'Retention candidate — drop after 24-48 hours (TTL sweep, no sweep job exists yet).';
@@ -1134,7 +1217,9 @@ CREATE TABLE public.interview_evaluations (
     review_required boolean DEFAULT false NOT NULL,
     ai_model text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT interview_evaluations_scope_check CHECK ((scope = ANY (ARRAY['question'::text, 'overall'::text])))
+    CONSTRAINT interview_evaluations_scope_check CHECK ((scope = ANY (ARRAY['question'::text, 'overall'::text]))),
+    CONSTRAINT interview_evaluations_attempt_id_question_id_scope_key UNIQUE (attempt_id, question_id, scope),
+    CONSTRAINT interview_evaluations_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.interview_exp_entries (
@@ -1146,7 +1231,8 @@ CREATE TABLE public.interview_exp_entries (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     deleted_at timestamp with time zone,
-    CONSTRAINT interview_exp_entries_round_label_not_blank_check CHECK ((btrim(round_label) <> ''::text))
+    CONSTRAINT interview_exp_entries_round_label_not_blank_check CHECK ((btrim(round_label) <> ''::text)),
+    CONSTRAINT interview_exp_entries_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.interview_exp_posts (
@@ -1161,7 +1247,8 @@ CREATE TABLE public.interview_exp_posts (
     deleted_at timestamp with time zone,
     CONSTRAINT interview_exp_posts_company_not_blank_check CHECK ((btrim(company) <> ''::text)),
     CONSTRAINT interview_exp_posts_position_not_blank_check CHECK ((btrim("position") <> ''::text)),
-    CONSTRAINT interview_exp_posts_title_not_blank_check CHECK ((btrim(title) <> ''::text))
+    CONSTRAINT interview_exp_posts_title_not_blank_check CHECK ((btrim(title) <> ''::text)),
+    CONSTRAINT interview_exp_posts_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.interview_exp_qna (
@@ -1174,7 +1261,8 @@ CREATE TABLE public.interview_exp_qna (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     deleted_at timestamp with time zone,
-    CONSTRAINT interview_exp_qna_question_not_blank_check CHECK ((btrim(question) <> ''::text))
+    CONSTRAINT interview_exp_qna_question_not_blank_check CHECK ((btrim(question) <> ''::text)),
+    CONSTRAINT interview_exp_qna_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.interview_exp_qna_progress (
@@ -1185,7 +1273,9 @@ CREATE TABLE public.interview_exp_qna_progress (
     is_starred boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT interview_exp_qna_progress_status_check CHECK ((status = ANY (ARRAY['todo'::text, 'done'::text, 'revisit'::text])))
+    CONSTRAINT interview_exp_qna_progress_status_check CHECK ((status = ANY (ARRAY['todo'::text, 'done'::text, 'revisit'::text]))),
+    CONSTRAINT interview_exp_qna_progress_pkey PRIMARY KEY (id),
+    CONSTRAINT interview_exp_qna_progress_unique UNIQUE (user_id, qna_id)
 );
 
 CREATE TABLE public.interview_prep_plans (
@@ -1210,7 +1300,8 @@ CREATE TABLE public.interview_prep_plans (
     CONSTRAINT interview_prep_plans_jd_text_check CHECK (((jd_text IS NULL) OR (length(jd_text) <= 10000))),
     CONSTRAINT interview_prep_plans_job_title_check CHECK (((length(job_title) >= 1) AND (length(job_title) <= 200))),
     CONSTRAINT interview_prep_plans_plan_type_check CHECK ((plan_type = ANY (ARRAY['quick'::text, 'targeted'::text]))),
-    CONSTRAINT interview_prep_plans_status_check CHECK ((status = ANY (ARRAY['generating'::text, 'ready'::text, 'in_progress'::text, 'completed'::text, 'failed'::text])))
+    CONSTRAINT interview_prep_plans_status_check CHECK ((status = ANY (ARRAY['generating'::text, 'ready'::text, 'in_progress'::text, 'completed'::text, 'failed'::text]))),
+    CONSTRAINT interview_prep_plans_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.interview_prep_rounds (
@@ -1225,7 +1316,9 @@ CREATE TABLE public.interview_prep_rounds (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     completed_at timestamp with time zone,
     CONSTRAINT interview_prep_rounds_round_type_check CHECK ((round_type = ANY (ARRAY['conceptual'::text, 'behavioral'::text, 'coding'::text]))),
-    CONSTRAINT interview_prep_rounds_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'completed'::text])))
+    CONSTRAINT interview_prep_rounds_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'completed'::text]))),
+    CONSTRAINT interview_prep_rounds_pkey PRIMARY KEY (id),
+    CONSTRAINT interview_prep_rounds_plan_id_order_index_key UNIQUE (plan_id, order_index)
 );
 
 CREATE TABLE public.interview_skill_scores (
@@ -1237,7 +1330,8 @@ CREATE TABLE public.interview_skill_scores (
     composite_score numeric(5,2) NOT NULL,
     question_count integer DEFAULT 1 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT interview_skill_scores_skill_check CHECK (((length(skill) >= 1) AND (length(skill) <= 100)))
+    CONSTRAINT interview_skill_scores_skill_check CHECK (((length(skill) >= 1) AND (length(skill) <= 100))),
+    CONSTRAINT interview_skill_scores_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.job_runs (
@@ -1252,7 +1346,8 @@ CREATE TABLE public.job_runs (
     error text,
     heartbeat_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT job_runs_status_check CHECK ((status = ANY (ARRAY['running'::text, 'success'::text, 'failed'::text, 'timeout'::text, 'cancelled'::text])))
+    CONSTRAINT job_runs_status_check CHECK ((status = ANY (ARRAY['running'::text, 'success'::text, 'failed'::text, 'timeout'::text, 'cancelled'::text]))),
+    CONSTRAINT job_runs_pkey PRIMARY KEY (id)
 );
 
 COMMENT ON TABLE public.job_runs IS 'Retention candidate — drop after 90 days.';
@@ -1292,14 +1387,17 @@ CREATE TABLE public.jobs (
     deleted_at timestamp with time zone,
     CONSTRAINT jobs_job_type_check CHECK ((job_type = ANY (ARRAY['one_time'::text, 'cron'::text]))),
     CONSTRAINT jobs_priority_check CHECK (((priority >= 1) AND (priority <= 5))),
-    CONSTRAINT jobs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'queued'::text, 'running'::text, 'success'::text, 'failed'::text, 'dead'::text, 'cancelled'::text])))
+    CONSTRAINT jobs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'queued'::text, 'running'::text, 'success'::text, 'failed'::text, 'dead'::text, 'cancelled'::text]))),
+    CONSTRAINT jobs_idempotency_key_key UNIQUE (idempotency_key),
+    CONSTRAINT jobs_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.jti_blocklist (
     jti text NOT NULL,
     user_id uuid NOT NULL,
     expires_at timestamp with time zone NOT NULL,
-    reason text
+    reason text,
+    CONSTRAINT jti_blocklist_pkey PRIMARY KEY (jti)
 );
 
 CREATE TABLE public.lab_ai_drafts (
@@ -1309,7 +1407,8 @@ CREATE TABLE public.lab_ai_drafts (
     prompt text NOT NULL,
     response text NOT NULL,
     tokens_used integer,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT lab_ai_drafts_pkey PRIMARY KEY (cache_key)
 );
 
 CREATE TABLE public.lab_ai_interactions (
@@ -1323,12 +1422,14 @@ CREATE TABLE public.lab_ai_interactions (
     response text NOT NULL,
     tokens_used integer,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT lab_ai_interactions_interaction_type_check CHECK ((interaction_type = ANY (ARRAY['hint'::text, 'explain'::text, 'diagnose'::text, 'generate'::text, 'writeup_review'::text])))
+    CONSTRAINT lab_ai_interactions_interaction_type_check CHECK ((interaction_type = ANY (ARRAY['hint'::text, 'explain'::text, 'diagnose'::text, 'generate'::text, 'writeup_review'::text]))),
+    CONSTRAINT lab_ai_interactions_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.lab_block_usages (
     build_id uuid NOT NULL,
-    block_version_id uuid NOT NULL
+    block_version_id uuid NOT NULL,
+    CONSTRAINT lab_block_usages_pkey PRIMARY KEY (build_id, block_version_id)
 );
 
 CREATE TABLE public.lab_block_versions (
@@ -1343,7 +1444,10 @@ CREATE TABLE public.lab_block_versions (
     yanked_at timestamp with time zone,
     yanked_reason text,
     created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT lab_block_versions_block_id_content_hash_key UNIQUE (block_id, content_hash),
+    CONSTRAINT lab_block_versions_block_id_version_key UNIQUE (block_id, version),
+    CONSTRAINT lab_block_versions_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.lab_blocks (
@@ -1352,7 +1456,9 @@ CREATE TABLE public.lab_blocks (
     block_key text NOT NULL,
     kind text NOT NULL,
     stack text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT lab_blocks_org_id_block_key_key UNIQUE NULLS NOT DISTINCT (org_id, block_key),
+    CONSTRAINT lab_blocks_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.lab_build_variants (
@@ -1366,7 +1472,8 @@ CREATE TABLE public.lab_build_variants (
     protected_manifest jsonb NOT NULL,
     app_ports integer[] NOT NULL,
     ide_port integer DEFAULT 3000 NOT NULL,
-    payload jsonb DEFAULT '{}'::jsonb NOT NULL
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT lab_build_variants_pkey PRIMARY KEY (build_id, variant_key)
 );
 
 CREATE TABLE public.lab_builds (
@@ -1381,7 +1488,8 @@ CREATE TABLE public.lab_builds (
     created_by uuid NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     finished_at timestamp with time zone,
-    CONSTRAINT lab_builds_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'rendering'::text, 'verifying'::text, 'verified'::text, 'failed'::text])))
+    CONSTRAINT lab_builds_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'rendering'::text, 'verifying'::text, 'verified'::text, 'failed'::text]))),
+    CONSTRAINT lab_builds_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.lab_catalog_meta (
@@ -1390,7 +1498,8 @@ CREATE TABLE public.lab_catalog_meta (
     category text NOT NULL,
     difficulty text NOT NULL,
     skills text[] DEFAULT '{}'::text[] NOT NULL,
-    CONSTRAINT lab_catalog_meta_difficulty_check CHECK ((difficulty = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'expert'::text])))
+    CONSTRAINT lab_catalog_meta_difficulty_check CHECK ((difficulty = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'expert'::text]))),
+    CONSTRAINT lab_catalog_meta_pkey PRIMARY KEY (lab_id)
 );
 
 CREATE TABLE public.lab_definitions (
@@ -1428,7 +1537,8 @@ CREATE TABLE public.lab_definitions (
     CONSTRAINT lab_definitions_scope_check CHECK ((scope = ANY (ARRAY['module'::text, 'course'::text, 'standalone'::text]))),
     CONSTRAINT lab_definitions_workspace_layout_check CHECK ((workspace_layout = ANY (ARRAY['split'::text, 'console'::text]))),
     CONSTRAINT required_lab_has_module CHECK (((NOT is_required) OR (module_id IS NOT NULL))),
-    CONSTRAINT scope_module_consistency CHECK ((((scope = 'standalone'::text) AND (module_id IS NULL)) OR ((scope = 'course'::text) AND (course_id IS NOT NULL)) OR ((scope = 'module'::text) AND (module_id IS NOT NULL))))
+    CONSTRAINT scope_module_consistency CHECK ((((scope = 'standalone'::text) AND (module_id IS NULL)) OR ((scope = 'course'::text) AND (course_id IS NOT NULL)) OR ((scope = 'module'::text) AND (module_id IS NOT NULL)))),
+    CONSTRAINT lab_definitions_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.lab_image_warmup_stats (
@@ -1437,7 +1547,8 @@ CREATE TABLE public.lab_image_warmup_stats (
     samples bigint DEFAULT 0 NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT lab_image_warmup_stats_ewma_positive CHECK ((ewma_seconds >= (0)::double precision)),
-    CONSTRAINT lab_image_warmup_stats_samples_positive CHECK ((samples >= 0))
+    CONSTRAINT lab_image_warmup_stats_samples_positive CHECK ((samples >= 0)),
+    CONSTRAINT lab_image_warmup_stats_pkey PRIMARY KEY (image)
 );
 
 CREATE TABLE public.lab_recipes (
@@ -1452,7 +1563,8 @@ CREATE TABLE public.lab_recipes (
     target_placement jsonb,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    is_platform boolean DEFAULT false NOT NULL
+    is_platform boolean DEFAULT false NOT NULL,
+    CONSTRAINT lab_recipes_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.lab_sessions (
@@ -1485,7 +1597,8 @@ CREATE TABLE public.lab_sessions (
     student_diff text,
     CONSTRAINT lab_sessions_end_reason_check CHECK ((end_reason = ANY (ARRAY['time_limit'::text, 'idle_timeout'::text, 'provision_timeout'::text, 'provision_failed'::text, 'reset_failed'::text]))),
     CONSTRAINT lab_sessions_repo_clone_status_check CHECK (((repo_clone_status IS NULL) OR (repo_clone_status = ANY (ARRAY['pending'::text, 'cloned'::text, 'failed'::text, 'skipped'::text])))),
-    CONSTRAINT lab_sessions_status_check CHECK ((status = ANY (ARRAY['provisioning'::text, 'running'::text, 'paused'::text, 'completed'::text, 'expired'::text, 'failed'::text, 'terminated_abuse'::text])))
+    CONSTRAINT lab_sessions_status_check CHECK ((status = ANY (ARRAY['provisioning'::text, 'running'::text, 'paused'::text, 'completed'::text, 'expired'::text, 'failed'::text, 'terminated_abuse'::text]))),
+    CONSTRAINT lab_sessions_pkey PRIMARY KEY (id)
 );
 
 COMMENT ON COLUMN public.lab_sessions.paused_at IS 'When the current pause began; NULL whenever status <> ''paused''. Resume adds now() - paused_at into paused_seconds and clears this.';
@@ -1498,7 +1611,9 @@ CREATE TABLE public.lab_task_completions (
     hints_used integer DEFAULT 0 NOT NULL,
     completed_at timestamp with time zone,
     task_version_item_id uuid NOT NULL,
-    CONSTRAINT lab_task_completions_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'passed'::text, 'skipped'::text])))
+    CONSTRAINT lab_task_completions_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'passed'::text, 'skipped'::text]))),
+    CONSTRAINT lab_task_completions_pkey PRIMARY KEY (id),
+    CONSTRAINT lab_task_completions_session_id_task_version_item_id_key UNIQUE (session_id, task_version_item_id)
 );
 
 CREATE TABLE public.lab_task_version_items (
@@ -1515,7 +1630,10 @@ CREATE TABLE public.lab_task_version_items (
     is_optional boolean NOT NULL,
     is_stateful boolean NOT NULL,
     grader text DEFAULT 'script'::text NOT NULL,
-    CONSTRAINT lab_task_version_items_grader_check CHECK ((grader = ANY (ARRAY['script'::text, 'writeup_review'::text])))
+    CONSTRAINT lab_task_version_items_grader_check CHECK ((grader = ANY (ARRAY['script'::text, 'writeup_review'::text]))),
+    CONSTRAINT lab_task_version_items_pkey PRIMARY KEY (id),
+    CONSTRAINT lab_task_version_items_task_version_id_position_key UNIQUE (task_version_id, "position"),
+    CONSTRAINT lab_task_version_items_task_version_id_source_task_id_key UNIQUE (task_version_id, source_task_id)
 );
 
 CREATE TABLE public.lab_task_versions (
@@ -1525,7 +1643,9 @@ CREATE TABLE public.lab_task_versions (
     published_by uuid NOT NULL,
     published_at timestamp with time zone DEFAULT now() NOT NULL,
     tasks jsonb DEFAULT '[]'::jsonb NOT NULL,
-    build_id uuid
+    build_id uuid,
+    CONSTRAINT lab_task_versions_lab_id_version_key UNIQUE (lab_id, version),
+    CONSTRAINT lab_task_versions_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.lab_tasks (
@@ -1542,7 +1662,9 @@ CREATE TABLE public.lab_tasks (
     is_stateful boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     grader text DEFAULT 'script'::text NOT NULL,
-    CONSTRAINT lab_tasks_grader_check CHECK ((grader = ANY (ARRAY['script'::text, 'writeup_review'::text])))
+    CONSTRAINT lab_tasks_grader_check CHECK ((grader = ANY (ARRAY['script'::text, 'writeup_review'::text]))),
+    CONSTRAINT lab_tasks_lab_id_position_key UNIQUE (lab_id, "position"),
+    CONSTRAINT lab_tasks_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.lab_usage_events (
@@ -1553,7 +1675,8 @@ CREATE TABLE public.lab_usage_events (
     quantity bigint NOT NULL,
     image text,
     recorded_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT lab_usage_events_event_type_check CHECK ((event_type = ANY (ARRAY['container_seconds'::text, 'ai_tokens'::text, 'validation_seconds'::text])))
+    CONSTRAINT lab_usage_events_event_type_check CHECK ((event_type = ANY (ARRAY['container_seconds'::text, 'ai_tokens'::text, 'validation_seconds'::text]))),
+    CONSTRAINT lab_usage_events_pkey PRIMARY KEY (id)
 );
 
 COMMENT ON TABLE public.lab_usage_events IS 'Partitioning candidate — monthly range on created_at.';
@@ -1579,7 +1702,8 @@ CREATE TABLE public.lab_warm_containers (
     claimed_at timestamp with time zone,
     CONSTRAINT lab_warm_containers_claimed_has_session CHECK (((status <> 'claimed'::text) OR (session_id IS NOT NULL))),
     CONSTRAINT lab_warm_containers_ready_has_container CHECK (((status = 'warming'::text) OR ((container_id IS NOT NULL) AND (container_host IS NOT NULL)))),
-    CONSTRAINT lab_warm_containers_status_check CHECK ((status = ANY (ARRAY['warming'::text, 'ready'::text, 'claimed'::text])))
+    CONSTRAINT lab_warm_containers_status_check CHECK ((status = ANY (ARRAY['warming'::text, 'ready'::text, 'claimed'::text]))),
+    CONSTRAINT lab_warm_containers_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.lab_warm_pool_decisions (
@@ -1591,7 +1715,8 @@ CREATE TABLE public.lab_warm_pool_decisions (
     inputs jsonb DEFAULT '{}'::jsonb NOT NULL,
     reason text NOT NULL,
     image text NOT NULL,
-    CONSTRAINT lab_warm_pool_decisions_target_check CHECK (((target >= 0) AND (previous_target >= 0)))
+    CONSTRAINT lab_warm_pool_decisions_target_check CHECK (((target >= 0) AND (previous_target >= 0))),
+    CONSTRAINT lab_warm_pool_decisions_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.learning_annotations (
@@ -1607,7 +1732,8 @@ CREATE TABLE public.learning_annotations (
     resolved_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT learning_annotations_annotation_type_check CHECK ((annotation_type = ANY (ARRAY['note'::text, 'reflection'::text, 'highlight'::text, 'mistake'::text])))
+    CONSTRAINT learning_annotations_annotation_type_check CHECK ((annotation_type = ANY (ARRAY['note'::text, 'reflection'::text, 'highlight'::text, 'mistake'::text]))),
+    CONSTRAINT learning_annotations_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.learning_journal_entries (
@@ -1623,7 +1749,8 @@ CREATE TABLE public.learning_journal_entries (
     CONSTRAINT learning_journal_entries_category_len_check CHECK (((char_length(category) >= 1) AND (char_length(category) <= 60))),
     CONSTRAINT learning_journal_entries_content_len_check CHECK (((char_length(content) >= 1) AND (char_length(content) <= 20000))),
     CONSTRAINT learning_journal_entries_subcategory_len_check CHECK (((char_length(subcategory) >= 1) AND (char_length(subcategory) <= 60))),
-    CONSTRAINT learning_journal_entries_title_len_check CHECK (((char_length(title) >= 1) AND (char_length(title) <= 200)))
+    CONSTRAINT learning_journal_entries_title_len_check CHECK (((char_length(title) >= 1) AND (char_length(title) <= 200))),
+    CONSTRAINT learning_journal_entries_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.legal_acceptances (
@@ -1633,14 +1760,16 @@ CREATE TABLE public.legal_acceptances (
     version text NOT NULL,
     ip text,
     accepted_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT legal_acceptances_doc_type_check CHECK ((doc_type = ANY (ARRAY['terms'::text, 'privacy'::text])))
+    CONSTRAINT legal_acceptances_doc_type_check CHECK ((doc_type = ANY (ARRAY['terms'::text, 'privacy'::text]))),
+    CONSTRAINT legal_acceptances_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.mcp_clients (
     client_id text NOT NULL,
     client_name text NOT NULL,
     redirect_uris text[] NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT mcp_clients_pkey PRIMARY KEY (client_id)
 );
 
 CREATE TABLE public.mcp_connections (
@@ -1656,7 +1785,8 @@ CREATE TABLE public.mcp_connections (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     revoked_at timestamp with time zone,
     previous_refresh_token_hash text,
-    CONSTRAINT mcp_connections_status_check CHECK ((status = ANY (ARRAY['active'::text, 'revoked'::text])))
+    CONSTRAINT mcp_connections_status_check CHECK ((status = ANY (ARRAY['active'::text, 'revoked'::text]))),
+    CONSTRAINT mcp_connections_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.meeting_attendance (
@@ -1666,7 +1796,8 @@ CREATE TABLE public.meeting_attendance (
     status text NOT NULL,
     recorded_by uuid,
     recorded_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT meeting_attendance_status_check CHECK ((status = ANY (ARRAY['attended'::text, 'missed'::text])))
+    CONSTRAINT meeting_attendance_status_check CHECK ((status = ANY (ARRAY['attended'::text, 'missed'::text]))),
+    CONSTRAINT meeting_attendance_pkey PRIMARY KEY (calendar_event_id, occurrence_at, user_id)
 );
 
 CREATE TABLE public.mentor_availability_exceptions (
@@ -1684,7 +1815,8 @@ CREATE TABLE public.mentor_availability_exceptions (
     CONSTRAINT mentor_availability_exc_note_chk CHECK (((note IS NULL) OR (length(note) <= 500))),
     CONSTRAINT mentor_availability_exc_open_needs_window_chk CHECK ((is_blocked OR (start_minute IS NOT NULL))),
     CONSTRAINT mentor_availability_exc_slot_chk CHECK (((slot_minutes >= 5) AND (slot_minutes <= 480))),
-    CONSTRAINT mentor_availability_exc_window_chk CHECK ((((start_minute IS NULL) AND (end_minute IS NULL)) OR ((start_minute >= 0) AND (end_minute <= 1440) AND (end_minute > start_minute))))
+    CONSTRAINT mentor_availability_exc_window_chk CHECK ((((start_minute IS NULL) AND (end_minute IS NULL)) OR ((start_minute >= 0) AND (end_minute <= 1440) AND (end_minute > start_minute)))),
+    CONSTRAINT mentor_availability_exceptions_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.mentor_availability_rules (
@@ -1702,7 +1834,8 @@ CREATE TABLE public.mentor_availability_rules (
     CONSTRAINT mentor_availability_slot_chk CHECK (((slot_minutes >= 5) AND (slot_minutes <= 480))),
     CONSTRAINT mentor_availability_tz_chk CHECK (((length(timezone) >= 1) AND (length(timezone) <= 64))),
     CONSTRAINT mentor_availability_weekday_chk CHECK (((weekday >= 0) AND (weekday <= 6))),
-    CONSTRAINT mentor_availability_window_chk CHECK (((start_minute >= 0) AND (end_minute <= 1440) AND (end_minute > start_minute)))
+    CONSTRAINT mentor_availability_window_chk CHECK (((start_minute >= 0) AND (end_minute <= 1440) AND (end_minute > start_minute))),
+    CONSTRAINT mentor_availability_rules_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.mentor_sessions (
@@ -1733,7 +1866,10 @@ CREATE TABLE public.mentor_sessions (
     CONSTRAINT mentor_sessions_status_chk CHECK ((status = ANY (ARRAY['scheduled'::text, 'completed'::text, 'cancelled'::text, 'no_show'::text]))),
     CONSTRAINT mentor_sessions_subject_chk CHECK ((((student_id IS NOT NULL) AND (batch_id IS NULL)) OR ((student_id IS NULL) AND (batch_id IS NOT NULL)))),
     CONSTRAINT mentor_sessions_title_chk CHECK (((length(title) >= 1) AND (length(title) <= 200))),
-    CONSTRAINT mentor_sessions_window_chk CHECK ((ends_at > starts_at))
+    CONSTRAINT mentor_sessions_window_chk CHECK ((ends_at > starts_at)),
+    CONSTRAINT mentor_sessions_no_overlap EXCLUDE USING gist (mentor_id WITH =, tstzrange(starts_at, ends_at) WITH &&) WHERE ((status = 'scheduled'::text)),
+    CONSTRAINT mentor_sessions_pkey PRIMARY KEY (id),
+    CONSTRAINT mentor_sessions_student_no_overlap EXCLUDE USING gist (student_id WITH =, tstzrange(starts_at, ends_at) WITH &&) WHERE (((status = 'scheduled'::text) AND (student_id IS NOT NULL)))
 );
 
 CREATE TABLE public.messages (
@@ -1746,7 +1882,8 @@ CREATE TABLE public.messages (
     read_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT messages_body_check CHECK (((char_length(body) >= 1) AND (char_length(body) <= 4000))),
-    CONSTRAINT messages_thread_type_check CHECK ((thread_type = ANY (ARRAY['mentor_ticket'::text, 'mentor_conversation'::text, 'support_ticket'::text])))
+    CONSTRAINT messages_thread_type_check CHECK ((thread_type = ANY (ARRAY['mentor_ticket'::text, 'mentor_conversation'::text, 'support_ticket'::text]))),
+    CONSTRAINT messages_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.module_progress (
@@ -1758,7 +1895,9 @@ CREATE TABLE public.module_progress (
     last_position_seconds integer DEFAULT 0,
     completed_at timestamp with time zone,
     updated_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT module_progress_status_check CHECK ((status = ANY (ARRAY['not_started'::text, 'in_progress'::text, 'completed'::text])))
+    CONSTRAINT module_progress_status_check CHECK ((status = ANY (ARRAY['not_started'::text, 'in_progress'::text, 'completed'::text]))),
+    CONSTRAINT module_progress_pkey PRIMARY KEY (id),
+    CONSTRAINT module_progress_user_id_module_id_key UNIQUE (user_id, module_id)
 );
 
 CREATE TABLE public.module_translations (
@@ -1768,7 +1907,8 @@ CREATE TABLE public.module_translations (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT module_translations_content_body_check CHECK ((length(content_body) > 0)),
-    CONSTRAINT module_translations_locale_check CHECK ((locale ~ '^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$'::text))
+    CONSTRAINT module_translations_locale_check CHECK ((locale ~ '^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$'::text)),
+    CONSTRAINT module_translations_pkey PRIMARY KEY (module_id, locale)
 );
 
 CREATE TABLE public.notifications (
@@ -1787,7 +1927,9 @@ CREATE TABLE public.notifications (
     read_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT notifications_priority_check CHECK ((priority = ANY (ARRAY['low'::text, 'normal'::text, 'high'::text]))),
-    CONSTRAINT notifications_title_not_blank_check CHECK ((btrim(title) <> ''::text))
+    CONSTRAINT notifications_title_not_blank_check CHECK ((btrim(title) <> ''::text)),
+    CONSTRAINT notifications_pkey PRIMARY KEY (id),
+    CONSTRAINT notifications_user_dedupe_key_key UNIQUE (user_id, dedupe_key)
 );
 
 COMMENT ON TABLE public.notifications IS 'Partitioning candidate — monthly range on created_at.';
@@ -1795,7 +1937,8 @@ COMMENT ON TABLE public.notifications IS 'Partitioning candidate — monthly ran
 CREATE TABLE public.onboarding_progress (
     step_id uuid NOT NULL,
     user_id uuid NOT NULL,
-    done_at timestamp with time zone DEFAULT now() NOT NULL
+    done_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT onboarding_progress_pkey PRIMARY KEY (step_id, user_id)
 );
 
 CREATE TABLE public.onboarding_steps (
@@ -1807,7 +1950,8 @@ CREATE TABLE public.onboarding_steps (
     "position" integer NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT onboarding_steps_position_check CHECK (("position" >= 0)),
-    CONSTRAINT onboarding_steps_title_check CHECK (((char_length(btrim(title)) >= 1) AND (char_length(btrim(title)) <= 200)))
+    CONSTRAINT onboarding_steps_title_check CHECK (((char_length(btrim(title)) >= 1) AND (char_length(btrim(title)) <= 200))),
+    CONSTRAINT onboarding_steps_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.ops_alert_rules (
@@ -1821,7 +1965,8 @@ CREATE TABLE public.ops_alert_rules (
     CONSTRAINT ops_alert_rules_dedupe_window_minutes_check CHECK (((dedupe_window_minutes >= 1) AND (dedupe_window_minutes <= 1440))),
     CONSTRAINT ops_alert_rules_severity_check CHECK ((severity = ANY (ARRAY['low'::text, 'normal'::text, 'high'::text]))),
     CONSTRAINT ops_alert_rules_storm_threshold_check CHECK (((storm_threshold >= 1) AND (storm_threshold <= 100000))),
-    CONSTRAINT ops_alert_rules_storm_window_minutes_check CHECK (((storm_window_minutes >= 1) AND (storm_window_minutes <= 1440)))
+    CONSTRAINT ops_alert_rules_storm_window_minutes_check CHECK (((storm_window_minutes >= 1) AND (storm_window_minutes <= 1440))),
+    CONSTRAINT ops_alert_rules_pkey PRIMARY KEY (handler)
 );
 
 CREATE TABLE public.org_auth_config (
@@ -1842,7 +1987,8 @@ CREATE TABLE public.org_auth_config (
     allowed_domains text[] DEFAULT '{}'::text[] NOT NULL,
     updated_at timestamp with time zone DEFAULT now(),
     oidc_client_secret_enc bytea,
-    CONSTRAINT org_auth_sso_provider_check CHECK ((sso_provider = ANY (ARRAY['google'::text, 'azure_ad'::text, 'okta'::text, 'saml'::text, 'oidc'::text])))
+    CONSTRAINT org_auth_sso_provider_check CHECK ((sso_provider = ANY (ARRAY['google'::text, 'azure_ad'::text, 'okta'::text, 'saml'::text, 'oidc'::text]))),
+    CONSTRAINT org_auth_config_pkey PRIMARY KEY (org_id)
 );
 
 COMMENT ON COLUMN public.org_auth_config.oidc_client_secret IS 'DEPRECATED — plaintext. Encrypt into oidc_client_secret_enc via the secrets package, then drop this column in a follow-up migration.';
@@ -1858,7 +2004,9 @@ CREATE TABLE public.org_domains (
     auto_join_enabled boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT org_domains_verification_method_check CHECK ((verification_method = ANY (ARRAY['dns_txt'::text, 'email'::text])))
+    CONSTRAINT org_domains_verification_method_check CHECK ((verification_method = ANY (ARRAY['dns_txt'::text, 'email'::text]))),
+    CONSTRAINT org_domains_org_id_domain_key UNIQUE (org_id, domain),
+    CONSTRAINT org_domains_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.org_feature_flags (
@@ -1866,7 +2014,8 @@ CREATE TABLE public.org_feature_flags (
     feature_key text NOT NULL,
     enabled boolean NOT NULL,
     updated_by uuid NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT org_feature_flags_pkey PRIMARY KEY (org_id, feature_key)
 );
 
 CREATE TABLE public.org_invites (
@@ -1886,7 +2035,9 @@ CREATE TABLE public.org_invites (
     email_status text DEFAULT 'pending'::text NOT NULL,
     email_error text,
     CONSTRAINT org_invites_email_status_check CHECK ((email_status = ANY (ARRAY['pending'::text, 'sent'::text, 'failed'::text]))),
-    CONSTRAINT org_invites_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'mentor'::text, 'instructor'::text, 'learner'::text])))
+    CONSTRAINT org_invites_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'mentor'::text, 'instructor'::text, 'learner'::text]))),
+    CONSTRAINT org_invites_pkey PRIMARY KEY (id),
+    CONSTRAINT org_invites_token_hash_key UNIQUE (token_hash)
 );
 
 CREATE TABLE public.org_members (
@@ -1899,7 +2050,9 @@ CREATE TABLE public.org_members (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     CONSTRAINT org_members_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'admin'::text, 'instructor'::text, 'mentor'::text, 'learner'::text]))),
-    CONSTRAINT org_members_status_check CHECK ((status = ANY (ARRAY['active'::text, 'suspended'::text, 'removed'::text])))
+    CONSTRAINT org_members_status_check CHECK ((status = ANY (ARRAY['active'::text, 'suspended'::text, 'removed'::text]))),
+    CONSTRAINT org_members_org_id_user_id_key UNIQUE (org_id, user_id),
+    CONSTRAINT org_members_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.org_settings (
@@ -1910,7 +2063,8 @@ CREATE TABLE public.org_settings (
     gitlab jsonb DEFAULT '{}'::jsonb NOT NULL,
     labs jsonb DEFAULT '{}'::jsonb NOT NULL,
     session_booking jsonb DEFAULT '{}'::jsonb NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT org_settings_pkey PRIMARY KEY (org_id)
 );
 
 CREATE TABLE public.organizations (
@@ -1931,7 +2085,9 @@ CREATE TABLE public.organizations (
     tier_id text DEFAULT 'org_starter'::text NOT NULL,
     CONSTRAINT organizations_org_type_check CHECK (((org_type IS NULL) OR (org_type = ANY (ARRAY['school'::text, 'college'::text, 'university'::text, 'bootcamp'::text, 'corporate'::text])))),
     CONSTRAINT orgs_slug_format CHECK ((slug ~ '^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$'::text)),
-    CONSTRAINT orgs_status_check CHECK ((status = ANY (ARRAY['pending_verification'::text, 'onboarding'::text, 'active'::text, 'suspended'::text, 'archived'::text])))
+    CONSTRAINT orgs_status_check CHECK ((status = ANY (ARRAY['pending_verification'::text, 'onboarding'::text, 'active'::text, 'suspended'::text, 'archived'::text]))),
+    CONSTRAINT organizations_pkey PRIMARY KEY (id),
+    CONSTRAINT organizations_slug_key UNIQUE (slug)
 );
 
 CREATE TABLE public.payment_events (
@@ -1945,7 +2101,9 @@ CREATE TABLE public.payment_events (
     received_at timestamp with time zone DEFAULT now() NOT NULL,
     processed_at timestamp with time zone,
     error text,
-    CONSTRAINT payment_events_provider_check CHECK ((provider = ANY (ARRAY['stub'::text, 'stripe'::text, 'razorpay'::text])))
+    CONSTRAINT payment_events_provider_check CHECK ((provider = ANY (ARRAY['stub'::text, 'stripe'::text, 'razorpay'::text]))),
+    CONSTRAINT payment_events_pkey PRIMARY KEY (id),
+    CONSTRAINT payment_events_provider_event_key UNIQUE (provider, event_id)
 );
 
 CREATE TABLE public.peer_feedback (
@@ -1959,7 +2117,9 @@ CREATE TABLE public.peer_feedback (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT peer_feedback_check CHECK ((from_user <> to_user)),
     CONSTRAINT peer_feedback_comment_check CHECK (((comment IS NULL) OR (char_length(comment) <= 2000))),
-    CONSTRAINT peer_feedback_rating_check CHECK (((rating >= 1) AND (rating <= 5)))
+    CONSTRAINT peer_feedback_rating_check CHECK (((rating >= 1) AND (rating <= 5))),
+    CONSTRAINT peer_feedback_pkey PRIMARY KEY (id),
+    CONSTRAINT peer_feedback_project_id_from_user_to_user_key UNIQUE (project_id, from_user, to_user)
 );
 
 CREATE TABLE public.permissions (
@@ -1970,7 +2130,9 @@ CREATE TABLE public.permissions (
     module text NOT NULL,
     is_active boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT permissions_code_key UNIQUE (code),
+    CONSTRAINT permissions_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.plan_limits (
@@ -1985,7 +2147,9 @@ CREATE TABLE public.plan_limits (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT plan_limits_check CHECK ((((kind = 'gate'::text) AND (bool_value IS NOT NULL) AND (numeric_value IS NULL) AND (period IS NULL)) OR ((kind = 'quota'::text) AND (numeric_value IS NOT NULL) AND (period IS NOT NULL) AND (bool_value IS NULL)) OR ((kind = 'unlimited'::text) AND (bool_value IS NULL) AND (numeric_value IS NULL)))),
     CONSTRAINT plan_limits_kind_check CHECK ((kind = ANY (ARRAY['gate'::text, 'quota'::text, 'unlimited'::text]))),
-    CONSTRAINT plan_limits_period_check CHECK ((period = ANY (ARRAY['day'::text, 'month'::text, 'concurrent'::text])))
+    CONSTRAINT plan_limits_period_check CHECK ((period = ANY (ARRAY['day'::text, 'month'::text, 'concurrent'::text]))),
+    CONSTRAINT plan_limits_pkey PRIMARY KEY (id),
+    CONSTRAINT plan_limits_tier_id_feature_key_key UNIQUE (tier_id, feature_key)
 );
 
 CREATE TABLE public.practice_question_bank (
@@ -1998,7 +2162,8 @@ CREATE TABLE public.practice_question_bank (
     use_count integer DEFAULT 0 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT practice_question_bank_category_check CHECK ((category = ANY (ARRAY['technical'::text, 'behavioral'::text]))),
-    CONSTRAINT practice_question_bank_questions_check CHECK ((cardinality(questions) > 0))
+    CONSTRAINT practice_question_bank_questions_check CHECK ((cardinality(questions) > 0)),
+    CONSTRAINT practice_question_bank_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.pricing_tiers (
@@ -2016,7 +2181,8 @@ CREATE TABLE public.pricing_tiers (
     highlighted boolean DEFAULT false NOT NULL,
     updated_by uuid,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT pricing_tiers_audience_check CHECK ((audience = ANY (ARRAY['individual'::text, 'org'::text])))
+    CONSTRAINT pricing_tiers_audience_check CHECK ((audience = ANY (ARRAY['individual'::text, 'org'::text]))),
+    CONSTRAINT pricing_tiers_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.project_applications (
@@ -2034,7 +2200,9 @@ CREATE TABLE public.project_applications (
     ai_rationale text,
     ai_scored_at timestamp with time zone,
     CONSTRAINT project_applications_ai_score_check CHECK (((ai_score IS NULL) OR ((ai_score >= (0)::double precision) AND (ai_score <= (100)::double precision)))),
-    CONSTRAINT project_applications_status_check CHECK ((status = ANY (ARRAY['submitted'::text, 'shortlisted'::text, 'selected'::text, 'rejected'::text])))
+    CONSTRAINT project_applications_status_check CHECK ((status = ANY (ARRAY['submitted'::text, 'shortlisted'::text, 'selected'::text, 'rejected'::text]))),
+    CONSTRAINT project_applications_pkey PRIMARY KEY (id),
+    CONSTRAINT project_applications_requirement_id_user_id_key UNIQUE (requirement_id, user_id)
 );
 
 CREATE TABLE public.project_assignments (
@@ -2065,7 +2233,9 @@ CREATE TABLE public.project_assignments (
     CONSTRAINT project_assignments_schedule_chk CHECK (((starts_at IS NULL) OR (due_at IS NULL) OR (due_at > starts_at))),
     CONSTRAINT project_assignments_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'active'::text, 'archived'::text]))),
     CONSTRAINT project_assignments_title_not_blank_check CHECK ((btrim(title) <> ''::text)),
-    CONSTRAINT project_assignments_visibility_check CHECK ((visibility = ANY (ARRAY['private'::text, 'internal'::text])))
+    CONSTRAINT project_assignments_visibility_check CHECK ((visibility = ANY (ARRAY['private'::text, 'internal'::text]))),
+    CONSTRAINT project_assignments_batch_slug_key UNIQUE (batch_id, slug),
+    CONSTRAINT project_assignments_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.project_checkpoints (
@@ -2085,7 +2255,9 @@ CREATE TABLE public.project_checkpoints (
     kind text DEFAULT 'milestone'::text NOT NULL,
     CONSTRAINT project_checkpoints_kind_check CHECK ((kind = ANY (ARRAY['requirement_doc'::text, 'design_review'::text, 'architecture_review'::text, 'mr_review'::text, 'milestone'::text]))),
     CONSTRAINT project_checkpoints_title_not_blank_check CHECK ((btrim(title) <> ''::text)),
-    CONSTRAINT project_checkpoints_weight_check CHECK ((weight >= 0))
+    CONSTRAINT project_checkpoints_weight_check CHECK ((weight >= 0)),
+    CONSTRAINT project_checkpoints_assignment_position_key UNIQUE (assignment_id, "position"),
+    CONSTRAINT project_checkpoints_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.project_design_proposals (
@@ -2098,13 +2270,15 @@ CREATE TABLE public.project_design_proposals (
     description text,
     link text,
     is_accepted boolean DEFAULT false NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT project_design_proposals_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.project_design_votes (
     proposal_id uuid NOT NULL,
     user_id uuid NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT project_design_votes_pkey PRIMARY KEY (proposal_id, user_id)
 );
 
 CREATE TABLE public.project_interests (
@@ -2132,7 +2306,9 @@ CREATE TABLE public.project_interests (
     CONSTRAINT project_interests_name_check CHECK (((char_length(btrim(name)) >= 1) AND (char_length(btrim(name)) <= 120))),
     CONSTRAINT project_interests_portfolio_url_check CHECK (((portfolio_url IS NULL) OR (char_length(portfolio_url) <= 500))),
     CONSTRAINT project_interests_skills_check CHECK ((cardinality(skills) <= 30)),
-    CONSTRAINT project_interests_status_check CHECK ((status = ANY (ARRAY['new'::text, 'accepted'::text, 'rejected'::text, 'invite_expired'::text, 'joined'::text])))
+    CONSTRAINT project_interests_status_check CHECK ((status = ANY (ARRAY['new'::text, 'accepted'::text, 'rejected'::text, 'invite_expired'::text, 'joined'::text]))),
+    CONSTRAINT project_interests_pkey PRIMARY KEY (id),
+    CONSTRAINT project_interests_project_id_email_key UNIQUE (project_id, email)
 );
 
 CREATE TABLE public.project_meetings (
@@ -2143,7 +2319,8 @@ CREATE TABLE public.project_meetings (
     notes_wiki_page_id uuid,
     created_by uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT project_meetings_kind_check CHECK ((kind = ANY (ARRAY['kickoff'::text, 'sprint_planning'::text, 'standup'::text, 'design_review'::text, 'retro'::text, 'demo'::text])))
+    CONSTRAINT project_meetings_kind_check CHECK ((kind = ANY (ARRAY['kickoff'::text, 'sprint_planning'::text, 'standup'::text, 'design_review'::text, 'retro'::text, 'demo'::text]))),
+    CONSTRAINT project_meetings_pkey PRIMARY KEY (calendar_event_id)
 );
 
 CREATE TABLE public.project_members (
@@ -2159,7 +2336,8 @@ CREATE TABLE public.project_members (
     CONSTRAINT project_members_check CHECK (((status = ANY (ARRAY['left'::text, 'removed'::text])) = (left_at IS NOT NULL))),
     CONSTRAINT project_members_check1 CHECK (((role <> 'owner'::text) OR (status = 'active'::text))),
     CONSTRAINT project_members_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'manager'::text, 'member'::text, 'viewer'::text]))),
-    CONSTRAINT project_members_status_check CHECK ((status = ANY (ARRAY['invited'::text, 'active'::text, 'left'::text, 'removed'::text])))
+    CONSTRAINT project_members_status_check CHECK ((status = ANY (ARRAY['invited'::text, 'active'::text, 'left'::text, 'removed'::text]))),
+    CONSTRAINT project_members_pkey PRIMARY KEY (project_id, user_id)
 );
 
 CREATE TABLE public.project_originality_matches (
@@ -2172,7 +2350,8 @@ CREATE TABLE public.project_originality_matches (
     similarity numeric(5,4) NOT NULL,
     matched_lines integer,
     sample text,
-    CONSTRAINT project_originality_matches_similarity_check CHECK (((similarity >= (0)::numeric) AND (similarity <= (1)::numeric)))
+    CONSTRAINT project_originality_matches_similarity_check CHECK (((similarity >= (0)::numeric) AND (similarity <= (1)::numeric))),
+    CONSTRAINT project_originality_matches_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.project_originality_reports (
@@ -2186,7 +2365,8 @@ CREATE TABLE public.project_originality_reports (
     requested_by uuid,
     requested_at timestamp with time zone DEFAULT now() NOT NULL,
     completed_at timestamp with time zone,
-    CONSTRAINT project_originality_reports_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'complete'::text, 'failed'::text])))
+    CONSTRAINT project_originality_reports_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'complete'::text, 'failed'::text]))),
+    CONSTRAINT project_originality_reports_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.project_requirements (
@@ -2203,7 +2383,8 @@ CREATE TABLE public.project_requirements (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT project_requirements_check CHECK ((team_size_max >= team_size_min)),
-    CONSTRAINT project_requirements_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'open'::text, 'closed'::text, 'archived'::text])))
+    CONSTRAINT project_requirements_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'open'::text, 'closed'::text, 'archived'::text]))),
+    CONSTRAINT project_requirements_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.project_tasks (
@@ -2219,7 +2400,8 @@ CREATE TABLE public.project_tasks (
     created_by uuid NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT project_tasks_status_check CHECK ((status = ANY (ARRAY['todo'::text, 'in_progress'::text, 'review'::text, 'done'::text])))
+    CONSTRAINT project_tasks_status_check CHECK ((status = ANY (ARRAY['todo'::text, 'in_progress'::text, 'review'::text, 'done'::text]))),
+    CONSTRAINT project_tasks_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.project_team_checkpoints (
@@ -2248,7 +2430,9 @@ CREATE TABLE public.project_team_checkpoints (
     CONSTRAINT project_team_checkpoints_ci_status_check CHECK ((ci_status = ANY (ARRAY['none'::text, 'pending'::text, 'running'::text, 'success'::text, 'failed'::text, 'canceled'::text]))),
     CONSTRAINT project_team_checkpoints_mr_state_check CHECK (((mr_state IS NULL) OR (mr_state = ANY (ARRAY['opened'::text, 'merged'::text, 'closed'::text, 'locked'::text])))),
     CONSTRAINT project_team_checkpoints_score_check CHECK (((score IS NULL) OR ((score >= (0)::numeric) AND (score <= (100)::numeric)))),
-    CONSTRAINT project_team_checkpoints_status_check CHECK ((status = ANY (ARRAY['open'::text, 'submitted'::text, 'approved'::text, 'merged'::text, 'graded'::text])))
+    CONSTRAINT project_team_checkpoints_status_check CHECK ((status = ANY (ARRAY['open'::text, 'submitted'::text, 'approved'::text, 'merged'::text, 'graded'::text]))),
+    CONSTRAINT project_team_checkpoints_pkey PRIMARY KEY (id),
+    CONSTRAINT project_team_checkpoints_team_checkpoint_key UNIQUE (team_id, checkpoint_id)
 );
 
 CREATE TABLE public.project_team_members (
@@ -2264,7 +2448,9 @@ CREATE TABLE public.project_team_members (
     added_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT project_team_members_access_level_check CHECK ((gitlab_access_level = ANY (ARRAY[20, 30, 40]))),
     CONSTRAINT project_team_members_role_check CHECK ((role = ANY (ARRAY['lead'::text, 'member'::text]))),
-    CONSTRAINT project_team_members_sync_status_check CHECK ((sync_status = ANY (ARRAY['pending'::text, 'synced'::text, 'failed'::text, 'removing'::text])))
+    CONSTRAINT project_team_members_sync_status_check CHECK ((sync_status = ANY (ARRAY['pending'::text, 'synced'::text, 'failed'::text, 'removing'::text]))),
+    CONSTRAINT project_team_members_assignment_user_key UNIQUE (assignment_id, user_id),
+    CONSTRAINT project_team_members_pkey PRIMARY KEY (team_id, user_id)
 );
 
 CREATE TABLE public.project_teams (
@@ -2284,7 +2470,10 @@ CREATE TABLE public.project_teams (
     created_by uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT project_teams_provision_status_check CHECK ((provision_status = ANY (ARRAY['pending'::text, 'provisioning'::text, 'ready'::text, 'failed'::text])))
+    CONSTRAINT project_teams_provision_status_check CHECK ((provision_status = ANY (ARRAY['pending'::text, 'provisioning'::text, 'ready'::text, 'failed'::text]))),
+    CONSTRAINT project_teams_assignment_slug_key UNIQUE (assignment_id, slug),
+    CONSTRAINT project_teams_id_assignment_key UNIQUE (id, assignment_id),
+    CONSTRAINT project_teams_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.project_track_members (
@@ -2294,7 +2483,8 @@ CREATE TABLE public.project_track_members (
     status text DEFAULT 'pending'::text NOT NULL,
     approved_by uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT project_track_members_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text])))
+    CONSTRAINT project_track_members_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text]))),
+    CONSTRAINT project_track_members_pkey PRIMARY KEY (track_id, user_id)
 );
 
 CREATE TABLE public.project_tracks (
@@ -2305,7 +2495,9 @@ CREATE TABLE public.project_tracks (
     created_by uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT project_tracks_name_check CHECK (((char_length(btrim(name)) >= 1) AND (char_length(btrim(name)) <= 60)))
+    CONSTRAINT project_tracks_name_check CHECK (((char_length(btrim(name)) >= 1) AND (char_length(btrim(name)) <= 60))),
+    CONSTRAINT project_tracks_id_project_id_key UNIQUE (id, project_id),
+    CONSTRAINT project_tracks_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.projects (
@@ -2314,7 +2506,8 @@ CREATE TABLE public.projects (
     name text NOT NULL,
     description text DEFAULT ''::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT projects_name_len_check CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))
+    CONSTRAINT projects_name_len_check CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120))),
+    CONSTRAINT projects_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.purchases (
@@ -2341,7 +2534,8 @@ CREATE TABLE public.purchases (
     CONSTRAINT course_purchases_amount_cents_check CHECK ((amount_cents >= 0)),
     CONSTRAINT course_purchases_discount_cents_check CHECK ((discount_cents >= 0)),
     CONSTRAINT course_purchases_provider_check CHECK ((provider = ANY (ARRAY['stub'::text, 'stripe'::text, 'razorpay'::text]))),
-    CONSTRAINT course_purchases_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'refunding'::text, 'refunded'::text])))
+    CONSTRAINT course_purchases_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'refunding'::text, 'refunded'::text]))),
+    CONSTRAINT course_purchases_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.question_categories (
@@ -2350,7 +2544,9 @@ CREATE TABLE public.question_categories (
     parent_id uuid,
     name text NOT NULL,
     slug text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT question_categories_org_id_slug_key UNIQUE (org_id, slug),
+    CONSTRAINT question_categories_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.question_versions (
@@ -2359,7 +2555,9 @@ CREATE TABLE public.question_versions (
     version integer NOT NULL,
     content jsonb NOT NULL,
     created_by uuid NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT question_versions_pkey PRIMARY KEY (id),
+    CONSTRAINT question_versions_question_id_version_key UNIQUE (question_id, version)
 );
 
 CREATE TABLE public.questions (
@@ -2379,7 +2577,8 @@ CREATE TABLE public.questions (
     CONSTRAINT questions_default_points_check CHECK ((default_points >= (0)::numeric)),
     CONSTRAINT questions_difficulty_check CHECK ((difficulty = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'expert'::text]))),
     CONSTRAINT questions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'archived'::text]))),
-    CONSTRAINT questions_type_check CHECK ((type = ANY (ARRAY['mcq'::text, 'coding'::text, 'interview_prep'::text, 'subjective'::text])))
+    CONSTRAINT questions_type_check CHECK ((type = ANY (ARRAY['mcq'::text, 'coding'::text, 'interview_prep'::text, 'subjective'::text]))),
+    CONSTRAINT questions_pkey PRIMARY KEY (id)
 );
 
 CREATE SEQUENCE public.receipt_number_seq
@@ -2399,14 +2598,17 @@ CREATE TABLE public.refresh_tokens (
     revoked_at timestamp with time zone,
     rotated_at timestamp with time zone,
     family_id uuid NOT NULL,
-    created_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id),
+    CONSTRAINT refresh_tokens_token_hash_key UNIQUE (token_hash)
 );
 
 CREATE TABLE public.release_snapshots (
     release_id uuid NOT NULL,
     item_id uuid NOT NULL,
     doc_version integer,
-    status text NOT NULL
+    status text NOT NULL,
+    CONSTRAINT release_snapshots_pkey PRIMARY KEY (release_id, item_id)
 );
 
 CREATE TABLE public.releases (
@@ -2423,7 +2625,10 @@ CREATE TABLE public.releases (
     CONSTRAINT releases_check CHECK (((status = 'released'::text) = (released_at IS NOT NULL))),
     CONSTRAINT releases_check1 CHECK (((status = 'planned'::text) OR (frozen_at IS NOT NULL))),
     CONSTRAINT releases_status_check CHECK ((status = ANY (ARRAY['planned'::text, 'frozen'::text, 'released'::text]))),
-    CONSTRAINT releases_version_check CHECK (((char_length(btrim(version)) >= 1) AND (char_length(btrim(version)) <= 40)))
+    CONSTRAINT releases_version_check CHECK (((char_length(btrim(version)) >= 1) AND (char_length(btrim(version)) <= 40))),
+    CONSTRAINT releases_id_project_id_key UNIQUE (id, project_id),
+    CONSTRAINT releases_pkey PRIMARY KEY (id),
+    CONSTRAINT releases_project_id_version_key UNIQUE (project_id, version)
 );
 
 CREATE TABLE public.requirement_questions (
@@ -2441,7 +2646,8 @@ CREATE TABLE public.requirement_questions (
     CONSTRAINT requirement_questions_answer_check CHECK (((answer IS NULL) OR (char_length(answer) <= 10000))),
     CONSTRAINT requirement_questions_check CHECK (((answer IS NULL) = (answered_at IS NULL))),
     CONSTRAINT requirement_questions_check1 CHECK (((NOT is_assumption) OR (answer IS NOT NULL))),
-    CONSTRAINT requirement_questions_question_check CHECK (((char_length(btrim(question)) >= 5) AND (char_length(btrim(question)) <= 2000)))
+    CONSTRAINT requirement_questions_question_check CHECK (((char_length(btrim(question)) >= 5) AND (char_length(btrim(question)) <= 2000))),
+    CONSTRAINT requirement_questions_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.requirement_versions (
@@ -2451,7 +2657,8 @@ CREATE TABLE public.requirement_versions (
     created_by uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT requirement_versions_raw_requirement_check CHECK (((char_length(raw_requirement) >= 50) AND (char_length(raw_requirement) <= 20000))),
-    CONSTRAINT requirement_versions_version_check CHECK ((version >= 1))
+    CONSTRAINT requirement_versions_version_check CHECK ((version >= 1)),
+    CONSTRAINT requirement_versions_pkey PRIMARY KEY (project_id, version)
 );
 
 CREATE TABLE public.revision_digests (
@@ -2472,7 +2679,9 @@ CREATE TABLE public.revision_digests (
     email_job_id uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT revision_digests_ai_status_check CHECK ((ai_status = ANY (ARRAY['generated'::text, 'skipped_budget'::text, 'skipped_unavailable'::text, 'failed'::text]))),
-    CONSTRAINT revision_digests_cadences_check CHECK ((cardinality(cadences) > 0))
+    CONSTRAINT revision_digests_cadences_check CHECK ((cardinality(cadences) > 0)),
+    CONSTRAINT revision_digests_pkey PRIMARY KEY (id),
+    CONSTRAINT revision_digests_user_id_digest_date_key UNIQUE (user_id, digest_date)
 );
 
 CREATE TABLE public.revision_plan_topics (
@@ -2485,7 +2694,8 @@ CREATE TABLE public.revision_plan_topics (
     priority integer DEFAULT 3 NOT NULL,
     "position" integer DEFAULT 0 NOT NULL,
     CONSTRAINT revision_plan_topics_priority_check CHECK (((priority >= 1) AND (priority <= 5))),
-    CONSTRAINT revision_plan_topics_title_check CHECK (((length(title) >= 1) AND (length(title) <= 200)))
+    CONSTRAINT revision_plan_topics_title_check CHECK (((length(title) >= 1) AND (length(title) <= 200))),
+    CONSTRAINT revision_plan_topics_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.revision_plans (
@@ -2498,7 +2708,9 @@ CREATE TABLE public.revision_plans (
     generated_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT revision_plans_status_check CHECK ((status = ANY (ARRAY['generating'::text, 'ready'::text, 'failed'::text])))
+    CONSTRAINT revision_plans_status_check CHECK ((status = ANY (ARRAY['generating'::text, 'ready'::text, 'failed'::text]))),
+    CONSTRAINT revision_plans_pkey PRIMARY KEY (id),
+    CONSTRAINT revision_plans_user_course_key UNIQUE (user_id, course_id)
 );
 
 CREATE TABLE public.reward_definitions (
@@ -2512,13 +2724,16 @@ CREATE TABLE public.reward_definitions (
     trigger_event text NOT NULL,
     trigger_threshold integer DEFAULT 1 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT reward_definitions_badge_tier_check CHECK ((badge_tier = ANY (ARRAY['bronze'::text, 'silver'::text, 'gold'::text, 'platinum'::text])))
+    CONSTRAINT reward_definitions_badge_tier_check CHECK ((badge_tier = ANY (ARRAY['bronze'::text, 'silver'::text, 'gold'::text, 'platinum'::text]))),
+    CONSTRAINT reward_definitions_pkey PRIMARY KEY (id),
+    CONSTRAINT reward_definitions_slug_key UNIQUE (slug)
 );
 
 CREATE TABLE public.roadmap_module_progress (
     roadmap_id uuid NOT NULL,
     module_key uuid NOT NULL,
-    completed_at timestamp with time zone
+    completed_at timestamp with time zone,
+    CONSTRAINT roadmap_module_progress_pkey PRIMARY KEY (roadmap_id, module_key)
 );
 
 CREATE TABLE public.roadmaps (
@@ -2544,12 +2759,14 @@ CREATE TABLE public.roadmaps (
     CONSTRAINT roadmaps_mode_check CHECK ((mode = ANY (ARRAY['generated'::text, 'defined'::text]))),
     CONSTRAINT roadmaps_status_check CHECK ((status = ANY (ARRAY['generating'::text, 'active'::text, 'completed'::text, 'archived'::text, 'failed'::text]))),
     CONSTRAINT roadmaps_timeframe_weeks_check CHECK (((timeframe_weeks IS NULL) OR ((timeframe_weeks > 0) AND (timeframe_weeks <= 104)))),
-    CONSTRAINT roadmaps_title_check CHECK (((length(title) >= 1) AND (length(title) <= 200)))
+    CONSTRAINT roadmaps_title_check CHECK (((length(title) >= 1) AND (length(title) <= 200))),
+    CONSTRAINT roadmaps_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.role_permissions (
     role_id uuid NOT NULL,
-    permission_id uuid NOT NULL
+    permission_id uuid NOT NULL,
+    CONSTRAINT role_permissions_pkey PRIMARY KEY (role_id, permission_id)
 );
 
 CREATE TABLE public.roles (
@@ -2562,7 +2779,9 @@ CREATE TABLE public.roles (
     is_active boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT roles_system_tenant_biconditional CHECK ((((is_system = true) AND (org_id IS NULL)) OR ((is_system = false) AND (org_id IS NOT NULL))))
+    CONSTRAINT roles_system_tenant_biconditional CHECK ((((is_system = true) AND (org_id IS NULL)) OR ((is_system = false) AND (org_id IS NOT NULL)))),
+    CONSTRAINT roles_pkey PRIMARY KEY (id),
+    CONSTRAINT roles_tenant_id_name_key UNIQUE NULLS NOT DISTINCT (org_id, name)
 );
 
 CREATE TABLE public.session_credit_ledger (
@@ -2578,7 +2797,8 @@ CREATE TABLE public.session_credit_ledger (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT session_credit_ledger_delta_chk CHECK ((delta <> 0)),
     CONSTRAINT session_credit_ledger_note_chk CHECK (((note IS NULL) OR (length(note) <= 500))),
-    CONSTRAINT session_credit_ledger_reason_chk CHECK ((reason = ANY (ARRAY['purchase'::text, 'admin_grant'::text, 'admin_revoke'::text, 'booking'::text, 'cancellation_refund'::text, 'purchase_reversal'::text])))
+    CONSTRAINT session_credit_ledger_reason_chk CHECK ((reason = ANY (ARRAY['purchase'::text, 'admin_grant'::text, 'admin_revoke'::text, 'booking'::text, 'cancellation_refund'::text, 'purchase_reversal'::text]))),
+    CONSTRAINT session_credit_ledger_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.session_credit_packs (
@@ -2596,7 +2816,8 @@ CREATE TABLE public.session_credit_packs (
     CONSTRAINT session_credit_packs_desc_chk CHECK (((description IS NULL) OR (length(description) <= 1000))),
     CONSTRAINT session_credit_packs_name_chk CHECK (((length(name) >= 1) AND (length(name) <= 120))),
     CONSTRAINT session_credit_packs_price_chk CHECK ((price_cents >= 0)),
-    CONSTRAINT session_credit_packs_sessions_chk CHECK (((sessions >= 1) AND (sessions <= 1000)))
+    CONSTRAINT session_credit_packs_sessions_chk CHECK (((sessions >= 1) AND (sessions <= 1000))),
+    CONSTRAINT session_credit_packs_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.sheet_items (
@@ -2610,7 +2831,8 @@ CREATE TABLE public.sheet_items (
     order_index integer DEFAULT 0 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
-    CONSTRAINT sheet_items_difficulty_check CHECK ((difficulty = ANY (ARRAY['easy'::text, 'medium'::text, 'hard'::text])))
+    CONSTRAINT sheet_items_difficulty_check CHECK ((difficulty = ANY (ARRAY['easy'::text, 'medium'::text, 'hard'::text]))),
+    CONSTRAINT sheet_items_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.sheets (
@@ -2623,7 +2845,9 @@ CREATE TABLE public.sheets (
     created_by uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    source_sheet_ids text[]
+    source_sheet_ids text[],
+    CONSTRAINT sheets_pkey PRIMARY KEY (id),
+    CONSTRAINT sheets_slug_key UNIQUE (slug)
 );
 
 CREATE TABLE public.social_accounts (
@@ -2633,13 +2857,16 @@ CREATE TABLE public.social_accounts (
     provider_uid text NOT NULL,
     email text,
     created_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT social_accounts_provider_check CHECK ((provider = ANY (ARRAY['google'::text, 'github'::text, 'microsoft'::text])))
+    CONSTRAINT social_accounts_provider_check CHECK ((provider = ANY (ARRAY['google'::text, 'github'::text, 'microsoft'::text]))),
+    CONSTRAINT social_accounts_pkey PRIMARY KEY (id),
+    CONSTRAINT social_accounts_provider_provider_uid_key UNIQUE (provider, provider_uid)
 );
 
 CREATE TABLE public.sprint_commitments (
     sprint_id uuid NOT NULL,
     item_id uuid NOT NULL,
-    committed_at timestamp with time zone DEFAULT now() NOT NULL
+    committed_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT sprint_commitments_pkey PRIMARY KEY (sprint_id, item_id)
 );
 
 CREATE TABLE public.sprints (
@@ -2654,7 +2881,10 @@ CREATE TABLE public.sprints (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT sprints_check CHECK (((ends_on > starts_on) AND ((ends_on - starts_on) <= 28))),
     CONSTRAINT sprints_name_check CHECK (((char_length(btrim(name)) >= 1) AND (char_length(btrim(name)) <= 80))),
-    CONSTRAINT sprints_status_check CHECK ((status = ANY (ARRAY['planned'::text, 'active'::text, 'completed'::text])))
+    CONSTRAINT sprints_status_check CHECK ((status = ANY (ARRAY['planned'::text, 'active'::text, 'completed'::text]))),
+    CONSTRAINT sprints_id_project_id_key UNIQUE (id, project_id),
+    CONSTRAINT sprints_pkey PRIMARY KEY (id),
+    CONSTRAINT sprints_project_id_daterange_excl EXCLUDE USING gist (project_id WITH =, daterange(starts_on, ends_on, '[]'::text) WITH &&)
 );
 
 CREATE TABLE public.srs_cards (
@@ -2671,7 +2901,8 @@ CREATE TABLE public.srs_cards (
     last_reviewed_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     mistake_entry_id uuid,
-    annotation_id uuid
+    annotation_id uuid,
+    CONSTRAINT srs_cards_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.srs_reviews (
@@ -2682,7 +2913,8 @@ CREATE TABLE public.srs_reviews (
     interval_days integer NOT NULL,
     ease_factor double precision NOT NULL,
     reviewed_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT srs_reviews_quality_check CHECK (((quality >= 0) AND (quality <= 3)))
+    CONSTRAINT srs_reviews_quality_check CHECK (((quality >= 0) AND (quality <= 3))),
+    CONSTRAINT srs_reviews_pkey PRIMARY KEY (id)
 );
 
 COMMENT ON TABLE public.srs_reviews IS 'Partitioning candidate — monthly range on reviewed_at.';
@@ -2698,7 +2930,8 @@ CREATE TABLE public.standup_updates (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT standup_updates_blockers_check CHECK (((blockers IS NULL) OR (char_length(blockers) <= 2000))),
     CONSTRAINT standup_updates_today_check CHECK ((char_length(today) <= 2000)),
-    CONSTRAINT standup_updates_yesterday_check CHECK ((char_length(yesterday) <= 2000))
+    CONSTRAINT standup_updates_yesterday_check CHECK ((char_length(yesterday) <= 2000)),
+    CONSTRAINT standup_updates_pkey PRIMARY KEY (project_id, user_id, standup_on)
 );
 
 CREATE TABLE public.system_design_attempts (
@@ -2712,7 +2945,9 @@ CREATE TABLE public.system_design_attempts (
     feedback_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT system_design_attempts_attempt_number_check CHECK ((attempt_number >= 1))
+    CONSTRAINT system_design_attempts_attempt_number_check CHECK ((attempt_number >= 1)),
+    CONSTRAINT system_design_attempts_module_user_attempt_key UNIQUE (module_id, user_id, attempt_number),
+    CONSTRAINT system_design_attempts_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.system_design_chat_messages (
@@ -2723,7 +2958,8 @@ CREATE TABLE public.system_design_chat_messages (
     content text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT system_design_chat_messages_content_check CHECK ((char_length(content) <= 4000)),
-    CONSTRAINT system_design_chat_messages_role_check CHECK ((role = ANY (ARRAY['user'::text, 'assistant'::text])))
+    CONSTRAINT system_design_chat_messages_role_check CHECK ((role = ANY (ARRAY['user'::text, 'assistant'::text]))),
+    CONSTRAINT system_design_chat_messages_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.task_links (
@@ -2734,7 +2970,9 @@ CREATE TABLE public.task_links (
     target_id uuid NOT NULL,
     target_label text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT task_links_target_type_check CHECK ((target_type = ANY (ARRAY['task'::text, 'diary_entry'::text, 'journal_entry'::text, 'project'::text])))
+    CONSTRAINT task_links_target_type_check CHECK ((target_type = ANY (ARRAY['task'::text, 'diary_entry'::text, 'journal_entry'::text, 'project'::text]))),
+    CONSTRAINT task_links_pkey PRIMARY KEY (id),
+    CONSTRAINT task_links_unique UNIQUE (source_task_id, target_type, target_id)
 );
 
 CREATE TABLE public.task_templates (
@@ -2743,7 +2981,8 @@ CREATE TABLE public.task_templates (
     name text NOT NULL,
     fields jsonb DEFAULT '[]'::jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT task_templates_name_len_check CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))
+    CONSTRAINT task_templates_name_len_check CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120))),
+    CONSTRAINT task_templates_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.test_templates (
@@ -2753,7 +2992,8 @@ CREATE TABLE public.test_templates (
     max_score numeric(9,2) NOT NULL,
     created_by uuid NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT test_templates_max_score_check CHECK ((max_score > (0)::numeric))
+    CONSTRAINT test_templates_max_score_check CHECK ((max_score > (0)::numeric)),
+    CONSTRAINT test_templates_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.usage_counters (
@@ -2762,7 +3002,8 @@ CREATE TABLE public.usage_counters (
     period_start date NOT NULL,
     period_end date NOT NULL,
     used_count bigint DEFAULT 0 NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT usage_counters_pkey PRIMARY KEY (account_id, feature_key, period_start)
 );
 
 CREATE TABLE public.user_achievements (
@@ -2770,7 +3011,8 @@ CREATE TABLE public.user_achievements (
     user_id uuid NOT NULL,
     reward_definition_id uuid NOT NULL,
     org_id uuid,
-    earned_at timestamp with time zone DEFAULT now() NOT NULL
+    earned_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT user_achievements_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.user_feature_flags (
@@ -2779,7 +3021,8 @@ CREATE TABLE public.user_feature_flags (
     feature_key text NOT NULL,
     enabled boolean NOT NULL,
     updated_by uuid NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT user_feature_flags_pkey PRIMARY KEY (org_id, user_id, feature_key)
 );
 
 CREATE TABLE public.user_mfa (
@@ -2787,14 +3030,17 @@ CREATE TABLE public.user_mfa (
     secret_enc bytea NOT NULL,
     enabled_at timestamp with time zone,
     last_step bigint DEFAULT 0 NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT user_mfa_pkey PRIMARY KEY (user_id)
 );
 
 CREATE TABLE public.user_mfa_recovery_codes (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
     code_hash text NOT NULL,
-    used_at timestamp with time zone
+    used_at timestamp with time zone,
+    CONSTRAINT user_mfa_recovery_codes_pkey PRIMARY KEY (id),
+    CONSTRAINT user_mfa_recovery_codes_user_id_code_hash_key UNIQUE (user_id, code_hash)
 );
 
 CREATE TABLE public.user_permission_overrides (
@@ -2802,7 +3048,8 @@ CREATE TABLE public.user_permission_overrides (
     org_id uuid NOT NULL,
     permission_id uuid NOT NULL,
     granted_by uuid,
-    granted_at timestamp with time zone DEFAULT now() NOT NULL
+    granted_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT user_permission_overrides_pkey PRIMARY KEY (user_id, org_id, permission_id)
 );
 
 CREATE TABLE public.user_privacy_settings (
@@ -2812,7 +3059,8 @@ CREATE TABLE public.user_privacy_settings (
     nominee_relationship text,
     nominee_contact text,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT user_privacy_settings_nominee_all_or_none CHECK ((((nominee_name IS NULL) AND (nominee_relationship IS NULL) AND (nominee_contact IS NULL)) OR ((nominee_name IS NOT NULL) AND (nominee_relationship IS NOT NULL) AND (nominee_contact IS NOT NULL))))
+    CONSTRAINT user_privacy_settings_nominee_all_or_none CHECK ((((nominee_name IS NULL) AND (nominee_relationship IS NULL) AND (nominee_contact IS NULL)) OR ((nominee_name IS NOT NULL) AND (nominee_relationship IS NOT NULL) AND (nominee_contact IS NOT NULL)))),
+    CONSTRAINT user_privacy_settings_pkey PRIMARY KEY (user_id)
 );
 
 CREATE TABLE public.user_problem_progress (
@@ -2824,7 +3072,8 @@ CREATE TABLE public.user_problem_progress (
     notes jsonb DEFAULT '{}'::jsonb NOT NULL,
     review_count integer DEFAULT 0 NOT NULL,
     is_starred boolean DEFAULT false NOT NULL,
-    CONSTRAINT user_problem_progress_status_check CHECK ((status = ANY (ARRAY['todo'::text, 'done'::text, 'revisit'::text])))
+    CONSTRAINT user_problem_progress_status_check CHECK ((status = ANY (ARRAY['todo'::text, 'done'::text, 'revisit'::text]))),
+    CONSTRAINT user_problem_progress_pkey PRIMARY KEY (user_id, topic_tag)
 );
 
 CREATE TABLE public.user_profiles (
@@ -2874,13 +3123,17 @@ CREATE TABLE public.user_profiles (
     CONSTRAINT user_profiles_last_page_check CHECK (((last_page IS NULL) OR ((last_page ~~ '/%'::text) AND (last_page !~~ '//%'::text) AND (length(last_page) <= 512)))),
     CONSTRAINT user_profiles_preferred_learning_style_check CHECK ((preferred_learning_style = ANY (ARRAY['video'::text, 'reading'::text, 'hands_on'::text, 'mixed'::text]))),
     CONSTRAINT user_profiles_ui_theme_check CHECK ((ui_theme = ANY (ARRAY['light'::text, 'dark'::text, 'system'::text]))),
-    CONSTRAINT user_profiles_years_of_experience_check CHECK (((years_of_experience >= 0) AND (years_of_experience <= 50)))
+    CONSTRAINT user_profiles_years_of_experience_check CHECK (((years_of_experience >= 0) AND (years_of_experience <= 50))),
+    CONSTRAINT user_profiles_display_name_key UNIQUE (display_name),
+    CONSTRAINT user_profiles_pkey PRIMARY KEY (user_id),
+    CONSTRAINT user_profiles_profile_slug_key UNIQUE (profile_slug)
 );
 
 CREATE TABLE public.user_roles (
     user_id uuid NOT NULL,
     role_id uuid NOT NULL,
-    org_id uuid NOT NULL
+    org_id uuid NOT NULL,
+    CONSTRAINT user_roles_pkey PRIMARY KEY (user_id, role_id, org_id)
 );
 
 CREATE TABLE public.user_sheets (
@@ -2890,7 +3143,8 @@ CREATE TABLE public.user_sheets (
     added_at timestamp with time zone DEFAULT now() NOT NULL,
     base_revision_days integer,
     growth_scheme text,
-    CONSTRAINT user_sheets_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'subscriber'::text])))
+    CONSTRAINT user_sheets_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'subscriber'::text]))),
+    CONSTRAINT user_sheets_pkey PRIMARY KEY (user_id, sheet_id)
 );
 
 CREATE TABLE public.user_stats (
@@ -2907,7 +3161,8 @@ CREATE TABLE public.user_stats (
     total_xp integer DEFAULT 0 NOT NULL,
     xp_level integer DEFAULT 1 NOT NULL,
     xp_level_name text DEFAULT 'Apprentice'::text NOT NULL,
-    tests_passed integer DEFAULT 0 NOT NULL
+    tests_passed integer DEFAULT 0 NOT NULL,
+    CONSTRAINT user_stats_pkey PRIMARY KEY (user_id)
 );
 
 CREATE TABLE public.users (
@@ -2929,7 +3184,9 @@ CREATE TABLE public.users (
     tier_id text DEFAULT 'individual_free'::text NOT NULL,
     age_declared_at timestamp with time zone,
     CONSTRAINT users_platform_role_check CHECK ((platform_role = ANY (ARRAY['super_admin'::text, 'user'::text]))),
-    CONSTRAINT users_status_check CHECK ((status = ANY (ARRAY['active'::text, 'suspended'::text, 'deactivated'::text])))
+    CONSTRAINT users_status_check CHECK ((status = ANY (ARRAY['active'::text, 'suspended'::text, 'deactivated'::text]))),
+    CONSTRAINT users_email_key UNIQUE (email),
+    CONSTRAINT users_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.webauthn_credentials (
@@ -2946,7 +3203,9 @@ CREATE TABLE public.webauthn_credentials (
     backup_state boolean DEFAULT false NOT NULL,
     nickname text DEFAULT 'Passkey'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    last_used_at timestamp with time zone
+    last_used_at timestamp with time zone,
+    CONSTRAINT webauthn_credentials_credential_id_key UNIQUE (credential_id),
+    CONSTRAINT webauthn_credentials_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.whatnow_tasks (
@@ -2976,7 +3235,8 @@ CREATE TABLE public.whatnow_tasks (
     importance text,
     CONSTRAINT whatnow_tasks_importance_check CHECK (((importance IS NULL) OR (importance = ANY (ARRAY['important'::text, 'not_important'::text])))),
     CONSTRAINT whatnow_tasks_status_check CHECK ((status = ANY (ARRAY['inbox'::text, 'planned'::text, 'active'::text, 'paused'::text, 'done'::text, 'decayed'::text]))),
-    CONSTRAINT whatnow_tasks_urgency_check CHECK (((urgency IS NULL) OR (urgency = ANY (ARRAY['urgent'::text, 'not_urgent'::text]))))
+    CONSTRAINT whatnow_tasks_urgency_check CHECK (((urgency IS NULL) OR (urgency = ANY (ARRAY['urgent'::text, 'not_urgent'::text])))),
+    CONSTRAINT whatnow_tasks_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.whats_new_entries (
@@ -2993,7 +3253,8 @@ CREATE TABLE public.whats_new_entries (
     CONSTRAINT whats_new_entries_cta_label_len_check CHECK (((char_length(cta_label) >= 1) AND (char_length(cta_label) <= 40))),
     CONSTRAINT whats_new_entries_description_len_check CHECK (((char_length(description) >= 1) AND (char_length(description) <= 500))),
     CONSTRAINT whats_new_entries_icon_check CHECK ((icon = ANY (ARRAY['sparkles'::text, 'book-open-check'::text, 'list-checks'::text, 'shield-check'::text, 'rocket'::text, 'megaphone'::text, 'zap'::text, 'star'::text]))),
-    CONSTRAINT whats_new_entries_title_len_check CHECK (((char_length(title) >= 1) AND (char_length(title) <= 120)))
+    CONSTRAINT whats_new_entries_title_len_check CHECK (((char_length(title) >= 1) AND (char_length(title) <= 120))),
+    CONSTRAINT whats_new_entries_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.wiki_pages (
@@ -3016,7 +3277,9 @@ CREATE TABLE public.wiki_pages (
     search_vector tsvector GENERATED ALWAYS AS (to_tsvector('english'::regconfig, ((title || ' '::text) || search_text))) STORED,
     is_template boolean DEFAULT false NOT NULL,
     okf_metadata jsonb,
-    CONSTRAINT wiki_pages_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'published'::text])))
+    CONSTRAINT wiki_pages_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'published'::text]))),
+    CONSTRAINT wiki_pages_pkey PRIMARY KEY (id),
+    CONSTRAINT wiki_pages_space_id_parent_id_slug_key UNIQUE (space_id, parent_id, slug)
 );
 
 CREATE TABLE public.wiki_spaces (
@@ -3032,7 +3295,9 @@ CREATE TABLE public.wiki_spaces (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     project_id uuid,
-    CONSTRAINT wiki_spaces_visibility_check CHECK ((visibility = ANY (ARRAY['members'::text, 'public'::text])))
+    CONSTRAINT wiki_spaces_visibility_check CHECK ((visibility = ANY (ARRAY['members'::text, 'public'::text]))),
+    CONSTRAINT wiki_spaces_org_id_slug_key UNIQUE (org_id, slug),
+    CONSTRAINT wiki_spaces_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.work_item_assignees (
@@ -3041,7 +3306,8 @@ CREATE TABLE public.work_item_assignees (
     role text NOT NULL,
     assigned_by uuid,
     assigned_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT work_item_assignees_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'developer'::text, 'reviewer'::text, 'tester'::text])))
+    CONSTRAINT work_item_assignees_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'developer'::text, 'reviewer'::text, 'tester'::text]))),
+    CONSTRAINT work_item_assignees_pkey PRIMARY KEY (item_id, user_id, role)
 );
 
 CREATE TABLE public.work_item_events (
@@ -3061,7 +3327,8 @@ CREATE TABLE public.work_item_events (
     CONSTRAINT work_item_events_kind_check CHECK ((kind = ANY (ARRAY['create'::text, 'status'::text, 'field'::text, 'assign'::text, 'unassign'::text, 'link'::text, 'unlink'::text, 'parent'::text, 'severity'::text, 'doc'::text, 'review'::text, 'sprint'::text, 'release'::text, 'archive'::text]))),
     CONSTRAINT work_item_events_reason_check CHECK (((reason IS NULL) OR (char_length(reason) <= 2000))),
     CONSTRAINT work_item_events_source_check CHECK ((source = ANY (ARRAY['user'::text, 'gitlab'::text, 'system'::text]))),
-    CONSTRAINT work_item_events_to_value_check CHECK (((to_value IS NULL) OR (char_length(to_value) <= 1000)))
+    CONSTRAINT work_item_events_to_value_check CHECK (((to_value IS NULL) OR (char_length(to_value) <= 1000))),
+    CONSTRAINT work_item_events_pkey PRIMARY KEY (id)
 );
 
 ALTER TABLE public.work_item_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -3086,7 +3353,9 @@ CREATE TABLE public.work_item_gitlab (
     CONSTRAINT work_item_gitlab_check CHECK (((kind = 'mr'::text) OR (merge_request_id IS NULL))),
     CONSTRAINT work_item_gitlab_gitlab_ref_check CHECK (((char_length(gitlab_ref) >= 1) AND (char_length(gitlab_ref) <= 255))),
     CONSTRAINT work_item_gitlab_kind_check CHECK ((kind = ANY (ARRAY['branch'::text, 'mr'::text, 'commit'::text]))),
-    CONSTRAINT work_item_gitlab_sync_status_check CHECK ((sync_status = ANY (ARRAY['synced'::text, 'pending'::text, 'failed'::text])))
+    CONSTRAINT work_item_gitlab_sync_status_check CHECK ((sync_status = ANY (ARRAY['synced'::text, 'pending'::text, 'failed'::text]))),
+    CONSTRAINT work_item_gitlab_item_id_kind_gitlab_ref_key UNIQUE (item_id, kind, gitlab_ref),
+    CONSTRAINT work_item_gitlab_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.work_item_links (
@@ -3097,7 +3366,8 @@ CREATE TABLE public.work_item_links (
     created_by uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT work_item_links_check CHECK ((from_id <> to_id)),
-    CONSTRAINT work_item_links_kind_check CHECK ((kind = ANY (ARRAY['blocks'::text, 'relates'::text, 'duplicates'::text])))
+    CONSTRAINT work_item_links_kind_check CHECK ((kind = ANY (ARRAY['blocks'::text, 'relates'::text, 'duplicates'::text]))),
+    CONSTRAINT work_item_links_pkey PRIMARY KEY (from_id, to_id, kind)
 );
 
 CREATE TABLE public.work_item_reviews (
@@ -3117,7 +3387,8 @@ CREATE TABLE public.work_item_reviews (
     CONSTRAINT work_item_reviews_comment_check CHECK (((comment IS NULL) OR (char_length(comment) <= 10000))),
     CONSTRAINT work_item_reviews_target_check CHECK ((target = ANY (ARRAY['doc'::text, 'code'::text]))),
     CONSTRAINT work_item_reviews_verdict_check CHECK ((verdict = ANY (ARRAY['approved'::text, 'changes_requested'::text, 'commented'::text]))),
-    CONSTRAINT work_item_reviews_wiki_version_check CHECK (((wiki_version IS NULL) OR (wiki_version >= 1)))
+    CONSTRAINT work_item_reviews_wiki_version_check CHECK (((wiki_version IS NULL) OR (wiki_version >= 1))),
+    CONSTRAINT work_item_reviews_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.work_item_time_logs (
@@ -3131,7 +3402,8 @@ CREATE TABLE public.work_item_time_logs (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT work_item_time_logs_minutes_check CHECK (((minutes >= 1) AND (minutes <= 720))),
-    CONSTRAINT work_item_time_logs_note_check CHECK (((note IS NULL) OR (char_length(note) <= 1000)))
+    CONSTRAINT work_item_time_logs_note_check CHECK (((note IS NULL) OR (char_length(note) <= 1000))),
+    CONSTRAINT work_item_time_logs_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.work_items (
@@ -3184,7 +3456,10 @@ CREATE TABLE public.work_items (
     CONSTRAINT work_items_severity_check CHECK ((severity = ANY (ARRAY['S1'::text, 'S2'::text, 'S3'::text, 'S4'::text]))),
     CONSTRAINT work_items_title_check CHECK (((char_length(btrim(title)) >= 1) AND (char_length(btrim(title)) <= 300))),
     CONSTRAINT work_items_type_check CHECK ((type = ANY (ARRAY['epic'::text, 'feature'::text, 'task'::text, 'bug'::text, 'subtask'::text]))),
-    CONSTRAINT work_items_version_check CHECK ((version >= 1))
+    CONSTRAINT work_items_version_check CHECK ((version >= 1)),
+    CONSTRAINT work_items_id_project_id_key UNIQUE (id, project_id),
+    CONSTRAINT work_items_pkey PRIMARY KEY (id),
+    CONSTRAINT work_items_project_id_key_num_key UNIQUE (project_id, key_num)
 );
 
 CREATE TABLE public.workspace_ai_cache (
@@ -3194,7 +3469,8 @@ CREATE TABLE public.workspace_ai_cache (
     output jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT workspace_ai_cache_cache_key_check CHECK (((char_length(cache_key) >= 1) AND (char_length(cache_key) <= 200))),
-    CONSTRAINT workspace_ai_cache_kind_check CHECK ((kind = ANY (ARRAY['requirement_gaps'::text, 'epic_suggestions'::text, 'task_breakdown'::text, 'change_impact'::text, 'weekly_summary'::text, 'late_explanation'::text, 'release_notes'::text])))
+    CONSTRAINT workspace_ai_cache_kind_check CHECK ((kind = ANY (ARRAY['requirement_gaps'::text, 'epic_suggestions'::text, 'task_breakdown'::text, 'change_impact'::text, 'weekly_summary'::text, 'late_explanation'::text, 'release_notes'::text]))),
+    CONSTRAINT workspace_ai_cache_pkey PRIMARY KEY (project_id, kind, cache_key)
 );
 
 CREATE TABLE public.workspace_digests (
@@ -3202,7 +3478,8 @@ CREATE TABLE public.workspace_digests (
     digest_date date NOT NULL,
     health_color text NOT NULL,
     sent_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT workspace_digests_health_color_check CHECK ((health_color = ANY (ARRAY['green'::text, 'yellow'::text, 'red'::text])))
+    CONSTRAINT workspace_digests_health_color_check CHECK ((health_color = ANY (ARRAY['green'::text, 'yellow'::text, 'red'::text]))),
+    CONSTRAINT workspace_digests_pkey PRIMARY KEY (project_id, digest_date)
 );
 
 CREATE TABLE public.workspace_projects (
@@ -3249,7 +3526,8 @@ CREATE TABLE public.workspace_projects (
     CONSTRAINT workspace_projects_team_size_max_check CHECK ((team_size_max <= 50)),
     CONSTRAINT workspace_projects_team_size_min_check CHECK ((team_size_min >= 2)),
     CONSTRAINT workspace_projects_title_check CHECK (((char_length(btrim(title)) >= 3) AND (char_length(btrim(title)) <= 200))),
-    CONSTRAINT workspace_projects_wip_limit_check CHECK (((wip_limit >= 1) AND (wip_limit <= 50)))
+    CONSTRAINT workspace_projects_wip_limit_check CHECK (((wip_limit >= 1) AND (wip_limit <= 50))),
+    CONSTRAINT workspace_projects_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.xp_events (
@@ -3262,7 +3540,8 @@ CREATE TABLE public.xp_events (
     reason text NOT NULL,
     reference_id uuid,
     reference_type text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT xp_events_pkey PRIMARY KEY (id)
 );
 
 COMMENT ON TABLE public.xp_events IS 'Partitioning candidate — monthly range on created_at.';
@@ -3278,652 +3557,664 @@ ALTER TABLE public.xp_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 ALTER TABLE ONLY public.auth_events ALTER COLUMN id SET DEFAULT nextval('public.auth_events_id_seq'::regclass);
 
-INSERT INTO public.ops_alert_rules VALUES ('*', 'normal', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00');
-INSERT INTO public.ops_alert_rules VALUES ('email.send', 'high', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00');
-INSERT INTO public.ops_alert_rules VALUES ('invite.bulk', 'high', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00');
-INSERT INTO public.ops_alert_rules VALUES ('payments.reconcile', 'high', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00');
-INSERT INTO public.ops_alert_rules VALUES ('retention.purge', 'high', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00');
-INSERT INTO public.ops_alert_rules VALUES ('gitlab.token_refresh', 'high', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00');
-INSERT INTO public.ops_alert_rules VALUES ('lab.recipe_build', 'high', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00');
-INSERT INTO public.ops_alert_rules VALUES ('lab.recipe_verify', 'high', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00');
+INSERT INTO public.ops_alert_rules VALUES
+    ('*', 'normal', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00'),
+    ('email.send', 'high', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00'),
+    ('invite.bulk', 'high', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00'),
+    ('payments.reconcile', 'high', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00'),
+    ('retention.purge', 'high', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00'),
+    ('gitlab.token_refresh', 'high', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00'),
+    ('lab.recipe_build', 'high', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00'),
+    ('lab.recipe_verify', 'high', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00');
 
-INSERT INTO public.org_auth_config VALUES ('00000000-0000-0000-0000-000000000001', true, true, true, false, false, false, NULL, NULL, NULL, NULL, false, NULL, '{}', '{}', '2026-07-10 02:05:35.851242+00', NULL);
+INSERT INTO public.org_auth_config VALUES
+    ('00000000-0000-0000-0000-000000000001', true, true, true, false, false, false, NULL, NULL, NULL, NULL, false, NULL, '{}', '{}', '2026-07-10 02:05:35.851242+00', NULL);
 
-INSERT INTO public.org_settings VALUES ('00000000-0000-0000-0000-000000000001', '{"sso_enabled": false, "oidc_client_id": null, "oidc_issuer_url": null, "saml_metadata_xml": null}', '{}', '{}', '{}', '{}', '{}', '2026-07-10 02:05:35.851242+00');
+INSERT INTO public.org_settings VALUES
+    ('00000000-0000-0000-0000-000000000001', '{"sso_enabled": false, "oidc_client_id": null, "oidc_issuer_url": null, "saml_metadata_xml": null}', '{}', '{}', '{}', '{}', '{}', '2026-07-10 02:05:35.851242+00');
 
-INSERT INTO public.organizations VALUES ('00000000-0000-0000-0000-000000000001', 'default', 'MindForge', 'active', NULL, NULL, NULL, 0, 4, NULL, '2026-07-10 02:05:35.847741+00', '2026-07-10 02:05:35.847741+00', '2026-07-10 02:05:35.847741+00', NULL, 'org_starter');
+INSERT INTO public.organizations VALUES
+    ('00000000-0000-0000-0000-000000000001', 'default', 'MindForge', 'active', NULL, NULL, NULL, 0, 4, NULL, '2026-07-10 02:05:35.847741+00', '2026-07-10 02:05:35.847741+00', '2026-07-10 02:05:35.847741+00', NULL, 'org_starter');
 
-INSERT INTO public.permissions VALUES ('6f649ce6-a417-45e2-9bc7-f3d9638bcd41', 'courses.view', 'View Courses', 'Browse and read published course content', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('1ed1ac19-b663-4f5f-88ba-f412f1174b4f', 'courses.enroll', 'Enroll in Courses', 'Enroll in available courses', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('8e9dd6c3-5fb8-4603-8c2e-cce45ebd2a46', 'courses.create', 'Create Courses', 'Create new draft courses', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('90fbd19a-fe62-467b-8599-f029374167c6', 'courses.edit', 'Edit Courses', 'Edit course content and settings', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('165a09bc-39d3-4238-830f-ad8bdccefabf', 'courses.publish', 'Publish Courses', 'Publish or unpublish courses to learners', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('2513bd10-4338-46eb-b94c-46f257575759', 'courses.delete', 'Delete Courses', 'Archive or permanently delete courses', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('3f070164-7bcb-4f3f-acb2-7ca6ce269c50', 'courses.view_analytics', 'Course Analytics', 'View engagement and completion analytics', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('1f73d8a4-428b-4933-b872-7ac1d2df398d', 'assessments.take', 'Take Assessments', 'Attempt assigned assessments', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('4900f2d4-376c-43dd-bd59-79c0054fc25a', 'assessments.view_assigned', 'View Assigned Tests', 'See which assessments are assigned to the user', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('cb0354e5-2ba7-4b40-8c97-715bc9c11509', 'assessments.create', 'Create Assessments', 'Create new assessments', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('4c84291a-f13b-4484-ab39-84959639452f', 'assessments.edit', 'Edit Assessments', 'Edit assessment questions and settings', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('6324637c-94cb-423a-9b1c-76a54b1cf0a9', 'assessments.publish', 'Publish Assessments', 'Publish or unpublish assessments', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('3f2ca5c4-27e6-4426-a424-8c10ca5f0cb6', 'assessments.delete', 'Delete Assessments', 'Archive or delete assessments', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('b772eb01-88e7-4cc6-a0bf-5bc47369288f', 'assessments.view_results', 'View Results', 'See learner scores and attempt analytics', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('e2b247f1-cc49-4b9e-96f9-5a8da4588879', 'assessments.manage_questions', 'Manage Question Bank', 'Add, edit, and tag questions in the bank', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('580ebb98-1c7c-43c3-b9e1-98be0630e515', 'assessments.manage_batches', 'Manage Batches', 'Create and assign learner batches', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('2f948a72-57ad-4262-9716-96a92101a630', 'practice.use', 'Use AI Practice', 'Access AI-powered coding practice and hints', 'practice', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('f0869ea2-5f6f-4d08-9e16-dfbb0acdfbd8', 'mentoring.chat', 'Mentor Chat', 'Send and receive messages with a mentor', 'mentoring', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('369b2409-0dcc-4f64-8dd7-92a67d6441b3', 'mentoring.manage_batches', 'Manage Mentor Batches', 'Create and supervise mentoring batches', 'mentoring', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('6a8cff4a-426b-4802-b58f-6af1fb84b490', 'mentoring.view_students', 'View Student Progress', 'View students'' progress in mentor batches', 'mentoring', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('a2bc6bd0-7ade-4776-a19c-e29915259075', 'content.wiki', 'Wiki', 'Access org wiki spaces and pages', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('1867bde5-0e63-4845-8b67-119f0a715a50', 'content.system_design', 'System Design', 'Use the system design canvas tool', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('c16a4adc-88c5-4d54-8226-05858d99950c', 'content.interview_board', 'Interview Board', 'Use the interview simulation board', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('88c387ea-ee04-451a-b2e6-eacefc510386', 'content.load_test', 'Load Test', 'Run load test simulations', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('a9483194-34af-4db5-86b0-ef24defc12ea', 'content.sheets', 'Sheet Tracker', 'Access DSA sheet trackers', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('87c8bb5f-75b8-48d1-8a34-18e7e3611c28', 'content.srs', 'Review Cards', 'Use spaced-repetition flashcard system', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('feafdb7c-4afa-4017-b0c5-2e05babfff8e', 'content.certificates', 'Certificates', 'View and download earned certificates', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('cf158a23-057e-4025-99e7-e973250028f3', 'admin.view_members', 'View Members', 'List org members and their roles', 'admin', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('4001f3f1-1a57-4654-a730-001edb294c94', 'admin.manage_members', 'Manage Members', 'Invite, remove, and update org members', 'admin', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('167da66d-436c-48b1-b819-274ac10ad126', 'admin.manage_roles', 'Manage Roles', 'Create and edit tenant-owned roles', 'admin', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('ff117d7a-08a5-4aa1-b5af-720e5889e9e8', 'admin.manage_permissions', 'Manage Permissions', 'Assign permissions to roles', 'admin', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('8166a09f-7fe2-4731-a1af-aa71d6c8200f', 'admin.view_audit_log', 'View Audit Log', 'Read the RBAC audit trail', 'admin', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('667590df-e8cd-4d73-b2e0-f959f912fca3', 'admin.manage_org', 'Manage Organisation', 'Update org settings, seat limits, and status', 'admin', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
-INSERT INTO public.permissions VALUES ('89757c35-a068-41d4-a19b-9454b1ed16af', 'mentoring.assign_tickets', 'Assign Mentor Tickets', 'Hand-assign a specific mentor to a student ticket', 'mentoring', true, '2026-07-10 02:05:37.709301+00', '2026-07-10 02:05:37.709301+00');
-INSERT INTO public.permissions VALUES ('57f2f5ab-91ae-459d-923e-8ebe6cec2f01', 'mentoring.manage_reports', 'Manage Mentor Reports', 'Review and resolve mentor complaint reports', 'mentoring', true, '2026-07-10 02:05:37.709301+00', '2026-07-10 02:05:37.709301+00');
-INSERT INTO public.permissions VALUES ('7c38cbff-81b7-46b6-96dd-f350a362eef8', 'calendar.events.manage', 'Manage Calendar Events', 'Mutate any calendar event in the organization', 'calendar', true, '2026-07-10 02:05:38.015352+00', '2026-07-10 02:05:38.015352+00');
-INSERT INTO public.permissions VALUES ('6d5fc0a0-7824-4c30-bc00-aacb659be29c', 'content.interview_exp', 'Interview Experiences', 'Post, answer, and vote on interview experiences', 'content', true, '2026-07-30 12:04:43.215797+00', '2026-07-30 12:04:43.215797+00');
-INSERT INTO public.permissions VALUES ('66b84856-e05c-4698-8f98-400ccf7f7344', 'projects.view', 'View Projects', 'View GitLab-backed project assignments, teams, and checkpoints', 'projects', true, '2026-07-30 12:04:48.802747+00', '2026-07-30 12:04:48.802747+00');
-INSERT INTO public.permissions VALUES ('fffb3d38-82f4-4f72-bded-dea80dc48b24', 'projects.manage', 'Manage Projects', 'Create and manage GitLab-backed project assignments, teams, and the org''s GitLab installation', 'projects', true, '2026-07-30 12:04:48.802747+00', '2026-07-30 12:04:48.802747+00');
-INSERT INTO public.permissions VALUES ('b49ef960-0276-4ed3-81f9-48563f1771e2', 'payments.manage_coupons', 'Manage Coupons', 'Create, edit, and deactivate course discount coupons', 'payments', true, '2026-08-04 12:30:51.640606+00', '2026-08-04 12:30:51.640606+00');
-INSERT INTO public.permissions VALUES ('f026a66a-2eb5-4828-9a83-292c4998b8f4', 'mentoring.verify_mentors', 'Verify Mentors', 'Toggle the verified-expert badge on a mentor profile', 'mentoring', true, '2026-08-04 12:30:53.198688+00', '2026-08-04 12:30:53.198688+00');
-INSERT INTO public.permissions VALUES ('7f57e00f-37d1-45f3-8bd2-4cac9685218b', 'mentoring.manage_session_booking', 'Manage Session Booking', 'Configure the session booking policy, credit packs, credit grants, and batch sessions', 'mentoring', true, '2026-08-04 12:30:58.778398+00', '2026-08-04 12:30:58.778398+00');
-INSERT INTO public.permissions VALUES ('0bbf117d-6a58-40f9-b8bc-86a76a0c25b4', 'support.manage', 'Manage Support Tickets', 'View every support ticket in the org, reply, and change ticket status', 'support', true, '2026-08-04 12:31:05.454937+00', '2026-08-04 12:31:05.454937+00');
-INSERT INTO public.permissions VALUES ('3b6aaa56-76c5-41a4-bad8-19013ac0b25a', 'content.moderate', 'Moderate Content Reports', 'View and resolve reports of illegal or infringing content', 'moderation', true, '2026-08-04 12:31:06.983445+00', '2026-08-04 12:31:06.983445+00');
-INSERT INTO public.permissions VALUES ('947822e6-5667-478c-8170-43cec4b809e7', 'payments.manage_refunds', 'Issue Refunds', 'Trigger a refund against a completed purchase', 'payments', true, '2026-08-04 12:31:07.711863+00', '2026-08-04 12:31:07.711863+00');
-INSERT INTO public.permissions VALUES ('29496c25-c189-42b0-804e-fcae46f260e6', 'features.revision_digest', 'Revision Digest (beta)', '', 'features', true, '2026-10-09 11:19:09.003557+00', '2026-10-09 11:19:09.003557+00');
-INSERT INTO public.permissions VALUES ('a1c9c9c1-6b8b-4b6a-9b0f-2f9c8f2d7e11', 'mentoring.view_tickets', 'View Mentor Ticket Queue', 'See the mentor ticket queue (open and assigned requests)', 'mentoring', true, '2026-10-09 11:19:09.448927+00', '2026-10-09 11:19:09.448927+00');
-INSERT INTO public.permissions VALUES ('fc5b2cdd-d1e8-471d-985f-83ab4ba361ad', 'features.what_now', 'What Now? (beta)', '', 'features', true, '2026-10-09 11:19:09.8754+00', '2026-10-09 11:19:09.8754+00');
-INSERT INTO public.permissions VALUES ('443e4ec4-9114-4944-b03b-38da7d086b98', 'content.learning_journal', 'Learning Journal', 'Access the personal learning journal', 'content', true, '2026-10-09 11:19:16.064561+00', '2026-10-09 11:19:16.064561+00');
-INSERT INTO public.permissions VALUES ('0326b040-e5c8-4ea5-bc3f-ae419b5d848a', 'content.diary', 'Diary', 'Access the personal digital diary', 'content', true, '2026-10-09 11:19:19.519064+00', '2026-10-09 11:19:19.519064+00');
-INSERT INTO public.permissions VALUES ('db60237b-04d8-4efc-aa4f-7713972fadc9', 'content.captures', 'Knowledge Captures', 'Capture and organize screenshots/PDFs/links into the journal or SRS cards', 'content', true, '2026-10-09 11:19:23.576632+00', '2026-10-09 11:19:23.576632+00');
-INSERT INTO public.permissions VALUES ('9978592a-93f1-4369-8c7a-2a98ae1eef29', 'projects.create', 'Create Project Workspaces', 'Create a project workspace (share link, team, work items) and become its owner', 'projects', true, '2026-10-09 11:19:24.919141+00', '2026-10-09 11:19:24.919141+00');
-INSERT INTO public.permissions VALUES ('cdd5a972-bcda-42e0-b2fa-9e49696ca26e', 'projects.oversee', 'Oversee Project Workspaces', 'Act as owner on every project workspace in the organization', 'projects', true, '2026-10-09 11:19:24.919141+00', '2026-10-09 11:19:24.919141+00');
-INSERT INTO public.permissions VALUES ('1aacbbf4-3dde-4720-8ee5-1d47f7ca1edb', 'labauthor.compose', 'Compose Lab Recipes', 'Browse the lab block library and compose, validate and build lab recipes', 'labs', true, '2026-10-09 11:19:30.706146+00', '2026-10-09 11:19:30.706146+00');
-INSERT INTO public.permissions VALUES ('9e3536d0-ff47-4457-ad5b-bda8dd10eac1', 'labauthor.manage_blocks', 'Manage Lab Text Blocks', 'Create, edit and delete organization-owned lab text blocks (ticket, hints, rubric, presets)', 'labs', true, '2026-10-09 11:19:30.706146+00', '2026-10-09 11:19:30.706146+00');
+INSERT INTO public.permissions VALUES
+    ('6f649ce6-a417-45e2-9bc7-f3d9638bcd41', 'courses.view', 'View Courses', 'Browse and read published course content', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('1ed1ac19-b663-4f5f-88ba-f412f1174b4f', 'courses.enroll', 'Enroll in Courses', 'Enroll in available courses', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('8e9dd6c3-5fb8-4603-8c2e-cce45ebd2a46', 'courses.create', 'Create Courses', 'Create new draft courses', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('90fbd19a-fe62-467b-8599-f029374167c6', 'courses.edit', 'Edit Courses', 'Edit course content and settings', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('165a09bc-39d3-4238-830f-ad8bdccefabf', 'courses.publish', 'Publish Courses', 'Publish or unpublish courses to learners', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('2513bd10-4338-46eb-b94c-46f257575759', 'courses.delete', 'Delete Courses', 'Archive or permanently delete courses', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('3f070164-7bcb-4f3f-acb2-7ca6ce269c50', 'courses.view_analytics', 'Course Analytics', 'View engagement and completion analytics', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('1f73d8a4-428b-4933-b872-7ac1d2df398d', 'assessments.take', 'Take Assessments', 'Attempt assigned assessments', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('4900f2d4-376c-43dd-bd59-79c0054fc25a', 'assessments.view_assigned', 'View Assigned Tests', 'See which assessments are assigned to the user', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('cb0354e5-2ba7-4b40-8c97-715bc9c11509', 'assessments.create', 'Create Assessments', 'Create new assessments', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('4c84291a-f13b-4484-ab39-84959639452f', 'assessments.edit', 'Edit Assessments', 'Edit assessment questions and settings', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('6324637c-94cb-423a-9b1c-76a54b1cf0a9', 'assessments.publish', 'Publish Assessments', 'Publish or unpublish assessments', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('3f2ca5c4-27e6-4426-a424-8c10ca5f0cb6', 'assessments.delete', 'Delete Assessments', 'Archive or delete assessments', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('b772eb01-88e7-4cc6-a0bf-5bc47369288f', 'assessments.view_results', 'View Results', 'See learner scores and attempt analytics', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('e2b247f1-cc49-4b9e-96f9-5a8da4588879', 'assessments.manage_questions', 'Manage Question Bank', 'Add, edit, and tag questions in the bank', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('580ebb98-1c7c-43c3-b9e1-98be0630e515', 'assessments.manage_batches', 'Manage Batches', 'Create and assign learner batches', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('2f948a72-57ad-4262-9716-96a92101a630', 'practice.use', 'Use AI Practice', 'Access AI-powered coding practice and hints', 'practice', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('f0869ea2-5f6f-4d08-9e16-dfbb0acdfbd8', 'mentoring.chat', 'Mentor Chat', 'Send and receive messages with a mentor', 'mentoring', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('369b2409-0dcc-4f64-8dd7-92a67d6441b3', 'mentoring.manage_batches', 'Manage Mentor Batches', 'Create and supervise mentoring batches', 'mentoring', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('6a8cff4a-426b-4802-b58f-6af1fb84b490', 'mentoring.view_students', 'View Student Progress', 'View students'' progress in mentor batches', 'mentoring', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('a2bc6bd0-7ade-4776-a19c-e29915259075', 'content.wiki', 'Wiki', 'Access org wiki spaces and pages', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('1867bde5-0e63-4845-8b67-119f0a715a50', 'content.system_design', 'System Design', 'Use the system design canvas tool', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('c16a4adc-88c5-4d54-8226-05858d99950c', 'content.interview_board', 'Interview Board', 'Use the interview simulation board', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('88c387ea-ee04-451a-b2e6-eacefc510386', 'content.load_test', 'Load Test', 'Run load test simulations', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('a9483194-34af-4db5-86b0-ef24defc12ea', 'content.sheets', 'Sheet Tracker', 'Access DSA sheet trackers', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('87c8bb5f-75b8-48d1-8a34-18e7e3611c28', 'content.srs', 'Review Cards', 'Use spaced-repetition flashcard system', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('feafdb7c-4afa-4017-b0c5-2e05babfff8e', 'content.certificates', 'Certificates', 'View and download earned certificates', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('cf158a23-057e-4025-99e7-e973250028f3', 'admin.view_members', 'View Members', 'List org members and their roles', 'admin', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('4001f3f1-1a57-4654-a730-001edb294c94', 'admin.manage_members', 'Manage Members', 'Invite, remove, and update org members', 'admin', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('167da66d-436c-48b1-b819-274ac10ad126', 'admin.manage_roles', 'Manage Roles', 'Create and edit tenant-owned roles', 'admin', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('ff117d7a-08a5-4aa1-b5af-720e5889e9e8', 'admin.manage_permissions', 'Manage Permissions', 'Assign permissions to roles', 'admin', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('8166a09f-7fe2-4731-a1af-aa71d6c8200f', 'admin.view_audit_log', 'View Audit Log', 'Read the RBAC audit trail', 'admin', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('667590df-e8cd-4d73-b2e0-f959f912fca3', 'admin.manage_org', 'Manage Organisation', 'Update org settings, seat limits, and status', 'admin', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00'),
+    ('89757c35-a068-41d4-a19b-9454b1ed16af', 'mentoring.assign_tickets', 'Assign Mentor Tickets', 'Hand-assign a specific mentor to a student ticket', 'mentoring', true, '2026-07-10 02:05:37.709301+00', '2026-07-10 02:05:37.709301+00'),
+    ('57f2f5ab-91ae-459d-923e-8ebe6cec2f01', 'mentoring.manage_reports', 'Manage Mentor Reports', 'Review and resolve mentor complaint reports', 'mentoring', true, '2026-07-10 02:05:37.709301+00', '2026-07-10 02:05:37.709301+00'),
+    ('7c38cbff-81b7-46b6-96dd-f350a362eef8', 'calendar.events.manage', 'Manage Calendar Events', 'Mutate any calendar event in the organization', 'calendar', true, '2026-07-10 02:05:38.015352+00', '2026-07-10 02:05:38.015352+00'),
+    ('6d5fc0a0-7824-4c30-bc00-aacb659be29c', 'content.interview_exp', 'Interview Experiences', 'Post, answer, and vote on interview experiences', 'content', true, '2026-07-30 12:04:43.215797+00', '2026-07-30 12:04:43.215797+00'),
+    ('66b84856-e05c-4698-8f98-400ccf7f7344', 'projects.view', 'View Projects', 'View GitLab-backed project assignments, teams, and checkpoints', 'projects', true, '2026-07-30 12:04:48.802747+00', '2026-07-30 12:04:48.802747+00'),
+    ('fffb3d38-82f4-4f72-bded-dea80dc48b24', 'projects.manage', 'Manage Projects', 'Create and manage GitLab-backed project assignments, teams, and the org''s GitLab installation', 'projects', true, '2026-07-30 12:04:48.802747+00', '2026-07-30 12:04:48.802747+00'),
+    ('b49ef960-0276-4ed3-81f9-48563f1771e2', 'payments.manage_coupons', 'Manage Coupons', 'Create, edit, and deactivate course discount coupons', 'payments', true, '2026-08-04 12:30:51.640606+00', '2026-08-04 12:30:51.640606+00'),
+    ('f026a66a-2eb5-4828-9a83-292c4998b8f4', 'mentoring.verify_mentors', 'Verify Mentors', 'Toggle the verified-expert badge on a mentor profile', 'mentoring', true, '2026-08-04 12:30:53.198688+00', '2026-08-04 12:30:53.198688+00'),
+    ('7f57e00f-37d1-45f3-8bd2-4cac9685218b', 'mentoring.manage_session_booking', 'Manage Session Booking', 'Configure the session booking policy, credit packs, credit grants, and batch sessions', 'mentoring', true, '2026-08-04 12:30:58.778398+00', '2026-08-04 12:30:58.778398+00'),
+    ('0bbf117d-6a58-40f9-b8bc-86a76a0c25b4', 'support.manage', 'Manage Support Tickets', 'View every support ticket in the org, reply, and change ticket status', 'support', true, '2026-08-04 12:31:05.454937+00', '2026-08-04 12:31:05.454937+00'),
+    ('3b6aaa56-76c5-41a4-bad8-19013ac0b25a', 'content.moderate', 'Moderate Content Reports', 'View and resolve reports of illegal or infringing content', 'moderation', true, '2026-08-04 12:31:06.983445+00', '2026-08-04 12:31:06.983445+00'),
+    ('947822e6-5667-478c-8170-43cec4b809e7', 'payments.manage_refunds', 'Issue Refunds', 'Trigger a refund against a completed purchase', 'payments', true, '2026-08-04 12:31:07.711863+00', '2026-08-04 12:31:07.711863+00'),
+    ('29496c25-c189-42b0-804e-fcae46f260e6', 'features.revision_digest', 'Revision Digest (beta)', '', 'features', true, '2026-10-09 11:19:09.003557+00', '2026-10-09 11:19:09.003557+00'),
+    ('a1c9c9c1-6b8b-4b6a-9b0f-2f9c8f2d7e11', 'mentoring.view_tickets', 'View Mentor Ticket Queue', 'See the mentor ticket queue (open and assigned requests)', 'mentoring', true, '2026-10-09 11:19:09.448927+00', '2026-10-09 11:19:09.448927+00'),
+    ('fc5b2cdd-d1e8-471d-985f-83ab4ba361ad', 'features.what_now', 'What Now? (beta)', '', 'features', true, '2026-10-09 11:19:09.8754+00', '2026-10-09 11:19:09.8754+00'),
+    ('443e4ec4-9114-4944-b03b-38da7d086b98', 'content.learning_journal', 'Learning Journal', 'Access the personal learning journal', 'content', true, '2026-10-09 11:19:16.064561+00', '2026-10-09 11:19:16.064561+00'),
+    ('0326b040-e5c8-4ea5-bc3f-ae419b5d848a', 'content.diary', 'Diary', 'Access the personal digital diary', 'content', true, '2026-10-09 11:19:19.519064+00', '2026-10-09 11:19:19.519064+00'),
+    ('db60237b-04d8-4efc-aa4f-7713972fadc9', 'content.captures', 'Knowledge Captures', 'Capture and organize screenshots/PDFs/links into the journal or SRS cards', 'content', true, '2026-10-09 11:19:23.576632+00', '2026-10-09 11:19:23.576632+00'),
+    ('9978592a-93f1-4369-8c7a-2a98ae1eef29', 'projects.create', 'Create Project Workspaces', 'Create a project workspace (share link, team, work items) and become its owner', 'projects', true, '2026-10-09 11:19:24.919141+00', '2026-10-09 11:19:24.919141+00'),
+    ('cdd5a972-bcda-42e0-b2fa-9e49696ca26e', 'projects.oversee', 'Oversee Project Workspaces', 'Act as owner on every project workspace in the organization', 'projects', true, '2026-10-09 11:19:24.919141+00', '2026-10-09 11:19:24.919141+00'),
+    ('1aacbbf4-3dde-4720-8ee5-1d47f7ca1edb', 'labauthor.compose', 'Compose Lab Recipes', 'Browse the lab block library and compose, validate and build lab recipes', 'labs', true, '2026-10-09 11:19:30.706146+00', '2026-10-09 11:19:30.706146+00'),
+    ('9e3536d0-ff47-4457-ad5b-bda8dd10eac1', 'labauthor.manage_blocks', 'Manage Lab Text Blocks', 'Create, edit and delete organization-owned lab text blocks (ticket, hints, rubric, presets)', 'labs', true, '2026-10-09 11:19:30.706146+00', '2026-10-09 11:19:30.706146+00');
 
-INSERT INTO public.plan_limits VALUES ('702b1127-b411-4cd6-9ab3-b70c49facbcc', 'org_starter', 'assessments', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('6b164b2b-4f91-4428-82af-2d4d6efdd7b9', 'org_growth', 'assessments', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('da88658e-9b5a-4ff8-8a3e-3711144e32f2', 'org_enterprise', 'assessments', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('dc3baf23-c2fe-42b3-a5ee-4a9c40c6a571', 'org_starter', 'gitlab_integration', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('d7ac994f-93a2-4025-9b93-518ccaf28666', 'org_growth', 'gitlab_integration', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('4783b579-a368-4c4a-9b67-225532a951b8', 'org_enterprise', 'gitlab_integration', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('b272bc1f-ce3b-4123-8bc6-468d87bdfd20', 'individual_free', 'system_design', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('f7082f60-3f00-4f80-860d-ed6529c2e663', 'individual_plus', 'system_design', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('f2dfeac8-080c-482c-bc1c-a4357fddbafe', 'individual_pro', 'system_design', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('da6e8cb6-1d29-4db8-95b8-e014c8d7540c', 'individual_free', 'interview_board', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('15a70866-9fde-4895-9b32-9a435426ad3d', 'individual_plus', 'interview_board', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('eb740263-ff15-4d1c-aa59-e3dd71e5e4c5', 'individual_pro', 'interview_board', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('1a997a10-3d2f-4974-8130-fe739c4fd4af', 'individual_free', 'load_test', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('c32b34f3-02a1-46f5-b19c-34ba6843ae61', 'individual_plus', 'load_test', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('c70002ca-6284-402d-82f7-b678b46935d0', 'individual_pro', 'load_test', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('dbbb029f-b19e-4cba-ad79-dafad50797db', 'individual_free', 'certificates', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('82544882-8e8d-4b18-ba76-153e3ac7b798', 'individual_plus', 'certificates', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('ee12387f-c910-41e1-b33a-7aa21926e212', 'individual_pro', 'certificates', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('0e9f7b0e-b3d6-4529-8996-a3d5b7a7e4cf', 'individual_free', 'lab_sessions_concurrent', 'quota', NULL, 1, 'concurrent', NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('f1ed3512-290c-4bc1-a9ec-6cec4a4f6099', 'individual_plus', 'lab_sessions_concurrent', 'quota', NULL, 2, 'concurrent', NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('80e5edc4-87ef-4a65-a759-faa81781522d', 'individual_pro', 'lab_sessions_concurrent', 'quota', NULL, 3, 'concurrent', NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('d91102d6-08a7-4955-b304-72fa3c981c6c', 'individual_free', 'lab_hours', 'quota', NULL, 3, 'month', NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('b7cf20a1-1705-4948-9aad-71c4b8329d0b', 'individual_plus', 'lab_hours', 'quota', NULL, 15, 'month', NULL, '2026-10-09 11:19:17.211959+00');
-INSERT INTO public.plan_limits VALUES ('3004ec6c-4870-427f-8c0d-9c510754b0c2', 'individual_pro', 'lab_hours', 'quota', NULL, 40, 'month', NULL, '2026-10-09 11:19:17.211959+00');
+INSERT INTO public.plan_limits VALUES
+    ('702b1127-b411-4cd6-9ab3-b70c49facbcc', 'org_starter', 'assessments', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00'),
+    ('6b164b2b-4f91-4428-82af-2d4d6efdd7b9', 'org_growth', 'assessments', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00'),
+    ('da88658e-9b5a-4ff8-8a3e-3711144e32f2', 'org_enterprise', 'assessments', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00'),
+    ('dc3baf23-c2fe-42b3-a5ee-4a9c40c6a571', 'org_starter', 'gitlab_integration', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00'),
+    ('d7ac994f-93a2-4025-9b93-518ccaf28666', 'org_growth', 'gitlab_integration', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00'),
+    ('4783b579-a368-4c4a-9b67-225532a951b8', 'org_enterprise', 'gitlab_integration', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00'),
+    ('b272bc1f-ce3b-4123-8bc6-468d87bdfd20', 'individual_free', 'system_design', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00'),
+    ('f7082f60-3f00-4f80-860d-ed6529c2e663', 'individual_plus', 'system_design', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00'),
+    ('f2dfeac8-080c-482c-bc1c-a4357fddbafe', 'individual_pro', 'system_design', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00'),
+    ('da6e8cb6-1d29-4db8-95b8-e014c8d7540c', 'individual_free', 'interview_board', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00'),
+    ('15a70866-9fde-4895-9b32-9a435426ad3d', 'individual_plus', 'interview_board', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00'),
+    ('eb740263-ff15-4d1c-aa59-e3dd71e5e4c5', 'individual_pro', 'interview_board', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00'),
+    ('1a997a10-3d2f-4974-8130-fe739c4fd4af', 'individual_free', 'load_test', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00'),
+    ('c32b34f3-02a1-46f5-b19c-34ba6843ae61', 'individual_plus', 'load_test', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00'),
+    ('c70002ca-6284-402d-82f7-b678b46935d0', 'individual_pro', 'load_test', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00'),
+    ('dbbb029f-b19e-4cba-ad79-dafad50797db', 'individual_free', 'certificates', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00'),
+    ('82544882-8e8d-4b18-ba76-153e3ac7b798', 'individual_plus', 'certificates', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00'),
+    ('ee12387f-c910-41e1-b33a-7aa21926e212', 'individual_pro', 'certificates', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00'),
+    ('0e9f7b0e-b3d6-4529-8996-a3d5b7a7e4cf', 'individual_free', 'lab_sessions_concurrent', 'quota', NULL, 1, 'concurrent', NULL, '2026-10-09 11:19:17.211959+00'),
+    ('f1ed3512-290c-4bc1-a9ec-6cec4a4f6099', 'individual_plus', 'lab_sessions_concurrent', 'quota', NULL, 2, 'concurrent', NULL, '2026-10-09 11:19:17.211959+00'),
+    ('80e5edc4-87ef-4a65-a759-faa81781522d', 'individual_pro', 'lab_sessions_concurrent', 'quota', NULL, 3, 'concurrent', NULL, '2026-10-09 11:19:17.211959+00'),
+    ('d91102d6-08a7-4955-b304-72fa3c981c6c', 'individual_free', 'lab_hours', 'quota', NULL, 3, 'month', NULL, '2026-10-09 11:19:17.211959+00'),
+    ('b7cf20a1-1705-4948-9aad-71c4b8329d0b', 'individual_plus', 'lab_hours', 'quota', NULL, 15, 'month', NULL, '2026-10-09 11:19:17.211959+00'),
+    ('3004ec6c-4870-427f-8c0d-9c510754b0c2', 'individual_pro', 'lab_hours', 'quota', NULL, 40, 'month', NULL, '2026-10-09 11:19:17.211959+00');
 
-INSERT INTO public.pricing_tiers VALUES ('individual_free', 'individual', 1, 'Free', '₹0', 'forever', 'Enough to actually learn something.', '["Enroll in free courses, no limit", "Coding problems, quizzes, and spaced-repetition flashcards", "1 lab session at a time", "Public practice tests — no account needed to try them"]', 'Start learning free', false, '/register', false, NULL, '2026-10-09 11:19:10.314725+00');
-INSERT INTO public.pricing_tiers VALUES ('individual_plus', 'individual', 2, 'Plus', '₹299', '/month', 'For steady, self-paced study.', '["Everything in Free", "Up to 15 lab-hours a month, 2 sessions at once", "AI-generated revision digest and quiz variants", "Verifiable completion certificates", "Multi-sheet problem tracker with overlap view"]', 'Coming soon', true, NULL, false, NULL, '2026-10-09 11:19:10.314725+00');
-INSERT INTO public.pricing_tiers VALUES ('individual_pro', 'individual', 3, 'Pro', '₹799', '/month', 'For interview prep on a deadline.', '["Everything in Plus", "Up to 40 lab-hours a month, priority queue", "System design canvas and live interview board", "AI mock interviews with personalized feedback", "2 mentor session credits every month"]', 'Coming soon', true, NULL, true, NULL, '2026-10-09 11:19:10.314725+00');
-INSERT INTO public.pricing_tiers VALUES ('org_starter', 'org', 1, 'Starter', '₹0', 'up to 10 seats', 'Everything you need to run one cohort.', '["Up to 10 members", "Admin, instructor, mentor, and student roles", "Shared course library and wiki", "Batch chat for each cohort"]', 'Set up your organization', false, '/org/create', false, NULL, '2026-10-09 11:19:10.314725+00');
-INSERT INTO public.pricing_tiers VALUES ('org_growth', 'org', 2, 'Growth', '₹499', '/seat/month', 'For programs that need proof of learning.', '["Unlimited seats", "Proctored assessments with auto-grading and analytics", "Anonymous public tests for candidate screening", "Mentor session booking with credit pools", "GitLab integration for graded submissions"]', 'Coming soon', true, NULL, true, NULL, '2026-10-09 11:19:10.314725+00');
-INSERT INTO public.pricing_tiers VALUES ('org_enterprise', 'org', 3, 'Enterprise', 'Contact us', 'custom', 'For large programs with custom requirements.', '["Everything in Growth", "SSO and custom domain", "Audit log and compliance exports", "Dedicated support and a custom AI token budget"]', 'Coming soon', true, NULL, false, NULL, '2026-10-09 11:19:10.314725+00');
+INSERT INTO public.pricing_tiers VALUES
+    ('individual_free', 'individual', 1, 'Free', '₹0', 'forever', 'Enough to actually learn something.', '["Enroll in free courses, no limit", "Coding problems, quizzes, and spaced-repetition flashcards", "1 lab session at a time", "Public practice tests — no account needed to try them"]', 'Start learning free', false, '/register', false, NULL, '2026-10-09 11:19:10.314725+00'),
+    ('individual_plus', 'individual', 2, 'Plus', '₹299', '/month', 'For steady, self-paced study.', '["Everything in Free", "Up to 15 lab-hours a month, 2 sessions at once", "AI-generated revision digest and quiz variants", "Verifiable completion certificates", "Multi-sheet problem tracker with overlap view"]', 'Coming soon', true, NULL, false, NULL, '2026-10-09 11:19:10.314725+00'),
+    ('individual_pro', 'individual', 3, 'Pro', '₹799', '/month', 'For interview prep on a deadline.', '["Everything in Plus", "Up to 40 lab-hours a month, priority queue", "System design canvas and live interview board", "AI mock interviews with personalized feedback", "2 mentor session credits every month"]', 'Coming soon', true, NULL, true, NULL, '2026-10-09 11:19:10.314725+00'),
+    ('org_starter', 'org', 1, 'Starter', '₹0', 'up to 10 seats', 'Everything you need to run one cohort.', '["Up to 10 members", "Admin, instructor, mentor, and student roles", "Shared course library and wiki", "Batch chat for each cohort"]', 'Set up your organization', false, '/org/create', false, NULL, '2026-10-09 11:19:10.314725+00'),
+    ('org_growth', 'org', 2, 'Growth', '₹499', '/seat/month', 'For programs that need proof of learning.', '["Unlimited seats", "Proctored assessments with auto-grading and analytics", "Anonymous public tests for candidate screening", "Mentor session booking with credit pools", "GitLab integration for graded submissions"]', 'Coming soon', true, NULL, true, NULL, '2026-10-09 11:19:10.314725+00'),
+    ('org_enterprise', 'org', 3, 'Enterprise', 'Contact us', 'custom', 'For large programs with custom requirements.', '["Everything in Growth", "SSO and custom domain", "Audit log and compliance exports", "Dedicated support and a custom AI token budget"]', 'Coming soon', true, NULL, false, NULL, '2026-10-09 11:19:10.314725+00');
 
-INSERT INTO public.reward_definitions VALUES ('0a1071a3-1997-4328-8ae9-b7f2677e1e76', 'first_problem', 'First Blood', 'Solved your first problem.', '🩸', 'bronze', 100, 'problem_solved', 1, '2026-07-10 02:05:37.255488+00');
-INSERT INTO public.reward_definitions VALUES ('bb4d39ff-2b2e-40ce-9e37-0cfb1368516a', 'problem_10', 'Problem Solver', 'Solved 10 problems.', '⚡', 'bronze', 200, 'problem_solved', 10, '2026-07-10 02:05:37.255488+00');
-INSERT INTO public.reward_definitions VALUES ('9447bd2b-154b-4ddb-9d4f-9e4c2a1891d6', 'problem_100', 'Century', 'Solved 100 problems.', '💯', 'silver', 1000, 'problem_solved', 100, '2026-07-10 02:05:37.255488+00');
-INSERT INTO public.reward_definitions VALUES ('a98bdc93-f40d-4b1b-a8d2-b48a334862b1', 'streak_7', 'Week Warrior', 'Maintained a 7-day learning streak.', '🔥', 'bronze', 0, 'streak_milestone', 7, '2026-07-10 02:05:37.255488+00');
-INSERT INTO public.reward_definitions VALUES ('c8847c56-c29b-48af-9a32-742411ecbf18', 'streak_30', 'Month Master', 'Maintained a 30-day learning streak.', '🌟', 'silver', 0, 'streak_milestone', 30, '2026-07-10 02:05:37.255488+00');
-INSERT INTO public.reward_definitions VALUES ('cf816350-bf76-45d7-99db-59a538f9cacd', 'streak_100', 'Centurion', 'Maintained a 100-day learning streak.', '🏆', 'gold', 0, 'streak_milestone', 100, '2026-07-10 02:05:37.255488+00');
-INSERT INTO public.reward_definitions VALUES ('0f82c110-4b86-477f-b52a-c00ec6917deb', 'first_course', 'Course Starter', 'Completed your first course.', '📚', 'bronze', 0, 'course_completed', 1, '2026-07-10 02:05:37.255488+00');
-INSERT INTO public.reward_definitions VALUES ('dbd14050-037b-4fcf-8687-b423c78fada9', 'course_5', 'Curriculum Champion', 'Completed 5 courses.', '🎓', 'silver', 0, 'course_completed', 5, '2026-07-10 02:05:37.255488+00');
-INSERT INTO public.reward_definitions VALUES ('ac25dbaf-6211-4c09-9a06-ca1da597e20e', 'first_cert', 'Certified', 'Earned your first certificate.', '📜', 'silver', 0, 'certificate_earned', 1, '2026-07-10 02:05:37.255488+00');
-INSERT INTO public.reward_definitions VALUES ('4753f34c-23fd-4d95-9e7b-56d9f4544f6d', 'cert_5', 'Credential Collector', 'Earned 5 certificates.', '🏅', 'gold', 0, 'certificate_earned', 5, '2026-07-10 02:05:37.255488+00');
-INSERT INTO public.reward_definitions VALUES ('98166ecc-2100-4b4c-b1c7-fd84d61e423f', 'level_5', 'Halfway There', 'Reached level 5 (Proficient).', '⚔️', 'silver', 0, 'level_reached', 5, '2026-07-10 02:05:37.255488+00');
-INSERT INTO public.reward_definitions VALUES ('9b87d539-e4ba-4ccf-b926-dda7f16b72ef', 'level_10', 'Legend Status', 'Reached the maximum level.', '👑', 'platinum', 0, 'level_reached', 10, '2026-07-10 02:05:37.255488+00');
-INSERT INTO public.reward_definitions VALUES ('2970852d-780b-4038-b45d-250f0cd735b2', 'perfect_quiz', 'Perfect Score', 'Achieved a perfect score on an assessment.', '✨', 'bronze', 150, 'quiz_perfect', 1, '2026-07-10 02:05:37.255488+00');
+INSERT INTO public.reward_definitions VALUES
+    ('0a1071a3-1997-4328-8ae9-b7f2677e1e76', 'first_problem', 'First Blood', 'Solved your first problem.', '🩸', 'bronze', 100, 'problem_solved', 1, '2026-07-10 02:05:37.255488+00'),
+    ('bb4d39ff-2b2e-40ce-9e37-0cfb1368516a', 'problem_10', 'Problem Solver', 'Solved 10 problems.', '⚡', 'bronze', 200, 'problem_solved', 10, '2026-07-10 02:05:37.255488+00'),
+    ('9447bd2b-154b-4ddb-9d4f-9e4c2a1891d6', 'problem_100', 'Century', 'Solved 100 problems.', '💯', 'silver', 1000, 'problem_solved', 100, '2026-07-10 02:05:37.255488+00'),
+    ('a98bdc93-f40d-4b1b-a8d2-b48a334862b1', 'streak_7', 'Week Warrior', 'Maintained a 7-day learning streak.', '🔥', 'bronze', 0, 'streak_milestone', 7, '2026-07-10 02:05:37.255488+00'),
+    ('c8847c56-c29b-48af-9a32-742411ecbf18', 'streak_30', 'Month Master', 'Maintained a 30-day learning streak.', '🌟', 'silver', 0, 'streak_milestone', 30, '2026-07-10 02:05:37.255488+00'),
+    ('cf816350-bf76-45d7-99db-59a538f9cacd', 'streak_100', 'Centurion', 'Maintained a 100-day learning streak.', '🏆', 'gold', 0, 'streak_milestone', 100, '2026-07-10 02:05:37.255488+00'),
+    ('0f82c110-4b86-477f-b52a-c00ec6917deb', 'first_course', 'Course Starter', 'Completed your first course.', '📚', 'bronze', 0, 'course_completed', 1, '2026-07-10 02:05:37.255488+00'),
+    ('dbd14050-037b-4fcf-8687-b423c78fada9', 'course_5', 'Curriculum Champion', 'Completed 5 courses.', '🎓', 'silver', 0, 'course_completed', 5, '2026-07-10 02:05:37.255488+00'),
+    ('ac25dbaf-6211-4c09-9a06-ca1da597e20e', 'first_cert', 'Certified', 'Earned your first certificate.', '📜', 'silver', 0, 'certificate_earned', 1, '2026-07-10 02:05:37.255488+00'),
+    ('4753f34c-23fd-4d95-9e7b-56d9f4544f6d', 'cert_5', 'Credential Collector', 'Earned 5 certificates.', '🏅', 'gold', 0, 'certificate_earned', 5, '2026-07-10 02:05:37.255488+00'),
+    ('98166ecc-2100-4b4c-b1c7-fd84d61e423f', 'level_5', 'Halfway There', 'Reached level 5 (Proficient).', '⚔️', 'silver', 0, 'level_reached', 5, '2026-07-10 02:05:37.255488+00'),
+    ('9b87d539-e4ba-4ccf-b926-dda7f16b72ef', 'level_10', 'Legend Status', 'Reached the maximum level.', '👑', 'platinum', 0, 'level_reached', 10, '2026-07-10 02:05:37.255488+00'),
+    ('2970852d-780b-4038-b45d-250f0cd735b2', 'perfect_quiz', 'Perfect Score', 'Achieved a perfect score on an assessment.', '✨', 'bronze', 150, 'quiz_perfect', 1, '2026-07-10 02:05:37.255488+00');
 
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000001', '6f649ce6-a417-45e2-9bc7-f3d9638bcd41');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '6f649ce6-a417-45e2-9bc7-f3d9638bcd41');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '1ed1ac19-b663-4f5f-88ba-f412f1174b4f');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '1f73d8a4-428b-4933-b872-7ac1d2df398d');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '4900f2d4-376c-43dd-bd59-79c0054fc25a');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '2f948a72-57ad-4262-9716-96a92101a630');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', 'f0869ea2-5f6f-4d08-9e16-dfbb0acdfbd8');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', 'a2bc6bd0-7ade-4776-a19c-e29915259075');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '1867bde5-0e63-4845-8b67-119f0a715a50');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', 'c16a4adc-88c5-4d54-8226-05858d99950c');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '88c387ea-ee04-451a-b2e6-eacefc510386');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', 'a9483194-34af-4db5-86b0-ef24defc12ea');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '87c8bb5f-75b8-48d1-8a34-18e7e3611c28');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', 'feafdb7c-4afa-4017-b0c5-2e05babfff8e');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '6f649ce6-a417-45e2-9bc7-f3d9638bcd41');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '1ed1ac19-b663-4f5f-88ba-f412f1174b4f');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '8e9dd6c3-5fb8-4603-8c2e-cce45ebd2a46');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '90fbd19a-fe62-467b-8599-f029374167c6');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '165a09bc-39d3-4238-830f-ad8bdccefabf');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '2513bd10-4338-46eb-b94c-46f257575759');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '3f070164-7bcb-4f3f-acb2-7ca6ce269c50');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '1f73d8a4-428b-4933-b872-7ac1d2df398d');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '4900f2d4-376c-43dd-bd59-79c0054fc25a');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'cb0354e5-2ba7-4b40-8c97-715bc9c11509');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '4c84291a-f13b-4484-ab39-84959639452f');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '6324637c-94cb-423a-9b1c-76a54b1cf0a9');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '3f2ca5c4-27e6-4426-a424-8c10ca5f0cb6');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'b772eb01-88e7-4cc6-a0bf-5bc47369288f');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'e2b247f1-cc49-4b9e-96f9-5a8da4588879');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '580ebb98-1c7c-43c3-b9e1-98be0630e515');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '2f948a72-57ad-4262-9716-96a92101a630');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'f0869ea2-5f6f-4d08-9e16-dfbb0acdfbd8');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'a2bc6bd0-7ade-4776-a19c-e29915259075');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '1867bde5-0e63-4845-8b67-119f0a715a50');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'c16a4adc-88c5-4d54-8226-05858d99950c');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '88c387ea-ee04-451a-b2e6-eacefc510386');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'a9483194-34af-4db5-86b0-ef24defc12ea');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '87c8bb5f-75b8-48d1-8a34-18e7e3611c28');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'feafdb7c-4afa-4017-b0c5-2e05babfff8e');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'cf158a23-057e-4025-99e7-e973250028f3');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '6f649ce6-a417-45e2-9bc7-f3d9638bcd41');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '1ed1ac19-b663-4f5f-88ba-f412f1174b4f');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '1f73d8a4-428b-4933-b872-7ac1d2df398d');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '4900f2d4-376c-43dd-bd59-79c0054fc25a');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', 'b772eb01-88e7-4cc6-a0bf-5bc47369288f');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '2f948a72-57ad-4262-9716-96a92101a630');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', 'f0869ea2-5f6f-4d08-9e16-dfbb0acdfbd8');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '369b2409-0dcc-4f64-8dd7-92a67d6441b3');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '6a8cff4a-426b-4802-b58f-6af1fb84b490');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', 'a2bc6bd0-7ade-4776-a19c-e29915259075');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '1867bde5-0e63-4845-8b67-119f0a715a50');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', 'c16a4adc-88c5-4d54-8226-05858d99950c');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '88c387ea-ee04-451a-b2e6-eacefc510386');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', 'a9483194-34af-4db5-86b0-ef24defc12ea');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '87c8bb5f-75b8-48d1-8a34-18e7e3611c28');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', 'feafdb7c-4afa-4017-b0c5-2e05babfff8e');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', 'cf158a23-057e-4025-99e7-e973250028f3');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '6f649ce6-a417-45e2-9bc7-f3d9638bcd41');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '1ed1ac19-b663-4f5f-88ba-f412f1174b4f');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '8e9dd6c3-5fb8-4603-8c2e-cce45ebd2a46');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '90fbd19a-fe62-467b-8599-f029374167c6');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '165a09bc-39d3-4238-830f-ad8bdccefabf');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '2513bd10-4338-46eb-b94c-46f257575759');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '3f070164-7bcb-4f3f-acb2-7ca6ce269c50');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '1f73d8a4-428b-4933-b872-7ac1d2df398d');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '4900f2d4-376c-43dd-bd59-79c0054fc25a');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'cb0354e5-2ba7-4b40-8c97-715bc9c11509');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '4c84291a-f13b-4484-ab39-84959639452f');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '6324637c-94cb-423a-9b1c-76a54b1cf0a9');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '3f2ca5c4-27e6-4426-a424-8c10ca5f0cb6');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'b772eb01-88e7-4cc6-a0bf-5bc47369288f');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'e2b247f1-cc49-4b9e-96f9-5a8da4588879');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '580ebb98-1c7c-43c3-b9e1-98be0630e515');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '2f948a72-57ad-4262-9716-96a92101a630');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'f0869ea2-5f6f-4d08-9e16-dfbb0acdfbd8');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '369b2409-0dcc-4f64-8dd7-92a67d6441b3');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '6a8cff4a-426b-4802-b58f-6af1fb84b490');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'a2bc6bd0-7ade-4776-a19c-e29915259075');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '1867bde5-0e63-4845-8b67-119f0a715a50');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'c16a4adc-88c5-4d54-8226-05858d99950c');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '88c387ea-ee04-451a-b2e6-eacefc510386');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'a9483194-34af-4db5-86b0-ef24defc12ea');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '87c8bb5f-75b8-48d1-8a34-18e7e3611c28');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'feafdb7c-4afa-4017-b0c5-2e05babfff8e');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'cf158a23-057e-4025-99e7-e973250028f3');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '4001f3f1-1a57-4654-a730-001edb294c94');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '167da66d-436c-48b1-b819-274ac10ad126');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'ff117d7a-08a5-4aa1-b5af-720e5889e9e8');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '8166a09f-7fe2-4731-a1af-aa71d6c8200f');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '667590df-e8cd-4d73-b2e0-f959f912fca3');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '89757c35-a068-41d4-a19b-9454b1ed16af');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '89757c35-a068-41d4-a19b-9454b1ed16af');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '57f2f5ab-91ae-459d-923e-8ebe6cec2f01');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '7c38cbff-81b7-46b6-96dd-f350a362eef8');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '6d5fc0a0-7824-4c30-bc00-aacb659be29c');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000001', '66b84856-e05c-4698-8f98-400ccf7f7344');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '66b84856-e05c-4698-8f98-400ccf7f7344');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '66b84856-e05c-4698-8f98-400ccf7f7344');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '66b84856-e05c-4698-8f98-400ccf7f7344');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '66b84856-e05c-4698-8f98-400ccf7f7344');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'fffb3d38-82f4-4f72-bded-dea80dc48b24');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'fffb3d38-82f4-4f72-bded-dea80dc48b24');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'b49ef960-0276-4ed3-81f9-48563f1771e2');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '7f57e00f-37d1-45f3-8bd2-4cac9685218b');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '7f57e00f-37d1-45f3-8bd2-4cac9685218b');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '0bbf117d-6a58-40f9-b8bc-86a76a0c25b4');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000006', '0bbf117d-6a58-40f9-b8bc-86a76a0c25b4');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '3b6aaa56-76c5-41a4-bad8-19013ac0b25a');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '947822e6-5667-478c-8170-43cec4b809e7');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'a1c9c9c1-6b8b-4b6a-9b0f-2f9c8f2d7e11');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', 'a1c9c9c1-6b8b-4b6a-9b0f-2f9c8f2d7e11');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'a1c9c9c1-6b8b-4b6a-9b0f-2f9c8f2d7e11');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'f026a66a-2eb5-4828-9a83-292c4998b8f4');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'f026a66a-2eb5-4828-9a83-292c4998b8f4');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '6d5fc0a0-7824-4c30-bc00-aacb659be29c');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '443e4ec4-9114-4944-b03b-38da7d086b98');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '443e4ec4-9114-4944-b03b-38da7d086b98');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '443e4ec4-9114-4944-b03b-38da7d086b98');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '443e4ec4-9114-4944-b03b-38da7d086b98');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '0326b040-e5c8-4ea5-bc3f-ae419b5d848a');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '0326b040-e5c8-4ea5-bc3f-ae419b5d848a');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '0326b040-e5c8-4ea5-bc3f-ae419b5d848a');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '0326b040-e5c8-4ea5-bc3f-ae419b5d848a');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '9978592a-93f1-4369-8c7a-2a98ae1eef29');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '9978592a-93f1-4369-8c7a-2a98ae1eef29');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '9978592a-93f1-4369-8c7a-2a98ae1eef29');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'cdd5a972-bcda-42e0-b2fa-9e49696ca26e');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '1aacbbf4-3dde-4720-8ee5-1d47f7ca1edb');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '1aacbbf4-3dde-4720-8ee5-1d47f7ca1edb');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '9e3536d0-ff47-4457-ad5b-bda8dd10eac1');
-INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '9e3536d0-ff47-4457-ad5b-bda8dd10eac1');
+INSERT INTO public.role_permissions VALUES
+    ('11111111-1111-1111-1111-000000000001', '6f649ce6-a417-45e2-9bc7-f3d9638bcd41'),
+    ('11111111-1111-1111-1111-000000000002', '6f649ce6-a417-45e2-9bc7-f3d9638bcd41'),
+    ('11111111-1111-1111-1111-000000000002', '1ed1ac19-b663-4f5f-88ba-f412f1174b4f'),
+    ('11111111-1111-1111-1111-000000000002', '1f73d8a4-428b-4933-b872-7ac1d2df398d'),
+    ('11111111-1111-1111-1111-000000000002', '4900f2d4-376c-43dd-bd59-79c0054fc25a'),
+    ('11111111-1111-1111-1111-000000000002', '2f948a72-57ad-4262-9716-96a92101a630'),
+    ('11111111-1111-1111-1111-000000000002', 'f0869ea2-5f6f-4d08-9e16-dfbb0acdfbd8'),
+    ('11111111-1111-1111-1111-000000000002', 'a2bc6bd0-7ade-4776-a19c-e29915259075'),
+    ('11111111-1111-1111-1111-000000000002', '1867bde5-0e63-4845-8b67-119f0a715a50'),
+    ('11111111-1111-1111-1111-000000000002', 'c16a4adc-88c5-4d54-8226-05858d99950c'),
+    ('11111111-1111-1111-1111-000000000002', '88c387ea-ee04-451a-b2e6-eacefc510386'),
+    ('11111111-1111-1111-1111-000000000002', 'a9483194-34af-4db5-86b0-ef24defc12ea'),
+    ('11111111-1111-1111-1111-000000000002', '87c8bb5f-75b8-48d1-8a34-18e7e3611c28'),
+    ('11111111-1111-1111-1111-000000000002', 'feafdb7c-4afa-4017-b0c5-2e05babfff8e'),
+    ('11111111-1111-1111-1111-000000000003', '6f649ce6-a417-45e2-9bc7-f3d9638bcd41'),
+    ('11111111-1111-1111-1111-000000000003', '1ed1ac19-b663-4f5f-88ba-f412f1174b4f'),
+    ('11111111-1111-1111-1111-000000000003', '8e9dd6c3-5fb8-4603-8c2e-cce45ebd2a46'),
+    ('11111111-1111-1111-1111-000000000003', '90fbd19a-fe62-467b-8599-f029374167c6'),
+    ('11111111-1111-1111-1111-000000000003', '165a09bc-39d3-4238-830f-ad8bdccefabf'),
+    ('11111111-1111-1111-1111-000000000003', '2513bd10-4338-46eb-b94c-46f257575759'),
+    ('11111111-1111-1111-1111-000000000003', '3f070164-7bcb-4f3f-acb2-7ca6ce269c50'),
+    ('11111111-1111-1111-1111-000000000003', '1f73d8a4-428b-4933-b872-7ac1d2df398d'),
+    ('11111111-1111-1111-1111-000000000003', '4900f2d4-376c-43dd-bd59-79c0054fc25a'),
+    ('11111111-1111-1111-1111-000000000003', 'cb0354e5-2ba7-4b40-8c97-715bc9c11509'),
+    ('11111111-1111-1111-1111-000000000003', '4c84291a-f13b-4484-ab39-84959639452f'),
+    ('11111111-1111-1111-1111-000000000003', '6324637c-94cb-423a-9b1c-76a54b1cf0a9'),
+    ('11111111-1111-1111-1111-000000000003', '3f2ca5c4-27e6-4426-a424-8c10ca5f0cb6'),
+    ('11111111-1111-1111-1111-000000000003', 'b772eb01-88e7-4cc6-a0bf-5bc47369288f'),
+    ('11111111-1111-1111-1111-000000000003', 'e2b247f1-cc49-4b9e-96f9-5a8da4588879'),
+    ('11111111-1111-1111-1111-000000000003', '580ebb98-1c7c-43c3-b9e1-98be0630e515'),
+    ('11111111-1111-1111-1111-000000000003', '2f948a72-57ad-4262-9716-96a92101a630'),
+    ('11111111-1111-1111-1111-000000000003', 'f0869ea2-5f6f-4d08-9e16-dfbb0acdfbd8'),
+    ('11111111-1111-1111-1111-000000000003', 'a2bc6bd0-7ade-4776-a19c-e29915259075'),
+    ('11111111-1111-1111-1111-000000000003', '1867bde5-0e63-4845-8b67-119f0a715a50'),
+    ('11111111-1111-1111-1111-000000000003', 'c16a4adc-88c5-4d54-8226-05858d99950c'),
+    ('11111111-1111-1111-1111-000000000003', '88c387ea-ee04-451a-b2e6-eacefc510386'),
+    ('11111111-1111-1111-1111-000000000003', 'a9483194-34af-4db5-86b0-ef24defc12ea'),
+    ('11111111-1111-1111-1111-000000000003', '87c8bb5f-75b8-48d1-8a34-18e7e3611c28'),
+    ('11111111-1111-1111-1111-000000000003', 'feafdb7c-4afa-4017-b0c5-2e05babfff8e'),
+    ('11111111-1111-1111-1111-000000000003', 'cf158a23-057e-4025-99e7-e973250028f3'),
+    ('11111111-1111-1111-1111-000000000004', '6f649ce6-a417-45e2-9bc7-f3d9638bcd41'),
+    ('11111111-1111-1111-1111-000000000004', '1ed1ac19-b663-4f5f-88ba-f412f1174b4f'),
+    ('11111111-1111-1111-1111-000000000004', '1f73d8a4-428b-4933-b872-7ac1d2df398d'),
+    ('11111111-1111-1111-1111-000000000004', '4900f2d4-376c-43dd-bd59-79c0054fc25a'),
+    ('11111111-1111-1111-1111-000000000004', 'b772eb01-88e7-4cc6-a0bf-5bc47369288f'),
+    ('11111111-1111-1111-1111-000000000004', '2f948a72-57ad-4262-9716-96a92101a630'),
+    ('11111111-1111-1111-1111-000000000004', 'f0869ea2-5f6f-4d08-9e16-dfbb0acdfbd8'),
+    ('11111111-1111-1111-1111-000000000004', '369b2409-0dcc-4f64-8dd7-92a67d6441b3'),
+    ('11111111-1111-1111-1111-000000000004', '6a8cff4a-426b-4802-b58f-6af1fb84b490'),
+    ('11111111-1111-1111-1111-000000000004', 'a2bc6bd0-7ade-4776-a19c-e29915259075'),
+    ('11111111-1111-1111-1111-000000000004', '1867bde5-0e63-4845-8b67-119f0a715a50'),
+    ('11111111-1111-1111-1111-000000000004', 'c16a4adc-88c5-4d54-8226-05858d99950c'),
+    ('11111111-1111-1111-1111-000000000004', '88c387ea-ee04-451a-b2e6-eacefc510386'),
+    ('11111111-1111-1111-1111-000000000004', 'a9483194-34af-4db5-86b0-ef24defc12ea'),
+    ('11111111-1111-1111-1111-000000000004', '87c8bb5f-75b8-48d1-8a34-18e7e3611c28'),
+    ('11111111-1111-1111-1111-000000000004', 'feafdb7c-4afa-4017-b0c5-2e05babfff8e'),
+    ('11111111-1111-1111-1111-000000000004', 'cf158a23-057e-4025-99e7-e973250028f3'),
+    ('11111111-1111-1111-1111-000000000005', '6f649ce6-a417-45e2-9bc7-f3d9638bcd41'),
+    ('11111111-1111-1111-1111-000000000005', '1ed1ac19-b663-4f5f-88ba-f412f1174b4f'),
+    ('11111111-1111-1111-1111-000000000005', '8e9dd6c3-5fb8-4603-8c2e-cce45ebd2a46'),
+    ('11111111-1111-1111-1111-000000000005', '90fbd19a-fe62-467b-8599-f029374167c6'),
+    ('11111111-1111-1111-1111-000000000005', '165a09bc-39d3-4238-830f-ad8bdccefabf'),
+    ('11111111-1111-1111-1111-000000000005', '2513bd10-4338-46eb-b94c-46f257575759'),
+    ('11111111-1111-1111-1111-000000000005', '3f070164-7bcb-4f3f-acb2-7ca6ce269c50'),
+    ('11111111-1111-1111-1111-000000000005', '1f73d8a4-428b-4933-b872-7ac1d2df398d'),
+    ('11111111-1111-1111-1111-000000000005', '4900f2d4-376c-43dd-bd59-79c0054fc25a'),
+    ('11111111-1111-1111-1111-000000000005', 'cb0354e5-2ba7-4b40-8c97-715bc9c11509'),
+    ('11111111-1111-1111-1111-000000000005', '4c84291a-f13b-4484-ab39-84959639452f'),
+    ('11111111-1111-1111-1111-000000000005', '6324637c-94cb-423a-9b1c-76a54b1cf0a9'),
+    ('11111111-1111-1111-1111-000000000005', '3f2ca5c4-27e6-4426-a424-8c10ca5f0cb6'),
+    ('11111111-1111-1111-1111-000000000005', 'b772eb01-88e7-4cc6-a0bf-5bc47369288f'),
+    ('11111111-1111-1111-1111-000000000005', 'e2b247f1-cc49-4b9e-96f9-5a8da4588879'),
+    ('11111111-1111-1111-1111-000000000005', '580ebb98-1c7c-43c3-b9e1-98be0630e515'),
+    ('11111111-1111-1111-1111-000000000005', '2f948a72-57ad-4262-9716-96a92101a630'),
+    ('11111111-1111-1111-1111-000000000005', 'f0869ea2-5f6f-4d08-9e16-dfbb0acdfbd8'),
+    ('11111111-1111-1111-1111-000000000005', '369b2409-0dcc-4f64-8dd7-92a67d6441b3'),
+    ('11111111-1111-1111-1111-000000000005', '6a8cff4a-426b-4802-b58f-6af1fb84b490'),
+    ('11111111-1111-1111-1111-000000000005', 'a2bc6bd0-7ade-4776-a19c-e29915259075'),
+    ('11111111-1111-1111-1111-000000000005', '1867bde5-0e63-4845-8b67-119f0a715a50'),
+    ('11111111-1111-1111-1111-000000000005', 'c16a4adc-88c5-4d54-8226-05858d99950c'),
+    ('11111111-1111-1111-1111-000000000005', '88c387ea-ee04-451a-b2e6-eacefc510386'),
+    ('11111111-1111-1111-1111-000000000005', 'a9483194-34af-4db5-86b0-ef24defc12ea'),
+    ('11111111-1111-1111-1111-000000000005', '87c8bb5f-75b8-48d1-8a34-18e7e3611c28'),
+    ('11111111-1111-1111-1111-000000000005', 'feafdb7c-4afa-4017-b0c5-2e05babfff8e'),
+    ('11111111-1111-1111-1111-000000000005', 'cf158a23-057e-4025-99e7-e973250028f3'),
+    ('11111111-1111-1111-1111-000000000005', '4001f3f1-1a57-4654-a730-001edb294c94'),
+    ('11111111-1111-1111-1111-000000000005', '167da66d-436c-48b1-b819-274ac10ad126'),
+    ('11111111-1111-1111-1111-000000000005', 'ff117d7a-08a5-4aa1-b5af-720e5889e9e8'),
+    ('11111111-1111-1111-1111-000000000005', '8166a09f-7fe2-4731-a1af-aa71d6c8200f'),
+    ('11111111-1111-1111-1111-000000000005', '667590df-e8cd-4d73-b2e0-f959f912fca3'),
+    ('11111111-1111-1111-1111-000000000003', '89757c35-a068-41d4-a19b-9454b1ed16af'),
+    ('11111111-1111-1111-1111-000000000005', '89757c35-a068-41d4-a19b-9454b1ed16af'),
+    ('11111111-1111-1111-1111-000000000005', '57f2f5ab-91ae-459d-923e-8ebe6cec2f01'),
+    ('11111111-1111-1111-1111-000000000005', '7c38cbff-81b7-46b6-96dd-f350a362eef8'),
+    ('11111111-1111-1111-1111-000000000002', '6d5fc0a0-7824-4c30-bc00-aacb659be29c'),
+    ('11111111-1111-1111-1111-000000000001', '66b84856-e05c-4698-8f98-400ccf7f7344'),
+    ('11111111-1111-1111-1111-000000000002', '66b84856-e05c-4698-8f98-400ccf7f7344'),
+    ('11111111-1111-1111-1111-000000000003', '66b84856-e05c-4698-8f98-400ccf7f7344'),
+    ('11111111-1111-1111-1111-000000000004', '66b84856-e05c-4698-8f98-400ccf7f7344'),
+    ('11111111-1111-1111-1111-000000000005', '66b84856-e05c-4698-8f98-400ccf7f7344'),
+    ('11111111-1111-1111-1111-000000000003', 'fffb3d38-82f4-4f72-bded-dea80dc48b24'),
+    ('11111111-1111-1111-1111-000000000005', 'fffb3d38-82f4-4f72-bded-dea80dc48b24'),
+    ('11111111-1111-1111-1111-000000000005', 'b49ef960-0276-4ed3-81f9-48563f1771e2'),
+    ('11111111-1111-1111-1111-000000000003', '7f57e00f-37d1-45f3-8bd2-4cac9685218b'),
+    ('11111111-1111-1111-1111-000000000005', '7f57e00f-37d1-45f3-8bd2-4cac9685218b'),
+    ('11111111-1111-1111-1111-000000000005', '0bbf117d-6a58-40f9-b8bc-86a76a0c25b4'),
+    ('11111111-1111-1111-1111-000000000006', '0bbf117d-6a58-40f9-b8bc-86a76a0c25b4'),
+    ('11111111-1111-1111-1111-000000000005', '3b6aaa56-76c5-41a4-bad8-19013ac0b25a'),
+    ('11111111-1111-1111-1111-000000000005', '947822e6-5667-478c-8170-43cec4b809e7'),
+    ('11111111-1111-1111-1111-000000000003', 'a1c9c9c1-6b8b-4b6a-9b0f-2f9c8f2d7e11'),
+    ('11111111-1111-1111-1111-000000000004', 'a1c9c9c1-6b8b-4b6a-9b0f-2f9c8f2d7e11'),
+    ('11111111-1111-1111-1111-000000000005', 'a1c9c9c1-6b8b-4b6a-9b0f-2f9c8f2d7e11'),
+    ('11111111-1111-1111-1111-000000000003', 'f026a66a-2eb5-4828-9a83-292c4998b8f4'),
+    ('11111111-1111-1111-1111-000000000005', 'f026a66a-2eb5-4828-9a83-292c4998b8f4'),
+    ('11111111-1111-1111-1111-000000000005', '6d5fc0a0-7824-4c30-bc00-aacb659be29c'),
+    ('11111111-1111-1111-1111-000000000002', '443e4ec4-9114-4944-b03b-38da7d086b98'),
+    ('11111111-1111-1111-1111-000000000003', '443e4ec4-9114-4944-b03b-38da7d086b98'),
+    ('11111111-1111-1111-1111-000000000004', '443e4ec4-9114-4944-b03b-38da7d086b98'),
+    ('11111111-1111-1111-1111-000000000005', '443e4ec4-9114-4944-b03b-38da7d086b98'),
+    ('11111111-1111-1111-1111-000000000002', '0326b040-e5c8-4ea5-bc3f-ae419b5d848a'),
+    ('11111111-1111-1111-1111-000000000003', '0326b040-e5c8-4ea5-bc3f-ae419b5d848a'),
+    ('11111111-1111-1111-1111-000000000004', '0326b040-e5c8-4ea5-bc3f-ae419b5d848a'),
+    ('11111111-1111-1111-1111-000000000005', '0326b040-e5c8-4ea5-bc3f-ae419b5d848a'),
+    ('11111111-1111-1111-1111-000000000005', '9978592a-93f1-4369-8c7a-2a98ae1eef29'),
+    ('11111111-1111-1111-1111-000000000004', '9978592a-93f1-4369-8c7a-2a98ae1eef29'),
+    ('11111111-1111-1111-1111-000000000003', '9978592a-93f1-4369-8c7a-2a98ae1eef29'),
+    ('11111111-1111-1111-1111-000000000005', 'cdd5a972-bcda-42e0-b2fa-9e49696ca26e'),
+    ('11111111-1111-1111-1111-000000000005', '1aacbbf4-3dde-4720-8ee5-1d47f7ca1edb'),
+    ('11111111-1111-1111-1111-000000000003', '1aacbbf4-3dde-4720-8ee5-1d47f7ca1edb'),
+    ('11111111-1111-1111-1111-000000000005', '9e3536d0-ff47-4457-ad5b-bda8dd10eac1'),
+    ('11111111-1111-1111-1111-000000000003', '9e3536d0-ff47-4457-ad5b-bda8dd10eac1');
 
-INSERT INTO public.roles VALUES ('11111111-1111-1111-1111-000000000001', NULL, 'viewer', 'Read-only access to published content', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00');
-INSERT INTO public.roles VALUES ('11111111-1111-1111-1111-000000000002', NULL, 'member', 'Standard learner — courses, practice, tools', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00');
-INSERT INTO public.roles VALUES ('11111111-1111-1111-1111-000000000003', NULL, 'instructor', 'Course and assessment author', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00');
-INSERT INTO public.roles VALUES ('11111111-1111-1111-1111-000000000004', NULL, 'mentor', 'Mentoring and batch supervision', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00');
-INSERT INTO public.roles VALUES ('11111111-1111-1111-1111-000000000005', NULL, 'tenant_admin', 'Full organisation administration', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00');
-INSERT INTO public.roles VALUES ('11111111-1111-1111-1111-000000000006', NULL, 'support_agent', 'Support ticket queue — view, reply, triage, and get notified', true, false, true, '2026-08-10 00:00:00+00', '2026-08-10 00:00:00+00');
+INSERT INTO public.roles VALUES
+    ('11111111-1111-1111-1111-000000000001', NULL, 'viewer', 'Read-only access to published content', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00'),
+    ('11111111-1111-1111-1111-000000000002', NULL, 'member', 'Standard learner — courses, practice, tools', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00'),
+    ('11111111-1111-1111-1111-000000000003', NULL, 'instructor', 'Course and assessment author', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00'),
+    ('11111111-1111-1111-1111-000000000004', NULL, 'mentor', 'Mentoring and batch supervision', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00'),
+    ('11111111-1111-1111-1111-000000000005', NULL, 'tenant_admin', 'Full organisation administration', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00'),
+    ('11111111-1111-1111-1111-000000000006', NULL, 'support_agent', 'Support ticket queue — view, reply, triage, and get notified', true, false, true, '2026-08-10 00:00:00+00', '2026-08-10 00:00:00+00');
 
-INSERT INTO public.sheet_items VALUES ('a8104228-0c41-4f67-8f90-ac82d1f6a29b', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Contains Duplicate', 'contains-duplicate', 'Arrays & Hashing', 'easy', 'https://leetcode.com/problems/contains-duplicate/', 1, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('986bf8e0-802f-45aa-9614-d1a616e3d593', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Valid Anagram', 'valid-anagram', 'Arrays & Hashing', 'easy', 'https://leetcode.com/problems/valid-anagram/', 2, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('0ccae9e8-2669-4ed1-896c-02fb5fd4bdd1', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Two Sum', 'two-sum', 'Arrays & Hashing', 'easy', 'https://leetcode.com/problems/two-sum/', 3, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('ba78feee-65bc-4e2a-9c79-3b4b5e0255e3', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Group Anagrams', 'group-anagrams', 'Arrays & Hashing', 'medium', 'https://leetcode.com/problems/group-anagrams/', 4, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('537cb085-527e-4f00-930d-44429637ec09', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Top K Frequent Elements', 'top-k-frequent-elements', 'Arrays & Hashing', 'medium', 'https://leetcode.com/problems/top-k-frequent-elements/', 5, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('b897642b-0246-456a-ad7e-ead320479359', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Product of Array Except Self', 'product-of-array-except-self', 'Arrays & Hashing', 'medium', 'https://leetcode.com/problems/product-of-array-except-self/', 6, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('480e14c7-c556-4e5b-9f5f-24be29773c4c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Valid Sudoku', 'valid-sudoku', 'Arrays & Hashing', 'medium', 'https://leetcode.com/problems/valid-sudoku/', 7, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('ac760520-8b20-406b-be1a-dfedde375696', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Consecutive Sequence', 'longest-consecutive-sequence', 'Arrays & Hashing', 'medium', 'https://leetcode.com/problems/longest-consecutive-sequence/', 8, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('6ce72c08-80fd-4dff-b8e9-dd0b807235ac', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Valid Palindrome', 'valid-palindrome', 'Two Pointers', 'easy', 'https://leetcode.com/problems/valid-palindrome/', 9, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('9a022dec-0911-49cd-9461-0958408b23c4', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Two Sum II - Input Array Is Sorted', 'two-sum-ii-input-array-is-sorted', 'Two Pointers', 'medium', 'https://leetcode.com/problems/two-sum-ii-input-array-is-sorted/', 10, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('94814afb-4021-467c-94df-61433f3f3b0d', '20b37334-c88c-45c6-b898-ec5d23e37474', '3Sum', '3sum', 'Two Pointers', 'medium', 'https://leetcode.com/problems/3sum/', 11, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('694e327b-f057-47a2-8fcd-c3a5aa159e89', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Container With Most Water', 'container-with-most-water', 'Two Pointers', 'medium', 'https://leetcode.com/problems/container-with-most-water/', 12, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('7f0a0a4f-d344-4052-a06d-7b25d8631e74', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Trapping Rain Water', 'trapping-rain-water', 'Two Pointers', 'hard', 'https://leetcode.com/problems/trapping-rain-water/', 13, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('cd95cc0e-ab49-4d1b-9175-9aea4d29c688', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Best Time to Buy and Sell Stock', 'best-time-to-buy-and-sell-stock', 'Sliding Window', 'easy', 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock/', 14, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('991572da-4b46-4854-9476-b7903334a4c1', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Substring Without Repeating Characters', 'longest-substring-without-repeating-characters', 'Sliding Window', 'medium', 'https://leetcode.com/problems/longest-substring-without-repeating-characters/', 15, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('14aa5d24-1dd2-44d7-91be-03421aeab0d7', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Repeating Character Replacement', 'longest-repeating-character-replacement', 'Sliding Window', 'medium', 'https://leetcode.com/problems/longest-repeating-character-replacement/', 16, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('5648c9a6-6d3e-463e-80e6-a0cf2c742501', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Permutation in String', 'permutation-in-string', 'Sliding Window', 'medium', 'https://leetcode.com/problems/permutation-in-string/', 17, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('1dc4e929-542e-4f5f-955f-05592a02afb4', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Minimum Window Substring', 'minimum-window-substring', 'Sliding Window', 'hard', 'https://leetcode.com/problems/minimum-window-substring/', 18, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('01aa3321-3cdb-48c9-a857-89b43ddfc93c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Sliding Window Maximum', 'sliding-window-maximum', 'Sliding Window', 'hard', 'https://leetcode.com/problems/sliding-window-maximum/', 19, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('172ab3eb-d23c-41a9-9c7d-3f5b30384fc9', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Valid Parentheses', 'valid-parentheses', 'Stack', 'easy', 'https://leetcode.com/problems/valid-parentheses/', 20, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('b97920b6-994b-4201-9257-76528da41090', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Min Stack', 'min-stack', 'Stack', 'medium', 'https://leetcode.com/problems/min-stack/', 21, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('34464efb-558e-4ee0-89b6-906a78c77b48', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Evaluate Reverse Polish Notation', 'evaluate-reverse-polish-notation', 'Stack', 'medium', 'https://leetcode.com/problems/evaluate-reverse-polish-notation/', 22, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('f82b022a-40b4-4cd1-b231-cb86f658fc3c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Generate Parentheses', 'generate-parentheses', 'Stack', 'medium', 'https://leetcode.com/problems/generate-parentheses/', 23, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('4eafe992-6a7d-473c-9a55-d80cde3ff4e6', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Daily Temperatures', 'daily-temperatures', 'Stack', 'medium', 'https://leetcode.com/problems/daily-temperatures/', 24, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d45cbeda-8fae-4b89-a5ee-f08609831129', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Car Fleet', 'car-fleet', 'Stack', 'medium', 'https://leetcode.com/problems/car-fleet/', 25, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('64bf87ad-d7b1-4257-b05d-1019558faf80', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Largest Rectangle in Histogram', 'largest-rectangle-in-histogram', 'Stack', 'hard', 'https://leetcode.com/problems/largest-rectangle-in-histogram/', 26, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('868f8d0b-fc48-49f0-8ea3-2a18f065221f', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Binary Search', 'binary-search', 'Binary Search', 'easy', 'https://leetcode.com/problems/binary-search/', 27, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('9e7bf7b8-fdf8-4b2f-b116-be176733a873', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Search a 2D Matrix', 'search-a-2d-matrix', 'Binary Search', 'medium', 'https://leetcode.com/problems/search-a-2d-matrix/', 28, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('0e34bf33-6c44-40c9-859f-a2457b727f79', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Koko Eating Bananas', 'koko-eating-bananas', 'Binary Search', 'medium', 'https://leetcode.com/problems/koko-eating-bananas/', 29, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('9725214d-9cba-48cb-9d14-01a36921128e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Find Minimum in Rotated Sorted Array', 'find-minimum-in-rotated-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/', 30, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('c1b6e40f-3d9c-42cb-adfa-2b12ad52063f', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Search in Rotated Sorted Array', 'search-in-rotated-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/search-in-rotated-sorted-array/', 31, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('f8700c51-b638-415e-becc-fd946908cd64', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Time Based Key-Value Store', 'time-based-key-value-store', 'Binary Search', 'medium', 'https://leetcode.com/problems/time-based-key-value-store/', 32, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('70d54744-ff88-42ff-a731-b90da5f471e0', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Median of Two Sorted Arrays', 'median-of-two-sorted-arrays', 'Binary Search', 'hard', 'https://leetcode.com/problems/median-of-two-sorted-arrays/', 33, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('de776f7c-5fb4-4796-ad93-db5343d4a966', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Reverse Linked List', 'reverse-linked-list', 'Linked List', 'easy', 'https://leetcode.com/problems/reverse-linked-list/', 34, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d17b3a91-8d37-4837-9b27-a14be8e18bb5', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Merge Two Sorted Lists', 'merge-two-sorted-lists', 'Linked List', 'easy', 'https://leetcode.com/problems/merge-two-sorted-lists/', 35, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('bd97b32a-c95b-451f-8e85-62d252ca63da', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Reorder List', 'reorder-list', 'Linked List', 'medium', 'https://leetcode.com/problems/reorder-list/', 36, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('62e24ffe-9710-4b4e-852c-a27a97ce613a', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Remove Nth Node From End of List', 'remove-nth-node-from-end-of-list', 'Linked List', 'medium', 'https://leetcode.com/problems/remove-nth-node-from-end-of-list/', 37, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('785a2498-fad3-4678-b54e-275d7480e5a8', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Copy List with Random Pointer', 'copy-list-with-random-pointer', 'Linked List', 'medium', 'https://leetcode.com/problems/copy-list-with-random-pointer/', 38, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d73f63a4-6e16-4f49-87c2-d5609ec0196f', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Add Two Numbers', 'add-two-numbers', 'Linked List', 'medium', 'https://leetcode.com/problems/add-two-numbers/', 39, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('7f7d3dfb-8ab8-411b-afd6-8a52a0d1c088', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Linked List Cycle', 'linked-list-cycle', 'Linked List', 'easy', 'https://leetcode.com/problems/linked-list-cycle/', 40, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('851cde43-93c9-41fe-a304-41825c64b01c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Find the Duplicate Number', 'find-the-duplicate-number', 'Linked List', 'medium', 'https://leetcode.com/problems/find-the-duplicate-number/', 41, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('ec297789-88e8-4cf3-84fb-4d242f069dd4', '20b37334-c88c-45c6-b898-ec5d23e37474', 'LRU Cache', 'lru-cache', 'Linked List', 'medium', 'https://leetcode.com/problems/lru-cache/', 42, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('8b297c37-d394-42c6-aeed-8c19efa654be', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Merge k Sorted Lists', 'merge-k-sorted-lists', 'Linked List', 'hard', 'https://leetcode.com/problems/merge-k-sorted-lists/', 43, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('220da75e-c840-4833-a98b-cb91d2743a37', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Reverse Nodes in k-Group', 'reverse-nodes-in-k-group', 'Linked List', 'hard', 'https://leetcode.com/problems/reverse-nodes-in-k-group/', 44, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('24ff5f07-fddf-4dbf-af52-882d9600b89b', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Invert Binary Tree', 'invert-binary-tree', 'Trees', 'easy', 'https://leetcode.com/problems/invert-binary-tree/', 45, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('93378118-22c8-405a-a727-79b9dad79567', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Maximum Depth of Binary Tree', 'maximum-depth-of-binary-tree', 'Trees', 'easy', 'https://leetcode.com/problems/maximum-depth-of-binary-tree/', 46, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('b2ad1af9-2b3e-4365-9e29-98ea2897b434', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Diameter of Binary Tree', 'diameter-of-binary-tree', 'Trees', 'easy', 'https://leetcode.com/problems/diameter-of-binary-tree/', 47, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('586b039b-bf48-4d79-a3c5-567af02f0dff', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Balanced Binary Tree', 'balanced-binary-tree', 'Trees', 'easy', 'https://leetcode.com/problems/balanced-binary-tree/', 48, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('8e6862de-9efb-431f-b42a-5ee2d8452e85', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Same Tree', 'same-tree', 'Trees', 'easy', 'https://leetcode.com/problems/same-tree/', 49, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('1b18311f-2c03-4317-bfb3-c4e816d954be', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Subtree of Another Tree', 'subtree-of-another-tree', 'Trees', 'easy', 'https://leetcode.com/problems/subtree-of-another-tree/', 50, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d778af1e-71c0-497b-86b6-5619df103891', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Lowest Common Ancestor of a BST', 'lowest-common-ancestor-of-a-binary-search-tree', 'Trees', 'medium', 'https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-search-tree/', 51, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('cdea8223-c7df-4099-bf14-2561e41e67fa', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Binary Tree Level Order Traversal', 'binary-tree-level-order-traversal', 'Trees', 'medium', 'https://leetcode.com/problems/binary-tree-level-order-traversal/', 52, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('9a6d84c9-b5c6-4b60-b312-9b8cc19ee8e7', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Binary Tree Right Side View', 'binary-tree-right-side-view', 'Trees', 'medium', 'https://leetcode.com/problems/binary-tree-right-side-view/', 53, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('c9d3cf92-37c2-4a53-a4ad-6f14c72c3484', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Count Good Nodes in Binary Tree', 'count-good-nodes-in-binary-tree', 'Trees', 'medium', 'https://leetcode.com/problems/count-good-nodes-in-binary-tree/', 54, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('33ffa840-2b1f-4027-8504-815c5eb964e1', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Validate Binary Search Tree', 'validate-binary-search-tree', 'Trees', 'medium', 'https://leetcode.com/problems/validate-binary-search-tree/', 55, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('5ccef775-5cb5-4db5-ba8d-385ee1f27e19', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Kth Smallest Element in a BST', 'kth-smallest-element-in-a-bst', 'Trees', 'medium', 'https://leetcode.com/problems/kth-smallest-element-in-a-bst/', 56, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('7ae5294c-3fcc-4b02-8c14-e0ec25a8679e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Construct Binary Tree from Preorder and Inorder', 'construct-binary-tree-from-preorder-and-inorder-traversal', 'Trees', 'medium', 'https://leetcode.com/problems/construct-binary-tree-from-preorder-and-inorder-traversal/', 57, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('110e4f1c-e152-4274-9026-956795d5d611', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Binary Tree Maximum Path Sum', 'binary-tree-maximum-path-sum', 'Trees', 'hard', 'https://leetcode.com/problems/binary-tree-maximum-path-sum/', 58, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('a86a35c3-dc97-4e01-995a-f7aa9bc3335b', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Serialize and Deserialize Binary Tree', 'serialize-and-deserialize-binary-tree', 'Trees', 'hard', 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree/', 59, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('ec9f16fc-e4f9-46d7-86a1-2a9fef7fbfa9', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Implement Trie (Prefix Tree)', 'implement-trie-prefix-tree', 'Tries', 'medium', 'https://leetcode.com/problems/implement-trie-prefix-tree/', 60, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('7747ea45-3134-4d00-8e21-159e82e7dffd', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Design Add and Search Words Data Structure', 'design-add-and-search-words-data-structure', 'Tries', 'medium', 'https://leetcode.com/problems/design-add-and-search-words-data-structure/', 61, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('376f412b-0966-4fb1-b0ad-acc490334f34', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Word Search II', 'word-search-ii', 'Tries', 'hard', 'https://leetcode.com/problems/word-search-ii/', 62, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('9d601985-c786-4ff8-b74a-c1148af4594e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Kth Largest Element in a Stream', 'kth-largest-element-in-a-stream', 'Heap / Priority Queue', 'easy', 'https://leetcode.com/problems/kth-largest-element-in-a-stream/', 63, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('1256c626-7fb3-4a56-ae54-278e2287dbef', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Last Stone Weight', 'last-stone-weight', 'Heap / Priority Queue', 'easy', 'https://leetcode.com/problems/last-stone-weight/', 64, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('2b7f28d6-91ee-4dbc-ae64-9dd3344641bb', '20b37334-c88c-45c6-b898-ec5d23e37474', 'K Closest Points to Origin', 'k-closest-points-to-origin', 'Heap / Priority Queue', 'medium', 'https://leetcode.com/problems/k-closest-points-to-origin/', 65, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('b0613080-d6e9-4132-b303-f8b1159322f2', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Kth Largest Element in an Array', 'kth-largest-element-in-an-array', 'Heap / Priority Queue', 'medium', 'https://leetcode.com/problems/kth-largest-element-in-an-array/', 66, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('babdf4fc-9d6b-49d0-ab34-11ad92e3fd86', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Task Scheduler', 'task-scheduler', 'Heap / Priority Queue', 'medium', 'https://leetcode.com/problems/task-scheduler/', 67, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('e764c055-1524-4a02-9d6b-cdedf705ea0c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Design Twitter', 'design-twitter', 'Heap / Priority Queue', 'medium', 'https://leetcode.com/problems/design-twitter/', 68, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('4065311b-a678-473e-be30-2e0d2c88890c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Find Median from Data Stream', 'find-median-from-data-stream', 'Heap / Priority Queue', 'hard', 'https://leetcode.com/problems/find-median-from-data-stream/', 69, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('3f879d3a-f599-49c1-9bd3-8465b00efdd5', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Subsets', 'subsets', 'Backtracking', 'medium', 'https://leetcode.com/problems/subsets/', 70, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('b8a4456f-6fdd-478d-801b-e25358874f25', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Combination Sum', 'combination-sum', 'Backtracking', 'medium', 'https://leetcode.com/problems/combination-sum/', 71, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('570a78db-507e-4683-bdbb-31092e82e550', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Permutations', 'permutations', 'Backtracking', 'medium', 'https://leetcode.com/problems/permutations/', 72, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('8c8fad00-2fb6-4f75-bc20-b4d80d5b2e29', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Subsets II', 'subsets-ii', 'Backtracking', 'medium', 'https://leetcode.com/problems/subsets-ii/', 73, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('f7df80fd-a7aa-43ca-ba93-6efe6d78d655', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Combination Sum II', 'combination-sum-ii', 'Backtracking', 'medium', 'https://leetcode.com/problems/combination-sum-ii/', 74, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('89876b06-f641-4904-935f-a0ae34b13641', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Word Search', 'word-search', 'Backtracking', 'medium', 'https://leetcode.com/problems/word-search/', 75, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('341501cf-0e36-49f2-a9f1-76c4db4bc913', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Palindrome Partitioning', 'palindrome-partitioning', 'Backtracking', 'medium', 'https://leetcode.com/problems/palindrome-partitioning/', 76, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('9d0a4cba-0322-4281-bdb5-1d414fc943f7', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Letter Combinations of a Phone Number', 'letter-combinations-of-a-phone-number', 'Backtracking', 'medium', 'https://leetcode.com/problems/letter-combinations-of-a-phone-number/', 77, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('8c7946c6-01e6-49aa-94e0-7bdafb458103', '20b37334-c88c-45c6-b898-ec5d23e37474', 'N-Queens', 'n-queens', 'Backtracking', 'hard', 'https://leetcode.com/problems/n-queens/', 78, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('c5e95eee-1b87-4753-969d-2fd1de883ffc', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Number of Islands', 'number-of-islands', 'Graphs', 'medium', 'https://leetcode.com/problems/number-of-islands/', 79, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('25903ebd-c0a6-4883-be26-7a54c73424e4', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Clone Graph', 'clone-graph', 'Graphs', 'medium', 'https://leetcode.com/problems/clone-graph/', 80, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('19292ea7-36b4-49c1-aec4-967db90b6a0f', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Max Area of Island', 'max-area-of-island', 'Graphs', 'medium', 'https://leetcode.com/problems/max-area-of-island/', 81, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('7564f0af-e1dd-4b77-bcac-4008bde0081c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Pacific Atlantic Water Flow', 'pacific-atlantic-water-flow', 'Graphs', 'medium', 'https://leetcode.com/problems/pacific-atlantic-water-flow/', 82, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('eb6ef0bd-344c-4935-87af-c6a823288203', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Surrounded Regions', 'surrounded-regions', 'Graphs', 'medium', 'https://leetcode.com/problems/surrounded-regions/', 83, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('7d9e4651-c5d0-40a2-b9a2-206644a83334', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Course Schedule', 'course-schedule', 'Graph', 'medium', 'https://leetcode.com/problems/course-schedule/', 28, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('45a0ab79-d050-49a5-8ac8-49cc852c3bc6', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Rotting Oranges', 'rotting-oranges', 'Graphs', 'medium', 'https://leetcode.com/problems/rotting-oranges/', 84, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('4bbeb4e6-d829-45a7-bf02-9785da095ab6', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Course Schedule', 'course-schedule', 'Graphs', 'medium', 'https://leetcode.com/problems/course-schedule/', 85, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('66f5a7f5-c060-43f2-9e3e-c6e7a7a5976a', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Course Schedule II', 'course-schedule-ii', 'Graphs', 'medium', 'https://leetcode.com/problems/course-schedule-ii/', 86, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('9410c859-9312-43ec-a77e-e9bcfc3a3ef2', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Redundant Connection', 'redundant-connection', 'Graphs', 'medium', 'https://leetcode.com/problems/redundant-connection/', 87, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('821fd67a-f2a7-4129-8144-d53608d1c816', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Number of Connected Components in an Undirected Graph', 'number-of-connected-components-in-an-undirected-graph', 'Graphs', 'medium', 'https://leetcode.com/problems/number-of-connected-components-in-an-undirected-graph/', 88, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('2d73a6cf-0c69-4027-ac44-09613f6f9f31', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Graph Valid Tree', 'graph-valid-tree', 'Graphs', 'medium', 'https://leetcode.com/problems/graph-valid-tree/', 89, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('c4d765ac-901d-422e-9632-d9d1aa04847a', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Word Ladder', 'word-ladder', 'Graphs', 'hard', 'https://leetcode.com/problems/word-ladder/', 90, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('8afb472e-bcb0-4d97-a1e6-6a6d1af6682e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Reconstruct Itinerary', 'reconstruct-itinerary', 'Advanced Graphs', 'hard', 'https://leetcode.com/problems/reconstruct-itinerary/', 91, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('6a1c85a3-288d-4f44-9a6d-d393f18d06c5', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Min Cost to Connect All Points', 'min-cost-to-connect-all-points', 'Advanced Graphs', 'medium', 'https://leetcode.com/problems/min-cost-to-connect-all-points/', 92, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('bb82fc7f-0482-494a-8dcc-9140acfa64f3', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Network Delay Time', 'network-delay-time', 'Advanced Graphs', 'medium', 'https://leetcode.com/problems/network-delay-time/', 93, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('c31a96f5-ac03-4cfb-929c-5e2b3daa1b0e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Swim in Rising Water', 'swim-in-rising-water', 'Advanced Graphs', 'hard', 'https://leetcode.com/problems/swim-in-rising-water/', 94, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('c8b2d2cb-f8e9-4d3a-8431-f6e9eb0e239b', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Cheapest Flights Within K Stops', 'cheapest-flights-within-k-stops', 'Advanced Graphs', 'medium', 'https://leetcode.com/problems/cheapest-flights-within-k-stops/', 95, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('9f241185-992a-4c79-9d6e-29db489ad440', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Climbing Stairs', 'climbing-stairs', '1-D DP', 'easy', 'https://leetcode.com/problems/climbing-stairs/', 96, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('f86e15dd-2d55-4f57-a685-3a4d5948923e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Min Cost Climbing Stairs', 'min-cost-climbing-stairs', '1-D DP', 'easy', 'https://leetcode.com/problems/min-cost-climbing-stairs/', 97, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('0bd5276c-79ac-4927-a136-257e3384bffc', '20b37334-c88c-45c6-b898-ec5d23e37474', 'House Robber', 'house-robber', '1-D DP', 'medium', 'https://leetcode.com/problems/house-robber/', 98, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('1a6ecc7d-6ff6-42db-8968-6368a8f354cd', '20b37334-c88c-45c6-b898-ec5d23e37474', 'House Robber II', 'house-robber-ii', '1-D DP', 'medium', 'https://leetcode.com/problems/house-robber-ii/', 99, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('5e1ef2e6-35d5-4a2a-ab51-5799781d5777', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Palindromic Substring', 'longest-palindromic-substring', '1-D DP', 'medium', 'https://leetcode.com/problems/longest-palindromic-substring/', 100, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('bb9d734d-be4a-4d4e-ab63-1a8686b7aadb', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Palindromic Substrings', 'palindromic-substrings', '1-D DP', 'medium', 'https://leetcode.com/problems/palindromic-substrings/', 101, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('368eadd2-d705-437b-ae3e-ad911ccb1535', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Decode Ways', 'decode-ways', '1-D DP', 'medium', 'https://leetcode.com/problems/decode-ways/', 102, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('fb92e6dc-a188-4e3e-8141-861e456cfa6e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Coin Change', 'coin-change', '1-D DP', 'medium', 'https://leetcode.com/problems/coin-change/', 103, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('015e6b24-afe2-4ecf-8cc7-4d028d4f3403', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Maximum Product Subarray', 'maximum-product-subarray', '1-D DP', 'medium', 'https://leetcode.com/problems/maximum-product-subarray/', 104, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('6d573d77-0c84-44dc-b3b5-f62a82637feb', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Word Break', 'word-break', '1-D DP', 'medium', 'https://leetcode.com/problems/word-break/', 105, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('4a805054-f2f7-4900-b44c-ee6af64f76f0', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Increasing Subsequence', 'longest-increasing-subsequence', '1-D DP', 'medium', 'https://leetcode.com/problems/longest-increasing-subsequence/', 106, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('f95ee300-2a23-4d1d-b9d5-16371c09bed6', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Partition Equal Subset Sum', 'partition-equal-subset-sum', '1-D DP', 'medium', 'https://leetcode.com/problems/partition-equal-subset-sum/', 107, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('88e365f0-6e79-46e9-91ec-02c592239df8', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Unique Paths', 'unique-paths', '2-D DP', 'medium', 'https://leetcode.com/problems/unique-paths/', 108, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('232663de-a202-4bbc-ba56-965a85b9caab', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Common Subsequence', 'longest-common-subsequence', '2-D DP', 'medium', 'https://leetcode.com/problems/longest-common-subsequence/', 109, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d084ac4b-e532-4577-ba54-b2172b4653a9', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Best Time to Buy and Sell Stock with Cooldown', 'best-time-to-buy-and-sell-stock-with-cooldown', '2-D DP', 'medium', 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock-with-cooldown/', 110, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('90b7a101-1e39-4d29-8efc-a03d8e9c6efb', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Coin Change II', 'coin-change-ii', '2-D DP', 'medium', 'https://leetcode.com/problems/coin-change-ii/', 111, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('5a341387-6c51-48df-86bd-fbbaacd37656', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Target Sum', 'target-sum', '2-D DP', 'medium', 'https://leetcode.com/problems/target-sum/', 112, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('9537d60c-0f25-49ff-866c-6490cd51eb9f', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Interleaving String', 'interleaving-string', '2-D DP', 'medium', 'https://leetcode.com/problems/interleaving-string/', 113, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('1f7b6bd3-15c7-4af9-8b01-87fea69a10d0', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Increasing Path in a Matrix', 'longest-increasing-path-in-a-matrix', '2-D DP', 'hard', 'https://leetcode.com/problems/longest-increasing-path-in-a-matrix/', 114, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('a68c232c-221c-49ee-948a-43b647bbe547', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Distinct Subsequences', 'distinct-subsequences', '2-D DP', 'hard', 'https://leetcode.com/problems/distinct-subsequences/', 115, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('bf69419f-3ff4-4c85-bb78-9ed355ced814', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Edit Distance', 'edit-distance', '2-D DP', 'medium', 'https://leetcode.com/problems/edit-distance/', 116, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('c7affe81-8d85-4ee7-b266-2a1be700004d', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Burst Balloons', 'burst-balloons', '2-D DP', 'hard', 'https://leetcode.com/problems/burst-balloons/', 117, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('92ca1545-b723-4dd9-95de-da944a69eb46', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Regular Expression Matching', 'regular-expression-matching', '2-D DP', 'hard', 'https://leetcode.com/problems/regular-expression-matching/', 118, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('139cfded-46fa-4a71-8af1-53d1f98e56d2', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Maximum Subarray', 'maximum-subarray', 'Greedy', 'medium', 'https://leetcode.com/problems/maximum-subarray/', 119, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('143e2d49-93f4-4777-8aad-a45f67bbdb33', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Jump Game', 'jump-game', 'Greedy', 'medium', 'https://leetcode.com/problems/jump-game/', 120, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('e9dc7e55-9347-49bd-aef0-0fcd4591386e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Jump Game II', 'jump-game-ii', 'Greedy', 'medium', 'https://leetcode.com/problems/jump-game-ii/', 121, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('6f3c9636-678a-47dd-bc0e-a4acb2b7c20d', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Gas Station', 'gas-station', 'Greedy', 'medium', 'https://leetcode.com/problems/gas-station/', 122, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('ffbe8adf-5084-4b5c-84c2-8ad1096c9339', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Hand of Straights', 'hand-of-straights', 'Greedy', 'medium', 'https://leetcode.com/problems/hand-of-straights/', 123, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('131ff1c5-b09b-4888-a2ff-75d35a21e18d', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Merge Triplets to Form Target Triplet', 'merge-triplets-to-form-target-triplet', 'Greedy', 'medium', 'https://leetcode.com/problems/merge-triplets-to-form-target-triplet/', 124, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('dbc9aca7-81c1-46d1-b3f3-e9de2bac30b4', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Partition Labels', 'partition-labels', 'Greedy', 'medium', 'https://leetcode.com/problems/partition-labels/', 125, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('9e21d5c0-3a89-4b07-ab65-b02fb067bea1', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Valid Parenthesis String', 'valid-parenthesis-string', 'Greedy', 'medium', 'https://leetcode.com/problems/valid-parenthesis-string/', 126, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('375e501b-5a8b-4223-98c0-24fdd9df4172', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Insert Interval', 'insert-interval', 'Intervals', 'medium', 'https://leetcode.com/problems/insert-interval/', 127, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d78f2189-7dfd-4b74-993f-5c36ed36d8d2', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Merge Intervals', 'merge-intervals', 'Intervals', 'medium', 'https://leetcode.com/problems/merge-intervals/', 128, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('6eda5785-8dbe-403f-bbda-9092bf3ab784', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Non-overlapping Intervals', 'non-overlapping-intervals', 'Intervals', 'medium', 'https://leetcode.com/problems/non-overlapping-intervals/', 129, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('ffc51bba-7d08-4d4b-8f41-eb10a1cad0eb', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Minimum Interval to Include Each Query', 'minimum-interval-to-include-each-query', 'Intervals', 'hard', 'https://leetcode.com/problems/minimum-interval-to-include-each-query/', 130, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('1c5d61c5-79ca-4046-ba2f-f2c1acb5a9a5', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Rotate Image', 'rotate-image', 'Math & Geometry', 'medium', 'https://leetcode.com/problems/rotate-image/', 131, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('0fe991a9-da38-4c51-ac9d-ba4e9bef3891', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Spiral Matrix', 'spiral-matrix', 'Math & Geometry', 'medium', 'https://leetcode.com/problems/spiral-matrix/', 132, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('6dbd8719-4dfe-483f-ab84-5501476d99ed', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Set Matrix Zeroes', 'set-matrix-zeroes', 'Math & Geometry', 'medium', 'https://leetcode.com/problems/set-matrix-zeroes/', 133, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('b781df09-bafe-4471-a176-72d31fc01958', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Happy Number', 'happy-number', 'Math & Geometry', 'easy', 'https://leetcode.com/problems/happy-number/', 134, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('a0358583-0d19-4997-9ec9-a4603bc86c98', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Plus One', 'plus-one', 'Math & Geometry', 'easy', 'https://leetcode.com/problems/plus-one/', 135, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('cd4ee3e6-ddf2-47ff-aa22-729f12afa26c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Pow(x, n)', 'powx-n', 'Math & Geometry', 'medium', 'https://leetcode.com/problems/powx-n/', 136, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('43302d6a-2bb1-4cff-8aed-dde6fe325333', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Multiply Strings', 'multiply-strings', 'Math & Geometry', 'medium', 'https://leetcode.com/problems/multiply-strings/', 137, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('dde5278d-0b4b-4ffd-b5b6-283d74691cb1', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Detect Squares', 'detect-squares', 'Math & Geometry', 'medium', 'https://leetcode.com/problems/detect-squares/', 138, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('641c0a8d-a3af-4f45-92fd-2449cdec362c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Single Number', 'single-number', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/single-number/', 139, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('b5aae654-e99c-48f3-9349-d94b37158bf7', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Number of 1 Bits', 'number-of-1-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/number-of-1-bits/', 140, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('24c424b6-8aa4-4b19-8d17-94e453646cee', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Counting Bits', 'counting-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/counting-bits/', 141, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('6dd15929-e8e2-470b-8ca2-465f8ee57420', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Reverse Bits', 'reverse-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/reverse-bits/', 142, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d267f740-5baa-4192-96e8-b48e43a301ba', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Missing Number', 'missing-number', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/missing-number/', 143, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('46c61ae8-5b0a-43b5-b02f-c2673ed97630', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Sum of Two Integers', 'sum-of-two-integers', 'Bit Manipulation', 'medium', 'https://leetcode.com/problems/sum-of-two-integers/', 144, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d80a058f-3b12-4093-826a-e611e24cf272', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Reverse Integer', 'reverse-integer', 'Bit Manipulation', 'medium', 'https://leetcode.com/problems/reverse-integer/', 145, '2026-07-10 02:05:37.890501+00', '{}');
-INSERT INTO public.sheet_items VALUES ('63f30362-5cd0-4c82-9364-96f6e1381e9e', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Two Sum', 'two-sum', 'Array', 'easy', 'https://leetcode.com/problems/two-sum/', 1, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('8ccfb6d5-2ecd-436e-8b3f-414322e873ea', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Best Time to Buy and Sell Stock', 'best-time-to-buy-and-sell-stock', 'Array', 'easy', 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock/', 2, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('908682b4-9a2e-4ea5-b15a-d530f329ccd8', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Contains Duplicate', 'contains-duplicate', 'Array', 'easy', 'https://leetcode.com/problems/contains-duplicate/', 3, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('4ff78959-5449-4c67-9d64-66cb7383c945', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Product of Array Except Self', 'product-of-array-except-self', 'Array', 'medium', 'https://leetcode.com/problems/product-of-array-except-self/', 4, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('f8c11609-b6b8-4a85-afa0-7ec672a0eae4', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Maximum Subarray', 'maximum-subarray', 'Array', 'medium', 'https://leetcode.com/problems/maximum-subarray/', 5, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('63bacb57-8120-43a3-b2fe-304ccad1f2d5', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Maximum Product Subarray', 'maximum-product-subarray', 'Array', 'medium', 'https://leetcode.com/problems/maximum-product-subarray/', 6, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('3ff89989-f1e8-484e-8f93-4f99e79b4642', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Find Minimum in Rotated Sorted Array', 'find-minimum-in-rotated-sorted-array', 'Array', 'medium', 'https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/', 7, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('ac6a80e7-cf9f-478b-9274-14078d664504', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Search in Rotated Sorted Array', 'search-in-rotated-sorted-array', 'Array', 'medium', 'https://leetcode.com/problems/search-in-rotated-sorted-array/', 8, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('ed663548-75df-40e3-860b-c6bf5edb4366', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', '3Sum', '3sum', 'Array', 'medium', 'https://leetcode.com/problems/3sum/', 9, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('3a44210b-e424-4020-ad63-3f9738e25164', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Container With Most Water', 'container-with-most-water', 'Array', 'medium', 'https://leetcode.com/problems/container-with-most-water/', 10, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('0749f6c3-da53-41ad-85f9-bb9e65c90d80', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Sum of Two Integers', 'sum-of-two-integers', 'Binary', 'medium', 'https://leetcode.com/problems/sum-of-two-integers/', 11, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('3115c8a4-4997-43f9-82dc-65099ffbbcc6', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Number of 1 Bits', 'number-of-1-bits', 'Binary', 'easy', 'https://leetcode.com/problems/number-of-1-bits/', 12, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('42d0c500-6170-459f-a034-d117b556b0ed', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Counting Bits', 'counting-bits', 'Binary', 'easy', 'https://leetcode.com/problems/counting-bits/', 13, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('09889555-a4ec-4350-9500-21d005727b9a', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Missing Number', 'missing-number', 'Binary', 'easy', 'https://leetcode.com/problems/missing-number/', 14, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('59cf0758-bcee-4b84-aeb8-d693cfd48c9e', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Reverse Bits', 'reverse-bits', 'Binary', 'easy', 'https://leetcode.com/problems/reverse-bits/', 15, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('4a3bbee6-b21e-4e3a-a02a-036befd4458c', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Climbing Stairs', 'climbing-stairs', 'Dynamic Programming', 'easy', 'https://leetcode.com/problems/climbing-stairs/', 16, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d9a6ed89-282f-4780-8d6d-3763357875fc', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Coin Change', 'coin-change', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/coin-change/', 17, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('f640d8f9-4c8c-43d2-91e9-ce2d87c51261', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Longest Increasing Subsequence', 'longest-increasing-subsequence', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/longest-increasing-subsequence/', 18, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('8fd7075c-0db3-488c-af5e-a6d2e67554d2', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Longest Common Subsequence', 'longest-common-subsequence', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/longest-common-subsequence/', 19, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('0fe03b60-4c60-4d40-ba35-6d7a7c332b1c', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Word Break', 'word-break', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/word-break/', 20, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('c166ee97-5d56-49a4-a93d-dd36573acaf3', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Combination Sum', 'combination-sum', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/combination-sum/', 21, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('f34e87a7-4d01-4e26-ae34-c2984ef2df64', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'House Robber', 'house-robber', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/house-robber/', 22, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d571b383-de69-48b5-9264-f135e058f8c4', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'House Robber II', 'house-robber-ii', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/house-robber-ii/', 23, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('a6db85b6-7685-4c2f-9eef-28bda24d2bf6', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Decode Ways', 'decode-ways', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/decode-ways/', 24, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('92cc57b3-d0c5-4b53-8211-f0b7c69522d7', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Unique Paths', 'unique-paths', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/unique-paths/', 25, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('0cd06ee0-dfca-4c6c-995a-032c7490f473', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Jump Game', 'jump-game', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/jump-game/', 26, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('82056808-84ca-433e-bc1f-0bedece231e0', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Clone Graph', 'clone-graph', 'Graph', 'medium', 'https://leetcode.com/problems/clone-graph/', 27, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('e1d3abc5-ef9a-4b54-b048-666fe6be9028', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Pacific Atlantic Water Flow', 'pacific-atlantic-water-flow', 'Graph', 'medium', 'https://leetcode.com/problems/pacific-atlantic-water-flow/', 29, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('e8a4e28b-6015-4763-80d1-c00d617d0d18', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Number of Islands', 'number-of-islands', 'Graph', 'medium', 'https://leetcode.com/problems/number-of-islands/', 30, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('7fd997a0-e215-4914-b657-dabeb9c1218e', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Longest Consecutive Sequence', 'longest-consecutive-sequence', 'Graph', 'medium', 'https://leetcode.com/problems/longest-consecutive-sequence/', 31, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('8d145b27-f6f4-4e29-bda0-673b732a5516', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Graph Valid Tree', 'graph-valid-tree', 'Graph', 'medium', 'https://leetcode.com/problems/graph-valid-tree/', 32, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('62fc829c-891d-4101-bca0-c5779304575b', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Number of Connected Components in an Undirected Graph', 'number-of-connected-components-in-an-undirected-graph', 'Graph', 'medium', 'https://leetcode.com/problems/number-of-connected-components-in-an-undirected-graph/', 33, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('83e3ded0-bd6f-45fd-a254-9d0b4fc00a9b', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Insert Interval', 'insert-interval', 'Interval', 'medium', 'https://leetcode.com/problems/insert-interval/', 34, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('707a2394-82c6-44c8-a4cc-50d200dd2902', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Merge Intervals', 'merge-intervals', 'Interval', 'medium', 'https://leetcode.com/problems/merge-intervals/', 35, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d593fd09-40a1-4926-92ac-6d2025e1a4b6', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Non-overlapping Intervals', 'non-overlapping-intervals', 'Interval', 'medium', 'https://leetcode.com/problems/non-overlapping-intervals/', 36, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('fceca665-372e-4649-9e72-beb52268c4b4', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Reverse Linked List', 'reverse-linked-list', 'Linked List', 'easy', 'https://leetcode.com/problems/reverse-linked-list/', 37, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('245adac3-0707-4a92-b5fc-99b19876ca27', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Linked List Cycle', 'linked-list-cycle', 'Linked List', 'easy', 'https://leetcode.com/problems/linked-list-cycle/', 38, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('fe3903fb-507c-412e-96dc-657287fe18ef', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Merge Two Sorted Lists', 'merge-two-sorted-lists', 'Linked List', 'easy', 'https://leetcode.com/problems/merge-two-sorted-lists/', 39, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('921ce067-0d84-41f1-99b0-472af365b343', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Merge k Sorted Lists', 'merge-k-sorted-lists', 'Linked List', 'hard', 'https://leetcode.com/problems/merge-k-sorted-lists/', 40, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('e339f271-ad32-4375-96f5-bddc8c051ade', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Remove Nth Node From End of List', 'remove-nth-node-from-end-of-list', 'Linked List', 'medium', 'https://leetcode.com/problems/remove-nth-node-from-end-of-list/', 41, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('202d9d3e-e556-47e4-9130-bb414d67bac6', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Reorder List', 'reorder-list', 'Linked List', 'medium', 'https://leetcode.com/problems/reorder-list/', 42, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('b40e9fef-845d-41bc-b71a-322e4aa95396', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Set Matrix Zeroes', 'set-matrix-zeroes', 'Matrix', 'medium', 'https://leetcode.com/problems/set-matrix-zeroes/', 43, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('65e2fa33-2c69-4b64-903e-ff68c85b2714', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Spiral Matrix', 'spiral-matrix', 'Matrix', 'medium', 'https://leetcode.com/problems/spiral-matrix/', 44, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('1d29bb04-683d-4c9f-be6b-245765df978b', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Rotate Image', 'rotate-image', 'Matrix', 'medium', 'https://leetcode.com/problems/rotate-image/', 45, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('09abd55c-b92c-461e-bdf0-5d8983290fa7', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Word Search', 'word-search', 'Matrix', 'medium', 'https://leetcode.com/problems/word-search/', 46, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('0ccba271-1717-4a0e-9b52-fbc10937779c', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Maximum Depth of Binary Tree', 'maximum-depth-of-binary-tree', 'Tree', 'easy', 'https://leetcode.com/problems/maximum-depth-of-binary-tree/', 47, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('78be5fe7-294f-4278-bbdc-5de15e8041e0', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Same Tree', 'same-tree', 'Tree', 'easy', 'https://leetcode.com/problems/same-tree/', 48, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('0d0284d9-da85-4227-9ef4-499e946526ed', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Invert Binary Tree', 'invert-binary-tree', 'Tree', 'easy', 'https://leetcode.com/problems/invert-binary-tree/', 49, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('f80a3a95-f1b3-4e22-bb12-0a5201855137', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Binary Tree Maximum Path Sum', 'binary-tree-maximum-path-sum', 'Tree', 'hard', 'https://leetcode.com/problems/binary-tree-maximum-path-sum/', 50, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d0c91e64-57b9-4008-8b10-dd6acc0162ea', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Binary Tree Level Order Traversal', 'binary-tree-level-order-traversal', 'Tree', 'medium', 'https://leetcode.com/problems/binary-tree-level-order-traversal/', 51, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('593df722-608b-4d6a-8057-7180c7c1eba8', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Serialize and Deserialize Binary Tree', 'serialize-and-deserialize-binary-tree', 'Tree', 'hard', 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree/', 52, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('f80d4f72-15f4-4cbd-85a5-fac52ee4aded', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Subtree of Another Tree', 'subtree-of-another-tree', 'Tree', 'easy', 'https://leetcode.com/problems/subtree-of-another-tree/', 53, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('008941a0-af20-4aed-beb4-350929662376', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Construct Binary Tree from Preorder and Inorder', 'construct-binary-tree-from-preorder-and-inorder-traversal', 'Tree', 'medium', 'https://leetcode.com/problems/construct-binary-tree-from-preorder-and-inorder-traversal/', 54, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('39ee00c4-f56e-492f-88db-9e3f1a63c06a', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Validate Binary Search Tree', 'validate-binary-search-tree', 'Tree', 'medium', 'https://leetcode.com/problems/validate-binary-search-tree/', 55, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('72664f33-d668-4367-bdaf-6a6bde091ffe', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Kth Smallest Element in a BST', 'kth-smallest-element-in-a-bst', 'Tree', 'medium', 'https://leetcode.com/problems/kth-smallest-element-in-a-bst/', 56, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('944b3b02-42f1-4eb7-982d-bdaa60f298ed', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Lowest Common Ancestor of a BST', 'lowest-common-ancestor-of-a-binary-search-tree', 'Tree', 'medium', 'https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-search-tree/', 57, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('22c12eee-62be-403c-9c1c-fc7d9e1a228f', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Implement Trie (Prefix Tree)', 'implement-trie-prefix-tree', 'Tree', 'medium', 'https://leetcode.com/problems/implement-trie-prefix-tree/', 58, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('00db395d-d0ef-40a4-8503-d5c55d5c8c6b', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Design Add and Search Words Data Structure', 'design-add-and-search-words-data-structure', 'Tree', 'medium', 'https://leetcode.com/problems/design-add-and-search-words-data-structure/', 59, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('f5f5e844-5933-4573-98ca-b8e42bed01db', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Word Search II', 'word-search-ii', 'Tree', 'hard', 'https://leetcode.com/problems/word-search-ii/', 60, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('6e10ac01-231d-4979-97f5-0c6d96e74c2e', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Top K Frequent Elements', 'top-k-frequent-elements', 'Heap', 'medium', 'https://leetcode.com/problems/top-k-frequent-elements/', 61, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('0d6650cd-765f-4ab7-8eb6-48b40683d0ed', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Find Median from Data Stream', 'find-median-from-data-stream', 'Heap', 'hard', 'https://leetcode.com/problems/find-median-from-data-stream/', 62, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('a371b830-e0cd-4e4b-a5f6-a9f4c20a57c8', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Valid Anagram', 'valid-anagram', 'String', 'easy', 'https://leetcode.com/problems/valid-anagram/', 63, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('1def6f02-f042-4355-aad0-a22b782cacb3', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Group Anagrams', 'group-anagrams', 'String', 'medium', 'https://leetcode.com/problems/group-anagrams/', 64, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('c3eab4d1-ea70-4c83-b3de-bfc9b55f179b', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Longest Substring Without Repeating Characters', 'longest-substring-without-repeating-characters', 'String', 'medium', 'https://leetcode.com/problems/longest-substring-without-repeating-characters/', 65, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('af47d054-0286-4347-8a2c-c73fe7258e59', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Longest Repeating Character Replacement', 'longest-repeating-character-replacement', 'String', 'medium', 'https://leetcode.com/problems/longest-repeating-character-replacement/', 66, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('3af4be8e-bc98-42ec-9654-8aebd3acef16', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Minimum Window Substring', 'minimum-window-substring', 'String', 'hard', 'https://leetcode.com/problems/minimum-window-substring/', 67, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('f14bd6f6-de54-4d21-abf3-f86820fe9536', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Valid Parentheses', 'valid-parentheses', 'String', 'easy', 'https://leetcode.com/problems/valid-parentheses/', 68, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('68918b45-3eb5-4fc4-8136-137fc28590d4', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Valid Palindrome', 'valid-palindrome', 'String', 'easy', 'https://leetcode.com/problems/valid-palindrome/', 69, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('81837e11-bbd8-4d0e-aa70-f04b2e47d143', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Longest Palindromic Substring', 'longest-palindromic-substring', 'String', 'medium', 'https://leetcode.com/problems/longest-palindromic-substring/', 70, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('a6c1e975-d953-43ef-931e-0623a187e502', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Palindromic Substrings', 'palindromic-substrings', 'String', 'medium', 'https://leetcode.com/problems/palindromic-substrings/', 71, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('843e5075-39b2-4788-ae8c-e0b83a2acd7d', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Encode and Decode Strings', 'encode-and-decode-strings', 'String', 'medium', 'https://leetcode.com/problems/encode-and-decode-strings/', 72, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('0b382d44-cc7e-4c9f-9043-babc5f0e2db1', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Meeting Rooms', 'meeting-rooms', 'Interval', 'easy', 'https://leetcode.com/problems/meeting-rooms/', 73, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('f5edfd04-1985-498d-837b-eec52fb1c350', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Meeting Rooms II', 'meeting-rooms-ii', 'Interval', 'medium', 'https://leetcode.com/problems/meeting-rooms-ii/', 74, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('85a9374c-e0ed-4f5d-907c-631cae07b39d', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Alien Dictionary', 'alien-dictionary', 'Graph', 'hard', 'https://leetcode.com/problems/alien-dictionary/', 75, '2026-07-10 02:05:37.899193+00', '{}');
-INSERT INTO public.sheet_items VALUES ('280c2a4e-190e-401c-ac3a-949e4b9f4a3d', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Find the Largest Element in an Array', 'find-the-largest-element-in-an-array-a2z', 'Learn the Basics', 'easy', NULL, 1, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d72aab59-aebd-4698-b385-3b6c12b7bab6', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Second Largest Element in an Array', 'second-largest-element-in-an-array-a2z', 'Learn the Basics', 'easy', NULL, 2, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('36318119-9c71-41c2-b216-ce0751bcc6e8', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Check if the Array Is Sorted', 'check-if-array-is-sorted-and-rotated', 'Learn the Basics', 'easy', 'https://leetcode.com/problems/check-if-array-is-sorted-and-rotated/', 3, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('21d8f8fe-285a-4416-ae7b-a417ba46b256', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Remove Duplicates from Sorted Array', 'remove-duplicates-from-sorted-array', 'Learn the Basics', 'easy', 'https://leetcode.com/problems/remove-duplicates-from-sorted-array/', 4, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('0b927b42-7f94-4823-b0d9-7f9473a59600', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Rotate Array', 'rotate-array', 'Learn the Basics', 'medium', 'https://leetcode.com/problems/rotate-array/', 5, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('555ca531-ffec-47ed-9bc1-8f1575758186', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Move Zeroes', 'move-zeroes', 'Learn the Basics', 'easy', 'https://leetcode.com/problems/move-zeroes/', 6, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('f436c31d-a6f5-4559-88df-0e9076d43f5c', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Union of Two Sorted Arrays', 'union-of-two-sorted-arrays-a2z', 'Learn the Basics', 'easy', NULL, 7, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('1a382816-7455-4a52-a795-86ec8034f9ba', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Missing Number', 'missing-number', 'Learn the Basics', 'easy', 'https://leetcode.com/problems/missing-number/', 8, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('53f975cd-21c1-46e7-bb16-c0109228e5b9', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Maximum Consecutive Ones', 'max-consecutive-ones', 'Learn the Basics', 'easy', 'https://leetcode.com/problems/max-consecutive-ones/', 9, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('0385f926-1c30-4d4a-9508-34dc9b1ced42', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Single Number', 'single-number', 'Learn the Basics', 'easy', 'https://leetcode.com/problems/single-number/', 10, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('2e0c8d66-3a9f-4e9a-a6c2-a679773a65a2', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Selection Sort', 'selection-sort-a2z', 'Sorting Techniques', 'easy', NULL, 11, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('fb0eb7a2-4cb1-433e-89d1-7383de9817db', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Bubble Sort', 'bubble-sort-a2z', 'Sorting Techniques', 'easy', NULL, 12, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('f2939685-40ff-4500-b24b-7430abcdf9cb', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Insertion Sort', 'insertion-sort-a2z', 'Sorting Techniques', 'easy', NULL, 13, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('a6c66e27-6c27-46f5-98e8-d841162c1b9a', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Merge Sort', 'sort-an-array', 'Sorting Techniques', 'medium', 'https://leetcode.com/problems/sort-an-array/', 14, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('61e8edf4-6aaf-49c2-bc28-e941b5dfb212', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Quick Sort', 'quick-sort-a2z', 'Sorting Techniques', 'medium', NULL, 15, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('a4e1c85e-ebd8-46bb-9ba9-76a79e3747db', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Sort Colors', 'sort-colors', 'Arrays', 'medium', 'https://leetcode.com/problems/sort-colors/', 16, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('6c31793e-5aae-4c98-a41b-be25e7b74fb1', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Majority Element', 'majority-element', 'Arrays', 'easy', 'https://leetcode.com/problems/majority-element/', 17, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d6cb2e99-6f72-46ac-b263-9783f9f4ab06', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Maximum Subarray', 'maximum-subarray', 'Arrays', 'medium', 'https://leetcode.com/problems/maximum-subarray/', 18, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('92490d5d-5bbb-4edc-a129-c6bf7900e3f3', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Best Time to Buy and Sell Stock', 'best-time-to-buy-and-sell-stock', 'Arrays', 'easy', 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock/', 19, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('98e20b64-5bfc-4d81-aba9-5419a65e6ea1', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Rearrange Array Elements by Sign', 'rearrange-array-elements-by-sign', 'Arrays', 'medium', 'https://leetcode.com/problems/rearrange-array-elements-by-sign/', 20, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('44737d80-3b5d-47b0-8b90-1b4ceda150ec', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Next Permutation', 'next-permutation', 'Arrays', 'medium', 'https://leetcode.com/problems/next-permutation/', 21, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('f281f327-31cd-44b2-93db-fe4e2d99dd2b', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Longest Consecutive Sequence', 'longest-consecutive-sequence', 'Arrays', 'medium', 'https://leetcode.com/problems/longest-consecutive-sequence/', 22, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('7d118b7a-ca84-4bf2-9cf0-fe80017a0afd', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Set Matrix Zeroes', 'set-matrix-zeroes', 'Arrays', 'medium', 'https://leetcode.com/problems/set-matrix-zeroes/', 23, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('238d4608-6040-466c-a158-5421fe655b69', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Rotate Image', 'rotate-image', 'Arrays', 'medium', 'https://leetcode.com/problems/rotate-image/', 24, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('6b44d4b8-1b3e-4a4b-80cb-20d9619bb6ea', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Spiral Matrix', 'spiral-matrix', 'Arrays', 'medium', 'https://leetcode.com/problems/spiral-matrix/', 25, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('cfdfe8cc-8287-4bad-9df1-52053b6d0faf', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', '3Sum', '3sum', 'Arrays', 'medium', 'https://leetcode.com/problems/3sum/', 26, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('bcf488cc-9283-4164-b7c5-9b948939411c', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', '4Sum', '4sum', 'Arrays', 'medium', 'https://leetcode.com/problems/4sum/', 27, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('14ad4dda-c161-4dd5-86c9-09c9b55db92a', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Trapping Rain Water', 'trapping-rain-water', 'Arrays', 'hard', 'https://leetcode.com/problems/trapping-rain-water/', 28, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('59b5bf06-e87d-4aa2-8db0-8d8650a3dded', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Binary Search', 'binary-search', 'Binary Search', 'easy', 'https://leetcode.com/problems/binary-search/', 29, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('14fb3218-9d40-40af-987d-cffb6d8a9d22', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Lower Bound / Upper Bound', 'find-first-and-last-position-of-element-in-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/find-first-and-last-position-of-element-in-sorted-array/', 30, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('6ad712ce-c33f-4862-a469-1fc436e9aba2', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Search Insert Position', 'search-insert-position', 'Binary Search', 'easy', 'https://leetcode.com/problems/search-insert-position/', 31, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('7512911a-ca84-4536-88ce-3895dde1bfe6', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Search in Rotated Sorted Array', 'search-in-rotated-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/search-in-rotated-sorted-array/', 32, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('4d1528f8-da92-4aa7-a190-4db6812b3360', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Find Minimum in Rotated Sorted Array', 'find-minimum-in-rotated-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/', 33, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('3acb4785-0999-4f81-9a8d-30e48fdde0f4', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Koko Eating Bananas', 'koko-eating-bananas', 'Binary Search', 'medium', 'https://leetcode.com/problems/koko-eating-bananas/', 34, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('edbd1e5f-53f6-4367-a174-d4ceb06425ee', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Median of Two Sorted Arrays', 'median-of-two-sorted-arrays', 'Binary Search', 'hard', 'https://leetcode.com/problems/median-of-two-sorted-arrays/', 35, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('49f4936b-345e-4710-91f5-55e2ceefa9f5', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Search a 2D Matrix', 'search-a-2d-matrix', 'Binary Search', 'medium', 'https://leetcode.com/problems/search-a-2d-matrix/', 36, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('f87db9a8-b304-46a8-877f-85dd06a4c377', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Reverse Words in a String', 'reverse-words-in-a-string', 'Strings', 'medium', 'https://leetcode.com/problems/reverse-words-in-a-string/', 37, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('b446783f-3726-433a-a061-634f56f354ed', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Longest Common Prefix', 'longest-common-prefix', 'Strings', 'easy', 'https://leetcode.com/problems/longest-common-prefix/', 38, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('afa38844-dc55-476f-8246-bf44c5eb217a', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Roman to Integer', 'roman-to-integer', 'Strings', 'easy', 'https://leetcode.com/problems/roman-to-integer/', 39, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('697513f3-bc4c-4c27-871d-919f5b52f0bb', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Valid Anagram', 'valid-anagram', 'Strings', 'easy', 'https://leetcode.com/problems/valid-anagram/', 40, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('10cd2aec-c003-48c4-a45d-d1d2e20c7922', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Valid Parentheses', 'valid-parentheses', 'Strings', 'easy', 'https://leetcode.com/problems/valid-parentheses/', 41, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('12aa53e8-11b4-49b9-941e-a6fbef3a0f74', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Reverse Linked List', 'reverse-linked-list', 'Linked List', 'easy', 'https://leetcode.com/problems/reverse-linked-list/', 42, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('c6124ca6-376e-486e-bd1b-d4f4aaa760ee', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Middle of the Linked List', 'middle-of-the-linked-list', 'Linked List', 'easy', 'https://leetcode.com/problems/middle-of-the-linked-list/', 43, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('dc51cf0f-56d6-4771-8e36-061f892d0971', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Linked List Cycle', 'linked-list-cycle', 'Linked List', 'easy', 'https://leetcode.com/problems/linked-list-cycle/', 44, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('6913eb58-6e9f-40c5-a2d8-b83b0905e68b', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Merge Two Sorted Lists', 'merge-two-sorted-lists', 'Linked List', 'easy', 'https://leetcode.com/problems/merge-two-sorted-lists/', 45, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('042a0115-31d9-483d-9f7a-9ac4078cd551', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Remove Nth Node From End of List', 'remove-nth-node-from-end-of-list', 'Linked List', 'medium', 'https://leetcode.com/problems/remove-nth-node-from-end-of-list/', 46, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('9758a683-44e5-40d8-ae08-cf3acf0da251', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Add Two Numbers', 'add-two-numbers', 'Linked List', 'medium', 'https://leetcode.com/problems/add-two-numbers/', 47, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('a48f5fa1-e382-442a-9052-ba6cfea615bf', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Reverse Nodes in k-Group', 'reverse-nodes-in-k-group', 'Linked List', 'hard', 'https://leetcode.com/problems/reverse-nodes-in-k-group/', 48, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('b05829c8-c093-493c-814e-0fd3889d9460', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Copy List with Random Pointer', 'copy-list-with-random-pointer', 'Linked List', 'medium', 'https://leetcode.com/problems/copy-list-with-random-pointer/', 49, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('c932b122-d7d4-478e-9d53-556ce589ff69', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Reverse a Linked List (Recursive)', 'reverse-a-linked-list-recursive-a2z', 'Recursion', 'medium', NULL, 50, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('c2e0b7ee-e9c2-44b0-90e6-033c67047465', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Subsets', 'subsets', 'Recursion', 'medium', 'https://leetcode.com/problems/subsets/', 51, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('b6d13edd-7abd-4c8d-85ef-8031909397df', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Combination Sum', 'combination-sum', 'Recursion', 'medium', 'https://leetcode.com/problems/combination-sum/', 52, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('7ec921d2-44b7-4a95-8ba0-ebd3b44a368a', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Permutations', 'permutations', 'Recursion', 'medium', 'https://leetcode.com/problems/permutations/', 53, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('52187496-8733-468c-af72-5028c107f42c', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'N-Queens', 'n-queens', 'Recursion', 'hard', 'https://leetcode.com/problems/n-queens/', 54, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('26764b6f-3637-4fb6-a6c5-301dc5700577', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Sudoku Solver', 'sudoku-solver', 'Recursion', 'hard', 'https://leetcode.com/problems/sudoku-solver/', 55, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('507952d4-0236-4dce-bc39-ccb21a5179f4', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Single Number', 'single-number', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/single-number/', 56, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('2ea91cbb-6237-48cf-b7ba-1a51fad53ad7', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Power Set', 'subsets', 'Bit Manipulation', 'medium', 'https://leetcode.com/problems/subsets/', 57, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('7ea85630-4f2c-43b0-8c87-a8e087c95970', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Counting Bits', 'counting-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/counting-bits/', 58, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('c352eefa-647c-4c2d-a6c8-81b7ada77961', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Sum of Two Integers', 'sum-of-two-integers', 'Bit Manipulation', 'medium', 'https://leetcode.com/problems/sum-of-two-integers/', 59, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('65314df4-176b-4236-b556-05404336d84d', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Next Greater Element I', 'next-greater-element-i', 'Stack and Queue', 'easy', 'https://leetcode.com/problems/next-greater-element-i/', 60, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('50dbf013-b16d-47ec-9131-c7b37a9e0391', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Daily Temperatures', 'daily-temperatures', 'Stack and Queue', 'medium', 'https://leetcode.com/problems/daily-temperatures/', 61, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('151ab9db-2cf5-44e7-a8d4-fa68de41ae6c', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Min Stack', 'min-stack', 'Stack and Queue', 'medium', 'https://leetcode.com/problems/min-stack/', 62, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d6721288-b05d-4e83-9864-a6c7b41f79fa', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Largest Rectangle in Histogram', 'largest-rectangle-in-histogram', 'Stack and Queue', 'hard', 'https://leetcode.com/problems/largest-rectangle-in-histogram/', 63, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('bdc57079-0298-4ac6-b130-1ae5b7988db7', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Sliding Window Maximum', 'sliding-window-maximum', 'Sliding Window & Two Pointer', 'hard', 'https://leetcode.com/problems/sliding-window-maximum/', 64, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('b51b69ce-a180-4ad6-8936-6a1a614c1ebf', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Minimum Window Substring', 'minimum-window-substring', 'Sliding Window & Two Pointer', 'hard', 'https://leetcode.com/problems/minimum-window-substring/', 65, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('5f2a963f-25bf-45a7-9fbe-0da17729c1c9', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Longest Repeating Character Replacement', 'longest-repeating-character-replacement', 'Sliding Window & Two Pointer', 'medium', 'https://leetcode.com/problems/longest-repeating-character-replacement/', 66, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('3debfb18-a36c-4d14-9054-042f4baf42c5', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Kth Largest Element in an Array', 'kth-largest-element-in-an-array', 'Heaps', 'medium', 'https://leetcode.com/problems/kth-largest-element-in-an-array/', 67, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('4b05c3a9-4092-4290-8ba6-593b0936be8a', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Top K Frequent Elements', 'top-k-frequent-elements', 'Heaps', 'medium', 'https://leetcode.com/problems/top-k-frequent-elements/', 68, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('48e1a20c-c229-4802-be89-95ca24d761df', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Find Median from Data Stream', 'find-median-from-data-stream', 'Heaps', 'hard', 'https://leetcode.com/problems/find-median-from-data-stream/', 69, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('9a2fc03d-7ae3-4409-857e-e867e7d4a9d3', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Task Scheduler', 'task-scheduler', 'Greedy', 'medium', 'https://leetcode.com/problems/task-scheduler/', 70, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('aeaa7a93-2a3d-43cf-845c-8a63768c783e', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'N Meeting in One Room', 'meeting-rooms', 'Greedy', 'easy', 'https://leetcode.com/problems/meeting-rooms/', 71, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('92508ca8-445c-4ede-a2d2-a61fdeed3581', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Jump Game', 'jump-game', 'Greedy', 'medium', 'https://leetcode.com/problems/jump-game/', 72, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('b79368c8-efaf-4f20-a7af-06032ad80d59', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Insert Interval', 'insert-interval', 'Greedy', 'medium', 'https://leetcode.com/problems/insert-interval/', 73, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('b272a33b-bf55-47ed-919e-c0034c830347', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Maximum Depth of Binary Tree', 'maximum-depth-of-binary-tree', 'Binary Trees', 'easy', 'https://leetcode.com/problems/maximum-depth-of-binary-tree/', 74, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('78b1bc66-3e1f-4734-93d0-2cf3f1827ac2', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Binary Tree Level Order Traversal', 'binary-tree-level-order-traversal', 'Binary Trees', 'medium', 'https://leetcode.com/problems/binary-tree-level-order-traversal/', 75, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('481a008f-41fe-4875-a667-4a22088df708', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Diameter of Binary Tree', 'diameter-of-binary-tree', 'Binary Trees', 'easy', 'https://leetcode.com/problems/diameter-of-binary-tree/', 76, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('23d75511-b7bb-4913-9911-448ca010289e', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Balanced Binary Tree', 'balanced-binary-tree', 'Binary Trees', 'easy', 'https://leetcode.com/problems/balanced-binary-tree/', 77, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('7459890c-868e-4e9a-92c8-943813a05bd7', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Binary Tree Maximum Path Sum', 'binary-tree-maximum-path-sum', 'Binary Trees', 'hard', 'https://leetcode.com/problems/binary-tree-maximum-path-sum/', 78, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('9ae7547c-64b8-4baf-a42b-948e63236271', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Construct Binary Tree from Preorder and Inorder', 'construct-binary-tree-from-preorder-and-inorder-traversal', 'Binary Trees', 'medium', 'https://leetcode.com/problems/construct-binary-tree-from-preorder-and-inorder-traversal/', 79, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('04977a13-6e37-42c0-8c2b-356f823e2560', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Serialize and Deserialize Binary Tree', 'serialize-and-deserialize-binary-tree', 'Binary Trees', 'hard', 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree/', 80, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('e9c20939-64fd-4d67-a4f0-f234fb17318f', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Validate Binary Search Tree', 'validate-binary-search-tree', 'Binary Search Trees', 'medium', 'https://leetcode.com/problems/validate-binary-search-tree/', 81, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('40c59eff-abb7-4a8b-b48d-acda5e9db67f', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Kth Smallest Element in a BST', 'kth-smallest-element-in-a-bst', 'Binary Search Trees', 'medium', 'https://leetcode.com/problems/kth-smallest-element-in-a-bst/', 82, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('1709159e-8a09-4925-ae89-8c636d3bdcf2', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Lowest Common Ancestor of a BST', 'lowest-common-ancestor-of-a-binary-search-tree', 'Binary Search Trees', 'medium', 'https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-search-tree/', 83, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('3f54b463-96bd-43e1-a642-381a7037bc99', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Number of Islands', 'number-of-islands', 'Graphs', 'medium', 'https://leetcode.com/problems/number-of-islands/', 84, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('adb14715-8ed3-4b58-a6fd-5fc18d6b3b1c', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Rotting Oranges', 'rotting-oranges', 'Graphs', 'medium', 'https://leetcode.com/problems/rotting-oranges/', 85, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('e8d059c3-98b1-4168-99a0-48563b114924', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Course Schedule', 'course-schedule', 'Graphs', 'medium', 'https://leetcode.com/problems/course-schedule/', 86, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('f84483b1-dbd9-4475-b20b-8b8365203555', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Clone Graph', 'clone-graph', 'Graphs', 'medium', 'https://leetcode.com/problems/clone-graph/', 87, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('ce6c680a-871e-456e-9a83-e60691e13b6c', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Word Ladder', 'word-ladder', 'Graphs', 'hard', 'https://leetcode.com/problems/word-ladder/', 88, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('c9fd8e68-b781-4e6c-b425-07f4fa28da32', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Climbing Stairs', 'climbing-stairs', 'Dynamic Programming', 'easy', 'https://leetcode.com/problems/climbing-stairs/', 89, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('b91d2e57-16e1-459b-a5f8-a9e2b22369f3', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'House Robber', 'house-robber', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/house-robber/', 90, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('5956353c-c649-4bca-a991-79067dd1ddb1', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Coin Change', 'coin-change', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/coin-change/', 91, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('458d1c79-d7da-4f81-8ca9-5ecf0d02f6b8', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Longest Increasing Subsequence', 'longest-increasing-subsequence', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/longest-increasing-subsequence/', 92, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('5baa6462-7e96-48b1-981f-82ac869d52ff', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Edit Distance', 'edit-distance', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/edit-distance/', 93, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('b107b2e4-98c4-4624-81c8-9f240ee64e93', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Unique Paths', 'unique-paths', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/unique-paths/', 94, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('96031b28-cc53-45a6-a616-dcf2ba04b4a4', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Implement Trie (Prefix Tree)', 'implement-trie-prefix-tree', 'Tries', 'medium', 'https://leetcode.com/problems/implement-trie-prefix-tree/', 95, '2026-07-10 02:05:37.903692+00', '{}');
-INSERT INTO public.sheet_items VALUES ('e5aab74c-778b-415b-a0a8-7f03fd976cfc', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Two Sum', 'two-sum', 'Array', 'easy', 'https://leetcode.com/problems/two-sum/', 1, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('3ce40299-58b5-43d7-8e4b-d5aa62773fb3', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Best Time to Buy and Sell Stock', 'best-time-to-buy-and-sell-stock', 'Array', 'easy', 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock/', 2, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('fe2c4f41-e248-4d29-bd34-e27a509e5527', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Contains Duplicate', 'contains-duplicate', 'Array', 'easy', 'https://leetcode.com/problems/contains-duplicate/', 3, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('538353d6-42b1-4512-96ab-de2122b31087', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Product of Array Except Self', 'product-of-array-except-self', 'Array', 'medium', 'https://leetcode.com/problems/product-of-array-except-self/', 4, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d57657f5-0741-40fc-b275-f24ac4c08693', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Maximum Subarray', 'maximum-subarray', 'Array', 'medium', 'https://leetcode.com/problems/maximum-subarray/', 5, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('bdf74110-aea7-4972-bceb-2adc12fcd3e8', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Merge Intervals', 'merge-intervals', 'Array', 'medium', 'https://leetcode.com/problems/merge-intervals/', 6, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d92119e7-bdda-4aa2-9761-9f4c8d845751', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Insert Interval', 'insert-interval', 'Array', 'medium', 'https://leetcode.com/problems/insert-interval/', 7, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('032babd0-2c01-45b1-b354-1f79b90e930e', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', '3Sum', '3sum', 'Array', 'medium', 'https://leetcode.com/problems/3sum/', 8, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('bacb0d38-6fa2-47fe-a340-29fca921a4e3', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Container With Most Water', 'container-with-most-water', 'Array', 'medium', 'https://leetcode.com/problems/container-with-most-water/', 9, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('1ccbc3f0-47bd-4fc2-8f05-b5923fb2ee79', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Next Permutation', 'next-permutation', 'Array', 'medium', 'https://leetcode.com/problems/next-permutation/', 10, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('bad0386a-a486-4e61-a7d4-c38bc9b82a6b', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Longest Substring Without Repeating Characters', 'longest-substring-without-repeating-characters', 'String', 'medium', 'https://leetcode.com/problems/longest-substring-without-repeating-characters/', 11, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('1e2f9e0b-2831-42a1-bcec-4e2c99bec5a6', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Longest Palindromic Substring', 'longest-palindromic-substring', 'String', 'medium', 'https://leetcode.com/problems/longest-palindromic-substring/', 12, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('6564d2a9-c790-4b1b-9aca-1f38c7137426', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Valid Anagram', 'valid-anagram', 'String', 'easy', 'https://leetcode.com/problems/valid-anagram/', 13, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('5507521c-acc8-4c25-af59-24905874eff1', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Group Anagrams', 'group-anagrams', 'String', 'medium', 'https://leetcode.com/problems/group-anagrams/', 14, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d1104e49-6db1-42d8-99c9-45c160ad8218', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Valid Parentheses', 'valid-parentheses', 'String', 'easy', 'https://leetcode.com/problems/valid-parentheses/', 15, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('2c9a3843-f8a4-47dc-93de-1bfedcf8e5de', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Minimum Window Substring', 'minimum-window-substring', 'String', 'hard', 'https://leetcode.com/problems/minimum-window-substring/', 16, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('4a1f4f51-6da5-4307-a63d-bb6dbe170000', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Reverse Linked List', 'reverse-linked-list', 'Linked List', 'easy', 'https://leetcode.com/problems/reverse-linked-list/', 17, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('115d5702-da46-453c-b3e3-7606932b637c', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Merge Two Sorted Lists', 'merge-two-sorted-lists', 'Linked List', 'easy', 'https://leetcode.com/problems/merge-two-sorted-lists/', 18, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('63348025-c356-41e4-9b51-4804a7b36d13', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Linked List Cycle', 'linked-list-cycle', 'Linked List', 'easy', 'https://leetcode.com/problems/linked-list-cycle/', 19, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('67d9939a-08e9-4613-b561-b3ef30ffc257', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Remove Nth Node From End of List', 'remove-nth-node-from-end-of-list', 'Linked List', 'medium', 'https://leetcode.com/problems/remove-nth-node-from-end-of-list/', 20, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('44131c09-95e9-4ce1-8418-7d8fe1f41a2e', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Reorder List', 'reorder-list', 'Linked List', 'medium', 'https://leetcode.com/problems/reorder-list/', 21, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d014542c-92e4-41c3-9e76-acb5fe03fa2e', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'LRU Cache', 'lru-cache', 'Linked List', 'medium', 'https://leetcode.com/problems/lru-cache/', 22, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('afbc6ae2-85d7-46e5-864a-d0ff36751531', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Merge k Sorted Lists', 'merge-k-sorted-lists', 'Linked List', 'hard', 'https://leetcode.com/problems/merge-k-sorted-lists/', 23, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('e39078fc-21e5-4bd4-9abb-d288f3924d76', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Valid Parentheses', 'valid-parentheses', 'Stack', 'easy', 'https://leetcode.com/problems/valid-parentheses/', 24, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('0d5d5cd7-36ae-45f8-a432-53e358a783c1', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Min Stack', 'min-stack', 'Stack', 'medium', 'https://leetcode.com/problems/min-stack/', 25, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('e5c24938-c6bc-45a1-a42e-a71a6f1df7de', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Evaluate Reverse Polish Notation', 'evaluate-reverse-polish-notation', 'Stack', 'medium', 'https://leetcode.com/problems/evaluate-reverse-polish-notation/', 26, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('e9eaec6b-4fb4-4e62-9047-db5bd7219a5b', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Daily Temperatures', 'daily-temperatures', 'Stack', 'medium', 'https://leetcode.com/problems/daily-temperatures/', 27, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('dfbd43de-c549-4afe-907d-a9feba4a13cd', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Maximum Depth of Binary Tree', 'maximum-depth-of-binary-tree', 'Tree', 'easy', 'https://leetcode.com/problems/maximum-depth-of-binary-tree/', 28, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('a1c1cf73-1634-43d9-b0e0-96e7acdba306', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Same Tree', 'same-tree', 'Tree', 'easy', 'https://leetcode.com/problems/same-tree/', 29, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('b27b9295-0593-4604-97c3-373f5e6d35fb', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Invert Binary Tree', 'invert-binary-tree', 'Tree', 'easy', 'https://leetcode.com/problems/invert-binary-tree/', 30, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('ae34da15-56c9-45ac-a9b1-58bc51bc4327', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Binary Tree Level Order Traversal', 'binary-tree-level-order-traversal', 'Tree', 'medium', 'https://leetcode.com/problems/binary-tree-level-order-traversal/', 31, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('c23c84c8-1d95-45ec-8229-ccf029610014', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Validate Binary Search Tree', 'validate-binary-search-tree', 'Tree', 'medium', 'https://leetcode.com/problems/validate-binary-search-tree/', 32, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('2bf5657c-7a2c-4d14-93dd-5e8a09f78dde', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Binary Tree Maximum Path Sum', 'binary-tree-maximum-path-sum', 'Tree', 'hard', 'https://leetcode.com/problems/binary-tree-maximum-path-sum/', 33, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('edd09dcc-9ba0-4555-8ce5-89ba3ddafa1f', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Serialize and Deserialize Binary Tree', 'serialize-and-deserialize-binary-tree', 'Tree', 'hard', 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree/', 34, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('0982feb7-0639-4ce4-ab69-48b23d22e849', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Number of Islands', 'number-of-islands', 'Graph', 'medium', 'https://leetcode.com/problems/number-of-islands/', 35, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('94272db6-a707-4995-b70d-516dc582f908', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Clone Graph', 'clone-graph', 'Graph', 'medium', 'https://leetcode.com/problems/clone-graph/', 36, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('0c58e7b3-0b44-4e43-83e0-d7a18fa4db6f', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Course Schedule', 'course-schedule', 'Graph', 'medium', 'https://leetcode.com/problems/course-schedule/', 37, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('3028509d-5e08-4e98-95f8-c31616e3bb18', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Pacific Atlantic Water Flow', 'pacific-atlantic-water-flow', 'Graph', 'medium', 'https://leetcode.com/problems/pacific-atlantic-water-flow/', 38, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('7925b4dc-7971-4af8-9c20-7a49df29abd6', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Number of Connected Components in an Undirected Graph', 'number-of-connected-components-in-an-undirected-graph', 'Graph', 'medium', 'https://leetcode.com/problems/number-of-connected-components-in-an-undirected-graph/', 39, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('238d79d3-790a-493f-a428-a96af1f3e1fc', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Kth Largest Element in an Array', 'kth-largest-element-in-an-array', 'Heap', 'medium', 'https://leetcode.com/problems/kth-largest-element-in-an-array/', 40, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('a5c810b2-498c-493a-b503-e323d28dcd80', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Top K Frequent Elements', 'top-k-frequent-elements', 'Heap', 'medium', 'https://leetcode.com/problems/top-k-frequent-elements/', 41, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('1b66f718-d2ac-4cde-839d-5974d76a264d', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Find Median from Data Stream', 'find-median-from-data-stream', 'Heap', 'hard', 'https://leetcode.com/problems/find-median-from-data-stream/', 42, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('107c32b0-8bbe-4d7e-86b5-4906a7bf4a00', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Task Scheduler', 'task-scheduler', 'Heap', 'medium', 'https://leetcode.com/problems/task-scheduler/', 43, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('d052cb21-2227-4e81-a007-ae54df78383b', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Subsets', 'subsets', 'Backtracking', 'medium', 'https://leetcode.com/problems/subsets/', 44, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('4d433d70-684a-4867-b5d2-a2e67bbfe34e', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Word Search', 'word-search', 'Backtracking', 'medium', 'https://leetcode.com/problems/word-search/', 45, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('6bf89631-07b8-458f-b50b-d5add2d1c8e7', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Combination Sum', 'combination-sum', 'Backtracking', 'medium', 'https://leetcode.com/problems/combination-sum/', 46, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('9f5137c6-b90a-4df2-bfdc-738589a94405', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Permutations', 'permutations', 'Backtracking', 'medium', 'https://leetcode.com/problems/permutations/', 47, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('a7f6f35e-a2af-4396-aeb9-2891a33eb500', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'N-Queens', 'n-queens', 'Backtracking', 'hard', 'https://leetcode.com/problems/n-queens/', 48, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('23a2afcc-3b27-40f0-908f-b901193fc692', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Climbing Stairs', 'climbing-stairs', 'Dynamic Programming', 'easy', 'https://leetcode.com/problems/climbing-stairs/', 49, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('6281a447-422e-4b5b-bd7c-f797cbb5d560', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Coin Change', 'coin-change', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/coin-change/', 50, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('7c5dfff7-4450-4539-a861-7e8e515cc507', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'House Robber', 'house-robber', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/house-robber/', 51, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('de950984-1f8b-44e1-b9a0-7992f35e80c0', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'House Robber II', 'house-robber-ii', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/house-robber-ii/', 52, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('5fe2b48c-3971-42c8-af42-149f574e08a1', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Longest Increasing Subsequence', 'longest-increasing-subsequence', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/longest-increasing-subsequence/', 53, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('c354a301-77f4-407e-b20e-0d6452443e7a', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Word Break', 'word-break', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/word-break/', 54, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('6847ed00-8664-4620-b06e-1d4fc7526c78', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Unique Paths', 'unique-paths', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/unique-paths/', 55, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('c30c0c5d-3c46-4b59-82ef-bc6b6835e2fd', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Edit Distance', 'edit-distance', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/edit-distance/', 56, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('1610d1dd-fdc9-47a7-8072-18d7c1283b4d', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Binary Search', 'binary-search', 'Binary Search', 'easy', 'https://leetcode.com/problems/binary-search/', 57, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('3515c626-da43-4d6d-910a-171e90bf3ebc', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Search in Rotated Sorted Array', 'search-in-rotated-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/search-in-rotated-sorted-array/', 58, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('94baa70a-ae61-4608-83b7-1b5a6d4f852c', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Find Minimum in Rotated Sorted Array', 'find-minimum-in-rotated-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/', 59, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('4d275183-303a-4b80-9918-2d6e5caa440d', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Koko Eating Bananas', 'koko-eating-bananas', 'Binary Search', 'medium', 'https://leetcode.com/problems/koko-eating-bananas/', 60, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('8b694d0f-1cb2-419d-97c8-3f6dc3ea3c6b', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Longest Repeating Character Replacement', 'longest-repeating-character-replacement', 'Sliding Window', 'medium', 'https://leetcode.com/problems/longest-repeating-character-replacement/', 61, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('5805e6cf-662a-4a9b-861b-43ef374a15f5', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Sliding Window Maximum', 'sliding-window-maximum', 'Sliding Window', 'hard', 'https://leetcode.com/problems/sliding-window-maximum/', 62, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('38a83cc1-bbf3-49ae-be1b-24cbee81f479', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Jump Game', 'jump-game', 'Greedy', 'medium', 'https://leetcode.com/problems/jump-game/', 63, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('49fb1948-444c-420e-b4f5-f5cb10b9db53', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Gas Station', 'gas-station', 'Greedy', 'medium', 'https://leetcode.com/problems/gas-station/', 64, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('dbc12696-1ca4-4b4e-886e-ba5aa23b8aa7', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Rotate Image', 'rotate-image', 'Math', 'medium', 'https://leetcode.com/problems/rotate-image/', 65, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('28bb2272-8290-437c-bc3d-36d13e2772c1', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Spiral Matrix', 'spiral-matrix', 'Math', 'medium', 'https://leetcode.com/problems/spiral-matrix/', 66, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('868ac513-1dc0-45cf-849c-a1ca852a8cf5', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Set Matrix Zeroes', 'set-matrix-zeroes', 'Math', 'medium', 'https://leetcode.com/problems/set-matrix-zeroes/', 67, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('5d908bc0-1844-44c7-baa2-0ee8ae3d6f7d', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Number of 1 Bits', 'number-of-1-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/number-of-1-bits/', 68, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('10c2cea5-2843-4fa0-952d-0b3cd7344f74', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Counting Bits', 'counting-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/counting-bits/', 69, '2026-07-10 02:05:37.909128+00', '{}');
-INSERT INTO public.sheet_items VALUES ('62d88ffd-edbe-4650-a749-b5dde3cbb3af', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Sum of Two Integers', 'sum-of-two-integers', 'Bit Manipulation', 'medium', 'https://leetcode.com/problems/sum-of-two-integers/', 70, '2026-07-10 02:05:37.909128+00', '{}');
+INSERT INTO public.sheet_items VALUES
+    ('a8104228-0c41-4f67-8f90-ac82d1f6a29b', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Contains Duplicate', 'contains-duplicate', 'Arrays & Hashing', 'easy', 'https://leetcode.com/problems/contains-duplicate/', 1, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('986bf8e0-802f-45aa-9614-d1a616e3d593', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Valid Anagram', 'valid-anagram', 'Arrays & Hashing', 'easy', 'https://leetcode.com/problems/valid-anagram/', 2, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('0ccae9e8-2669-4ed1-896c-02fb5fd4bdd1', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Two Sum', 'two-sum', 'Arrays & Hashing', 'easy', 'https://leetcode.com/problems/two-sum/', 3, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('ba78feee-65bc-4e2a-9c79-3b4b5e0255e3', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Group Anagrams', 'group-anagrams', 'Arrays & Hashing', 'medium', 'https://leetcode.com/problems/group-anagrams/', 4, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('537cb085-527e-4f00-930d-44429637ec09', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Top K Frequent Elements', 'top-k-frequent-elements', 'Arrays & Hashing', 'medium', 'https://leetcode.com/problems/top-k-frequent-elements/', 5, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('b897642b-0246-456a-ad7e-ead320479359', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Product of Array Except Self', 'product-of-array-except-self', 'Arrays & Hashing', 'medium', 'https://leetcode.com/problems/product-of-array-except-self/', 6, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('480e14c7-c556-4e5b-9f5f-24be29773c4c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Valid Sudoku', 'valid-sudoku', 'Arrays & Hashing', 'medium', 'https://leetcode.com/problems/valid-sudoku/', 7, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('ac760520-8b20-406b-be1a-dfedde375696', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Consecutive Sequence', 'longest-consecutive-sequence', 'Arrays & Hashing', 'medium', 'https://leetcode.com/problems/longest-consecutive-sequence/', 8, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('6ce72c08-80fd-4dff-b8e9-dd0b807235ac', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Valid Palindrome', 'valid-palindrome', 'Two Pointers', 'easy', 'https://leetcode.com/problems/valid-palindrome/', 9, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('9a022dec-0911-49cd-9461-0958408b23c4', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Two Sum II - Input Array Is Sorted', 'two-sum-ii-input-array-is-sorted', 'Two Pointers', 'medium', 'https://leetcode.com/problems/two-sum-ii-input-array-is-sorted/', 10, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('94814afb-4021-467c-94df-61433f3f3b0d', '20b37334-c88c-45c6-b898-ec5d23e37474', '3Sum', '3sum', 'Two Pointers', 'medium', 'https://leetcode.com/problems/3sum/', 11, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('694e327b-f057-47a2-8fcd-c3a5aa159e89', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Container With Most Water', 'container-with-most-water', 'Two Pointers', 'medium', 'https://leetcode.com/problems/container-with-most-water/', 12, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('7f0a0a4f-d344-4052-a06d-7b25d8631e74', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Trapping Rain Water', 'trapping-rain-water', 'Two Pointers', 'hard', 'https://leetcode.com/problems/trapping-rain-water/', 13, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('cd95cc0e-ab49-4d1b-9175-9aea4d29c688', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Best Time to Buy and Sell Stock', 'best-time-to-buy-and-sell-stock', 'Sliding Window', 'easy', 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock/', 14, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('991572da-4b46-4854-9476-b7903334a4c1', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Substring Without Repeating Characters', 'longest-substring-without-repeating-characters', 'Sliding Window', 'medium', 'https://leetcode.com/problems/longest-substring-without-repeating-characters/', 15, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('14aa5d24-1dd2-44d7-91be-03421aeab0d7', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Repeating Character Replacement', 'longest-repeating-character-replacement', 'Sliding Window', 'medium', 'https://leetcode.com/problems/longest-repeating-character-replacement/', 16, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('5648c9a6-6d3e-463e-80e6-a0cf2c742501', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Permutation in String', 'permutation-in-string', 'Sliding Window', 'medium', 'https://leetcode.com/problems/permutation-in-string/', 17, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('1dc4e929-542e-4f5f-955f-05592a02afb4', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Minimum Window Substring', 'minimum-window-substring', 'Sliding Window', 'hard', 'https://leetcode.com/problems/minimum-window-substring/', 18, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('01aa3321-3cdb-48c9-a857-89b43ddfc93c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Sliding Window Maximum', 'sliding-window-maximum', 'Sliding Window', 'hard', 'https://leetcode.com/problems/sliding-window-maximum/', 19, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('172ab3eb-d23c-41a9-9c7d-3f5b30384fc9', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Valid Parentheses', 'valid-parentheses', 'Stack', 'easy', 'https://leetcode.com/problems/valid-parentheses/', 20, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('b97920b6-994b-4201-9257-76528da41090', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Min Stack', 'min-stack', 'Stack', 'medium', 'https://leetcode.com/problems/min-stack/', 21, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('34464efb-558e-4ee0-89b6-906a78c77b48', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Evaluate Reverse Polish Notation', 'evaluate-reverse-polish-notation', 'Stack', 'medium', 'https://leetcode.com/problems/evaluate-reverse-polish-notation/', 22, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('f82b022a-40b4-4cd1-b231-cb86f658fc3c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Generate Parentheses', 'generate-parentheses', 'Stack', 'medium', 'https://leetcode.com/problems/generate-parentheses/', 23, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('4eafe992-6a7d-473c-9a55-d80cde3ff4e6', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Daily Temperatures', 'daily-temperatures', 'Stack', 'medium', 'https://leetcode.com/problems/daily-temperatures/', 24, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('d45cbeda-8fae-4b89-a5ee-f08609831129', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Car Fleet', 'car-fleet', 'Stack', 'medium', 'https://leetcode.com/problems/car-fleet/', 25, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('64bf87ad-d7b1-4257-b05d-1019558faf80', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Largest Rectangle in Histogram', 'largest-rectangle-in-histogram', 'Stack', 'hard', 'https://leetcode.com/problems/largest-rectangle-in-histogram/', 26, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('868f8d0b-fc48-49f0-8ea3-2a18f065221f', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Binary Search', 'binary-search', 'Binary Search', 'easy', 'https://leetcode.com/problems/binary-search/', 27, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('9e7bf7b8-fdf8-4b2f-b116-be176733a873', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Search a 2D Matrix', 'search-a-2d-matrix', 'Binary Search', 'medium', 'https://leetcode.com/problems/search-a-2d-matrix/', 28, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('0e34bf33-6c44-40c9-859f-a2457b727f79', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Koko Eating Bananas', 'koko-eating-bananas', 'Binary Search', 'medium', 'https://leetcode.com/problems/koko-eating-bananas/', 29, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('9725214d-9cba-48cb-9d14-01a36921128e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Find Minimum in Rotated Sorted Array', 'find-minimum-in-rotated-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/', 30, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('c1b6e40f-3d9c-42cb-adfa-2b12ad52063f', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Search in Rotated Sorted Array', 'search-in-rotated-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/search-in-rotated-sorted-array/', 31, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('f8700c51-b638-415e-becc-fd946908cd64', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Time Based Key-Value Store', 'time-based-key-value-store', 'Binary Search', 'medium', 'https://leetcode.com/problems/time-based-key-value-store/', 32, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('70d54744-ff88-42ff-a731-b90da5f471e0', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Median of Two Sorted Arrays', 'median-of-two-sorted-arrays', 'Binary Search', 'hard', 'https://leetcode.com/problems/median-of-two-sorted-arrays/', 33, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('de776f7c-5fb4-4796-ad93-db5343d4a966', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Reverse Linked List', 'reverse-linked-list', 'Linked List', 'easy', 'https://leetcode.com/problems/reverse-linked-list/', 34, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('d17b3a91-8d37-4837-9b27-a14be8e18bb5', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Merge Two Sorted Lists', 'merge-two-sorted-lists', 'Linked List', 'easy', 'https://leetcode.com/problems/merge-two-sorted-lists/', 35, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('bd97b32a-c95b-451f-8e85-62d252ca63da', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Reorder List', 'reorder-list', 'Linked List', 'medium', 'https://leetcode.com/problems/reorder-list/', 36, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('62e24ffe-9710-4b4e-852c-a27a97ce613a', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Remove Nth Node From End of List', 'remove-nth-node-from-end-of-list', 'Linked List', 'medium', 'https://leetcode.com/problems/remove-nth-node-from-end-of-list/', 37, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('785a2498-fad3-4678-b54e-275d7480e5a8', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Copy List with Random Pointer', 'copy-list-with-random-pointer', 'Linked List', 'medium', 'https://leetcode.com/problems/copy-list-with-random-pointer/', 38, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('d73f63a4-6e16-4f49-87c2-d5609ec0196f', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Add Two Numbers', 'add-two-numbers', 'Linked List', 'medium', 'https://leetcode.com/problems/add-two-numbers/', 39, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('7f7d3dfb-8ab8-411b-afd6-8a52a0d1c088', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Linked List Cycle', 'linked-list-cycle', 'Linked List', 'easy', 'https://leetcode.com/problems/linked-list-cycle/', 40, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('851cde43-93c9-41fe-a304-41825c64b01c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Find the Duplicate Number', 'find-the-duplicate-number', 'Linked List', 'medium', 'https://leetcode.com/problems/find-the-duplicate-number/', 41, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('ec297789-88e8-4cf3-84fb-4d242f069dd4', '20b37334-c88c-45c6-b898-ec5d23e37474', 'LRU Cache', 'lru-cache', 'Linked List', 'medium', 'https://leetcode.com/problems/lru-cache/', 42, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('8b297c37-d394-42c6-aeed-8c19efa654be', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Merge k Sorted Lists', 'merge-k-sorted-lists', 'Linked List', 'hard', 'https://leetcode.com/problems/merge-k-sorted-lists/', 43, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('220da75e-c840-4833-a98b-cb91d2743a37', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Reverse Nodes in k-Group', 'reverse-nodes-in-k-group', 'Linked List', 'hard', 'https://leetcode.com/problems/reverse-nodes-in-k-group/', 44, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('24ff5f07-fddf-4dbf-af52-882d9600b89b', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Invert Binary Tree', 'invert-binary-tree', 'Trees', 'easy', 'https://leetcode.com/problems/invert-binary-tree/', 45, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('93378118-22c8-405a-a727-79b9dad79567', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Maximum Depth of Binary Tree', 'maximum-depth-of-binary-tree', 'Trees', 'easy', 'https://leetcode.com/problems/maximum-depth-of-binary-tree/', 46, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('b2ad1af9-2b3e-4365-9e29-98ea2897b434', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Diameter of Binary Tree', 'diameter-of-binary-tree', 'Trees', 'easy', 'https://leetcode.com/problems/diameter-of-binary-tree/', 47, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('586b039b-bf48-4d79-a3c5-567af02f0dff', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Balanced Binary Tree', 'balanced-binary-tree', 'Trees', 'easy', 'https://leetcode.com/problems/balanced-binary-tree/', 48, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('8e6862de-9efb-431f-b42a-5ee2d8452e85', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Same Tree', 'same-tree', 'Trees', 'easy', 'https://leetcode.com/problems/same-tree/', 49, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('1b18311f-2c03-4317-bfb3-c4e816d954be', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Subtree of Another Tree', 'subtree-of-another-tree', 'Trees', 'easy', 'https://leetcode.com/problems/subtree-of-another-tree/', 50, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('d778af1e-71c0-497b-86b6-5619df103891', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Lowest Common Ancestor of a BST', 'lowest-common-ancestor-of-a-binary-search-tree', 'Trees', 'medium', 'https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-search-tree/', 51, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('cdea8223-c7df-4099-bf14-2561e41e67fa', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Binary Tree Level Order Traversal', 'binary-tree-level-order-traversal', 'Trees', 'medium', 'https://leetcode.com/problems/binary-tree-level-order-traversal/', 52, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('9a6d84c9-b5c6-4b60-b312-9b8cc19ee8e7', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Binary Tree Right Side View', 'binary-tree-right-side-view', 'Trees', 'medium', 'https://leetcode.com/problems/binary-tree-right-side-view/', 53, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('c9d3cf92-37c2-4a53-a4ad-6f14c72c3484', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Count Good Nodes in Binary Tree', 'count-good-nodes-in-binary-tree', 'Trees', 'medium', 'https://leetcode.com/problems/count-good-nodes-in-binary-tree/', 54, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('33ffa840-2b1f-4027-8504-815c5eb964e1', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Validate Binary Search Tree', 'validate-binary-search-tree', 'Trees', 'medium', 'https://leetcode.com/problems/validate-binary-search-tree/', 55, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('5ccef775-5cb5-4db5-ba8d-385ee1f27e19', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Kth Smallest Element in a BST', 'kth-smallest-element-in-a-bst', 'Trees', 'medium', 'https://leetcode.com/problems/kth-smallest-element-in-a-bst/', 56, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('7ae5294c-3fcc-4b02-8c14-e0ec25a8679e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Construct Binary Tree from Preorder and Inorder', 'construct-binary-tree-from-preorder-and-inorder-traversal', 'Trees', 'medium', 'https://leetcode.com/problems/construct-binary-tree-from-preorder-and-inorder-traversal/', 57, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('110e4f1c-e152-4274-9026-956795d5d611', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Binary Tree Maximum Path Sum', 'binary-tree-maximum-path-sum', 'Trees', 'hard', 'https://leetcode.com/problems/binary-tree-maximum-path-sum/', 58, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('a86a35c3-dc97-4e01-995a-f7aa9bc3335b', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Serialize and Deserialize Binary Tree', 'serialize-and-deserialize-binary-tree', 'Trees', 'hard', 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree/', 59, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('ec9f16fc-e4f9-46d7-86a1-2a9fef7fbfa9', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Implement Trie (Prefix Tree)', 'implement-trie-prefix-tree', 'Tries', 'medium', 'https://leetcode.com/problems/implement-trie-prefix-tree/', 60, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('7747ea45-3134-4d00-8e21-159e82e7dffd', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Design Add and Search Words Data Structure', 'design-add-and-search-words-data-structure', 'Tries', 'medium', 'https://leetcode.com/problems/design-add-and-search-words-data-structure/', 61, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('376f412b-0966-4fb1-b0ad-acc490334f34', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Word Search II', 'word-search-ii', 'Tries', 'hard', 'https://leetcode.com/problems/word-search-ii/', 62, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('9d601985-c786-4ff8-b74a-c1148af4594e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Kth Largest Element in a Stream', 'kth-largest-element-in-a-stream', 'Heap / Priority Queue', 'easy', 'https://leetcode.com/problems/kth-largest-element-in-a-stream/', 63, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('1256c626-7fb3-4a56-ae54-278e2287dbef', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Last Stone Weight', 'last-stone-weight', 'Heap / Priority Queue', 'easy', 'https://leetcode.com/problems/last-stone-weight/', 64, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('2b7f28d6-91ee-4dbc-ae64-9dd3344641bb', '20b37334-c88c-45c6-b898-ec5d23e37474', 'K Closest Points to Origin', 'k-closest-points-to-origin', 'Heap / Priority Queue', 'medium', 'https://leetcode.com/problems/k-closest-points-to-origin/', 65, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('b0613080-d6e9-4132-b303-f8b1159322f2', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Kth Largest Element in an Array', 'kth-largest-element-in-an-array', 'Heap / Priority Queue', 'medium', 'https://leetcode.com/problems/kth-largest-element-in-an-array/', 66, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('babdf4fc-9d6b-49d0-ab34-11ad92e3fd86', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Task Scheduler', 'task-scheduler', 'Heap / Priority Queue', 'medium', 'https://leetcode.com/problems/task-scheduler/', 67, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('e764c055-1524-4a02-9d6b-cdedf705ea0c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Design Twitter', 'design-twitter', 'Heap / Priority Queue', 'medium', 'https://leetcode.com/problems/design-twitter/', 68, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('4065311b-a678-473e-be30-2e0d2c88890c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Find Median from Data Stream', 'find-median-from-data-stream', 'Heap / Priority Queue', 'hard', 'https://leetcode.com/problems/find-median-from-data-stream/', 69, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('3f879d3a-f599-49c1-9bd3-8465b00efdd5', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Subsets', 'subsets', 'Backtracking', 'medium', 'https://leetcode.com/problems/subsets/', 70, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('b8a4456f-6fdd-478d-801b-e25358874f25', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Combination Sum', 'combination-sum', 'Backtracking', 'medium', 'https://leetcode.com/problems/combination-sum/', 71, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('570a78db-507e-4683-bdbb-31092e82e550', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Permutations', 'permutations', 'Backtracking', 'medium', 'https://leetcode.com/problems/permutations/', 72, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('8c8fad00-2fb6-4f75-bc20-b4d80d5b2e29', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Subsets II', 'subsets-ii', 'Backtracking', 'medium', 'https://leetcode.com/problems/subsets-ii/', 73, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('f7df80fd-a7aa-43ca-ba93-6efe6d78d655', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Combination Sum II', 'combination-sum-ii', 'Backtracking', 'medium', 'https://leetcode.com/problems/combination-sum-ii/', 74, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('89876b06-f641-4904-935f-a0ae34b13641', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Word Search', 'word-search', 'Backtracking', 'medium', 'https://leetcode.com/problems/word-search/', 75, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('341501cf-0e36-49f2-a9f1-76c4db4bc913', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Palindrome Partitioning', 'palindrome-partitioning', 'Backtracking', 'medium', 'https://leetcode.com/problems/palindrome-partitioning/', 76, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('9d0a4cba-0322-4281-bdb5-1d414fc943f7', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Letter Combinations of a Phone Number', 'letter-combinations-of-a-phone-number', 'Backtracking', 'medium', 'https://leetcode.com/problems/letter-combinations-of-a-phone-number/', 77, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('8c7946c6-01e6-49aa-94e0-7bdafb458103', '20b37334-c88c-45c6-b898-ec5d23e37474', 'N-Queens', 'n-queens', 'Backtracking', 'hard', 'https://leetcode.com/problems/n-queens/', 78, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('c5e95eee-1b87-4753-969d-2fd1de883ffc', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Number of Islands', 'number-of-islands', 'Graphs', 'medium', 'https://leetcode.com/problems/number-of-islands/', 79, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('25903ebd-c0a6-4883-be26-7a54c73424e4', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Clone Graph', 'clone-graph', 'Graphs', 'medium', 'https://leetcode.com/problems/clone-graph/', 80, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('19292ea7-36b4-49c1-aec4-967db90b6a0f', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Max Area of Island', 'max-area-of-island', 'Graphs', 'medium', 'https://leetcode.com/problems/max-area-of-island/', 81, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('7564f0af-e1dd-4b77-bcac-4008bde0081c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Pacific Atlantic Water Flow', 'pacific-atlantic-water-flow', 'Graphs', 'medium', 'https://leetcode.com/problems/pacific-atlantic-water-flow/', 82, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('eb6ef0bd-344c-4935-87af-c6a823288203', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Surrounded Regions', 'surrounded-regions', 'Graphs', 'medium', 'https://leetcode.com/problems/surrounded-regions/', 83, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('7d9e4651-c5d0-40a2-b9a2-206644a83334', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Course Schedule', 'course-schedule', 'Graph', 'medium', 'https://leetcode.com/problems/course-schedule/', 28, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('45a0ab79-d050-49a5-8ac8-49cc852c3bc6', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Rotting Oranges', 'rotting-oranges', 'Graphs', 'medium', 'https://leetcode.com/problems/rotting-oranges/', 84, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('4bbeb4e6-d829-45a7-bf02-9785da095ab6', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Course Schedule', 'course-schedule', 'Graphs', 'medium', 'https://leetcode.com/problems/course-schedule/', 85, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('66f5a7f5-c060-43f2-9e3e-c6e7a7a5976a', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Course Schedule II', 'course-schedule-ii', 'Graphs', 'medium', 'https://leetcode.com/problems/course-schedule-ii/', 86, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('9410c859-9312-43ec-a77e-e9bcfc3a3ef2', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Redundant Connection', 'redundant-connection', 'Graphs', 'medium', 'https://leetcode.com/problems/redundant-connection/', 87, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('821fd67a-f2a7-4129-8144-d53608d1c816', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Number of Connected Components in an Undirected Graph', 'number-of-connected-components-in-an-undirected-graph', 'Graphs', 'medium', 'https://leetcode.com/problems/number-of-connected-components-in-an-undirected-graph/', 88, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('2d73a6cf-0c69-4027-ac44-09613f6f9f31', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Graph Valid Tree', 'graph-valid-tree', 'Graphs', 'medium', 'https://leetcode.com/problems/graph-valid-tree/', 89, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('c4d765ac-901d-422e-9632-d9d1aa04847a', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Word Ladder', 'word-ladder', 'Graphs', 'hard', 'https://leetcode.com/problems/word-ladder/', 90, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('8afb472e-bcb0-4d97-a1e6-6a6d1af6682e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Reconstruct Itinerary', 'reconstruct-itinerary', 'Advanced Graphs', 'hard', 'https://leetcode.com/problems/reconstruct-itinerary/', 91, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('6a1c85a3-288d-4f44-9a6d-d393f18d06c5', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Min Cost to Connect All Points', 'min-cost-to-connect-all-points', 'Advanced Graphs', 'medium', 'https://leetcode.com/problems/min-cost-to-connect-all-points/', 92, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('bb82fc7f-0482-494a-8dcc-9140acfa64f3', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Network Delay Time', 'network-delay-time', 'Advanced Graphs', 'medium', 'https://leetcode.com/problems/network-delay-time/', 93, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('c31a96f5-ac03-4cfb-929c-5e2b3daa1b0e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Swim in Rising Water', 'swim-in-rising-water', 'Advanced Graphs', 'hard', 'https://leetcode.com/problems/swim-in-rising-water/', 94, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('c8b2d2cb-f8e9-4d3a-8431-f6e9eb0e239b', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Cheapest Flights Within K Stops', 'cheapest-flights-within-k-stops', 'Advanced Graphs', 'medium', 'https://leetcode.com/problems/cheapest-flights-within-k-stops/', 95, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('9f241185-992a-4c79-9d6e-29db489ad440', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Climbing Stairs', 'climbing-stairs', '1-D DP', 'easy', 'https://leetcode.com/problems/climbing-stairs/', 96, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('f86e15dd-2d55-4f57-a685-3a4d5948923e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Min Cost Climbing Stairs', 'min-cost-climbing-stairs', '1-D DP', 'easy', 'https://leetcode.com/problems/min-cost-climbing-stairs/', 97, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('0bd5276c-79ac-4927-a136-257e3384bffc', '20b37334-c88c-45c6-b898-ec5d23e37474', 'House Robber', 'house-robber', '1-D DP', 'medium', 'https://leetcode.com/problems/house-robber/', 98, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('1a6ecc7d-6ff6-42db-8968-6368a8f354cd', '20b37334-c88c-45c6-b898-ec5d23e37474', 'House Robber II', 'house-robber-ii', '1-D DP', 'medium', 'https://leetcode.com/problems/house-robber-ii/', 99, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('5e1ef2e6-35d5-4a2a-ab51-5799781d5777', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Palindromic Substring', 'longest-palindromic-substring', '1-D DP', 'medium', 'https://leetcode.com/problems/longest-palindromic-substring/', 100, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('bb9d734d-be4a-4d4e-ab63-1a8686b7aadb', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Palindromic Substrings', 'palindromic-substrings', '1-D DP', 'medium', 'https://leetcode.com/problems/palindromic-substrings/', 101, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('368eadd2-d705-437b-ae3e-ad911ccb1535', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Decode Ways', 'decode-ways', '1-D DP', 'medium', 'https://leetcode.com/problems/decode-ways/', 102, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('fb92e6dc-a188-4e3e-8141-861e456cfa6e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Coin Change', 'coin-change', '1-D DP', 'medium', 'https://leetcode.com/problems/coin-change/', 103, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('015e6b24-afe2-4ecf-8cc7-4d028d4f3403', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Maximum Product Subarray', 'maximum-product-subarray', '1-D DP', 'medium', 'https://leetcode.com/problems/maximum-product-subarray/', 104, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('6d573d77-0c84-44dc-b3b5-f62a82637feb', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Word Break', 'word-break', '1-D DP', 'medium', 'https://leetcode.com/problems/word-break/', 105, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('4a805054-f2f7-4900-b44c-ee6af64f76f0', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Increasing Subsequence', 'longest-increasing-subsequence', '1-D DP', 'medium', 'https://leetcode.com/problems/longest-increasing-subsequence/', 106, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('f95ee300-2a23-4d1d-b9d5-16371c09bed6', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Partition Equal Subset Sum', 'partition-equal-subset-sum', '1-D DP', 'medium', 'https://leetcode.com/problems/partition-equal-subset-sum/', 107, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('88e365f0-6e79-46e9-91ec-02c592239df8', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Unique Paths', 'unique-paths', '2-D DP', 'medium', 'https://leetcode.com/problems/unique-paths/', 108, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('232663de-a202-4bbc-ba56-965a85b9caab', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Common Subsequence', 'longest-common-subsequence', '2-D DP', 'medium', 'https://leetcode.com/problems/longest-common-subsequence/', 109, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('d084ac4b-e532-4577-ba54-b2172b4653a9', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Best Time to Buy and Sell Stock with Cooldown', 'best-time-to-buy-and-sell-stock-with-cooldown', '2-D DP', 'medium', 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock-with-cooldown/', 110, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('90b7a101-1e39-4d29-8efc-a03d8e9c6efb', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Coin Change II', 'coin-change-ii', '2-D DP', 'medium', 'https://leetcode.com/problems/coin-change-ii/', 111, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('5a341387-6c51-48df-86bd-fbbaacd37656', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Target Sum', 'target-sum', '2-D DP', 'medium', 'https://leetcode.com/problems/target-sum/', 112, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('9537d60c-0f25-49ff-866c-6490cd51eb9f', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Interleaving String', 'interleaving-string', '2-D DP', 'medium', 'https://leetcode.com/problems/interleaving-string/', 113, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('1f7b6bd3-15c7-4af9-8b01-87fea69a10d0', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Increasing Path in a Matrix', 'longest-increasing-path-in-a-matrix', '2-D DP', 'hard', 'https://leetcode.com/problems/longest-increasing-path-in-a-matrix/', 114, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('a68c232c-221c-49ee-948a-43b647bbe547', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Distinct Subsequences', 'distinct-subsequences', '2-D DP', 'hard', 'https://leetcode.com/problems/distinct-subsequences/', 115, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('bf69419f-3ff4-4c85-bb78-9ed355ced814', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Edit Distance', 'edit-distance', '2-D DP', 'medium', 'https://leetcode.com/problems/edit-distance/', 116, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('c7affe81-8d85-4ee7-b266-2a1be700004d', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Burst Balloons', 'burst-balloons', '2-D DP', 'hard', 'https://leetcode.com/problems/burst-balloons/', 117, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('92ca1545-b723-4dd9-95de-da944a69eb46', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Regular Expression Matching', 'regular-expression-matching', '2-D DP', 'hard', 'https://leetcode.com/problems/regular-expression-matching/', 118, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('139cfded-46fa-4a71-8af1-53d1f98e56d2', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Maximum Subarray', 'maximum-subarray', 'Greedy', 'medium', 'https://leetcode.com/problems/maximum-subarray/', 119, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('143e2d49-93f4-4777-8aad-a45f67bbdb33', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Jump Game', 'jump-game', 'Greedy', 'medium', 'https://leetcode.com/problems/jump-game/', 120, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('e9dc7e55-9347-49bd-aef0-0fcd4591386e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Jump Game II', 'jump-game-ii', 'Greedy', 'medium', 'https://leetcode.com/problems/jump-game-ii/', 121, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('6f3c9636-678a-47dd-bc0e-a4acb2b7c20d', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Gas Station', 'gas-station', 'Greedy', 'medium', 'https://leetcode.com/problems/gas-station/', 122, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('ffbe8adf-5084-4b5c-84c2-8ad1096c9339', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Hand of Straights', 'hand-of-straights', 'Greedy', 'medium', 'https://leetcode.com/problems/hand-of-straights/', 123, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('131ff1c5-b09b-4888-a2ff-75d35a21e18d', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Merge Triplets to Form Target Triplet', 'merge-triplets-to-form-target-triplet', 'Greedy', 'medium', 'https://leetcode.com/problems/merge-triplets-to-form-target-triplet/', 124, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('dbc9aca7-81c1-46d1-b3f3-e9de2bac30b4', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Partition Labels', 'partition-labels', 'Greedy', 'medium', 'https://leetcode.com/problems/partition-labels/', 125, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('9e21d5c0-3a89-4b07-ab65-b02fb067bea1', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Valid Parenthesis String', 'valid-parenthesis-string', 'Greedy', 'medium', 'https://leetcode.com/problems/valid-parenthesis-string/', 126, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('375e501b-5a8b-4223-98c0-24fdd9df4172', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Insert Interval', 'insert-interval', 'Intervals', 'medium', 'https://leetcode.com/problems/insert-interval/', 127, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('d78f2189-7dfd-4b74-993f-5c36ed36d8d2', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Merge Intervals', 'merge-intervals', 'Intervals', 'medium', 'https://leetcode.com/problems/merge-intervals/', 128, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('6eda5785-8dbe-403f-bbda-9092bf3ab784', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Non-overlapping Intervals', 'non-overlapping-intervals', 'Intervals', 'medium', 'https://leetcode.com/problems/non-overlapping-intervals/', 129, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('ffc51bba-7d08-4d4b-8f41-eb10a1cad0eb', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Minimum Interval to Include Each Query', 'minimum-interval-to-include-each-query', 'Intervals', 'hard', 'https://leetcode.com/problems/minimum-interval-to-include-each-query/', 130, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('1c5d61c5-79ca-4046-ba2f-f2c1acb5a9a5', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Rotate Image', 'rotate-image', 'Math & Geometry', 'medium', 'https://leetcode.com/problems/rotate-image/', 131, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('0fe991a9-da38-4c51-ac9d-ba4e9bef3891', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Spiral Matrix', 'spiral-matrix', 'Math & Geometry', 'medium', 'https://leetcode.com/problems/spiral-matrix/', 132, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('6dbd8719-4dfe-483f-ab84-5501476d99ed', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Set Matrix Zeroes', 'set-matrix-zeroes', 'Math & Geometry', 'medium', 'https://leetcode.com/problems/set-matrix-zeroes/', 133, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('b781df09-bafe-4471-a176-72d31fc01958', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Happy Number', 'happy-number', 'Math & Geometry', 'easy', 'https://leetcode.com/problems/happy-number/', 134, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('a0358583-0d19-4997-9ec9-a4603bc86c98', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Plus One', 'plus-one', 'Math & Geometry', 'easy', 'https://leetcode.com/problems/plus-one/', 135, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('cd4ee3e6-ddf2-47ff-aa22-729f12afa26c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Pow(x, n)', 'powx-n', 'Math & Geometry', 'medium', 'https://leetcode.com/problems/powx-n/', 136, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('43302d6a-2bb1-4cff-8aed-dde6fe325333', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Multiply Strings', 'multiply-strings', 'Math & Geometry', 'medium', 'https://leetcode.com/problems/multiply-strings/', 137, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('dde5278d-0b4b-4ffd-b5b6-283d74691cb1', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Detect Squares', 'detect-squares', 'Math & Geometry', 'medium', 'https://leetcode.com/problems/detect-squares/', 138, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('641c0a8d-a3af-4f45-92fd-2449cdec362c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Single Number', 'single-number', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/single-number/', 139, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('b5aae654-e99c-48f3-9349-d94b37158bf7', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Number of 1 Bits', 'number-of-1-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/number-of-1-bits/', 140, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('24c424b6-8aa4-4b19-8d17-94e453646cee', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Counting Bits', 'counting-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/counting-bits/', 141, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('6dd15929-e8e2-470b-8ca2-465f8ee57420', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Reverse Bits', 'reverse-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/reverse-bits/', 142, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('d267f740-5baa-4192-96e8-b48e43a301ba', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Missing Number', 'missing-number', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/missing-number/', 143, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('46c61ae8-5b0a-43b5-b02f-c2673ed97630', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Sum of Two Integers', 'sum-of-two-integers', 'Bit Manipulation', 'medium', 'https://leetcode.com/problems/sum-of-two-integers/', 144, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('d80a058f-3b12-4093-826a-e611e24cf272', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Reverse Integer', 'reverse-integer', 'Bit Manipulation', 'medium', 'https://leetcode.com/problems/reverse-integer/', 145, '2026-07-10 02:05:37.890501+00', '{}'),
+    ('63f30362-5cd0-4c82-9364-96f6e1381e9e', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Two Sum', 'two-sum', 'Array', 'easy', 'https://leetcode.com/problems/two-sum/', 1, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('8ccfb6d5-2ecd-436e-8b3f-414322e873ea', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Best Time to Buy and Sell Stock', 'best-time-to-buy-and-sell-stock', 'Array', 'easy', 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock/', 2, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('908682b4-9a2e-4ea5-b15a-d530f329ccd8', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Contains Duplicate', 'contains-duplicate', 'Array', 'easy', 'https://leetcode.com/problems/contains-duplicate/', 3, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('4ff78959-5449-4c67-9d64-66cb7383c945', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Product of Array Except Self', 'product-of-array-except-self', 'Array', 'medium', 'https://leetcode.com/problems/product-of-array-except-self/', 4, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('f8c11609-b6b8-4a85-afa0-7ec672a0eae4', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Maximum Subarray', 'maximum-subarray', 'Array', 'medium', 'https://leetcode.com/problems/maximum-subarray/', 5, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('63bacb57-8120-43a3-b2fe-304ccad1f2d5', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Maximum Product Subarray', 'maximum-product-subarray', 'Array', 'medium', 'https://leetcode.com/problems/maximum-product-subarray/', 6, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('3ff89989-f1e8-484e-8f93-4f99e79b4642', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Find Minimum in Rotated Sorted Array', 'find-minimum-in-rotated-sorted-array', 'Array', 'medium', 'https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/', 7, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('ac6a80e7-cf9f-478b-9274-14078d664504', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Search in Rotated Sorted Array', 'search-in-rotated-sorted-array', 'Array', 'medium', 'https://leetcode.com/problems/search-in-rotated-sorted-array/', 8, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('ed663548-75df-40e3-860b-c6bf5edb4366', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', '3Sum', '3sum', 'Array', 'medium', 'https://leetcode.com/problems/3sum/', 9, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('3a44210b-e424-4020-ad63-3f9738e25164', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Container With Most Water', 'container-with-most-water', 'Array', 'medium', 'https://leetcode.com/problems/container-with-most-water/', 10, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('0749f6c3-da53-41ad-85f9-bb9e65c90d80', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Sum of Two Integers', 'sum-of-two-integers', 'Binary', 'medium', 'https://leetcode.com/problems/sum-of-two-integers/', 11, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('3115c8a4-4997-43f9-82dc-65099ffbbcc6', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Number of 1 Bits', 'number-of-1-bits', 'Binary', 'easy', 'https://leetcode.com/problems/number-of-1-bits/', 12, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('42d0c500-6170-459f-a034-d117b556b0ed', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Counting Bits', 'counting-bits', 'Binary', 'easy', 'https://leetcode.com/problems/counting-bits/', 13, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('09889555-a4ec-4350-9500-21d005727b9a', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Missing Number', 'missing-number', 'Binary', 'easy', 'https://leetcode.com/problems/missing-number/', 14, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('59cf0758-bcee-4b84-aeb8-d693cfd48c9e', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Reverse Bits', 'reverse-bits', 'Binary', 'easy', 'https://leetcode.com/problems/reverse-bits/', 15, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('4a3bbee6-b21e-4e3a-a02a-036befd4458c', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Climbing Stairs', 'climbing-stairs', 'Dynamic Programming', 'easy', 'https://leetcode.com/problems/climbing-stairs/', 16, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('d9a6ed89-282f-4780-8d6d-3763357875fc', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Coin Change', 'coin-change', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/coin-change/', 17, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('f640d8f9-4c8c-43d2-91e9-ce2d87c51261', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Longest Increasing Subsequence', 'longest-increasing-subsequence', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/longest-increasing-subsequence/', 18, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('8fd7075c-0db3-488c-af5e-a6d2e67554d2', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Longest Common Subsequence', 'longest-common-subsequence', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/longest-common-subsequence/', 19, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('0fe03b60-4c60-4d40-ba35-6d7a7c332b1c', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Word Break', 'word-break', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/word-break/', 20, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('c166ee97-5d56-49a4-a93d-dd36573acaf3', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Combination Sum', 'combination-sum', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/combination-sum/', 21, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('f34e87a7-4d01-4e26-ae34-c2984ef2df64', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'House Robber', 'house-robber', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/house-robber/', 22, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('d571b383-de69-48b5-9264-f135e058f8c4', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'House Robber II', 'house-robber-ii', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/house-robber-ii/', 23, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('a6db85b6-7685-4c2f-9eef-28bda24d2bf6', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Decode Ways', 'decode-ways', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/decode-ways/', 24, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('92cc57b3-d0c5-4b53-8211-f0b7c69522d7', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Unique Paths', 'unique-paths', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/unique-paths/', 25, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('0cd06ee0-dfca-4c6c-995a-032c7490f473', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Jump Game', 'jump-game', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/jump-game/', 26, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('82056808-84ca-433e-bc1f-0bedece231e0', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Clone Graph', 'clone-graph', 'Graph', 'medium', 'https://leetcode.com/problems/clone-graph/', 27, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('e1d3abc5-ef9a-4b54-b048-666fe6be9028', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Pacific Atlantic Water Flow', 'pacific-atlantic-water-flow', 'Graph', 'medium', 'https://leetcode.com/problems/pacific-atlantic-water-flow/', 29, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('e8a4e28b-6015-4763-80d1-c00d617d0d18', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Number of Islands', 'number-of-islands', 'Graph', 'medium', 'https://leetcode.com/problems/number-of-islands/', 30, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('7fd997a0-e215-4914-b657-dabeb9c1218e', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Longest Consecutive Sequence', 'longest-consecutive-sequence', 'Graph', 'medium', 'https://leetcode.com/problems/longest-consecutive-sequence/', 31, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('8d145b27-f6f4-4e29-bda0-673b732a5516', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Graph Valid Tree', 'graph-valid-tree', 'Graph', 'medium', 'https://leetcode.com/problems/graph-valid-tree/', 32, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('62fc829c-891d-4101-bca0-c5779304575b', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Number of Connected Components in an Undirected Graph', 'number-of-connected-components-in-an-undirected-graph', 'Graph', 'medium', 'https://leetcode.com/problems/number-of-connected-components-in-an-undirected-graph/', 33, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('83e3ded0-bd6f-45fd-a254-9d0b4fc00a9b', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Insert Interval', 'insert-interval', 'Interval', 'medium', 'https://leetcode.com/problems/insert-interval/', 34, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('707a2394-82c6-44c8-a4cc-50d200dd2902', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Merge Intervals', 'merge-intervals', 'Interval', 'medium', 'https://leetcode.com/problems/merge-intervals/', 35, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('d593fd09-40a1-4926-92ac-6d2025e1a4b6', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Non-overlapping Intervals', 'non-overlapping-intervals', 'Interval', 'medium', 'https://leetcode.com/problems/non-overlapping-intervals/', 36, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('fceca665-372e-4649-9e72-beb52268c4b4', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Reverse Linked List', 'reverse-linked-list', 'Linked List', 'easy', 'https://leetcode.com/problems/reverse-linked-list/', 37, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('245adac3-0707-4a92-b5fc-99b19876ca27', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Linked List Cycle', 'linked-list-cycle', 'Linked List', 'easy', 'https://leetcode.com/problems/linked-list-cycle/', 38, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('fe3903fb-507c-412e-96dc-657287fe18ef', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Merge Two Sorted Lists', 'merge-two-sorted-lists', 'Linked List', 'easy', 'https://leetcode.com/problems/merge-two-sorted-lists/', 39, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('921ce067-0d84-41f1-99b0-472af365b343', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Merge k Sorted Lists', 'merge-k-sorted-lists', 'Linked List', 'hard', 'https://leetcode.com/problems/merge-k-sorted-lists/', 40, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('e339f271-ad32-4375-96f5-bddc8c051ade', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Remove Nth Node From End of List', 'remove-nth-node-from-end-of-list', 'Linked List', 'medium', 'https://leetcode.com/problems/remove-nth-node-from-end-of-list/', 41, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('202d9d3e-e556-47e4-9130-bb414d67bac6', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Reorder List', 'reorder-list', 'Linked List', 'medium', 'https://leetcode.com/problems/reorder-list/', 42, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('b40e9fef-845d-41bc-b71a-322e4aa95396', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Set Matrix Zeroes', 'set-matrix-zeroes', 'Matrix', 'medium', 'https://leetcode.com/problems/set-matrix-zeroes/', 43, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('65e2fa33-2c69-4b64-903e-ff68c85b2714', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Spiral Matrix', 'spiral-matrix', 'Matrix', 'medium', 'https://leetcode.com/problems/spiral-matrix/', 44, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('1d29bb04-683d-4c9f-be6b-245765df978b', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Rotate Image', 'rotate-image', 'Matrix', 'medium', 'https://leetcode.com/problems/rotate-image/', 45, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('09abd55c-b92c-461e-bdf0-5d8983290fa7', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Word Search', 'word-search', 'Matrix', 'medium', 'https://leetcode.com/problems/word-search/', 46, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('0ccba271-1717-4a0e-9b52-fbc10937779c', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Maximum Depth of Binary Tree', 'maximum-depth-of-binary-tree', 'Tree', 'easy', 'https://leetcode.com/problems/maximum-depth-of-binary-tree/', 47, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('78be5fe7-294f-4278-bbdc-5de15e8041e0', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Same Tree', 'same-tree', 'Tree', 'easy', 'https://leetcode.com/problems/same-tree/', 48, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('0d0284d9-da85-4227-9ef4-499e946526ed', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Invert Binary Tree', 'invert-binary-tree', 'Tree', 'easy', 'https://leetcode.com/problems/invert-binary-tree/', 49, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('f80a3a95-f1b3-4e22-bb12-0a5201855137', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Binary Tree Maximum Path Sum', 'binary-tree-maximum-path-sum', 'Tree', 'hard', 'https://leetcode.com/problems/binary-tree-maximum-path-sum/', 50, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('d0c91e64-57b9-4008-8b10-dd6acc0162ea', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Binary Tree Level Order Traversal', 'binary-tree-level-order-traversal', 'Tree', 'medium', 'https://leetcode.com/problems/binary-tree-level-order-traversal/', 51, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('593df722-608b-4d6a-8057-7180c7c1eba8', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Serialize and Deserialize Binary Tree', 'serialize-and-deserialize-binary-tree', 'Tree', 'hard', 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree/', 52, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('f80d4f72-15f4-4cbd-85a5-fac52ee4aded', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Subtree of Another Tree', 'subtree-of-another-tree', 'Tree', 'easy', 'https://leetcode.com/problems/subtree-of-another-tree/', 53, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('008941a0-af20-4aed-beb4-350929662376', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Construct Binary Tree from Preorder and Inorder', 'construct-binary-tree-from-preorder-and-inorder-traversal', 'Tree', 'medium', 'https://leetcode.com/problems/construct-binary-tree-from-preorder-and-inorder-traversal/', 54, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('39ee00c4-f56e-492f-88db-9e3f1a63c06a', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Validate Binary Search Tree', 'validate-binary-search-tree', 'Tree', 'medium', 'https://leetcode.com/problems/validate-binary-search-tree/', 55, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('72664f33-d668-4367-bdaf-6a6bde091ffe', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Kth Smallest Element in a BST', 'kth-smallest-element-in-a-bst', 'Tree', 'medium', 'https://leetcode.com/problems/kth-smallest-element-in-a-bst/', 56, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('944b3b02-42f1-4eb7-982d-bdaa60f298ed', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Lowest Common Ancestor of a BST', 'lowest-common-ancestor-of-a-binary-search-tree', 'Tree', 'medium', 'https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-search-tree/', 57, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('22c12eee-62be-403c-9c1c-fc7d9e1a228f', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Implement Trie (Prefix Tree)', 'implement-trie-prefix-tree', 'Tree', 'medium', 'https://leetcode.com/problems/implement-trie-prefix-tree/', 58, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('00db395d-d0ef-40a4-8503-d5c55d5c8c6b', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Design Add and Search Words Data Structure', 'design-add-and-search-words-data-structure', 'Tree', 'medium', 'https://leetcode.com/problems/design-add-and-search-words-data-structure/', 59, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('f5f5e844-5933-4573-98ca-b8e42bed01db', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Word Search II', 'word-search-ii', 'Tree', 'hard', 'https://leetcode.com/problems/word-search-ii/', 60, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('6e10ac01-231d-4979-97f5-0c6d96e74c2e', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Top K Frequent Elements', 'top-k-frequent-elements', 'Heap', 'medium', 'https://leetcode.com/problems/top-k-frequent-elements/', 61, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('0d6650cd-765f-4ab7-8eb6-48b40683d0ed', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Find Median from Data Stream', 'find-median-from-data-stream', 'Heap', 'hard', 'https://leetcode.com/problems/find-median-from-data-stream/', 62, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('a371b830-e0cd-4e4b-a5f6-a9f4c20a57c8', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Valid Anagram', 'valid-anagram', 'String', 'easy', 'https://leetcode.com/problems/valid-anagram/', 63, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('1def6f02-f042-4355-aad0-a22b782cacb3', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Group Anagrams', 'group-anagrams', 'String', 'medium', 'https://leetcode.com/problems/group-anagrams/', 64, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('c3eab4d1-ea70-4c83-b3de-bfc9b55f179b', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Longest Substring Without Repeating Characters', 'longest-substring-without-repeating-characters', 'String', 'medium', 'https://leetcode.com/problems/longest-substring-without-repeating-characters/', 65, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('af47d054-0286-4347-8a2c-c73fe7258e59', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Longest Repeating Character Replacement', 'longest-repeating-character-replacement', 'String', 'medium', 'https://leetcode.com/problems/longest-repeating-character-replacement/', 66, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('3af4be8e-bc98-42ec-9654-8aebd3acef16', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Minimum Window Substring', 'minimum-window-substring', 'String', 'hard', 'https://leetcode.com/problems/minimum-window-substring/', 67, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('f14bd6f6-de54-4d21-abf3-f86820fe9536', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Valid Parentheses', 'valid-parentheses', 'String', 'easy', 'https://leetcode.com/problems/valid-parentheses/', 68, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('68918b45-3eb5-4fc4-8136-137fc28590d4', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Valid Palindrome', 'valid-palindrome', 'String', 'easy', 'https://leetcode.com/problems/valid-palindrome/', 69, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('81837e11-bbd8-4d0e-aa70-f04b2e47d143', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Longest Palindromic Substring', 'longest-palindromic-substring', 'String', 'medium', 'https://leetcode.com/problems/longest-palindromic-substring/', 70, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('a6c1e975-d953-43ef-931e-0623a187e502', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Palindromic Substrings', 'palindromic-substrings', 'String', 'medium', 'https://leetcode.com/problems/palindromic-substrings/', 71, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('843e5075-39b2-4788-ae8c-e0b83a2acd7d', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Encode and Decode Strings', 'encode-and-decode-strings', 'String', 'medium', 'https://leetcode.com/problems/encode-and-decode-strings/', 72, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('0b382d44-cc7e-4c9f-9043-babc5f0e2db1', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Meeting Rooms', 'meeting-rooms', 'Interval', 'easy', 'https://leetcode.com/problems/meeting-rooms/', 73, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('f5edfd04-1985-498d-837b-eec52fb1c350', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Meeting Rooms II', 'meeting-rooms-ii', 'Interval', 'medium', 'https://leetcode.com/problems/meeting-rooms-ii/', 74, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('85a9374c-e0ed-4f5d-907c-631cae07b39d', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Alien Dictionary', 'alien-dictionary', 'Graph', 'hard', 'https://leetcode.com/problems/alien-dictionary/', 75, '2026-07-10 02:05:37.899193+00', '{}'),
+    ('280c2a4e-190e-401c-ac3a-949e4b9f4a3d', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Find the Largest Element in an Array', 'find-the-largest-element-in-an-array-a2z', 'Learn the Basics', 'easy', NULL, 1, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('d72aab59-aebd-4698-b385-3b6c12b7bab6', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Second Largest Element in an Array', 'second-largest-element-in-an-array-a2z', 'Learn the Basics', 'easy', NULL, 2, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('36318119-9c71-41c2-b216-ce0751bcc6e8', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Check if the Array Is Sorted', 'check-if-array-is-sorted-and-rotated', 'Learn the Basics', 'easy', 'https://leetcode.com/problems/check-if-array-is-sorted-and-rotated/', 3, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('21d8f8fe-285a-4416-ae7b-a417ba46b256', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Remove Duplicates from Sorted Array', 'remove-duplicates-from-sorted-array', 'Learn the Basics', 'easy', 'https://leetcode.com/problems/remove-duplicates-from-sorted-array/', 4, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('0b927b42-7f94-4823-b0d9-7f9473a59600', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Rotate Array', 'rotate-array', 'Learn the Basics', 'medium', 'https://leetcode.com/problems/rotate-array/', 5, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('555ca531-ffec-47ed-9bc1-8f1575758186', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Move Zeroes', 'move-zeroes', 'Learn the Basics', 'easy', 'https://leetcode.com/problems/move-zeroes/', 6, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('f436c31d-a6f5-4559-88df-0e9076d43f5c', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Union of Two Sorted Arrays', 'union-of-two-sorted-arrays-a2z', 'Learn the Basics', 'easy', NULL, 7, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('1a382816-7455-4a52-a795-86ec8034f9ba', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Missing Number', 'missing-number', 'Learn the Basics', 'easy', 'https://leetcode.com/problems/missing-number/', 8, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('53f975cd-21c1-46e7-bb16-c0109228e5b9', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Maximum Consecutive Ones', 'max-consecutive-ones', 'Learn the Basics', 'easy', 'https://leetcode.com/problems/max-consecutive-ones/', 9, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('0385f926-1c30-4d4a-9508-34dc9b1ced42', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Single Number', 'single-number', 'Learn the Basics', 'easy', 'https://leetcode.com/problems/single-number/', 10, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('2e0c8d66-3a9f-4e9a-a6c2-a679773a65a2', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Selection Sort', 'selection-sort-a2z', 'Sorting Techniques', 'easy', NULL, 11, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('fb0eb7a2-4cb1-433e-89d1-7383de9817db', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Bubble Sort', 'bubble-sort-a2z', 'Sorting Techniques', 'easy', NULL, 12, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('f2939685-40ff-4500-b24b-7430abcdf9cb', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Insertion Sort', 'insertion-sort-a2z', 'Sorting Techniques', 'easy', NULL, 13, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('a6c66e27-6c27-46f5-98e8-d841162c1b9a', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Merge Sort', 'sort-an-array', 'Sorting Techniques', 'medium', 'https://leetcode.com/problems/sort-an-array/', 14, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('61e8edf4-6aaf-49c2-bc28-e941b5dfb212', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Quick Sort', 'quick-sort-a2z', 'Sorting Techniques', 'medium', NULL, 15, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('a4e1c85e-ebd8-46bb-9ba9-76a79e3747db', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Sort Colors', 'sort-colors', 'Arrays', 'medium', 'https://leetcode.com/problems/sort-colors/', 16, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('6c31793e-5aae-4c98-a41b-be25e7b74fb1', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Majority Element', 'majority-element', 'Arrays', 'easy', 'https://leetcode.com/problems/majority-element/', 17, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('d6cb2e99-6f72-46ac-b263-9783f9f4ab06', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Maximum Subarray', 'maximum-subarray', 'Arrays', 'medium', 'https://leetcode.com/problems/maximum-subarray/', 18, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('92490d5d-5bbb-4edc-a129-c6bf7900e3f3', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Best Time to Buy and Sell Stock', 'best-time-to-buy-and-sell-stock', 'Arrays', 'easy', 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock/', 19, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('98e20b64-5bfc-4d81-aba9-5419a65e6ea1', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Rearrange Array Elements by Sign', 'rearrange-array-elements-by-sign', 'Arrays', 'medium', 'https://leetcode.com/problems/rearrange-array-elements-by-sign/', 20, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('44737d80-3b5d-47b0-8b90-1b4ceda150ec', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Next Permutation', 'next-permutation', 'Arrays', 'medium', 'https://leetcode.com/problems/next-permutation/', 21, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('f281f327-31cd-44b2-93db-fe4e2d99dd2b', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Longest Consecutive Sequence', 'longest-consecutive-sequence', 'Arrays', 'medium', 'https://leetcode.com/problems/longest-consecutive-sequence/', 22, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('7d118b7a-ca84-4bf2-9cf0-fe80017a0afd', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Set Matrix Zeroes', 'set-matrix-zeroes', 'Arrays', 'medium', 'https://leetcode.com/problems/set-matrix-zeroes/', 23, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('238d4608-6040-466c-a158-5421fe655b69', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Rotate Image', 'rotate-image', 'Arrays', 'medium', 'https://leetcode.com/problems/rotate-image/', 24, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('6b44d4b8-1b3e-4a4b-80cb-20d9619bb6ea', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Spiral Matrix', 'spiral-matrix', 'Arrays', 'medium', 'https://leetcode.com/problems/spiral-matrix/', 25, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('cfdfe8cc-8287-4bad-9df1-52053b6d0faf', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', '3Sum', '3sum', 'Arrays', 'medium', 'https://leetcode.com/problems/3sum/', 26, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('bcf488cc-9283-4164-b7c5-9b948939411c', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', '4Sum', '4sum', 'Arrays', 'medium', 'https://leetcode.com/problems/4sum/', 27, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('14ad4dda-c161-4dd5-86c9-09c9b55db92a', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Trapping Rain Water', 'trapping-rain-water', 'Arrays', 'hard', 'https://leetcode.com/problems/trapping-rain-water/', 28, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('59b5bf06-e87d-4aa2-8db0-8d8650a3dded', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Binary Search', 'binary-search', 'Binary Search', 'easy', 'https://leetcode.com/problems/binary-search/', 29, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('14fb3218-9d40-40af-987d-cffb6d8a9d22', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Lower Bound / Upper Bound', 'find-first-and-last-position-of-element-in-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/find-first-and-last-position-of-element-in-sorted-array/', 30, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('6ad712ce-c33f-4862-a469-1fc436e9aba2', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Search Insert Position', 'search-insert-position', 'Binary Search', 'easy', 'https://leetcode.com/problems/search-insert-position/', 31, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('7512911a-ca84-4536-88ce-3895dde1bfe6', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Search in Rotated Sorted Array', 'search-in-rotated-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/search-in-rotated-sorted-array/', 32, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('4d1528f8-da92-4aa7-a190-4db6812b3360', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Find Minimum in Rotated Sorted Array', 'find-minimum-in-rotated-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/', 33, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('3acb4785-0999-4f81-9a8d-30e48fdde0f4', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Koko Eating Bananas', 'koko-eating-bananas', 'Binary Search', 'medium', 'https://leetcode.com/problems/koko-eating-bananas/', 34, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('edbd1e5f-53f6-4367-a174-d4ceb06425ee', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Median of Two Sorted Arrays', 'median-of-two-sorted-arrays', 'Binary Search', 'hard', 'https://leetcode.com/problems/median-of-two-sorted-arrays/', 35, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('49f4936b-345e-4710-91f5-55e2ceefa9f5', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Search a 2D Matrix', 'search-a-2d-matrix', 'Binary Search', 'medium', 'https://leetcode.com/problems/search-a-2d-matrix/', 36, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('f87db9a8-b304-46a8-877f-85dd06a4c377', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Reverse Words in a String', 'reverse-words-in-a-string', 'Strings', 'medium', 'https://leetcode.com/problems/reverse-words-in-a-string/', 37, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('b446783f-3726-433a-a061-634f56f354ed', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Longest Common Prefix', 'longest-common-prefix', 'Strings', 'easy', 'https://leetcode.com/problems/longest-common-prefix/', 38, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('afa38844-dc55-476f-8246-bf44c5eb217a', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Roman to Integer', 'roman-to-integer', 'Strings', 'easy', 'https://leetcode.com/problems/roman-to-integer/', 39, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('697513f3-bc4c-4c27-871d-919f5b52f0bb', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Valid Anagram', 'valid-anagram', 'Strings', 'easy', 'https://leetcode.com/problems/valid-anagram/', 40, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('10cd2aec-c003-48c4-a45d-d1d2e20c7922', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Valid Parentheses', 'valid-parentheses', 'Strings', 'easy', 'https://leetcode.com/problems/valid-parentheses/', 41, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('12aa53e8-11b4-49b9-941e-a6fbef3a0f74', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Reverse Linked List', 'reverse-linked-list', 'Linked List', 'easy', 'https://leetcode.com/problems/reverse-linked-list/', 42, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('c6124ca6-376e-486e-bd1b-d4f4aaa760ee', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Middle of the Linked List', 'middle-of-the-linked-list', 'Linked List', 'easy', 'https://leetcode.com/problems/middle-of-the-linked-list/', 43, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('dc51cf0f-56d6-4771-8e36-061f892d0971', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Linked List Cycle', 'linked-list-cycle', 'Linked List', 'easy', 'https://leetcode.com/problems/linked-list-cycle/', 44, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('6913eb58-6e9f-40c5-a2d8-b83b0905e68b', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Merge Two Sorted Lists', 'merge-two-sorted-lists', 'Linked List', 'easy', 'https://leetcode.com/problems/merge-two-sorted-lists/', 45, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('042a0115-31d9-483d-9f7a-9ac4078cd551', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Remove Nth Node From End of List', 'remove-nth-node-from-end-of-list', 'Linked List', 'medium', 'https://leetcode.com/problems/remove-nth-node-from-end-of-list/', 46, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('9758a683-44e5-40d8-ae08-cf3acf0da251', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Add Two Numbers', 'add-two-numbers', 'Linked List', 'medium', 'https://leetcode.com/problems/add-two-numbers/', 47, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('a48f5fa1-e382-442a-9052-ba6cfea615bf', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Reverse Nodes in k-Group', 'reverse-nodes-in-k-group', 'Linked List', 'hard', 'https://leetcode.com/problems/reverse-nodes-in-k-group/', 48, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('b05829c8-c093-493c-814e-0fd3889d9460', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Copy List with Random Pointer', 'copy-list-with-random-pointer', 'Linked List', 'medium', 'https://leetcode.com/problems/copy-list-with-random-pointer/', 49, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('c932b122-d7d4-478e-9d53-556ce589ff69', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Reverse a Linked List (Recursive)', 'reverse-a-linked-list-recursive-a2z', 'Recursion', 'medium', NULL, 50, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('c2e0b7ee-e9c2-44b0-90e6-033c67047465', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Subsets', 'subsets', 'Recursion', 'medium', 'https://leetcode.com/problems/subsets/', 51, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('b6d13edd-7abd-4c8d-85ef-8031909397df', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Combination Sum', 'combination-sum', 'Recursion', 'medium', 'https://leetcode.com/problems/combination-sum/', 52, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('7ec921d2-44b7-4a95-8ba0-ebd3b44a368a', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Permutations', 'permutations', 'Recursion', 'medium', 'https://leetcode.com/problems/permutations/', 53, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('52187496-8733-468c-af72-5028c107f42c', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'N-Queens', 'n-queens', 'Recursion', 'hard', 'https://leetcode.com/problems/n-queens/', 54, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('26764b6f-3637-4fb6-a6c5-301dc5700577', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Sudoku Solver', 'sudoku-solver', 'Recursion', 'hard', 'https://leetcode.com/problems/sudoku-solver/', 55, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('507952d4-0236-4dce-bc39-ccb21a5179f4', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Single Number', 'single-number', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/single-number/', 56, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('2ea91cbb-6237-48cf-b7ba-1a51fad53ad7', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Power Set', 'subsets', 'Bit Manipulation', 'medium', 'https://leetcode.com/problems/subsets/', 57, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('7ea85630-4f2c-43b0-8c87-a8e087c95970', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Counting Bits', 'counting-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/counting-bits/', 58, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('c352eefa-647c-4c2d-a6c8-81b7ada77961', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Sum of Two Integers', 'sum-of-two-integers', 'Bit Manipulation', 'medium', 'https://leetcode.com/problems/sum-of-two-integers/', 59, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('65314df4-176b-4236-b556-05404336d84d', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Next Greater Element I', 'next-greater-element-i', 'Stack and Queue', 'easy', 'https://leetcode.com/problems/next-greater-element-i/', 60, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('50dbf013-b16d-47ec-9131-c7b37a9e0391', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Daily Temperatures', 'daily-temperatures', 'Stack and Queue', 'medium', 'https://leetcode.com/problems/daily-temperatures/', 61, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('151ab9db-2cf5-44e7-a8d4-fa68de41ae6c', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Min Stack', 'min-stack', 'Stack and Queue', 'medium', 'https://leetcode.com/problems/min-stack/', 62, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('d6721288-b05d-4e83-9864-a6c7b41f79fa', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Largest Rectangle in Histogram', 'largest-rectangle-in-histogram', 'Stack and Queue', 'hard', 'https://leetcode.com/problems/largest-rectangle-in-histogram/', 63, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('bdc57079-0298-4ac6-b130-1ae5b7988db7', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Sliding Window Maximum', 'sliding-window-maximum', 'Sliding Window & Two Pointer', 'hard', 'https://leetcode.com/problems/sliding-window-maximum/', 64, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('b51b69ce-a180-4ad6-8936-6a1a614c1ebf', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Minimum Window Substring', 'minimum-window-substring', 'Sliding Window & Two Pointer', 'hard', 'https://leetcode.com/problems/minimum-window-substring/', 65, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('5f2a963f-25bf-45a7-9fbe-0da17729c1c9', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Longest Repeating Character Replacement', 'longest-repeating-character-replacement', 'Sliding Window & Two Pointer', 'medium', 'https://leetcode.com/problems/longest-repeating-character-replacement/', 66, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('3debfb18-a36c-4d14-9054-042f4baf42c5', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Kth Largest Element in an Array', 'kth-largest-element-in-an-array', 'Heaps', 'medium', 'https://leetcode.com/problems/kth-largest-element-in-an-array/', 67, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('4b05c3a9-4092-4290-8ba6-593b0936be8a', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Top K Frequent Elements', 'top-k-frequent-elements', 'Heaps', 'medium', 'https://leetcode.com/problems/top-k-frequent-elements/', 68, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('48e1a20c-c229-4802-be89-95ca24d761df', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Find Median from Data Stream', 'find-median-from-data-stream', 'Heaps', 'hard', 'https://leetcode.com/problems/find-median-from-data-stream/', 69, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('9a2fc03d-7ae3-4409-857e-e867e7d4a9d3', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Task Scheduler', 'task-scheduler', 'Greedy', 'medium', 'https://leetcode.com/problems/task-scheduler/', 70, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('aeaa7a93-2a3d-43cf-845c-8a63768c783e', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'N Meeting in One Room', 'meeting-rooms', 'Greedy', 'easy', 'https://leetcode.com/problems/meeting-rooms/', 71, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('92508ca8-445c-4ede-a2d2-a61fdeed3581', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Jump Game', 'jump-game', 'Greedy', 'medium', 'https://leetcode.com/problems/jump-game/', 72, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('b79368c8-efaf-4f20-a7af-06032ad80d59', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Insert Interval', 'insert-interval', 'Greedy', 'medium', 'https://leetcode.com/problems/insert-interval/', 73, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('b272a33b-bf55-47ed-919e-c0034c830347', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Maximum Depth of Binary Tree', 'maximum-depth-of-binary-tree', 'Binary Trees', 'easy', 'https://leetcode.com/problems/maximum-depth-of-binary-tree/', 74, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('78b1bc66-3e1f-4734-93d0-2cf3f1827ac2', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Binary Tree Level Order Traversal', 'binary-tree-level-order-traversal', 'Binary Trees', 'medium', 'https://leetcode.com/problems/binary-tree-level-order-traversal/', 75, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('481a008f-41fe-4875-a667-4a22088df708', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Diameter of Binary Tree', 'diameter-of-binary-tree', 'Binary Trees', 'easy', 'https://leetcode.com/problems/diameter-of-binary-tree/', 76, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('23d75511-b7bb-4913-9911-448ca010289e', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Balanced Binary Tree', 'balanced-binary-tree', 'Binary Trees', 'easy', 'https://leetcode.com/problems/balanced-binary-tree/', 77, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('7459890c-868e-4e9a-92c8-943813a05bd7', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Binary Tree Maximum Path Sum', 'binary-tree-maximum-path-sum', 'Binary Trees', 'hard', 'https://leetcode.com/problems/binary-tree-maximum-path-sum/', 78, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('9ae7547c-64b8-4baf-a42b-948e63236271', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Construct Binary Tree from Preorder and Inorder', 'construct-binary-tree-from-preorder-and-inorder-traversal', 'Binary Trees', 'medium', 'https://leetcode.com/problems/construct-binary-tree-from-preorder-and-inorder-traversal/', 79, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('04977a13-6e37-42c0-8c2b-356f823e2560', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Serialize and Deserialize Binary Tree', 'serialize-and-deserialize-binary-tree', 'Binary Trees', 'hard', 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree/', 80, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('e9c20939-64fd-4d67-a4f0-f234fb17318f', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Validate Binary Search Tree', 'validate-binary-search-tree', 'Binary Search Trees', 'medium', 'https://leetcode.com/problems/validate-binary-search-tree/', 81, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('40c59eff-abb7-4a8b-b48d-acda5e9db67f', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Kth Smallest Element in a BST', 'kth-smallest-element-in-a-bst', 'Binary Search Trees', 'medium', 'https://leetcode.com/problems/kth-smallest-element-in-a-bst/', 82, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('1709159e-8a09-4925-ae89-8c636d3bdcf2', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Lowest Common Ancestor of a BST', 'lowest-common-ancestor-of-a-binary-search-tree', 'Binary Search Trees', 'medium', 'https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-search-tree/', 83, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('3f54b463-96bd-43e1-a642-381a7037bc99', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Number of Islands', 'number-of-islands', 'Graphs', 'medium', 'https://leetcode.com/problems/number-of-islands/', 84, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('adb14715-8ed3-4b58-a6fd-5fc18d6b3b1c', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Rotting Oranges', 'rotting-oranges', 'Graphs', 'medium', 'https://leetcode.com/problems/rotting-oranges/', 85, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('e8d059c3-98b1-4168-99a0-48563b114924', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Course Schedule', 'course-schedule', 'Graphs', 'medium', 'https://leetcode.com/problems/course-schedule/', 86, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('f84483b1-dbd9-4475-b20b-8b8365203555', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Clone Graph', 'clone-graph', 'Graphs', 'medium', 'https://leetcode.com/problems/clone-graph/', 87, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('ce6c680a-871e-456e-9a83-e60691e13b6c', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Word Ladder', 'word-ladder', 'Graphs', 'hard', 'https://leetcode.com/problems/word-ladder/', 88, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('c9fd8e68-b781-4e6c-b425-07f4fa28da32', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Climbing Stairs', 'climbing-stairs', 'Dynamic Programming', 'easy', 'https://leetcode.com/problems/climbing-stairs/', 89, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('b91d2e57-16e1-459b-a5f8-a9e2b22369f3', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'House Robber', 'house-robber', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/house-robber/', 90, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('5956353c-c649-4bca-a991-79067dd1ddb1', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Coin Change', 'coin-change', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/coin-change/', 91, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('458d1c79-d7da-4f81-8ca9-5ecf0d02f6b8', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Longest Increasing Subsequence', 'longest-increasing-subsequence', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/longest-increasing-subsequence/', 92, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('5baa6462-7e96-48b1-981f-82ac869d52ff', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Edit Distance', 'edit-distance', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/edit-distance/', 93, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('b107b2e4-98c4-4624-81c8-9f240ee64e93', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Unique Paths', 'unique-paths', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/unique-paths/', 94, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('96031b28-cc53-45a6-a616-dcf2ba04b4a4', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Implement Trie (Prefix Tree)', 'implement-trie-prefix-tree', 'Tries', 'medium', 'https://leetcode.com/problems/implement-trie-prefix-tree/', 95, '2026-07-10 02:05:37.903692+00', '{}'),
+    ('e5aab74c-778b-415b-a0a8-7f03fd976cfc', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Two Sum', 'two-sum', 'Array', 'easy', 'https://leetcode.com/problems/two-sum/', 1, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('3ce40299-58b5-43d7-8e4b-d5aa62773fb3', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Best Time to Buy and Sell Stock', 'best-time-to-buy-and-sell-stock', 'Array', 'easy', 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock/', 2, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('fe2c4f41-e248-4d29-bd34-e27a509e5527', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Contains Duplicate', 'contains-duplicate', 'Array', 'easy', 'https://leetcode.com/problems/contains-duplicate/', 3, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('538353d6-42b1-4512-96ab-de2122b31087', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Product of Array Except Self', 'product-of-array-except-self', 'Array', 'medium', 'https://leetcode.com/problems/product-of-array-except-self/', 4, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('d57657f5-0741-40fc-b275-f24ac4c08693', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Maximum Subarray', 'maximum-subarray', 'Array', 'medium', 'https://leetcode.com/problems/maximum-subarray/', 5, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('bdf74110-aea7-4972-bceb-2adc12fcd3e8', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Merge Intervals', 'merge-intervals', 'Array', 'medium', 'https://leetcode.com/problems/merge-intervals/', 6, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('d92119e7-bdda-4aa2-9761-9f4c8d845751', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Insert Interval', 'insert-interval', 'Array', 'medium', 'https://leetcode.com/problems/insert-interval/', 7, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('032babd0-2c01-45b1-b354-1f79b90e930e', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', '3Sum', '3sum', 'Array', 'medium', 'https://leetcode.com/problems/3sum/', 8, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('bacb0d38-6fa2-47fe-a340-29fca921a4e3', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Container With Most Water', 'container-with-most-water', 'Array', 'medium', 'https://leetcode.com/problems/container-with-most-water/', 9, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('1ccbc3f0-47bd-4fc2-8f05-b5923fb2ee79', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Next Permutation', 'next-permutation', 'Array', 'medium', 'https://leetcode.com/problems/next-permutation/', 10, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('bad0386a-a486-4e61-a7d4-c38bc9b82a6b', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Longest Substring Without Repeating Characters', 'longest-substring-without-repeating-characters', 'String', 'medium', 'https://leetcode.com/problems/longest-substring-without-repeating-characters/', 11, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('1e2f9e0b-2831-42a1-bcec-4e2c99bec5a6', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Longest Palindromic Substring', 'longest-palindromic-substring', 'String', 'medium', 'https://leetcode.com/problems/longest-palindromic-substring/', 12, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('6564d2a9-c790-4b1b-9aca-1f38c7137426', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Valid Anagram', 'valid-anagram', 'String', 'easy', 'https://leetcode.com/problems/valid-anagram/', 13, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('5507521c-acc8-4c25-af59-24905874eff1', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Group Anagrams', 'group-anagrams', 'String', 'medium', 'https://leetcode.com/problems/group-anagrams/', 14, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('d1104e49-6db1-42d8-99c9-45c160ad8218', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Valid Parentheses', 'valid-parentheses', 'String', 'easy', 'https://leetcode.com/problems/valid-parentheses/', 15, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('2c9a3843-f8a4-47dc-93de-1bfedcf8e5de', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Minimum Window Substring', 'minimum-window-substring', 'String', 'hard', 'https://leetcode.com/problems/minimum-window-substring/', 16, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('4a1f4f51-6da5-4307-a63d-bb6dbe170000', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Reverse Linked List', 'reverse-linked-list', 'Linked List', 'easy', 'https://leetcode.com/problems/reverse-linked-list/', 17, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('115d5702-da46-453c-b3e3-7606932b637c', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Merge Two Sorted Lists', 'merge-two-sorted-lists', 'Linked List', 'easy', 'https://leetcode.com/problems/merge-two-sorted-lists/', 18, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('63348025-c356-41e4-9b51-4804a7b36d13', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Linked List Cycle', 'linked-list-cycle', 'Linked List', 'easy', 'https://leetcode.com/problems/linked-list-cycle/', 19, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('67d9939a-08e9-4613-b561-b3ef30ffc257', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Remove Nth Node From End of List', 'remove-nth-node-from-end-of-list', 'Linked List', 'medium', 'https://leetcode.com/problems/remove-nth-node-from-end-of-list/', 20, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('44131c09-95e9-4ce1-8418-7d8fe1f41a2e', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Reorder List', 'reorder-list', 'Linked List', 'medium', 'https://leetcode.com/problems/reorder-list/', 21, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('d014542c-92e4-41c3-9e76-acb5fe03fa2e', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'LRU Cache', 'lru-cache', 'Linked List', 'medium', 'https://leetcode.com/problems/lru-cache/', 22, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('afbc6ae2-85d7-46e5-864a-d0ff36751531', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Merge k Sorted Lists', 'merge-k-sorted-lists', 'Linked List', 'hard', 'https://leetcode.com/problems/merge-k-sorted-lists/', 23, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('e39078fc-21e5-4bd4-9abb-d288f3924d76', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Valid Parentheses', 'valid-parentheses', 'Stack', 'easy', 'https://leetcode.com/problems/valid-parentheses/', 24, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('0d5d5cd7-36ae-45f8-a432-53e358a783c1', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Min Stack', 'min-stack', 'Stack', 'medium', 'https://leetcode.com/problems/min-stack/', 25, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('e5c24938-c6bc-45a1-a42e-a71a6f1df7de', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Evaluate Reverse Polish Notation', 'evaluate-reverse-polish-notation', 'Stack', 'medium', 'https://leetcode.com/problems/evaluate-reverse-polish-notation/', 26, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('e9eaec6b-4fb4-4e62-9047-db5bd7219a5b', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Daily Temperatures', 'daily-temperatures', 'Stack', 'medium', 'https://leetcode.com/problems/daily-temperatures/', 27, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('dfbd43de-c549-4afe-907d-a9feba4a13cd', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Maximum Depth of Binary Tree', 'maximum-depth-of-binary-tree', 'Tree', 'easy', 'https://leetcode.com/problems/maximum-depth-of-binary-tree/', 28, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('a1c1cf73-1634-43d9-b0e0-96e7acdba306', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Same Tree', 'same-tree', 'Tree', 'easy', 'https://leetcode.com/problems/same-tree/', 29, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('b27b9295-0593-4604-97c3-373f5e6d35fb', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Invert Binary Tree', 'invert-binary-tree', 'Tree', 'easy', 'https://leetcode.com/problems/invert-binary-tree/', 30, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('ae34da15-56c9-45ac-a9b1-58bc51bc4327', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Binary Tree Level Order Traversal', 'binary-tree-level-order-traversal', 'Tree', 'medium', 'https://leetcode.com/problems/binary-tree-level-order-traversal/', 31, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('c23c84c8-1d95-45ec-8229-ccf029610014', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Validate Binary Search Tree', 'validate-binary-search-tree', 'Tree', 'medium', 'https://leetcode.com/problems/validate-binary-search-tree/', 32, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('2bf5657c-7a2c-4d14-93dd-5e8a09f78dde', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Binary Tree Maximum Path Sum', 'binary-tree-maximum-path-sum', 'Tree', 'hard', 'https://leetcode.com/problems/binary-tree-maximum-path-sum/', 33, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('edd09dcc-9ba0-4555-8ce5-89ba3ddafa1f', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Serialize and Deserialize Binary Tree', 'serialize-and-deserialize-binary-tree', 'Tree', 'hard', 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree/', 34, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('0982feb7-0639-4ce4-ab69-48b23d22e849', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Number of Islands', 'number-of-islands', 'Graph', 'medium', 'https://leetcode.com/problems/number-of-islands/', 35, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('94272db6-a707-4995-b70d-516dc582f908', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Clone Graph', 'clone-graph', 'Graph', 'medium', 'https://leetcode.com/problems/clone-graph/', 36, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('0c58e7b3-0b44-4e43-83e0-d7a18fa4db6f', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Course Schedule', 'course-schedule', 'Graph', 'medium', 'https://leetcode.com/problems/course-schedule/', 37, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('3028509d-5e08-4e98-95f8-c31616e3bb18', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Pacific Atlantic Water Flow', 'pacific-atlantic-water-flow', 'Graph', 'medium', 'https://leetcode.com/problems/pacific-atlantic-water-flow/', 38, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('7925b4dc-7971-4af8-9c20-7a49df29abd6', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Number of Connected Components in an Undirected Graph', 'number-of-connected-components-in-an-undirected-graph', 'Graph', 'medium', 'https://leetcode.com/problems/number-of-connected-components-in-an-undirected-graph/', 39, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('238d79d3-790a-493f-a428-a96af1f3e1fc', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Kth Largest Element in an Array', 'kth-largest-element-in-an-array', 'Heap', 'medium', 'https://leetcode.com/problems/kth-largest-element-in-an-array/', 40, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('a5c810b2-498c-493a-b503-e323d28dcd80', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Top K Frequent Elements', 'top-k-frequent-elements', 'Heap', 'medium', 'https://leetcode.com/problems/top-k-frequent-elements/', 41, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('1b66f718-d2ac-4cde-839d-5974d76a264d', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Find Median from Data Stream', 'find-median-from-data-stream', 'Heap', 'hard', 'https://leetcode.com/problems/find-median-from-data-stream/', 42, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('107c32b0-8bbe-4d7e-86b5-4906a7bf4a00', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Task Scheduler', 'task-scheduler', 'Heap', 'medium', 'https://leetcode.com/problems/task-scheduler/', 43, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('d052cb21-2227-4e81-a007-ae54df78383b', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Subsets', 'subsets', 'Backtracking', 'medium', 'https://leetcode.com/problems/subsets/', 44, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('4d433d70-684a-4867-b5d2-a2e67bbfe34e', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Word Search', 'word-search', 'Backtracking', 'medium', 'https://leetcode.com/problems/word-search/', 45, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('6bf89631-07b8-458f-b50b-d5add2d1c8e7', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Combination Sum', 'combination-sum', 'Backtracking', 'medium', 'https://leetcode.com/problems/combination-sum/', 46, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('9f5137c6-b90a-4df2-bfdc-738589a94405', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Permutations', 'permutations', 'Backtracking', 'medium', 'https://leetcode.com/problems/permutations/', 47, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('a7f6f35e-a2af-4396-aeb9-2891a33eb500', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'N-Queens', 'n-queens', 'Backtracking', 'hard', 'https://leetcode.com/problems/n-queens/', 48, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('23a2afcc-3b27-40f0-908f-b901193fc692', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Climbing Stairs', 'climbing-stairs', 'Dynamic Programming', 'easy', 'https://leetcode.com/problems/climbing-stairs/', 49, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('6281a447-422e-4b5b-bd7c-f797cbb5d560', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Coin Change', 'coin-change', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/coin-change/', 50, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('7c5dfff7-4450-4539-a861-7e8e515cc507', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'House Robber', 'house-robber', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/house-robber/', 51, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('de950984-1f8b-44e1-b9a0-7992f35e80c0', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'House Robber II', 'house-robber-ii', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/house-robber-ii/', 52, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('5fe2b48c-3971-42c8-af42-149f574e08a1', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Longest Increasing Subsequence', 'longest-increasing-subsequence', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/longest-increasing-subsequence/', 53, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('c354a301-77f4-407e-b20e-0d6452443e7a', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Word Break', 'word-break', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/word-break/', 54, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('6847ed00-8664-4620-b06e-1d4fc7526c78', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Unique Paths', 'unique-paths', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/unique-paths/', 55, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('c30c0c5d-3c46-4b59-82ef-bc6b6835e2fd', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Edit Distance', 'edit-distance', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/edit-distance/', 56, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('1610d1dd-fdc9-47a7-8072-18d7c1283b4d', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Binary Search', 'binary-search', 'Binary Search', 'easy', 'https://leetcode.com/problems/binary-search/', 57, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('3515c626-da43-4d6d-910a-171e90bf3ebc', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Search in Rotated Sorted Array', 'search-in-rotated-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/search-in-rotated-sorted-array/', 58, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('94baa70a-ae61-4608-83b7-1b5a6d4f852c', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Find Minimum in Rotated Sorted Array', 'find-minimum-in-rotated-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/', 59, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('4d275183-303a-4b80-9918-2d6e5caa440d', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Koko Eating Bananas', 'koko-eating-bananas', 'Binary Search', 'medium', 'https://leetcode.com/problems/koko-eating-bananas/', 60, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('8b694d0f-1cb2-419d-97c8-3f6dc3ea3c6b', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Longest Repeating Character Replacement', 'longest-repeating-character-replacement', 'Sliding Window', 'medium', 'https://leetcode.com/problems/longest-repeating-character-replacement/', 61, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('5805e6cf-662a-4a9b-861b-43ef374a15f5', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Sliding Window Maximum', 'sliding-window-maximum', 'Sliding Window', 'hard', 'https://leetcode.com/problems/sliding-window-maximum/', 62, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('38a83cc1-bbf3-49ae-be1b-24cbee81f479', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Jump Game', 'jump-game', 'Greedy', 'medium', 'https://leetcode.com/problems/jump-game/', 63, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('49fb1948-444c-420e-b4f5-f5cb10b9db53', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Gas Station', 'gas-station', 'Greedy', 'medium', 'https://leetcode.com/problems/gas-station/', 64, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('dbc12696-1ca4-4b4e-886e-ba5aa23b8aa7', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Rotate Image', 'rotate-image', 'Math', 'medium', 'https://leetcode.com/problems/rotate-image/', 65, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('28bb2272-8290-437c-bc3d-36d13e2772c1', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Spiral Matrix', 'spiral-matrix', 'Math', 'medium', 'https://leetcode.com/problems/spiral-matrix/', 66, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('868ac513-1dc0-45cf-849c-a1ca852a8cf5', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Set Matrix Zeroes', 'set-matrix-zeroes', 'Math', 'medium', 'https://leetcode.com/problems/set-matrix-zeroes/', 67, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('5d908bc0-1844-44c7-baa2-0ee8ae3d6f7d', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Number of 1 Bits', 'number-of-1-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/number-of-1-bits/', 68, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('10c2cea5-2843-4fa0-952d-0b3cd7344f74', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Counting Bits', 'counting-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/counting-bits/', 69, '2026-07-10 02:05:37.909128+00', '{}'),
+    ('62d88ffd-edbe-4650-a749-b5dde3cbb3af', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Sum of Two Integers', 'sum-of-two-integers', 'Bit Manipulation', 'medium', 'https://leetcode.com/problems/sum-of-two-integers/', 70, '2026-07-10 02:05:37.909128+00', '{}');
 
-INSERT INTO public.sheets VALUES ('ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Striver''s A2Z DSA', 'striver-a2z', 'Step-by-step DSA course from basics to advanced, by Striver (takeuforward).', 'DSA', true, NULL, '2026-07-10 02:05:37.88717+00', '2026-07-10 02:05:37.88717+00', NULL);
-INSERT INTO public.sheets VALUES ('20b37334-c88c-45c6-b898-ec5d23e37474', 'NeetCode 150', 'neetcode-150', 'The 150 most important problems curated by NeetCode.', 'DSA', true, NULL, '2026-07-10 02:05:37.88717+00', '2026-07-10 02:05:37.88717+00', NULL);
-INSERT INTO public.sheets VALUES ('5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Blind 75', 'blind-75', 'The original 75-problem interview prep list.', 'DSA', true, NULL, '2026-07-10 02:05:37.88717+00', '2026-07-10 02:05:37.88717+00', NULL);
-INSERT INTO public.sheets VALUES ('5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Grind 169', 'grind-169', 'TechInterviewHandbook''s Grind 169 problem list.', 'DSA', true, NULL, '2026-07-10 02:05:37.88717+00', '2026-07-10 02:05:37.88717+00', NULL);
+INSERT INTO public.sheets VALUES
+    ('ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Striver''s A2Z DSA', 'striver-a2z', 'Step-by-step DSA course from basics to advanced, by Striver (takeuforward).', 'DSA', true, NULL, '2026-07-10 02:05:37.88717+00', '2026-07-10 02:05:37.88717+00', NULL),
+    ('20b37334-c88c-45c6-b898-ec5d23e37474', 'NeetCode 150', 'neetcode-150', 'The 150 most important problems curated by NeetCode.', 'DSA', true, NULL, '2026-07-10 02:05:37.88717+00', '2026-07-10 02:05:37.88717+00', NULL),
+    ('5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Blind 75', 'blind-75', 'The original 75-problem interview prep list.', 'DSA', true, NULL, '2026-07-10 02:05:37.88717+00', '2026-07-10 02:05:37.88717+00', NULL),
+    ('5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Grind 169', 'grind-169', 'TechInterviewHandbook''s Grind 169 problem list.', 'DSA', true, NULL, '2026-07-10 02:05:37.88717+00', '2026-07-10 02:05:37.88717+00', NULL);
 
 SELECT pg_catalog.setval('public.attempt_events_id_seq', 1, false);
 
@@ -3940,843 +4231,6 @@ SELECT pg_catalog.setval('public.receipt_number_seq', 1, false);
 SELECT pg_catalog.setval('public.work_item_events_id_seq', 1, false);
 
 SELECT pg_catalog.setval('public.xp_events_id_seq', 1, false);
-
-ALTER TABLE ONLY public.assessment_attempts
-    ADD CONSTRAINT assessment_attempts_assessment_id_user_id_attempt_number_key UNIQUE (assessment_id, user_id, attempt_number);
-
-ALTER TABLE ONLY public.assessment_attempts
-    ADD CONSTRAINT assessment_attempts_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.assessment_questions
-    ADD CONSTRAINT assessment_questions_assessment_id_question_id_key UNIQUE (assessment_id, question_id);
-
-ALTER TABLE ONLY public.assessment_questions
-    ADD CONSTRAINT assessment_questions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.assessments
-    ADD CONSTRAINT assessments_org_id_slug_key UNIQUE (org_id, slug);
-
-ALTER TABLE ONLY public.assessments
-    ADD CONSTRAINT assessments_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.assessments
-    ADD CONSTRAINT assessments_short_code_key UNIQUE (short_code);
-
-ALTER TABLE ONLY public.attempt_answers
-    ADD CONSTRAINT attempt_answers_attempt_id_assessment_question_id_key UNIQUE (attempt_id, assessment_question_id);
-
-ALTER TABLE ONLY public.attempt_answers
-    ADD CONSTRAINT attempt_answers_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.attempt_events
-    ADD CONSTRAINT attempt_events_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.audit_logs
-    ADD CONSTRAINT audit_logs_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.auth_events
-    ADD CONSTRAINT auth_events_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.auth_tokens
-    ADD CONSTRAINT auth_tokens_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.batch_invitations
-    ADD CONSTRAINT batch_invitations_batch_id_email_key UNIQUE (batch_id, email);
-
-ALTER TABLE ONLY public.batch_invitations
-    ADD CONSTRAINT batch_invitations_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.batch_invitations
-    ADD CONSTRAINT batch_invitations_token_hash_key UNIQUE (token_hash);
-
-ALTER TABLE ONLY public.batch_member_details
-    ADD CONSTRAINT batch_member_details_pkey PRIMARY KEY (batch_id, email);
-
-ALTER TABLE ONLY public.batch_members
-    ADD CONSTRAINT batch_members_pkey PRIMARY KEY (batch_id, user_id);
-
-ALTER TABLE ONLY public.batch_messages
-    ADD CONSTRAINT batch_messages_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.batches
-    ADD CONSTRAINT batches_org_id_slug_key UNIQUE (org_id, slug);
-
-ALTER TABLE ONLY public.batches
-    ADD CONSTRAINT batches_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.brief_approvals
-    ADD CONSTRAINT brief_approvals_pkey PRIMARY KEY (project_id, requirement_version, approver_id);
-
-ALTER TABLE ONLY public.calendar_events
-    ADD CONSTRAINT calendar_events_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.captures
-    ADD CONSTRAINT captures_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.certificates
-    ADD CONSTRAINT certificates_attempt_unique UNIQUE (final_test_attempt_id);
-
-ALTER TABLE ONLY public.certificates
-    ADD CONSTRAINT certificates_cert_uuid_unique UNIQUE (cert_uuid);
-
-ALTER TABLE ONLY public.certificates
-    ADD CONSTRAINT certificates_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.change_requests
-    ADD CONSTRAINT change_requests_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.coding_submissions
-    ADD CONSTRAINT coding_submissions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.cohort_groups
-    ADD CONSTRAINT cohort_groups_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.comments
-    ADD CONSTRAINT comments_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.content_assignments
-    ADD CONSTRAINT content_assignments_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.content_reactions
-    ADD CONSTRAINT content_reactions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.content_reactions
-    ADD CONSTRAINT content_reactions_user_id_target_type_target_id_reaction_key UNIQUE (user_id, target_type, target_id, reaction);
-
-ALTER TABLE ONLY public.content_reports
-    ADD CONSTRAINT content_reports_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.content_versions
-    ADD CONSTRAINT content_versions_content_type_content_id_version_key UNIQUE (content_type, content_id, version);
-
-ALTER TABLE ONLY public.content_versions
-    ADD CONSTRAINT content_versions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.conversations
-    ADD CONSTRAINT conversations_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.coupon_courses
-    ADD CONSTRAINT coupon_courses_pkey PRIMARY KEY (coupon_id, course_id);
-
-ALTER TABLE ONLY public.coupon_redemptions
-    ADD CONSTRAINT coupon_redemptions_coupon_user_key UNIQUE (coupon_id, user_id);
-
-ALTER TABLE ONLY public.coupon_redemptions
-    ADD CONSTRAINT coupon_redemptions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.coupon_redemptions
-    ADD CONSTRAINT coupon_redemptions_purchase_key UNIQUE (purchase_id);
-
-ALTER TABLE ONLY public.coupons
-    ADD CONSTRAINT coupons_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.course_bundle_items
-    ADD CONSTRAINT course_bundle_items_bundle_id_position_key UNIQUE (bundle_id, "position") DEFERRABLE INITIALLY DEFERRED;
-
-ALTER TABLE ONLY public.course_bundle_items
-    ADD CONSTRAINT course_bundle_items_pkey PRIMARY KEY (bundle_id, course_id);
-
-ALTER TABLE ONLY public.course_bundles
-    ADD CONSTRAINT course_bundles_org_id_slug_key UNIQUE (org_id, slug);
-
-ALTER TABLE ONLY public.course_bundles
-    ADD CONSTRAINT course_bundles_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.course_faqs
-    ADD CONSTRAINT course_faqs_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.course_modules
-    ADD CONSTRAINT course_modules_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.course_modules
-    ADD CONSTRAINT course_modules_section_id_position_key UNIQUE (section_id, "position") DEFERRABLE INITIALLY DEFERRED;
-
-ALTER TABLE ONLY public.purchases
-    ADD CONSTRAINT course_purchases_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.course_sections
-    ADD CONSTRAINT course_sections_course_id_position_key UNIQUE (course_id, "position") DEFERRABLE INITIALLY DEFERRED;
-
-ALTER TABLE ONLY public.course_sections
-    ADD CONSTRAINT course_sections_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.courses
-    ADD CONSTRAINT courses_org_id_slug_key UNIQUE (org_id, slug);
-
-ALTER TABLE ONLY public.courses
-    ADD CONSTRAINT courses_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.diary_entries
-    ADD CONSTRAINT diary_entries_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.diary_entries
-    ADD CONSTRAINT diary_entries_user_date_unique UNIQUE (user_id, entry_date);
-
-ALTER TABLE ONLY public.diary_tasks
-    ADD CONSTRAINT diary_tasks_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.enrollments
-    ADD CONSTRAINT enrollments_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.enrollments
-    ADD CONSTRAINT enrollments_user_id_course_id_key UNIQUE (user_id, course_id);
-
-ALTER TABLE ONLY public.feedback
-    ADD CONSTRAINT feedback_kind_subject_user_key UNIQUE (kind, subject_type, subject_id, user_id);
-
-ALTER TABLE ONLY public.feedback
-    ADD CONSTRAINT feedback_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.focus_wall_categories
-    ADD CONSTRAINT focus_wall_categories_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.focus_wall_notes
-    ADD CONSTRAINT focus_wall_notes_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.gitlab_commit_files
-    ADD CONSTRAINT gitlab_commit_files_pkey PRIMARY KEY (team_id, sha, file_path);
-
-ALTER TABLE ONLY public.gitlab_commits
-    ADD CONSTRAINT gitlab_commits_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.gitlab_commits
-    ADD CONSTRAINT gitlab_commits_team_sha_key UNIQUE (team_id, sha);
-
-ALTER TABLE ONLY public.gitlab_connections
-    ADD CONSTRAINT gitlab_connections_org_gitlab_user_key UNIQUE (org_id, gitlab_user_id);
-
-ALTER TABLE ONLY public.gitlab_connections
-    ADD CONSTRAINT gitlab_connections_org_user_key UNIQUE (org_id, user_id);
-
-ALTER TABLE ONLY public.gitlab_connections
-    ADD CONSTRAINT gitlab_connections_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.gitlab_installations
-    ADD CONSTRAINT gitlab_installations_org_name_key UNIQUE (org_id, name);
-
-ALTER TABLE ONLY public.gitlab_installations
-    ADD CONSTRAINT gitlab_installations_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.gitlab_merge_requests
-    ADD CONSTRAINT gitlab_merge_requests_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.gitlab_merge_requests
-    ADD CONSTRAINT gitlab_merge_requests_team_mr_iid_key UNIQUE (team_id, mr_iid);
-
-ALTER TABLE ONLY public.gitlab_objects
-    ADD CONSTRAINT gitlab_objects_org_id_object_type_gitlab_id_key UNIQUE (org_id, object_type, gitlab_id);
-
-ALTER TABLE ONLY public.gitlab_objects
-    ADD CONSTRAINT gitlab_objects_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.gitlab_webhook_events
-    ADD CONSTRAINT gitlab_webhook_events_org_event_uuid_key UNIQUE (org_id, event_uuid);
-
-ALTER TABLE ONLY public.gitlab_webhook_events
-    ADD CONSTRAINT gitlab_webhook_events_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.habit_completions
-    ADD CONSTRAINT habit_completions_pkey PRIMARY KEY (habit_id, period_start);
-
-ALTER TABLE ONLY public.habits
-    ADD CONSTRAINT habits_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.highlight_explanations
-    ADD CONSTRAINT highlight_explanations_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.highlight_explanations
-    ADD CONSTRAINT highlight_explanations_text_hash_key UNIQUE (text_hash);
-
-ALTER TABLE ONLY public.idempotency_keys
-    ADD CONSTRAINT idempotency_keys_idem_key_endpoint_user_id_key UNIQUE (idem_key, endpoint, user_id);
-
-ALTER TABLE ONLY public.idempotency_keys
-    ADD CONSTRAINT idempotency_keys_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.interview_evaluations
-    ADD CONSTRAINT interview_evaluations_attempt_id_question_id_scope_key UNIQUE (attempt_id, question_id, scope);
-
-ALTER TABLE ONLY public.interview_evaluations
-    ADD CONSTRAINT interview_evaluations_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.interview_exp_entries
-    ADD CONSTRAINT interview_exp_entries_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.interview_exp_posts
-    ADD CONSTRAINT interview_exp_posts_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.interview_exp_qna
-    ADD CONSTRAINT interview_exp_qna_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.interview_exp_qna_progress
-    ADD CONSTRAINT interview_exp_qna_progress_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.interview_exp_qna_progress
-    ADD CONSTRAINT interview_exp_qna_progress_unique UNIQUE (user_id, qna_id);
-
-ALTER TABLE ONLY public.interview_prep_plans
-    ADD CONSTRAINT interview_prep_plans_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.interview_prep_rounds
-    ADD CONSTRAINT interview_prep_rounds_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.interview_prep_rounds
-    ADD CONSTRAINT interview_prep_rounds_plan_id_order_index_key UNIQUE (plan_id, order_index);
-
-ALTER TABLE ONLY public.interview_skill_scores
-    ADD CONSTRAINT interview_skill_scores_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.job_runs
-    ADD CONSTRAINT job_runs_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.jobs
-    ADD CONSTRAINT jobs_idempotency_key_key UNIQUE (idempotency_key);
-
-ALTER TABLE ONLY public.jobs
-    ADD CONSTRAINT jobs_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.jti_blocklist
-    ADD CONSTRAINT jti_blocklist_pkey PRIMARY KEY (jti);
-
-ALTER TABLE ONLY public.lab_ai_drafts
-    ADD CONSTRAINT lab_ai_drafts_pkey PRIMARY KEY (cache_key);
-
-ALTER TABLE ONLY public.lab_ai_interactions
-    ADD CONSTRAINT lab_ai_interactions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.lab_block_usages
-    ADD CONSTRAINT lab_block_usages_pkey PRIMARY KEY (build_id, block_version_id);
-
-ALTER TABLE ONLY public.lab_block_versions
-    ADD CONSTRAINT lab_block_versions_block_id_content_hash_key UNIQUE (block_id, content_hash);
-
-ALTER TABLE ONLY public.lab_block_versions
-    ADD CONSTRAINT lab_block_versions_block_id_version_key UNIQUE (block_id, version);
-
-ALTER TABLE ONLY public.lab_block_versions
-    ADD CONSTRAINT lab_block_versions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.lab_blocks
-    ADD CONSTRAINT lab_blocks_org_id_block_key_key UNIQUE NULLS NOT DISTINCT (org_id, block_key);
-
-ALTER TABLE ONLY public.lab_blocks
-    ADD CONSTRAINT lab_blocks_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.lab_build_variants
-    ADD CONSTRAINT lab_build_variants_pkey PRIMARY KEY (build_id, variant_key);
-
-ALTER TABLE ONLY public.lab_builds
-    ADD CONSTRAINT lab_builds_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.lab_catalog_meta
-    ADD CONSTRAINT lab_catalog_meta_pkey PRIMARY KEY (lab_id);
-
-ALTER TABLE ONLY public.lab_definitions
-    ADD CONSTRAINT lab_definitions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.lab_image_warmup_stats
-    ADD CONSTRAINT lab_image_warmup_stats_pkey PRIMARY KEY (image);
-
-ALTER TABLE ONLY public.lab_recipes
-    ADD CONSTRAINT lab_recipes_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.lab_sessions
-    ADD CONSTRAINT lab_sessions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.lab_task_completions
-    ADD CONSTRAINT lab_task_completions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.lab_task_completions
-    ADD CONSTRAINT lab_task_completions_session_id_task_version_item_id_key UNIQUE (session_id, task_version_item_id);
-
-ALTER TABLE ONLY public.lab_task_version_items
-    ADD CONSTRAINT lab_task_version_items_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.lab_task_version_items
-    ADD CONSTRAINT lab_task_version_items_task_version_id_position_key UNIQUE (task_version_id, "position");
-
-ALTER TABLE ONLY public.lab_task_version_items
-    ADD CONSTRAINT lab_task_version_items_task_version_id_source_task_id_key UNIQUE (task_version_id, source_task_id);
-
-ALTER TABLE ONLY public.lab_task_versions
-    ADD CONSTRAINT lab_task_versions_lab_id_version_key UNIQUE (lab_id, version);
-
-ALTER TABLE ONLY public.lab_task_versions
-    ADD CONSTRAINT lab_task_versions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.lab_tasks
-    ADD CONSTRAINT lab_tasks_lab_id_position_key UNIQUE (lab_id, "position");
-
-ALTER TABLE ONLY public.lab_tasks
-    ADD CONSTRAINT lab_tasks_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.lab_usage_events
-    ADD CONSTRAINT lab_usage_events_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.lab_warm_containers
-    ADD CONSTRAINT lab_warm_containers_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.lab_warm_pool_decisions
-    ADD CONSTRAINT lab_warm_pool_decisions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.learning_annotations
-    ADD CONSTRAINT learning_annotations_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.learning_journal_entries
-    ADD CONSTRAINT learning_journal_entries_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.legal_acceptances
-    ADD CONSTRAINT legal_acceptances_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.mcp_clients
-    ADD CONSTRAINT mcp_clients_pkey PRIMARY KEY (client_id);
-
-ALTER TABLE ONLY public.mcp_connections
-    ADD CONSTRAINT mcp_connections_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.meeting_attendance
-    ADD CONSTRAINT meeting_attendance_pkey PRIMARY KEY (calendar_event_id, occurrence_at, user_id);
-
-ALTER TABLE ONLY public.mentor_availability_exceptions
-    ADD CONSTRAINT mentor_availability_exceptions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.mentor_availability_rules
-    ADD CONSTRAINT mentor_availability_rules_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.mentor_sessions
-    ADD CONSTRAINT mentor_sessions_no_overlap EXCLUDE USING gist (mentor_id WITH =, tstzrange(starts_at, ends_at) WITH &&) WHERE ((status = 'scheduled'::text));
-
-ALTER TABLE ONLY public.mentor_sessions
-    ADD CONSTRAINT mentor_sessions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.mentor_sessions
-    ADD CONSTRAINT mentor_sessions_student_no_overlap EXCLUDE USING gist (student_id WITH =, tstzrange(starts_at, ends_at) WITH &&) WHERE (((status = 'scheduled'::text) AND (student_id IS NOT NULL)));
-
-ALTER TABLE ONLY public.messages
-    ADD CONSTRAINT messages_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.module_progress
-    ADD CONSTRAINT module_progress_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.module_progress
-    ADD CONSTRAINT module_progress_user_id_module_id_key UNIQUE (user_id, module_id);
-
-ALTER TABLE ONLY public.module_translations
-    ADD CONSTRAINT module_translations_pkey PRIMARY KEY (module_id, locale);
-
-ALTER TABLE ONLY public.notifications
-    ADD CONSTRAINT notifications_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.notifications
-    ADD CONSTRAINT notifications_user_dedupe_key_key UNIQUE (user_id, dedupe_key);
-
-ALTER TABLE ONLY public.onboarding_progress
-    ADD CONSTRAINT onboarding_progress_pkey PRIMARY KEY (step_id, user_id);
-
-ALTER TABLE ONLY public.onboarding_steps
-    ADD CONSTRAINT onboarding_steps_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.ops_alert_rules
-    ADD CONSTRAINT ops_alert_rules_pkey PRIMARY KEY (handler);
-
-ALTER TABLE ONLY public.org_auth_config
-    ADD CONSTRAINT org_auth_config_pkey PRIMARY KEY (org_id);
-
-ALTER TABLE ONLY public.org_domains
-    ADD CONSTRAINT org_domains_org_id_domain_key UNIQUE (org_id, domain);
-
-ALTER TABLE ONLY public.org_domains
-    ADD CONSTRAINT org_domains_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.org_feature_flags
-    ADD CONSTRAINT org_feature_flags_pkey PRIMARY KEY (org_id, feature_key);
-
-ALTER TABLE ONLY public.org_invites
-    ADD CONSTRAINT org_invites_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.org_invites
-    ADD CONSTRAINT org_invites_token_hash_key UNIQUE (token_hash);
-
-ALTER TABLE ONLY public.org_members
-    ADD CONSTRAINT org_members_org_id_user_id_key UNIQUE (org_id, user_id);
-
-ALTER TABLE ONLY public.org_members
-    ADD CONSTRAINT org_members_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.org_settings
-    ADD CONSTRAINT org_settings_pkey PRIMARY KEY (org_id);
-
-ALTER TABLE ONLY public.organizations
-    ADD CONSTRAINT organizations_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.organizations
-    ADD CONSTRAINT organizations_slug_key UNIQUE (slug);
-
-ALTER TABLE ONLY public.payment_events
-    ADD CONSTRAINT payment_events_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.payment_events
-    ADD CONSTRAINT payment_events_provider_event_key UNIQUE (provider, event_id);
-
-ALTER TABLE ONLY public.peer_feedback
-    ADD CONSTRAINT peer_feedback_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.peer_feedback
-    ADD CONSTRAINT peer_feedback_project_id_from_user_to_user_key UNIQUE (project_id, from_user, to_user);
-
-ALTER TABLE ONLY public.permissions
-    ADD CONSTRAINT permissions_code_key UNIQUE (code);
-
-ALTER TABLE ONLY public.permissions
-    ADD CONSTRAINT permissions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.plan_limits
-    ADD CONSTRAINT plan_limits_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.plan_limits
-    ADD CONSTRAINT plan_limits_tier_id_feature_key_key UNIQUE (tier_id, feature_key);
-
-ALTER TABLE ONLY public.practice_question_bank
-    ADD CONSTRAINT practice_question_bank_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.pricing_tiers
-    ADD CONSTRAINT pricing_tiers_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.project_applications
-    ADD CONSTRAINT project_applications_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.project_applications
-    ADD CONSTRAINT project_applications_requirement_id_user_id_key UNIQUE (requirement_id, user_id);
-
-ALTER TABLE ONLY public.project_assignments
-    ADD CONSTRAINT project_assignments_batch_slug_key UNIQUE (batch_id, slug);
-
-ALTER TABLE ONLY public.project_assignments
-    ADD CONSTRAINT project_assignments_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.project_checkpoints
-    ADD CONSTRAINT project_checkpoints_assignment_position_key UNIQUE (assignment_id, "position");
-
-ALTER TABLE ONLY public.project_checkpoints
-    ADD CONSTRAINT project_checkpoints_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.project_design_proposals
-    ADD CONSTRAINT project_design_proposals_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.project_design_votes
-    ADD CONSTRAINT project_design_votes_pkey PRIMARY KEY (proposal_id, user_id);
-
-ALTER TABLE ONLY public.project_interests
-    ADD CONSTRAINT project_interests_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.project_interests
-    ADD CONSTRAINT project_interests_project_id_email_key UNIQUE (project_id, email);
-
-ALTER TABLE ONLY public.project_meetings
-    ADD CONSTRAINT project_meetings_pkey PRIMARY KEY (calendar_event_id);
-
-ALTER TABLE ONLY public.project_members
-    ADD CONSTRAINT project_members_pkey PRIMARY KEY (project_id, user_id);
-
-ALTER TABLE ONLY public.project_originality_matches
-    ADD CONSTRAINT project_originality_matches_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.project_originality_reports
-    ADD CONSTRAINT project_originality_reports_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.project_requirements
-    ADD CONSTRAINT project_requirements_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.project_tasks
-    ADD CONSTRAINT project_tasks_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.project_team_checkpoints
-    ADD CONSTRAINT project_team_checkpoints_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.project_team_checkpoints
-    ADD CONSTRAINT project_team_checkpoints_team_checkpoint_key UNIQUE (team_id, checkpoint_id);
-
-ALTER TABLE ONLY public.project_team_members
-    ADD CONSTRAINT project_team_members_assignment_user_key UNIQUE (assignment_id, user_id);
-
-ALTER TABLE ONLY public.project_team_members
-    ADD CONSTRAINT project_team_members_pkey PRIMARY KEY (team_id, user_id);
-
-ALTER TABLE ONLY public.project_teams
-    ADD CONSTRAINT project_teams_assignment_slug_key UNIQUE (assignment_id, slug);
-
-ALTER TABLE ONLY public.project_teams
-    ADD CONSTRAINT project_teams_id_assignment_key UNIQUE (id, assignment_id);
-
-ALTER TABLE ONLY public.project_teams
-    ADD CONSTRAINT project_teams_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.project_track_members
-    ADD CONSTRAINT project_track_members_pkey PRIMARY KEY (track_id, user_id);
-
-ALTER TABLE ONLY public.project_tracks
-    ADD CONSTRAINT project_tracks_id_project_id_key UNIQUE (id, project_id);
-
-ALTER TABLE ONLY public.project_tracks
-    ADD CONSTRAINT project_tracks_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.projects
-    ADD CONSTRAINT projects_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.question_categories
-    ADD CONSTRAINT question_categories_org_id_slug_key UNIQUE (org_id, slug);
-
-ALTER TABLE ONLY public.question_categories
-    ADD CONSTRAINT question_categories_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.question_versions
-    ADD CONSTRAINT question_versions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.question_versions
-    ADD CONSTRAINT question_versions_question_id_version_key UNIQUE (question_id, version);
-
-ALTER TABLE ONLY public.questions
-    ADD CONSTRAINT questions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_token_hash_key UNIQUE (token_hash);
-
-ALTER TABLE ONLY public.release_snapshots
-    ADD CONSTRAINT release_snapshots_pkey PRIMARY KEY (release_id, item_id);
-
-ALTER TABLE ONLY public.releases
-    ADD CONSTRAINT releases_id_project_id_key UNIQUE (id, project_id);
-
-ALTER TABLE ONLY public.releases
-    ADD CONSTRAINT releases_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.releases
-    ADD CONSTRAINT releases_project_id_version_key UNIQUE (project_id, version);
-
-ALTER TABLE ONLY public.requirement_questions
-    ADD CONSTRAINT requirement_questions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.requirement_versions
-    ADD CONSTRAINT requirement_versions_pkey PRIMARY KEY (project_id, version);
-
-ALTER TABLE ONLY public.revision_digests
-    ADD CONSTRAINT revision_digests_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.revision_digests
-    ADD CONSTRAINT revision_digests_user_id_digest_date_key UNIQUE (user_id, digest_date);
-
-ALTER TABLE ONLY public.revision_plan_topics
-    ADD CONSTRAINT revision_plan_topics_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.revision_plans
-    ADD CONSTRAINT revision_plans_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.revision_plans
-    ADD CONSTRAINT revision_plans_user_course_key UNIQUE (user_id, course_id);
-
-ALTER TABLE ONLY public.reward_definitions
-    ADD CONSTRAINT reward_definitions_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.reward_definitions
-    ADD CONSTRAINT reward_definitions_slug_key UNIQUE (slug);
-
-ALTER TABLE ONLY public.roadmap_module_progress
-    ADD CONSTRAINT roadmap_module_progress_pkey PRIMARY KEY (roadmap_id, module_key);
-
-ALTER TABLE ONLY public.roadmaps
-    ADD CONSTRAINT roadmaps_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.role_permissions
-    ADD CONSTRAINT role_permissions_pkey PRIMARY KEY (role_id, permission_id);
-
-ALTER TABLE ONLY public.roles
-    ADD CONSTRAINT roles_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.roles
-    ADD CONSTRAINT roles_tenant_id_name_key UNIQUE NULLS NOT DISTINCT (org_id, name);
-
-ALTER TABLE ONLY public.session_credit_ledger
-    ADD CONSTRAINT session_credit_ledger_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.session_credit_packs
-    ADD CONSTRAINT session_credit_packs_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.sheet_items
-    ADD CONSTRAINT sheet_items_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.sheets
-    ADD CONSTRAINT sheets_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.sheets
-    ADD CONSTRAINT sheets_slug_key UNIQUE (slug);
-
-ALTER TABLE ONLY public.social_accounts
-    ADD CONSTRAINT social_accounts_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.social_accounts
-    ADD CONSTRAINT social_accounts_provider_provider_uid_key UNIQUE (provider, provider_uid);
-
-ALTER TABLE ONLY public.sprint_commitments
-    ADD CONSTRAINT sprint_commitments_pkey PRIMARY KEY (sprint_id, item_id);
-
-ALTER TABLE ONLY public.sprints
-    ADD CONSTRAINT sprints_id_project_id_key UNIQUE (id, project_id);
-
-ALTER TABLE ONLY public.sprints
-    ADD CONSTRAINT sprints_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.sprints
-    ADD CONSTRAINT sprints_project_id_daterange_excl EXCLUDE USING gist (project_id WITH =, daterange(starts_on, ends_on, '[]'::text) WITH &&);
-
-ALTER TABLE ONLY public.srs_cards
-    ADD CONSTRAINT srs_cards_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.srs_reviews
-    ADD CONSTRAINT srs_reviews_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.standup_updates
-    ADD CONSTRAINT standup_updates_pkey PRIMARY KEY (project_id, user_id, standup_on);
-
-ALTER TABLE ONLY public.system_design_attempts
-    ADD CONSTRAINT system_design_attempts_module_user_attempt_key UNIQUE (module_id, user_id, attempt_number);
-
-ALTER TABLE ONLY public.system_design_attempts
-    ADD CONSTRAINT system_design_attempts_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.system_design_chat_messages
-    ADD CONSTRAINT system_design_chat_messages_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.task_links
-    ADD CONSTRAINT task_links_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.task_links
-    ADD CONSTRAINT task_links_unique UNIQUE (source_task_id, target_type, target_id);
-
-ALTER TABLE ONLY public.task_templates
-    ADD CONSTRAINT task_templates_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.test_templates
-    ADD CONSTRAINT test_templates_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.usage_counters
-    ADD CONSTRAINT usage_counters_pkey PRIMARY KEY (account_id, feature_key, period_start);
-
-ALTER TABLE ONLY public.user_achievements
-    ADD CONSTRAINT user_achievements_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.user_feature_flags
-    ADD CONSTRAINT user_feature_flags_pkey PRIMARY KEY (org_id, user_id, feature_key);
-
-ALTER TABLE ONLY public.user_mfa
-    ADD CONSTRAINT user_mfa_pkey PRIMARY KEY (user_id);
-
-ALTER TABLE ONLY public.user_mfa_recovery_codes
-    ADD CONSTRAINT user_mfa_recovery_codes_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.user_mfa_recovery_codes
-    ADD CONSTRAINT user_mfa_recovery_codes_user_id_code_hash_key UNIQUE (user_id, code_hash);
-
-ALTER TABLE ONLY public.user_permission_overrides
-    ADD CONSTRAINT user_permission_overrides_pkey PRIMARY KEY (user_id, org_id, permission_id);
-
-ALTER TABLE ONLY public.user_privacy_settings
-    ADD CONSTRAINT user_privacy_settings_pkey PRIMARY KEY (user_id);
-
-ALTER TABLE ONLY public.user_problem_progress
-    ADD CONSTRAINT user_problem_progress_pkey PRIMARY KEY (user_id, topic_tag);
-
-ALTER TABLE ONLY public.user_profiles
-    ADD CONSTRAINT user_profiles_display_name_key UNIQUE (display_name);
-
-ALTER TABLE ONLY public.user_profiles
-    ADD CONSTRAINT user_profiles_pkey PRIMARY KEY (user_id);
-
-ALTER TABLE ONLY public.user_profiles
-    ADD CONSTRAINT user_profiles_profile_slug_key UNIQUE (profile_slug);
-
-ALTER TABLE ONLY public.user_roles
-    ADD CONSTRAINT user_roles_pkey PRIMARY KEY (user_id, role_id, org_id);
-
-ALTER TABLE ONLY public.user_sheets
-    ADD CONSTRAINT user_sheets_pkey PRIMARY KEY (user_id, sheet_id);
-
-ALTER TABLE ONLY public.user_stats
-    ADD CONSTRAINT user_stats_pkey PRIMARY KEY (user_id);
-
-ALTER TABLE ONLY public.users
-    ADD CONSTRAINT users_email_key UNIQUE (email);
-
-ALTER TABLE ONLY public.users
-    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.webauthn_credentials
-    ADD CONSTRAINT webauthn_credentials_credential_id_key UNIQUE (credential_id);
-
-ALTER TABLE ONLY public.webauthn_credentials
-    ADD CONSTRAINT webauthn_credentials_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.whatnow_tasks
-    ADD CONSTRAINT whatnow_tasks_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.whats_new_entries
-    ADD CONSTRAINT whats_new_entries_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.wiki_pages
-    ADD CONSTRAINT wiki_pages_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.wiki_pages
-    ADD CONSTRAINT wiki_pages_space_id_parent_id_slug_key UNIQUE (space_id, parent_id, slug);
-
-ALTER TABLE ONLY public.wiki_spaces
-    ADD CONSTRAINT wiki_spaces_org_id_slug_key UNIQUE (org_id, slug);
-
-ALTER TABLE ONLY public.wiki_spaces
-    ADD CONSTRAINT wiki_spaces_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.work_item_assignees
-    ADD CONSTRAINT work_item_assignees_pkey PRIMARY KEY (item_id, user_id, role);
-
-ALTER TABLE ONLY public.work_item_events
-    ADD CONSTRAINT work_item_events_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.work_item_gitlab
-    ADD CONSTRAINT work_item_gitlab_item_id_kind_gitlab_ref_key UNIQUE (item_id, kind, gitlab_ref);
-
-ALTER TABLE ONLY public.work_item_gitlab
-    ADD CONSTRAINT work_item_gitlab_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.work_item_links
-    ADD CONSTRAINT work_item_links_pkey PRIMARY KEY (from_id, to_id, kind);
-
-ALTER TABLE ONLY public.work_item_reviews
-    ADD CONSTRAINT work_item_reviews_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.work_item_time_logs
-    ADD CONSTRAINT work_item_time_logs_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.work_items
-    ADD CONSTRAINT work_items_id_project_id_key UNIQUE (id, project_id);
-
-ALTER TABLE ONLY public.work_items
-    ADD CONSTRAINT work_items_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.work_items
-    ADD CONSTRAINT work_items_project_id_key_num_key UNIQUE (project_id, key_num);
-
-ALTER TABLE ONLY public.workspace_ai_cache
-    ADD CONSTRAINT workspace_ai_cache_pkey PRIMARY KEY (project_id, kind, cache_key);
-
-ALTER TABLE ONLY public.workspace_digests
-    ADD CONSTRAINT workspace_digests_pkey PRIMARY KEY (project_id, digest_date);
-
-ALTER TABLE ONLY public.workspace_projects
-    ADD CONSTRAINT workspace_projects_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.xp_events
-    ADD CONSTRAINT xp_events_pkey PRIMARY KEY (id);
 
 CREATE UNIQUE INDEX coupons_org_code_key ON public.coupons USING btree (org_id, upper(code));
 
