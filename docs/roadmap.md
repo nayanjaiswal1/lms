@@ -52,6 +52,7 @@ POST   /api/roadmaps                              body: {title?, goal_descriptio
                                                    rate-limited: 3/day per user (see interviewprep.maxPlansPerDay pattern)
 GET    /api/roadmaps                              list caller's roadmaps (paginated)
 GET    /api/roadmaps/public                        browse gallery of roadmaps their owners marked public
+POST   /api/roadmaps/:id/replan                    re-estimate timeframe when behind (no AI), see Auto-adjust
 GET    /api/roadmaps/:id                          full nested detail: phases → milestones → modules + status
 POST   /api/roadmaps/:id/regenerate                re-runs generation into the same roadmap
                                                    409 if status already 'generating'
@@ -91,45 +92,49 @@ roadmaps (
   generated_at       TIMESTAMPTZ,
   created_at         TIMESTAMPTZ DEFAULT now(),
   updated_at         TIMESTAMPTZ DEFAULT now(),
-  deleted_at         TIMESTAMPTZ
+  deleted_at         TIMESTAMPTZ,
+  structure          JSONB NOT NULL DEFAULT '{}'::jsonb    -- the whole phase/milestone/module tree, see below
 )
+-- CHECK: timeframe_weeks IS NULL OR 1..104
 
-roadmap_phases (
-  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+roadmap_module_progress (
   roadmap_id         UUID NOT NULL REFERENCES roadmaps(id) ON DELETE CASCADE,
-  title              TEXT NOT NULL,
-  description        TEXT,
-  position           INT NOT NULL DEFAULT 0,
-  estimated_weeks    INT,
-  created_at         TIMESTAMPTZ DEFAULT now()
-)
-
-roadmap_milestones (
-  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  phase_id           UUID NOT NULL REFERENCES roadmap_phases(id) ON DELETE CASCADE,
-  title              TEXT NOT NULL,
-  description        TEXT,
-  position           INT NOT NULL DEFAULT 0,
-  estimated_hours    INT,
-  created_at         TIMESTAMPTZ DEFAULT now()
-)
-
-roadmap_modules (
-  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  milestone_id       UUID NOT NULL REFERENCES roadmap_milestones(id) ON DELETE CASCADE,
-  title              TEXT NOT NULL,
-  description        TEXT,
-  position           INT NOT NULL DEFAULT 0,
-  module_type        TEXT NOT NULL,   -- 'course' | 'lab' | 'dsa_problem' | 'project' | 'reading' | 'quiz'
-  resource_type      TEXT,            -- 'course' | 'lab' | 'question' -- set only when matched
-  resource_id        UUID,            -- loose ref, no FK (target table varies by resource_type)
-  estimated_minutes  INT,
+  module_key         UUID NOT NULL,    -- = structure module id
   completed_at       TIMESTAMPTZ,
-  created_at         TIMESTAMPTZ DEFAULT now()
+  PRIMARY KEY (roadmap_id, module_key)
 )
 ```
 
-Indexes: `roadmaps(user_id, status) WHERE deleted_at IS NULL`, `roadmap_phases(roadmap_id, position)`, `roadmap_milestones(phase_id, position)`, `roadmap_modules(milestone_id, position)`.
+There are no phase/milestone/module tables. The tree lives in `roadmaps.structure`:
+
+```
+{ "phases": [ { id, title, description, position, estimated_weeks,
+    "milestones": [ { id, title, description, position, estimated_hours,
+      "modules": [ { id, title, description, position, type, resource_type, resource_id, estimated_minutes } ] } ] } ] }
+```
+
+Every phase/milestone/module `id` is a uuid string assigned server-side (`ReplaceGeneratedTree`); completion is a row in `roadmap_module_progress` keyed by the module id. Migration `002_backfill_roadmap_ids.sql` assigns ids to older rows whose ids were missing or `''` (idempotent; its down migration is a no-op).
+
+Indexes: `roadmaps(user_id, status) WHERE deleted_at IS NULL`, `roadmaps(created_at DESC) WHERE is_public AND deleted_at IS NULL`.
+
+---
+
+## Auto-adjust (deterministic, no AI call)
+
+Active roadmaps with a `timeframe_weeks` get schedule fields on `GET /api/roadmaps/:id` and the list: `expected_pct`, `progress_pct`, `is_behind`, `weeks_remaining` (`ComputePace`, `backend/internal/roadmap/pace.go`).
+
+- `elapsed = now - COALESCE(generated_at, created_at)` in weeks
+- `expected_pct = min(100, elapsed / timeframe_weeks * 100)`; `progress_pct = completed / total modules * 100`
+- `is_behind = completed < total AND expected_pct - progress_pct > BehindThresholdPct (15)`. Zero modules, no timeframe, or all done is never behind.
+
+`POST /api/roadmaps/:id/replan` (owner only; 404 otherwise) is allowed only while behind and active: 409 `ErrNotActive` / `ErrNotBehind`. In one transaction (row locked `FOR UPDATE`) it:
+
+1. `pace = max(MinWeeklyMinutes (120), completed_minutes / max(elapsed_weeks, 1))`; module minutes default to `DefaultModuleMinutes` (60) when `estimated_minutes` is missing.
+2. `timeframe_weeks = clamp(ceil(elapsed) + ceil(remaining_minutes / pace), 1, 104)`.
+3. Splits the new remaining weeks over phases with unfinished modules, proportional to each phase's remaining minutes (min 1 week each), writing only `phases[].estimated_weeks`. Finished phases and all other structure fields are untouched.
+
+Completion rows are never modified. A second call right after returns 409 `ErrNotBehind` (the new timeframe is on pace); that is expected. The frontend shows a banner with a "Re-plan remaining work" button (`replanRoadmapAction`) when `is_behind`.
+
 
 ---
 

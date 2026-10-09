@@ -39,6 +39,21 @@ func (h *Handler) GetDueCards(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, DueCardsResponse{Cards: cards, Total: len(cards)})
 }
 
+// GetDrillCards handles GET /api/srs/drill.
+// Returns today's due cards ranked weakest-first (capped at drillLimit).
+func (h *Handler) GetDrillCards(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	cards, err := h.repo.GetDrillCards(r.Context(), claims.UserID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, DueCardsResponse{Cards: cards, Total: len(cards)})
+}
+
 // ReviewCard handles POST /api/srs/review.
 // Accepts a ReviewRequest, runs the SM-2 algorithm, persists the new schedule,
 // and returns the updated ReviewResult.

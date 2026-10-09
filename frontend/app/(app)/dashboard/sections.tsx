@@ -19,7 +19,7 @@ import { getMyAssessments } from "@/lib/assessments/server";
 import { getMyRewardProfile, getLeaderboard } from "@/lib/server/rewards";
 import { listEventsAction } from "@/lib/server/calendar";
 import { getMyBatches } from "@/lib/server/batches";
-import { getDueCards } from "@/lib/server/srs";
+import { getDrillCards } from "@/lib/server/srs";
 import type { SRSCard } from "@/lib/server/srs";
 import { apiGet } from "@/lib/server/api";
 import type { Enrollment } from "@/lib/server/courses";
@@ -117,12 +117,12 @@ async function fetchUpcomingItems(): Promise<UpcomingItem[]> {
 }
 
 // null (not an empty array) means the feature/permission isn't there for this
-// user — getDueCards throws in that case, same as the other server-only
+// user — getDrillCards throws in that case, same as the other server-only
 // fetches above, so we just hide the widget instead of replicating nav.ts's
 // client-side gating logic server-side.
 async function fetchDueCards(): Promise<SRSCard[] | null> {
   try {
-    return (await getDueCards()).cards;
+    return (await getDrillCards()).cards;
   } catch {
     return null;
   }

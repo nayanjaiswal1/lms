@@ -120,6 +120,16 @@ SELECT occurred_at, kind, key, title, COALESCE(summary, ''),
  LIMIT $5
 `
 
+// countByKindQuery is eventsCTE aggregated to one row per kind over the same
+// [$3, $4) window as windowQuery, so the per-kind counts can never drift from
+// the event list.
+const countByKindQuery = eventsCTE + `
+SELECT kind, COUNT(*)
+  FROM ev
+ WHERE occurred_at >= $3 AND occurred_at < $4
+ GROUP BY kind
+`
+
 // List returns up to limit entries for userID (scoped to orgID where the
 // source table is org-scoped — see feedQuery), older than the cursor
 // position when one is given, newest first. tzOffsetMin is the caller's UTC
@@ -156,6 +166,26 @@ func (r *Repo) ListWindow(ctx context.Context, userID, orgID string, from, to ti
 	}
 	defer rows.Close()
 	return scanEntries(rows)
+}
+
+// CountByKind returns how many entries of each Kind userID has in [from, to),
+// scoped to orgID exactly like ListWindow. Kinds with no entries are absent.
+func (r *Repo) CountByKind(ctx context.Context, userID, orgID string, from, to time.Time) (map[string]int, error) {
+	rows, err := r.pool.Query(ctx, countByKindQuery, userID, orgID, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("activity: count by kind: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var kind string
+		var n int
+		if err := rows.Scan(&kind, &n); err != nil {
+			return nil, fmt.Errorf("activity: scan kind count: %w", err)
+		}
+		out[kind] = n
+	}
+	return out, rows.Err()
 }
 
 func scanEntries(rows pgx.Rows) ([]Entry, error) {

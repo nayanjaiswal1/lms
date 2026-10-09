@@ -38,6 +38,10 @@ const (
 	HandlerDigestNightly = "digest.nightly"
 	HandlerDigestUser    = "digest.user"
 
+	// Weekly recap email (internal/weeklyrecap).
+	HandlerWeeklyRecap     = "weekly_recap.fanout"
+	HandlerWeeklyRecapUser = "weekly_recap.user"
+
 	// Knowledge Captures (internal/captures) — extract + AI-structure a
 	// screenshot/PDF/link into a journal note or SRS flashcard candidate.
 	HandlerCapturesProcess = "captures.process"
