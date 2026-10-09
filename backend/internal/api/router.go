@@ -56,7 +56,6 @@ import (
 	"github.com/mindforge/backend/internal/privacy"
 	"github.com/mindforge/backend/internal/profile"
 	"github.com/mindforge/backend/internal/project"
-	"github.com/mindforge/backend/internal/projectmarket"
 	"github.com/mindforge/backend/internal/ratelimit"
 	"github.com/mindforge/backend/internal/revisionplan"
 	"github.com/mindforge/backend/internal/rewards"
@@ -279,16 +278,6 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// secrets vault created above for orgs.
 	gitlabRouter := gitlab.New(pool, cfg, secretsVault, jobsRegistry, notificationsRouter.Service, aiProvider)
 
-	// Project marketplace — staff post a requirement, students browse the
-	// open board and apply, staff reviews and shortlists/selects, AI ranks
-	// applicants, and a one-click action turns a selection into a real team
-	// (Phase A of docs/project-marketplace.md, now complete). profile.NewRepo
-	// is a second, independent *profile.Repo instance over the same pool —
-	// cheap (Repo wraps nothing but the pool) and avoids needing profileHandler's
-	// internals, matching how gitlabRouter.Service() is shared as a plain
-	// accessor rather than a bigger dependency.
-	projectmarketRouter := projectmarket.New(pool, profile.NewRepo(pool), aiProvider, jobsRegistry, gitlabRouter.Service(), notificationsRouter.Service)
-
 	// Project Workspaces (docs/project-workspace.md) — vague requirement →
 	// share link → interests → team → work items. Its own orgs.InviteService
 	// instance (stateless over pool+cfg) backs accept → project invite; the
@@ -302,6 +291,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		AI:       aiProvider,
 		Jobs:     jobsRegistry,
 		Limiter:  ratelimit.New(rdb),
+		Profile:  profile.NewRepo(pool),
 		Calendar: calendarRouter.Service,
 		// Gitlab (Phase 4) — GitLab provisioning (POST .../gitlab/provision)
 		// and MR-reviewer sync call back into gitlabRouter.Service() directly.
@@ -542,7 +532,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		whatnowRouter.RegisterRoutes(r)
 
 		// Project — lightweight personal project list, used as a task_links
-		// target on the Linked Task Board. Not projectmarket (org marketplace).
+		// target on the Linked Task Board.
 		projectRouter.RegisterRoutes(r)
 
 		// Activity — read-only cross-domain timeline (module/course
@@ -679,10 +669,6 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// GitLab integration — installation management (admin-only) and
 		// per-user connect/status/disconnect (any org member).
 		gitlabRouter.RegisterRoutes(r)
-
-		// Project marketplace — requirement CRUD/board/applications (staff +
-		// any org member, row-scoped — see internal/projectmarket/routes.go).
-		projectmarketRouter.RegisterRoutes(r)
 
 		// Project Workspaces — every route resolves the caller's project role
 		// live (workspace.RequireProjectRole); creation needs projects.create.

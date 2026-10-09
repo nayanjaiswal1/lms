@@ -241,8 +241,9 @@ func (r *Repo) FindOpenCheckpointForTeam(ctx context.Context, assignmentID, team
 func (r *Repo) ListCheckpointsForTeam(ctx context.Context, assignmentID, teamID string) ([]MyCheckpointRow, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT pc.id, pc.title, pc.description, pc.position, pc.due_at, pc.weight, pc.requires_mr, pc.requires_ci_pass, pc.kind,
-		        ptc.mr_web_url, ptc.mr_state, ptc.approvals_count, ptc.ci_status, ptc.score, ptc.feedback, ptc.status
+		        ptc.mr_web_url, ptc.mr_state, ptc.approvals_count, ptc.ci_status, ptc.score, ptc.feedback, ptc.status, a.required_approvals
 		 FROM project_checkpoints pc
+		 JOIN project_assignments a ON a.id = pc.assignment_id
 		 LEFT JOIN project_team_checkpoints ptc
 		   ON ptc.checkpoint_id = pc.id AND ptc.team_id = $2
 		 WHERE pc.assignment_id = $1
@@ -259,7 +260,7 @@ func (r *Repo) ListCheckpointsForTeam(ctx context.Context, assignmentID, teamID 
 		var row MyCheckpointRow
 		if err := rows.Scan(
 			&row.CheckpointID, &row.Title, &row.Description, &row.Position, &row.DueAt, &row.Weight, &row.RequiresMR, &row.RequiresCIPass, &row.Kind,
-			&row.MRWebURL, &row.MRState, &row.ApprovalsCount, &row.CIStatus, &row.Score, &row.Feedback, &row.Status,
+			&row.MRWebURL, &row.MRState, &row.ApprovalsCount, &row.CIStatus, &row.Score, &row.Feedback, &row.Status, &row.RequiredApprovals,
 		); err != nil {
 			return nil, fmt.Errorf("gitlab: scan my checkpoint row: %w", err)
 		}

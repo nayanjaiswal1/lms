@@ -4,7 +4,8 @@
 // doc-first gate, GitLab linking and a manager dashboard.
 //
 // It owns its own tables (workspace_projects and children, migrations
-// 036–040) and never writes the projectmarket marketplace tables.
+// 036–040, cohort_id in 070) and never writes the legacy project_requirements,
+// project_applications or project_tasks tables, which are unused orphans.
 package workspace
 
 import (
@@ -194,6 +195,7 @@ type Project struct {
 	AcceptingInterests  bool            `json:"accepting_interests"`
 	BriefWikiPageID     *string         `json:"brief_wiki_page_id"`
 	TeamID              *string         `json:"team_id"`
+	CohortID            *string         `json:"cohort_id"`
 	GitlabEnabled       bool            `json:"gitlab_enabled"`
 	SprintsEnabled      bool            `json:"sprints_enabled"`
 	WipLimit            int             `json:"wip_limit"`
@@ -228,6 +230,10 @@ type ProjectSummary struct {
 	MemberCount   int       `json:"member_count"`
 	TeamSizeMax   int       `json:"team_size_max"`
 	CreatedAt     time.Time `json:"created_at"`
+	// TeamID / ProvisionStatus come from the linked project_teams row; nil
+	// when the workspace has no GitLab team.
+	TeamID          *string `json:"team_id"`
+	ProvisionStatus *string `json:"provision_status"`
 }
 
 // ProjectDetail is GET /api/workspaces/{workspaceID}: the row plus the
@@ -242,6 +248,11 @@ type ProjectDetail struct {
 	WikiSpaceID    *string  `json:"wiki_space_id"`
 	WikiSpaceSlug  *string  `json:"wiki_space_slug"`
 	OnboardingDone bool     `json:"onboarding_done"`
+
+	GitlabWebURL    *string `json:"gitlab_web_url"`
+	GitlabPagesURL  *string `json:"gitlab_pages_url"`
+	ProvisionStatus *string `json:"provision_status"`
+	ProvisionError  *string `json:"provision_error"`
 }
 
 // PublicProject is the anonymous share page payload (02 §4.2): no names,

@@ -15,7 +15,13 @@ func (h *Handler) ProvisionGitlab(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	project, err := h.service.ProvisionGitlab(r.Context(), pc)
+	var req struct {
+		InstallationID *string `json:"installation_id"`
+	}
+	if !httputil.DecodeJSONAllowEmpty(w, r, &req) {
+		return
+	}
+	project, err := h.service.ProvisionGitlab(r.Context(), pc, req.InstallationID)
 	if err != nil {
 		writeDomainError(w, err)
 		return

@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/mindforge/backend/internal/jobs"
 )
 
@@ -132,21 +134,45 @@ func (s *Service) PublishAssignment(ctx context.Context, orgID, assignmentID str
 
 // ─── team CRUD ──────────────────────────────────────────────────────────────
 
-// CreateTeam inserts a team under assignmentID. If the assignment is already
-// active, provisioning is enqueued immediately; otherwise the team just sits
-// pending until the assignment is published (see PublishAssignment).
-func (s *Service) CreateTeam(ctx context.Context, orgID, userID, assignmentID, name, slug string) (*ProjectTeam, error) {
-	return s.CreateTeamWithMembers(ctx, orgID, userID, assignmentID, name, slug, nil)
-}
-
 // CreateTeamWithMembers creates a team plus its initial roster atomically
 // (each user as a developer-level member added by userID), then enqueues
 // provisioning when the assignment is already active. A new team has no
 // GitLab project yet, so no member sync is needed.
 func (s *Service) CreateTeamWithMembers(ctx context.Context, orgID, userID, assignmentID, name, slug string, memberUserIDs []string) (*ProjectTeam, error) {
-	assignment, err := s.repo.GetAssignment(ctx, orgID, assignmentID)
+	var team *ProjectTeam
+	var active bool
+	err := s.repo.tx(ctx, func(tx pgx.Tx) error {
+		var err error
+		team, active, err = s.CreateTeamWithMembersTx(ctx, tx, orgID, userID, assignmentID, name, slug, memberUserIDs)
+		return err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("gitlab.CreateTeam: %w", err)
+	}
+	if active {
+		s.EnqueueNewTeamProvision(ctx, orgID, team.ID)
+	}
+	return team, nil
+}
+
+// CreateTeamWithMembersTx does everything CreateTeamWithMembers does except
+// enqueue provisioning, inside the caller's transaction. It locks the
+// assignment row, rejects archived assignments with ErrConflict, and reports
+// whether the assignment is active — the caller then calls
+// EnqueueNewTeamProvision after commit.
+func (s *Service) CreateTeamWithMembersTx(ctx context.Context, tx pgx.Tx, orgID, userID, assignmentID, name, slug string, memberUserIDs []string) (*ProjectTeam, bool, error) {
+	var status string
+	err := tx.QueryRow(ctx,
+		`SELECT status FROM project_assignments WHERE id = $1 AND org_id = $2 FOR SHARE`,
+		assignmentID, orgID).Scan(&status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, false, ErrNotFound
+	}
+	if err != nil {
+		return nil, false, fmt.Errorf("gitlab: lock assignment: %w", err)
+	}
+	if status != AssignmentStatusDraft && status != AssignmentStatusActive {
+		return nil, false, fmt.Errorf("%w: assignment is %s", ErrConflict, status)
 	}
 	createdBy := userID
 	members := make([]ProjectTeamMember, 0, len(memberUserIDs))
@@ -158,7 +184,7 @@ func (s *Service) CreateTeamWithMembers(ctx context.Context, orgID, userID, assi
 			AddedBy:           &createdBy,
 		})
 	}
-	team, err := s.repo.CreateTeamWithMembers(ctx, ProjectTeam{
+	team, err := CreateTeamWithMembersTx(ctx, tx, ProjectTeam{
 		OrgID:        orgID,
 		AssignmentID: assignmentID,
 		Name:         name,
@@ -166,14 +192,17 @@ func (s *Service) CreateTeamWithMembers(ctx context.Context, orgID, userID, assi
 		CreatedBy:    &createdBy,
 	}, members)
 	if err != nil {
-		return nil, fmt.Errorf("gitlab.CreateTeam: %w", err)
+		return nil, false, err
 	}
-	if assignment.Status == AssignmentStatusActive {
-		if err := s.enqueueProvisionTeam(ctx, orgID, team.ID, true); err != nil {
-			slog.ErrorContext(ctx, "gitlab: enqueue provision_team on team create failed", "team_id", team.ID, "error", err)
-		}
+	return team, status == AssignmentStatusActive, nil
+}
+
+// EnqueueNewTeamProvision enqueues provisioning for a just-committed team;
+// failure is logged (staff can reprovision) rather than failing the create.
+func (s *Service) EnqueueNewTeamProvision(ctx context.Context, orgID, teamID string) {
+	if err := s.enqueueProvisionTeam(ctx, orgID, teamID, true); err != nil {
+		slog.ErrorContext(ctx, "gitlab: enqueue provision_team on team create failed", "team_id", teamID, "error", err)
 	}
-	return team, nil
 }
 
 // ListTeams lists every team under an assignment.
@@ -182,11 +211,6 @@ func (s *Service) ListTeams(ctx context.Context, orgID, assignmentID string) ([]
 		return nil, fmt.Errorf("gitlab.ListTeams: %w", err)
 	}
 	return s.repo.ListTeams(ctx, orgID, assignmentID)
-}
-
-// UpdateTeam applies a partial patch to a team's name/slug.
-func (s *Service) UpdateTeam(ctx context.Context, orgID, teamID string, p TeamPatch) (*ProjectTeam, error) {
-	return s.repo.UpdateTeam(ctx, orgID, teamID, p)
 }
 
 // DeleteTeam removes MindForge's own team row (see Repo.DeleteTeam's own doc

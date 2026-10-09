@@ -42,7 +42,7 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
 	}
 	cursor := httputil.QueryStr(r, "cursor")
 	limit := httputil.QueryIntPositive(r, "limit", PageSizeDefault)
-	page, err := h.service.ListProjects(r.Context(), claims.OrgID, claims.UserID, cursor, limit)
+	page, err := h.service.ListProjects(r.Context(), claims.OrgID, claims.UserID, httputil.QueryStr(r, "cohort_id"), cursor, limit)
 	if err != nil {
 		writeDomainError(w, err)
 		return

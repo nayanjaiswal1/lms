@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/ratelimit"
 )
@@ -155,4 +156,71 @@ func (h *Handler) RankInterest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, i)
+}
+
+// Discover is GET /api/workspaces/discover — open recruiting workspaces in
+// the caller's org they are not yet a member of.
+func (h *Handler) Discover(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	page, err := h.service.ListDiscoverable(r.Context(), claims.OrgID, claims.UserID,
+		httputil.QueryStr(r, "cursor"), httputil.QueryIntPositive(r, "limit", PageSizeDefault))
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, page)
+}
+
+// ApplyInterest is POST /api/workspaces/{id}/interest — logged-in apply.
+// Body is optional (skills, portfolio_url, message); name/email come from the
+// user row.
+func (h *Handler) ApplyInterest(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, InterestBodyMaxBytes)
+	var req SubmitInterestRequest
+	if !httputil.DecodeJSONAllowEmpty(w, r, &req) {
+		return
+	}
+	id := chi.URLParam(r, "workspaceID")
+	if h.rateLimited(w, r, "rl:pw:int:user:"+claims.UserID, h.cfg.Workspace.InterestPerIPHour, time.Hour) {
+		return
+	}
+	if err := h.service.ApplyInterest(r.Context(), claims.OrgID, claims.UserID, id, req); err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusCreated, map[string]string{"message": InterestAckMessage})
+}
+
+// WithdrawInterest is DELETE /api/workspaces/{id}/interest.
+func (h *Handler) WithdrawInterest(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	if err := h.service.WithdrawInterest(r.Context(), claims.OrgID, claims.UserID, chi.URLParam(r, "workspaceID")); err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ListMyInterests is GET /api/my/workspace-interests.
+func (h *Handler) ListMyInterests(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	items, err := h.service.ListMyInterests(r.Context(), claims.OrgID, claims.UserID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
 }

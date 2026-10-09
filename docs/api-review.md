@@ -3,6 +3,8 @@
 > Review of ~600 endpoints across 48 route packages in `backend/internal`.
 > Rubric: **APIs must be resource-oriented and self-describing so an AI/MCP client can adapt to them — not shaped around one UI widget or page.**
 > Status: findings only, no changes made yet.
+>
+> **Note (after the Projects → Workspaces merge):** `/api/my/projects/*`, `/api/project-marketplace/*` and the `backend/internal/projectmarket` package have been removed. Findings that name them are kept as the historical record. Their current equivalents are `/api/workspaces/*` (workspace and team surfaces) and `/api/workspace-cohorts/*` (GitLab cohorts). The `/api/projects/*` routes that remain belong to the personal `project` package and the gitlab assignment layer, not the marketplace.
 
 ---
 
@@ -148,7 +150,7 @@ Also: `limit` without cursor (highlights, mistakes, journal) **silently truncate
 - `labs` `RegisterAdminRoutes` hardcodes `"admin.manage_org"` string (`labs/routes.go:91`) — use a constant.
 - Labs file API: `GET .../files/read?path=`, delete by query param on a collection — address files by path in the URL instead.
 - Route ownership is unclear: `workspace` serves `/api/gitlab/planning/*`, `gitlab` serves `/api/projects/*`, `labauthor` + `labbuild` both serve `/api/instructor/lab-authoring/*` — URL prefix no longer implies implementing package (matters for MCP tool registry).
-- Two namespaces for teams: `/api/projects/teams/*` vs `/api/my/projects/*`; two owners of `/api/projects/*` (personal `project` package vs `gitlab` package); personal lists not org-scoped at all (`project/repo.go:34`).
+- Two namespaces for teams: `/api/projects/teams/*` vs `/api/my/projects/*` (the latter since removed); two owners of `/api/projects/*` (personal `project` package vs `gitlab` package); personal lists not org-scoped at all (`project/repo.go:34`).
 
 ### MCP coverage gap
 

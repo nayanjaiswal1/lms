@@ -586,6 +586,9 @@ export const GITLAB_ACCESS_LEVEL_OPTIONS = [
   { label: "Maintainer", value: String(GITLAB_ACCESS_LEVEL.MAINTAINER) },
 ] as const;
 
+/** ProjectTeam.provision_status value that allows a re-provision. */
+export const PROVISION_FAILED = "failed";
+
 export const PROVISION_STATUS_LABEL: Record<string, string> = {
   pending:      "Pending",
   provisioning: "Provisioning",
@@ -594,44 +597,13 @@ export const PROVISION_STATUS_LABEL: Record<string, string> = {
 };
 
 // Badge variant per ProjectTeam.provision_status — shared by every surface
-// that renders a team's provisioning state (team-card, projects pages)
+// that renders a team's provisioning state (cohort workspace list)
 // so the color mapping only needs to be right in one place.
 export const PROVISION_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   pending:      "outline",
   provisioning: "secondary",
   ready:        "default",
   failed:       "destructive",
-};
-
-// project_requirements.status / project_applications.status label +
-// badge-variant maps — mirrors backend/internal/projectmarket/models.go's
-// constants, same shared-mapping convention as PROVISION_VARIANT above.
-export const REQUIREMENT_STATUS_LABEL: Record<string, string> = {
-  draft:    "Draft",
-  open:     "Open",
-  closed:   "Closed",
-  archived: "Archived",
-};
-
-export const REQUIREMENT_STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  draft:    "outline",
-  open:     "default",
-  closed:   "secondary",
-  archived: "destructive",
-};
-
-export const APPLICATION_STATUS_LABEL: Record<string, string> = {
-  submitted:   "Submitted",
-  shortlisted: "Shortlisted",
-  selected:    "Selected",
-  rejected:    "Rejected",
-};
-
-export const APPLICATION_STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  submitted:   "outline",
-  shortlisted: "secondary",
-  selected:    "default",
-  rejected:    "destructive",
 };
 
 // project_checkpoints.kind label + select-field options (Batch 7 / Phase B) —

@@ -78,16 +78,19 @@ func (s *Service) GetPublicProject(ctx context.Context, shareToken string) (*Pub
 	}, nil
 }
 
-// SubmitInterest validates the public form and upserts an interest row.
-// Every accepted-shape outcome — new, duplicate, already a member, inside
-// the reject cooldown, honeypot, or the project being closed — returns nil
-// (D14): the public form never reveals which case it hit. Only a malformed
-// token (ErrNotFound) or a genuinely invalid submission (*FieldError) differ.
-func (s *Service) SubmitInterest(ctx context.Context, shareToken string, req SubmitInterestRequest) error {
-	if req.Website != "" {
-		return nil // honeypot: silently drop, still 202
-	}
+// validatedInterest is a SubmitInterestRequest after trimming, normalizing
+// and bounds-checking — shared by the anonymous and logged-in apply paths.
+type validatedInterest struct {
+	Name         string
+	Email        string
+	Skills       []string
+	PortfolioURL *string
+	Message      *string
+}
 
+// validateInterest applies the field rules to a submission; a bad field set
+// comes back as *FieldError.
+func validateInterest(req SubmitInterestRequest) (*validatedInterest, error) {
 	fields := map[string]string{}
 	name := strings.TrimSpace(stripControlChars(req.Name))
 	if name == "" || len(name) > InterestNameMaxLen {
@@ -122,7 +125,25 @@ func (s *Service) SubmitInterest(ctx context.Context, shareToken string, req Sub
 		}
 	}
 	if len(fields) > 0 {
-		return &FieldError{Fields: fields}
+		return nil, &FieldError{Fields: fields}
+	}
+
+	return &validatedInterest{Name: name, Email: email, Skills: skills, PortfolioURL: portfolioURL, Message: message}, nil
+}
+
+// SubmitInterest validates the public form and upserts an interest row.
+// Every accepted-shape outcome — new, duplicate, already a member, inside
+// the reject cooldown, honeypot, or the project being closed — returns nil
+// (D14): the public form never reveals which case it hit. Only a malformed
+// token (ErrNotFound) or a genuinely invalid submission (*FieldError) differ.
+func (s *Service) SubmitInterest(ctx context.Context, shareToken string, req SubmitInterestRequest) error {
+	if req.Website != "" {
+		return nil // honeypot: silently drop, still 202
+	}
+
+	v, err := validateInterest(req)
+	if err != nil {
+		return err
 	}
 
 	p, _, err := s.repo.GetProjectByShareToken(ctx, s.pool, shareToken)
@@ -142,7 +163,7 @@ func (s *Service) SubmitInterest(ctx context.Context, shareToken string, req Sub
 		return nil // page already shows this as closed; the submission is a silent no-op
 	}
 
-	if _, err := s.repo.UpsertInterest(ctx, s.pool, p.ID, name, email, skills, portfolioURL, message, ReapplyCooldown); err != nil {
+	if _, err := s.repo.UpsertInterest(ctx, s.pool, p.ID, nil, v.Name, v.Email, v.Skills, v.PortfolioURL, v.Message, ReapplyCooldown); err != nil {
 		return err
 	}
 	return nil
@@ -348,4 +369,91 @@ func (s *Service) ExpireInvitedInterests(ctx context.Context) (int64, error) {
 // PurgeInterests is the daily job's second step (02 §4.7).
 func (s *Service) PurgeInterests(ctx context.Context) (int64, error) {
 	return s.repo.PurgeInterests(ctx, InterestRetention)
+}
+
+// ListDiscoverable is GET /api/workspaces/discover.
+func (s *Service) ListDiscoverable(ctx context.Context, orgID, userID, cursor string, limit int) (Page[DiscoverProject], error) {
+	limit = clampLimit(limit)
+	cursorAt, cursorID, err := pagination.DecodeCursor(cursor, "workspace")
+	if err != nil {
+		cursorAt, cursorID = time.Time{}, ""
+	}
+	items, err := s.repo.ListDiscoverable(ctx, orgID, userID, cursorAt, cursorID, limit+1)
+	if err != nil {
+		return Page[DiscoverProject]{}, err
+	}
+	page := Page[DiscoverProject]{Items: items}
+	if len(items) > limit {
+		page.Items = items[:limit]
+		last := page.Items[limit-1]
+		page.NextCursor = pagination.EncodeCursor(last.CreatedAt, last.ID)
+	}
+	return page, nil
+}
+
+// ApplyInterest is the logged-in apply: name/email come from the user row,
+// user_id is recorded, the honeypot is skipped, and validation, the per-email
+// limit and the open/seat checks match the anonymous path. Unlike the public
+// form it can say why it failed — the caller is authenticated, so there is no
+// enumeration risk.
+func (s *Service) ApplyInterest(ctx context.Context, orgID, userID, projectID string, req SubmitInterestRequest) error {
+	p, err := s.repo.GetProject(ctx, s.pool, orgID, projectID)
+	if err != nil {
+		return err
+	}
+	if !isAcceptingStatus(p.ProjectStatus) {
+		return ErrNotFound
+	}
+	name, email, err := s.repo.GetUserNameEmail(ctx, s.pool, userID)
+	if err != nil {
+		return err
+	}
+	req.Name, req.Email = name, email
+	v, err := validateInterest(req)
+	if err != nil {
+		return err
+	}
+
+	if allowed, retryAfter := s.limiter.Allow(ctx, "rl:pw:int:userday:"+userID, s.cfg.Workspace.InterestPerEmailDay, 24*time.Hour); !allowed {
+		return &RateLimitError{RetryAfter: retryAfter}
+	}
+
+	if member, err := s.repo.IsActiveOrInvitedMember(ctx, s.pool, projectID, userID); err != nil {
+		return err
+	} else if member {
+		return ErrAlreadyMember
+	}
+	seats, err := s.SeatsUsed(ctx, s.pool, projectID)
+	if err != nil {
+		return err
+	}
+	if !p.AcceptingInterests || (p.InterestDeadline != nil && p.InterestDeadline.Before(time.Now())) || seats >= p.TeamSizeMax {
+		return fmt.Errorf("%w: this workspace is not accepting interests", ErrConflict)
+	}
+	if exists, err := s.repo.InterestExistsForEmail(ctx, s.pool, projectID, v.Email); err != nil {
+		return err
+	} else if exists {
+		return fmt.Errorf("%w: you have already applied to this workspace", ErrConflict)
+	}
+	ok, err := s.repo.UpsertInterest(ctx, s.pool, projectID, &userID, v.Name, v.Email, v.Skills, v.PortfolioURL, v.Message, ReapplyCooldown)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("%w: you can reapply once the cooldown has passed", ErrConflict)
+	}
+	return nil
+}
+
+// WithdrawInterest removes the caller's own interest while it is still new.
+func (s *Service) WithdrawInterest(ctx context.Context, orgID, userID, projectID string) error {
+	if _, err := s.repo.GetProject(ctx, s.pool, orgID, projectID); err != nil {
+		return err
+	}
+	return s.repo.WithdrawInterest(ctx, s.pool, projectID, userID)
+}
+
+// ListMyInterests is GET /api/my/workspace-interests.
+func (s *Service) ListMyInterests(ctx context.Context, orgID, userID string) ([]MyInterest, error) {
+	return s.repo.ListMyInterests(ctx, orgID, userID)
 }

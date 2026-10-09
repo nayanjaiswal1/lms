@@ -24,7 +24,7 @@ type createCheckpointRequest struct {
 	Kind string `json:"kind"`
 }
 
-// CreateCheckpoint handles POST /api/projects/assignments/{assignmentID}/checkpoints.
+// CreateCheckpoint handles POST /api/workspace-cohorts/{assignmentID}/checkpoints.
 func (h *Handler) CreateCheckpoint(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -72,7 +72,7 @@ func (h *Handler) CreateCheckpoint(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusCreated, cp)
 }
 
-// ListCheckpoints handles GET /api/projects/assignments/{assignmentID}/checkpoints.
+// ListCheckpoints handles GET /api/workspace-cohorts/{assignmentID}/checkpoints.
 func (h *Handler) ListCheckpoints(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -86,7 +86,7 @@ func (h *Handler) ListCheckpoints(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, list)
 }
 
-// UpdateCheckpoint handles PATCH /api/projects/checkpoints/{checkpointID}.
+// UpdateCheckpoint handles PATCH /api/workspace-cohorts/checkpoints/{checkpointID}.
 func (h *Handler) UpdateCheckpoint(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -108,7 +108,7 @@ func (h *Handler) UpdateCheckpoint(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, cp)
 }
 
-// DeleteCheckpoint handles DELETE /api/projects/checkpoints/{checkpointID}.
+// DeleteCheckpoint handles DELETE /api/workspace-cohorts/checkpoints/{checkpointID}.
 func (h *Handler) DeleteCheckpoint(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -121,7 +121,7 @@ func (h *Handler) DeleteCheckpoint(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// ListSubmissions handles GET /api/projects/checkpoints/{checkpointID}/submissions.
+// ListSubmissions handles GET /api/workspace-cohorts/checkpoints/{checkpointID}/submissions.
 func (h *Handler) ListSubmissions(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -135,7 +135,7 @@ func (h *Handler) ListSubmissions(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, list)
 }
 
-// GradeSubmission handles PATCH /api/projects/checkpoints/{checkpointID}/submissions/{teamID}/grade.
+// GradeSubmission handles PATCH /api/workspace-cohorts/checkpoints/{checkpointID}/submissions/{teamID}/grade.
 func (h *Handler) GradeSubmission(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -157,7 +157,7 @@ func (h *Handler) GradeSubmission(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, updated)
 }
 
-// MergeSubmission handles POST /api/projects/checkpoints/{checkpointID}/submissions/{teamID}/merge
+// MergeSubmission handles POST /api/workspace-cohorts/checkpoints/{checkpointID}/submissions/{teamID}/merge
 // — calls Service.TryMergeCheckpoint, the merge gate that never merges below
 // the assignment's required_approvals.
 func (h *Handler) MergeSubmission(w http.ResponseWriter, r *http.Request) {
@@ -177,7 +177,7 @@ type commentRequest struct {
 	Body string `json:"body"`
 }
 
-// CommentOnSubmission handles POST /api/projects/checkpoints/{checkpointID}/submissions/{teamID}/comment
+// CommentOnSubmission handles POST /api/workspace-cohorts/checkpoints/{checkpointID}/submissions/{teamID}/comment
 // — posts a staff comment directly onto the team's bound merge request.
 func (h *Handler) CommentOnSubmission(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)

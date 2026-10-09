@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { ShowcaseStatsCard } from "@/components/workspace/gitlab/showcase-stats-card";
 import { ProjectStatusMenu } from "@/components/workspace/project-status-menu";
 import { getWorkspace } from "@/lib/workspace/server";
 import { BRIEF_STATUS_LABEL } from "@/lib/workspace/roles";
@@ -63,6 +64,8 @@ export default async function WorkspaceHomePage({ params }: PageProps) {
           <p className="mt-1 text-lg font-semibold">{workspace.onboarding_done ? "Complete" : "In progress"}</p>
         </div>
       </div>
+
+      {workspace.team_id && <ShowcaseStatsCard workspaceId={id} />}
 
       {isOwner && (
         <div className="card-base flex flex-col gap-2">

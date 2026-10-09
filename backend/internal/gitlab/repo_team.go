@@ -129,13 +129,15 @@ func (r *Repo) UpdateAssignment(ctx context.Context, orgID, id string, p Assignm
 }
 
 // DeleteAssignment hard-deletes a draft assignment (cascades to its teams).
+// Blocked (ErrConflict) while any workspace still points at it.
 // Restricted to status='draft' — once published, real GitLab groups/forks
 // exist that a silent DB-only delete would orphan with no record left
 // behind; archiving (not deleting) is the right action for a live assignment,
 // and isn't part of Batch 2's scope.
 func (r *Repo) DeleteAssignment(ctx context.Context, orgID, id string) error {
 	tag, err := r.pool.Exec(ctx,
-		`DELETE FROM project_assignments WHERE id = $1 AND org_id = $2 AND status = 'draft'`,
+		`DELETE FROM project_assignments WHERE id = $1 AND org_id = $2 AND status = 'draft'
+		   AND NOT EXISTS (SELECT 1 FROM workspace_projects WHERE cohort_id = $1)`,
 		id, orgID,
 	)
 	if err != nil {
@@ -421,30 +423,6 @@ func (r *Repo) ListTeamsNeedingPoll(ctx context.Context, staleThreshold time.Dur
 	return out, rows.Err()
 }
 
-// UpdateTeam applies a partial patch to a team's name/slug.
-func (r *Repo) UpdateTeam(ctx context.Context, orgID, teamID string, p TeamPatch) (*ProjectTeam, error) {
-	row := r.pool.QueryRow(ctx,
-		`UPDATE project_teams SET
-			name = COALESCE($3, name),
-			slug = COALESCE($4, slug),
-			updated_at = now()
-		 WHERE id = $1 AND org_id = $2
-		 RETURNING `+teamColumns,
-		teamID, orgID, p.Name, p.Slug,
-	)
-	t, err := scanTeam(row)
-	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			return nil, ErrNotFound
-		}
-		if db.IsUniqueViolation(err) {
-			return nil, ErrConflict
-		}
-		return nil, fmt.Errorf("gitlab: update team: %w", err)
-	}
-	return t, nil
-}
-
 // DeleteTeam hard-deletes MindForge's own team row (cascades its members).
 // It does not archive or delete the underlying GitLab project — that would
 // silently destroy a team's real repo history from a simple DB action;
@@ -698,20 +676,28 @@ func (r *Repo) CreateTeamWithMembers(ctx context.Context, t ProjectTeam, members
 	var team *ProjectTeam
 	err := r.tx(ctx, func(tx pgx.Tx) error {
 		var err error
-		if team, err = createTeam(ctx, tx, t); err != nil {
-			return err
-		}
-		for _, m := range members {
-			m.TeamID = team.ID
-			m.AssignmentID = team.AssignmentID
-			if _, err := addTeamMember(ctx, tx, m); err != nil {
-				return fmt.Errorf("member %s: %w", m.UserID, err)
-			}
-		}
-		return nil
+		team, err = CreateTeamWithMembersTx(ctx, tx, t, members)
+		return err
 	})
 	if err != nil {
 		return nil, err
+	}
+	return team, nil
+}
+
+// CreateTeamWithMembersTx is CreateTeamWithMembers inside a caller-owned
+// transaction, so a team can commit atomically with rows of another domain.
+func CreateTeamWithMembersTx(ctx context.Context, tx pgx.Tx, t ProjectTeam, members []ProjectTeamMember) (*ProjectTeam, error) {
+	team, err := createTeam(ctx, tx, t)
+	if err != nil {
+		return nil, err
+	}
+	for _, m := range members {
+		m.TeamID = team.ID
+		m.AssignmentID = team.AssignmentID
+		if _, err := addTeamMember(ctx, tx, m); err != nil {
+			return nil, fmt.Errorf("member %s: %w", m.UserID, err)
+		}
 	}
 	return team, nil
 }

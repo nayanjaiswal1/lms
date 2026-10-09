@@ -22,13 +22,6 @@ func (s *Service) recordMemberSyncResult(ctx context.Context, teamID, userID, st
 	}
 }
 
-func (s *Service) ListTeamMembers(ctx context.Context, orgID, teamID string) ([]ProjectTeamMember, error) {
-	if _, err := s.repo.GetTeam(ctx, orgID, teamID); err != nil {
-		return nil, fmt.Errorf("gitlab.ListTeamMembers: %w", err)
-	}
-	return s.repo.ListTeamMembers(ctx, teamID)
-}
-
 // teamActivityLimit bounds each of GetTeamActivity's three reads — matches
 // the "simple ORDER BY ... LIMIT 20" scope in kind-herding-cookie.md §7;
 // no pagination, since this is a detail-view feed, not a list page.

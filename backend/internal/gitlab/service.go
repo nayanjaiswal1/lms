@@ -152,29 +152,6 @@ func (s *Service) clientForTeam(ctx context.Context, orgID, assignmentID string)
 	return s.clientFor(ctx, orgID, assignment.InstallationID)
 }
 
-// userClientFor resolves a specific member's own GitLab connection into a
-// ready-to-use API client. Always against the org's default installation —
-// personal "connect your own account" is scoped to one host per org by
-// design (a member's OAuth token is host-specific; letting it vary per
-// assignment would mean re-consenting per project, which nothing here asks
-// for). Later batches (lab commit attribution, capstone handoff) call it to
-// act as the real person rather than the installation's service account.
-func (s *Service) userClientFor(ctx context.Context, orgID, userID string) (*Client, error) {
-	inst, err := s.repo.GetDefaultInstallation(ctx, orgID)
-	if err != nil {
-		return nil, fmt.Errorf("gitlab.userClientFor: %w", err)
-	}
-	conn, err := s.repo.GetConnection(ctx, orgID, userID)
-	if err != nil {
-		return nil, fmt.Errorf("gitlab.userClientFor: %w", err)
-	}
-	token, err := s.vault.Decrypt(conn.AccessTokenEnc)
-	if err != nil {
-		return nil, fmt.Errorf("gitlab: decrypt connection token: %w", err)
-	}
-	return NewClient(inst.BaseURL, string(token)), nil
-}
-
 // GetStatus returns the combined installation-pool + personal-connection
 // picture the settings page needs — never includes token material.
 func (s *Service) GetStatus(ctx context.Context, orgID, userID string) (*StatusView, error) {
@@ -206,6 +183,13 @@ func (s *Service) GetStatus(ctx context.Context, orgID, userID string) (*StatusV
 	}
 
 	return &view, nil
+}
+
+// InstallationExists returns ErrNotFound unless id is an installation of orgID
+// (org-scoped lookup, so a foreign-org id never resolves).
+func (s *Service) InstallationExists(ctx context.Context, orgID, id string) error {
+	_, err := s.repo.GetInstallationByID(ctx, orgID, id)
+	return err
 }
 
 // ListInstallations returns every installation in the org's pool for the

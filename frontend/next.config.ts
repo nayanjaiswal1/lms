@@ -57,6 +57,14 @@ const nextConfig: NextConfig = {
     return [{ source: "/(.*)", headers: buildSecurityHeaders() }];
   },
 
+  // Legacy /projects UI was replaced by Workspaces.
+  async redirects() {
+    return [
+      { source: "/projects", destination: "/workspaces", permanent: false },
+      { source: "/projects/:path*", destination: "/workspaces", permanent: false },
+    ];
+  },
+
   // Mirrors Caddyfile.dev's routing table so backend routes also resolve
   // when Next.js is hit directly (e.g. `pnpm dev` on :3000), not just through
   // Caddy on :80. Same BACKEND_URL every server action already uses.

@@ -27,25 +27,28 @@ func scanInterest(row pgx.Row) (*Interest, error) {
 
 // UpsertInterest inserts a new interest, or refreshes an existing one that is
 // still 'new' or a 'rejected' row past the 30-day reapply cooldown (01 §4).
-// Returns false (no error) when the row exists but is outside those two
-// cases — the caller (SubmitInterest) treats that identically to success
+// An anonymous upsert (nil userID) never touches a row already tied to an
+// account, and an account only takes over an unclaimed row or its own. Returns
+// false (no error) when the row exists but is outside those cases —
+// the caller (SubmitInterest) treats that identically to success
 // (D14's single generic acknowledgement).
-func (r *Repo) UpsertInterest(ctx context.Context, db DBTX, projectID, name, email string, skills []string, portfolioURL, message *string, cooldown time.Duration) (bool, error) {
+func (r *Repo) UpsertInterest(ctx context.Context, db DBTX, projectID string, userID *string, name, email string, skills []string, portfolioURL, message *string, cooldown time.Duration) (bool, error) {
 	if skills == nil {
 		skills = []string{}
 	}
 	var id string
 	err := db.QueryRow(ctx,
-		`INSERT INTO project_interests (project_id, name, email, skills, portfolio_url, message)
-		 VALUES ($1,$2,$3,$4,$5,$6)
+		`INSERT INTO project_interests (project_id, name, email, skills, portfolio_url, message, user_id)
+		 VALUES ($1,$2,$3,$4,$5,$6,$8)
 		 ON CONFLICT (project_id, email) DO UPDATE
 		   SET name = EXCLUDED.name, skills = EXCLUDED.skills, portfolio_url = EXCLUDED.portfolio_url,
-		       message = EXCLUDED.message, status = 'new', ai_score = NULL, ai_rationale = NULL,
+		       message = EXCLUDED.message, user_id = COALESCE(EXCLUDED.user_id, project_interests.user_id), status = 'new', ai_score = NULL, ai_rationale = NULL,
 		       ai_scored_at = NULL, reviewed_by = NULL, reviewed_at = NULL, updated_at = now()
-		 WHERE project_interests.status = 'new'
-		    OR (project_interests.status = 'rejected' AND project_interests.reviewed_at < now() - make_interval(secs => $7::double precision))
+		 WHERE (project_interests.user_id IS NULL OR project_interests.user_id = EXCLUDED.user_id)
+		   AND (project_interests.status = 'new'
+		    OR (project_interests.status = 'rejected' AND project_interests.reviewed_at < now() - make_interval(secs => $7::double precision)))
 		 RETURNING id`,
-		projectID, name, email, skills, portfolioURL, message, cooldown.Seconds(),
+		projectID, name, email, skills, portfolioURL, message, cooldown.Seconds(), userID,
 	).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
@@ -237,4 +240,109 @@ func (r *Repo) PurgeInterests(ctx context.Context, retention time.Duration) (int
 		return 0, fmt.Errorf("workspace: scrub joined interests: %w", err)
 	}
 	return tag.RowsAffected(), nil
+}
+
+// ListDiscoverable returns recruiting workspaces in the org that are open
+// (accepting, deadline not passed) and the user is not already an active or
+// invited member of, oldest first.
+func (r *Repo) ListDiscoverable(ctx context.Context, orgID, userID string, cursorAt time.Time, cursorID string, limit int) ([]DiscoverProject, error) {
+	if cursorID == "" { // zero cursor sorts before every row
+		cursorID = "00000000-0000-0000-0000-000000000000"
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT p.id, p.title, left(p.requirement, $4), p.skills, p.team_size_min, p.team_size_max, p.interest_deadline,
+		        EXISTS (SELECT 1 FROM project_interests i WHERE i.project_id = p.id AND i.user_id = $2), p.created_at
+		   FROM workspace_projects p
+		  WHERE p.org_id = $1 AND p.project_status = 'recruiting' AND p.accepting_interests
+		    AND (p.interest_deadline IS NULL OR p.interest_deadline > now())
+		    AND NOT EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = $2 AND m.status IN ('active','invited'))
+		    AND (p.created_at, p.id) > ($5, $6::uuid)
+		  ORDER BY p.created_at ASC, p.id ASC LIMIT $3`,
+		orgID, userID, limit, DiscoverSummaryLen, cursorAt, cursorID)
+	if err != nil {
+		return nil, fmt.Errorf("workspace: list discoverable: %w", err)
+	}
+	defer rows.Close()
+	out := []DiscoverProject{}
+	for rows.Next() {
+		var d DiscoverProject
+		if err := rows.Scan(&d.ID, &d.Title, &d.Summary, &d.Skills, &d.TeamSizeMin, &d.TeamSizeMax, &d.InterestDeadline, &d.HasApplied, &d.CreatedAt); err != nil {
+			return nil, fmt.Errorf("workspace: scan discoverable: %w", err)
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}
+
+// ListMyInterests returns the user's interests with the workspace they target.
+func (r *Repo) ListMyInterests(ctx context.Context, orgID, userID string) ([]MyInterest, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT i.id, p.id, p.title, p.project_status, i.status, i.created_at
+		   FROM project_interests i JOIN workspace_projects p ON p.id = i.project_id
+		  WHERE i.user_id = $1 AND p.org_id = $2
+		  ORDER BY i.created_at DESC, i.id DESC LIMIT $3`, userID, orgID, MyInterestsMax)
+	if err != nil {
+		return nil, fmt.Errorf("workspace: list my interests: %w", err)
+	}
+	defer rows.Close()
+	out := []MyInterest{}
+	for rows.Next() {
+		var m MyInterest
+		if err := rows.Scan(&m.ID, &m.WorkspaceID, &m.WorkspaceTitle, &m.WorkspaceState, &m.Status, &m.CreatedAt); err != nil {
+			return nil, fmt.Errorf("workspace: scan my interest: %w", err)
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+
+// GetUserNameEmail reads the identity a logged-in applicant is submitted under.
+func (r *Repo) GetUserNameEmail(ctx context.Context, db DBTX, userID string) (name, email string, err error) {
+	err = db.QueryRow(ctx, `SELECT name, email::text FROM users WHERE id = $1`, userID).Scan(&name, &email)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", "", ErrNotFound
+	}
+	if err != nil {
+		return "", "", fmt.Errorf("workspace: get user identity: %w", err)
+	}
+	return name, email, nil
+}
+
+// InterestExistsForEmail reports whether (project, email) already has a row
+// in any status other than a rejected one (rejected rows may reapply). An
+// unclaimed anonymous 'new' row does not count: the logged-in applicant adopts it.
+func (r *Repo) InterestExistsForEmail(ctx context.Context, db DBTX, projectID, email string) (bool, error) {
+	var exists bool
+	err := db.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM project_interests WHERE project_id = $1 AND email = $2 AND status <> 'rejected' AND NOT (status = 'new' AND user_id IS NULL))`,
+		projectID, email).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("workspace: interest exists: %w", err)
+	}
+	return exists, nil
+}
+
+// IsActiveOrInvitedMember reports a seat-holding or pending membership.
+func (r *Repo) IsActiveOrInvitedMember(ctx context.Context, db DBTX, projectID, userID string) (bool, error) {
+	var ok bool
+	err := db.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM project_members WHERE project_id = $1 AND user_id = $2 AND status IN ('active','invited'))`,
+		projectID, userID).Scan(&ok)
+	if err != nil {
+		return false, fmt.Errorf("workspace: member exists: %w", err)
+	}
+	return ok, nil
+}
+
+// WithdrawInterest deletes the user's own interest while it is still 'new'.
+func (r *Repo) WithdrawInterest(ctx context.Context, db DBTX, projectID, userID string) error {
+	tag, err := db.Exec(ctx,
+		`DELETE FROM project_interests WHERE project_id = $1 AND user_id = $2 AND status = 'new'`, projectID, userID)
+	if err != nil {
+		return fmt.Errorf("workspace: withdraw interest: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }

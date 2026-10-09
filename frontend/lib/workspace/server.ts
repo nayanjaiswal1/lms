@@ -19,12 +19,18 @@ import type {
 // onboarding, invitations) — mirrors the same split already used in
 // lib/projects/server.ts.
 
-export async function listWorkspaces(cursor?: string, limit?: number): Promise<Page<ProjectSummary>> {
+export async function listWorkspaces(cursor?: string, limit?: number, cohortId?: string): Promise<Page<ProjectSummary>> {
   const params = new URLSearchParams();
   if (cursor) params.set("cursor", cursor);
   if (limit) params.set("limit", String(limit));
+  if (cohortId) params.set("cohort_id", cohortId);
   const qs = params.toString();
   return apiGet<Page<ProjectSummary>>(`/api/workspaces${qs ? `?${qs}` : ""}`);
+}
+
+// Team workspaces of one cohort.
+export async function listCohortWorkspaces(cohortId: string): Promise<Page<ProjectSummary>> {
+  return listWorkspaces(undefined, undefined, cohortId);
 }
 
 export async function listMyWorkspaceInvitations(): Promise<ProjectSummary[]> {

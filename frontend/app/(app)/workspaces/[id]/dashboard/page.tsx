@@ -8,6 +8,7 @@ import { PlanTree } from "@/components/workspace/dashboard/plan-tree";
 import { QualitySection } from "@/components/workspace/dashboard/quality-section";
 import { CSVExportButtons } from "@/components/workspace/dashboard/csv-export-buttons";
 import { ReleaseMetricsSection } from "@/components/workspace/dashboard/release-metrics-section";
+import { WorkspaceGitlabSection } from "@/components/workspace/gitlab/workspace-gitlab-section";
 import { TeamSection } from "@/components/workspace/dashboard/team-section";
 import { WeeklySummaryCard } from "@/components/workspace/dashboard/weekly-summary-card";
 import { getWorkspaceDashboard } from "@/lib/workspace/phase4-server";
@@ -67,6 +68,10 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
       </div>
 
       <TeamSection people={dashboard.people} tracks={dashboard.tracks} />
+
+      {workspace.cohort_id && (workspace.gitlab_web_url || workspace.provision_status) && (
+        <WorkspaceGitlabSection workspaceId={id} workspaceTitle={workspace.title} />
+      )}
 
       <div className="card-base flex flex-col gap-3">
         <h2 className="section-title">Plan</h2>

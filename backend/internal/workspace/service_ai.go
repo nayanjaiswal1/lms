@@ -73,6 +73,10 @@ func (s *Service) RankInterest(ctx context.Context, pc *ProjectCtx, interestID s
 	fmt.Fprintf(&b, "Project title: %s\nRequired skills: %s\n\n", project.Title, strings.Join(project.Skills, ", "))
 	b.WriteString(buildInterestRankPrompt(interest.Skills, message, portfolioHost))
 
+	if interest.UserID != nil && s.profile != nil {
+		b.WriteString(s.applicantProfileSignal(ctx, *interest.UserID))
+	}
+
 	resp, err := s.ai.Complete(ctx, ai.CompletionRequest{
 		SystemPrompt: ai.WorkspaceInterestRankSystemPrompt,
 		UserPrompt:   b.String(),
@@ -103,4 +107,24 @@ func (s *Service) RankInterest(ctx context.Context, pc *ProjectCtx, interestID s
 	}
 	writeAudit(ctx, s.pool, pc.OrgID, &pc.UserID, "project.interest_ranked", "project_interest", interestID, nil)
 	return s.repo.GetInterest(ctx, s.pool, pc.ProjectID, interestID)
+}
+
+// applicantProfileSignal renders a signed-in applicant's profile skills and
+// public GitHub summary for the rank prompt. Best-effort: a missing profile
+// or GitHub link only reduces evidence, it never fails the ranking.
+func (s *Service) applicantProfileSignal(ctx context.Context, userID string) string {
+	var b strings.Builder
+	if skills, err := s.profile.GetSkills(ctx, userID); err == nil && len(skills) > 0 {
+		names := make([]string, 0, len(skills))
+		for _, sk := range skills {
+			names = append(names, sk.SkillName+" ("+sk.SkillLevel+")")
+		}
+		fmt.Fprintf(&b, "Profile skills: %s\n", delimited(strings.Join(names, ", ")))
+	}
+	if links, err := s.profile.GetSocialLinks(ctx, userID); err == nil && links != nil && links.GitHub != nil {
+		if signal := fetchGitHubSignal(ctx, *links.GitHub); signal != "" {
+			fmt.Fprintf(&b, "Applicant's %s\n", delimited(signal))
+		}
+	}
+	return b.String()
 }

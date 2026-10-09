@@ -71,55 +71,44 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireOrgRole(h.service.pool, middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor))
 
-		r.Post("/api/projects/assignments", h.CreateAssignment)
-		r.Get("/api/projects/assignments", h.ListAssignments)
-		r.Get("/api/projects/assignments/{assignmentID}", h.GetAssignment)
-		r.Patch("/api/projects/assignments/{assignmentID}", h.UpdateAssignment)
-		r.Delete("/api/projects/assignments/{assignmentID}", h.DeleteAssignment)
-		r.Post("/api/projects/assignments/{assignmentID}/publish", h.PublishAssignment)
-		r.Put("/api/projects/assignments/{assignmentID}/installation", h.SetAssignmentInstallation)
+		r.Post("/api/workspace-cohorts", h.CreateAssignment)
+		r.Get("/api/workspace-cohorts", h.ListAssignments)
+		r.Get("/api/workspace-cohorts/{assignmentID}", h.GetAssignment)
+		r.Patch("/api/workspace-cohorts/{assignmentID}", h.UpdateAssignment)
+		r.Delete("/api/workspace-cohorts/{assignmentID}", h.DeleteAssignment)
+		r.Post("/api/workspace-cohorts/{assignmentID}/publish", h.PublishAssignment)
+		r.Put("/api/workspace-cohorts/{assignmentID}/installation", h.SetAssignmentInstallation)
 
 		// Batch 6: mid-project template updates + cross-team originality
 		// scan — instructor-triggered, per kind-herding-cookie.md §2's routes
 		// table ("Reports | POST/GET .../originality, POST .../handoff").
-		r.Post("/api/projects/assignments/{assignmentID}/template-sync", h.TemplateSync)
-		r.Post("/api/projects/assignments/{assignmentID}/originality", h.RequestOriginalityScan)
-		r.Get("/api/projects/assignments/{assignmentID}/originality", h.ListOriginalityReports)
+		r.Post("/api/workspace-cohorts/{assignmentID}/template-sync", h.TemplateSync)
+		r.Post("/api/workspace-cohorts/{assignmentID}/originality", h.RequestOriginalityScan)
+		r.Get("/api/workspace-cohorts/{assignmentID}/originality", h.ListOriginalityReports)
 
-		r.Post("/api/projects/assignments/{assignmentID}/teams", h.CreateTeam)
-		r.Get("/api/projects/assignments/{assignmentID}/teams", h.ListTeams)
-		r.Patch("/api/projects/teams/{teamID}", h.UpdateTeam)
-		r.Delete("/api/projects/teams/{teamID}", h.DeleteTeam)
-		r.Post("/api/projects/teams/{teamID}/reprovision", h.ReprovisionTeam)
-		// Batch 6: capstone handoff — fork or transfer per-action (§0.5),
-		// team-scoped since project_handoffs is keyed (team_id, user_id).
-		r.Post("/api/projects/teams/{teamID}/handoff", h.RequestHandoff)
-
-		r.Get("/api/projects/teams/{teamID}/members", h.ListTeamMembers)
-		r.Post("/api/projects/teams/{teamID}/members/{userID}", h.AddTeamMember)
-		r.Delete("/api/projects/teams/{teamID}/members/{userID}", h.RemoveTeamMember)
-		r.Post("/api/projects/teams/{teamID}/sync", h.SyncTeam)
-		r.Get("/api/projects/teams/{teamID}/activity", h.GetTeamActivity)
+		r.Get("/api/workspace-cohorts/{assignmentID}/teams", h.ListTeams)
+		r.Post("/api/workspace-cohorts/teams/{teamID}/reprovision", h.ReprovisionTeam)
+		r.Post("/api/workspace-cohorts/teams/{teamID}/handoff", h.RequestHandoff)
 
 		// Batch 5: checkpoints + peer-review submissions — staff, per
 		// kind-herding-cookie.md §2's routes table.
-		r.Post("/api/projects/assignments/{assignmentID}/checkpoints", h.CreateCheckpoint)
-		r.Get("/api/projects/assignments/{assignmentID}/checkpoints", h.ListCheckpoints)
-		r.Patch("/api/projects/checkpoints/{checkpointID}", h.UpdateCheckpoint)
-		r.Delete("/api/projects/checkpoints/{checkpointID}", h.DeleteCheckpoint)
+		r.Post("/api/workspace-cohorts/{assignmentID}/checkpoints", h.CreateCheckpoint)
+		r.Get("/api/workspace-cohorts/{assignmentID}/checkpoints", h.ListCheckpoints)
+		r.Patch("/api/workspace-cohorts/checkpoints/{checkpointID}", h.UpdateCheckpoint)
+		r.Delete("/api/workspace-cohorts/checkpoints/{checkpointID}", h.DeleteCheckpoint)
 
-		r.Get("/api/projects/checkpoints/{checkpointID}/submissions", h.ListSubmissions)
-		r.Patch("/api/projects/checkpoints/{checkpointID}/submissions/{teamID}/grade", h.GradeSubmission)
-		r.Post("/api/projects/checkpoints/{checkpointID}/submissions/{teamID}/merge", h.MergeSubmission)
-		r.Post("/api/projects/checkpoints/{checkpointID}/submissions/{teamID}/comment", h.CommentOnSubmission)
+		r.Get("/api/workspace-cohorts/checkpoints/{checkpointID}/submissions", h.ListSubmissions)
+		r.Patch("/api/workspace-cohorts/checkpoints/{checkpointID}/submissions/{teamID}/grade", h.GradeSubmission)
+		r.Post("/api/workspace-cohorts/checkpoints/{checkpointID}/submissions/{teamID}/merge", h.MergeSubmission)
+		r.Post("/api/workspace-cohorts/checkpoints/{checkpointID}/submissions/{teamID}/comment", h.CommentOnSubmission)
 
 		// Batch 7: settling a design/architecture review checkpoint — staff
 		// makes the final call, same split as grade/merge above. The
 		// cross-team proposal listing lives here too (not with the
 		// team-scoped one below) since staff are never project_team_members
 		// themselves.
-		r.Get("/api/projects/checkpoints/{checkpointID}/proposals", h.ListAllDesignProposals)
-		r.Post("/api/projects/proposals/{proposalID}/accept", h.AcceptDesignProposal)
+		r.Get("/api/workspace-cohorts/checkpoints/{checkpointID}/proposals", h.ListAllDesignProposals)
+		r.Post("/api/workspace-cohorts/proposals/{proposalID}/accept", h.AcceptDesignProposal)
 	})
 
 	// Batch 4: dashboards — staff+mentor, per kind-herding-cookie.md §2's
@@ -131,39 +120,11 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireOrgRole(h.service.pool, middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor, middleware.RoleMentor))
 
-		r.Get("/api/projects/assignments/{assignmentID}/dashboard", h.GetAssignmentDashboard)
-		r.Get("/api/projects/teams/{teamID}/contributions", h.GetTeamContributions)
-		r.Get("/api/projects/teams/{teamID}/ownership", h.GetTeamOwnership)
-		r.Get("/api/projects/assignments/{assignmentID}/burndown", h.GetAssignmentBurndown)
-		r.Get("/api/projects/assignments/{assignmentID}/leaderboard", h.GetAssignmentLeaderboard)
+		r.Get("/api/workspace-cohorts/{assignmentID}/dashboard", h.GetAssignmentDashboard)
+		r.Get("/api/workspace-cohorts/{assignmentID}/burndown", h.GetAssignmentBurndown)
+		r.Get("/api/workspace-cohorts/{assignmentID}/leaderboard", h.GetAssignmentLeaderboard)
+		r.Get("/api/workspace-cohorts/{assignmentID}/ownership", h.GetAssignmentOwnership)
 	})
-
-	// Batch 4: student-facing "my projects" — any org member, row-scoped to
-	// the caller's own team memberships (see Repo.ListMyProjects/GetMyProject's
-	// WHERE-clause joins on the authenticated user_id). Same "no role group"
-	// placement as connect/status/disconnect above, since RequireAuth alone
-	// (applied by the caller — see internal/api/router.go) is the only gate.
-	r.Get("/api/my/projects", h.ListMyProjects)
-	r.Get("/api/my/projects/{teamID}", h.GetMyProject)
-	r.Get("/api/my/projects/{teamID}/contributions", h.GetMyProjectContributions)
-	r.Get("/api/my/projects/{teamID}/ownership", h.GetMyProjectOwnership)
-	r.Get("/api/my/projects/{teamID}/checkpoints", h.GetMyProjectCheckpoints)
-
-	// Batch 7: design proposals/voting + the day-to-day task board — any
-	// authenticated org member, row-scoped to their own team membership
-	// inside the service (Repo.GetMyProject), same placement as the
-	// student-facing routes above.
-	r.Post("/api/projects/teams/{teamID}/checkpoints/{checkpointID}/proposals", h.SubmitDesignProposal)
-	r.Get("/api/projects/teams/{teamID}/checkpoints/{checkpointID}/proposals", h.ListDesignProposals)
-	r.Post("/api/projects/proposals/{proposalID}/vote", h.VoteForProposal)
-	r.Delete("/api/projects/proposals/{proposalID}/vote", h.RemoveVote)
-	r.Delete("/api/projects/proposals/{proposalID}", h.DeleteDesignProposal)
-
-	r.Post("/api/projects/teams/{teamID}/tasks", h.CreateTask)
-	r.Get("/api/projects/teams/{teamID}/tasks", h.ListTasksForTeam)
-	r.Patch("/api/projects/tasks/{taskID}", h.UpdateTask)
-	r.Put("/api/projects/tasks/{taskID}/assignee", h.SetTaskAssignee)
-	r.Delete("/api/projects/tasks/{taskID}", h.DeleteTask)
 }
 
 // RegisterPublicRoutes mounts the OAuth callback — authenticated via the

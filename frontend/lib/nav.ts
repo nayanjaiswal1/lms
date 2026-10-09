@@ -257,12 +257,12 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     requiredPermission:  PERMISSIONS.ASSESSMENTS.MANAGE_BATCHES,
     mode:                "badge",
   },
-  projects: {
-    label:               "Projects",
-    href:                ROUTES.PROJECTS,
+  cohorts: {
+    label:               "Cohorts",
+    href:                ROUTES.WORKSPACES_COHORTS,
     icon:                FolderGit2,
     feature:             FEATURES.GITLAB_INTEGRATION,
-    requiredPermission:  PERMISSIONS.PROJECTS.VIEW,
+    requiredPermission:  PERMISSIONS.PROJECTS.MANAGE,
     mode:                "hide",
   },
   // Not gated on projects.create: creating a workspace needs that permission,
@@ -420,7 +420,6 @@ export const LEARN_HUB_GROUPS: NavGroup[] = [
       ALL_NAV_ITEMS.interview_prep,
       ALL_NAV_ITEMS.labs,
       ALL_NAV_ITEMS.assessments,
-      ALL_NAV_ITEMS.projects,
     ],
   },
   {
@@ -447,6 +446,7 @@ export const LEARN_HUB_GROUPS: NavGroup[] = [
       ALL_NAV_ITEMS.question_bank,
       { ...ALL_NAV_ITEMS.mentor_dashboard,       label: "Mentoring" },
       ALL_NAV_ITEMS.mentor_tickets,
+      ALL_NAV_ITEMS.cohorts,
     ],
   },
   // "Tools" group (System Design, Interview Board, Load Test) removed: those

@@ -13,6 +13,7 @@ import (
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/notifications"
 	"github.com/mindforge/backend/internal/orgs"
+	"github.com/mindforge/backend/internal/profile"
 	"github.com/mindforge/backend/internal/ratelimit"
 )
 
@@ -28,6 +29,9 @@ type Deps struct {
 	AI      ai.LLMProvider
 	Jobs    *jobs.Registry
 	Limiter *ratelimit.Limiter
+	// Profile supplies an applicant's skills/GitHub link to RankInterest; nil
+	// (jobs-only Deps) skips the profile signal.
+	Profile *profile.Repo
 	// Calendar backs Phase 3 meetings (contract-phase3.md) — nil in the
 	// jobs-only Deps (cmd/server/main.go's workspaceSvcForJobs), which never
 	// schedules a meeting.
@@ -64,6 +68,7 @@ type Service struct {
 	ai       ai.LLMProvider
 	jobs     *jobs.Registry
 	limiter  *ratelimit.Limiter
+	profile  *profile.Repo
 	calendar *calendar.Service
 	gitlab   *gitlab.Service
 	certs    *certificates.Service
@@ -85,6 +90,7 @@ func NewService(d Deps) *Service {
 		ai:       d.AI,
 		jobs:     d.Jobs,
 		limiter:  d.Limiter,
+		profile:  d.Profile,
 		calendar: d.Calendar,
 		gitlab:   d.Gitlab,
 		certs:    d.Certificates,

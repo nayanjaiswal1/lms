@@ -304,36 +304,6 @@ func (r *Repo) GetTeamActivityByAssignment(ctx context.Context, assignmentID str
 
 // ─── student-facing "my projects" (row-scoped) ─────────────────────────────
 
-// ListMyProjects returns every team userID belongs to in orgID — scoped by
-// a real WHERE-clause join on project_team_members.user_id, never an
-// application-layer filter applied after fetching every team.
-func (r *Repo) ListMyProjects(ctx context.Context, orgID, userID string) ([]MyProjectSummary, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT t.id, t.name, t.assignment_id, a.title, m.role, t.provision_status, t.gitlab_web_url, t.pages_url
-		 FROM project_team_members m
-		 JOIN project_teams t ON t.id = m.team_id
-		 JOIN project_assignments a ON a.id = t.assignment_id
-		 WHERE m.user_id = $1 AND t.org_id = $2
-		 ORDER BY t.created_at DESC`,
-		userID, orgID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("gitlab: list my projects: %w", err)
-	}
-	defer rows.Close()
-
-	out := []MyProjectSummary{}
-	for rows.Next() {
-		var p MyProjectSummary
-		if err := rows.Scan(&p.TeamID, &p.TeamName, &p.AssignmentID, &p.AssignmentTitle, &p.Role,
-			&p.ProvisionStatus, &p.GitlabWebURL, &p.PagesURL); err != nil {
-			return nil, fmt.Errorf("gitlab: scan my project summary: %w", err)
-		}
-		out = append(out, p)
-	}
-	return out, rows.Err()
-}
-
 // GetMyProject returns teamID only if userID actually belongs to it — the
 // join against project_team_members (not just project_teams.org_id) is the
 // row-scoping itself, so a student can never fetch a teammate-only or

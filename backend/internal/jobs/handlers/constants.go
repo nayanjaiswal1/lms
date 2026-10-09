@@ -38,10 +38,6 @@ const (
 	HandlerDigestNightly = "digest.nightly"
 	HandlerDigestUser    = "digest.user"
 
-	// Project marketplace (internal/projectmarket) — Phase A, Slice 1 finish.
-	HandlerProjectmarketScoreRequirement = "projectmarket.score_requirement"
-	HandlerProjectmarketCloseExpired     = "projectmarket.close_expired"
-
 	// Knowledge Captures (internal/captures) — extract + AI-structure a
 	// screenshot/PDF/link into a journal note or SRS flashcard candidate.
 	HandlerCapturesProcess = "captures.process"

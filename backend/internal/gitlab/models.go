@@ -265,7 +265,7 @@ type ProjectAssignment struct {
 	UpdatedAt            time.Time  `json:"updated_at"`
 }
 
-// AssignmentPatch is PATCH /api/projects/assignments/{id}'s editable field
+// AssignmentPatch is PATCH /api/workspace-cohorts/{id}'s editable field
 // set — a nil field leaves the current value untouched.
 type AssignmentPatch struct {
 	Title                *string    `json:"title"`
@@ -296,12 +296,6 @@ type ProjectTeam struct {
 	CreatedBy         *string    `json:"created_by,omitempty"`
 	CreatedAt         time.Time  `json:"created_at"`
 	UpdatedAt         time.Time  `json:"updated_at"`
-}
-
-// TeamPatch is PATCH /api/projects/teams/{id}'s editable field set.
-type TeamPatch struct {
-	Name *string `json:"name"`
-	Slug *string `json:"slug"`
 }
 
 // ProjectTeamMember is one student's membership on a team. AssignmentID is
@@ -487,7 +481,7 @@ type GitlabWebhookEvent struct {
 
 // ─── Batch 3 add-on: read-only team activity feed ──────────────────────────
 //
-// GET /api/projects/teams/{teamID}/activity exposes the activity mirror
+// GET /api/workspaces/{workspaceID}/gitlab/activity exposes the activity mirror
 // above as a small team-detail read view — recent commits, recent merge
 // requests, and the latest pipeline, each a plain ORDER BY ... LIMIT read.
 // No aggregation, scoring, or cross-team leaderboard logic lives here; that's
@@ -518,7 +512,7 @@ type TeamActivityPipeline struct {
 	WebURL *string `json:"web_url"`
 }
 
-// TeamActivityView is GET /api/projects/teams/{teamID}/activity's response body.
+// TeamActivityView is GET /api/workspaces/{workspaceID}/gitlab/activity's response body.
 type TeamActivityView struct {
 	Commits       []TeamActivityCommit       `json:"commits"`
 	MergeRequests []TeamActivityMergeRequest `json:"merge_requests"`
@@ -548,9 +542,9 @@ type ContributionRow struct {
 	IsFreeRider  bool       `json:"is_free_rider"`
 }
 
-// TeamContributionsView is GET /api/projects/teams/{teamID}/contributions
-// (staff+mentor) and GET /api/my/projects/{teamID}/contributions
-// (row-scoped student) response body.
+// TeamContributionsView is GET /api/workspaces/{workspaceID}/gitlab/contributions
+// (served via the workspace gitlab routes)
+// response body.
 type TeamContributionsView struct {
 	TeamID        string            `json:"team_id"`
 	Contributions []ContributionRow `json:"contributions"`
@@ -570,7 +564,7 @@ type LeaderboardRow struct {
 	Deletions   int    `json:"deletions"`
 }
 
-// AssignmentLeaderboardView is GET /api/projects/assignments/{assignmentID}/leaderboard's response body.
+// AssignmentLeaderboardView is GET /api/workspace-cohorts/{assignmentID}/leaderboard's response body.
 type AssignmentLeaderboardView struct {
 	AssignmentID string           `json:"assignment_id"`
 	Leaderboard  []LeaderboardRow `json:"leaderboard"`
@@ -592,7 +586,7 @@ type BurndownCheckpoint struct {
 	ClosedIssues int        `json:"closed_issues"`
 }
 
-// AssignmentBurndownView is GET /api/projects/assignments/{assignmentID}/burndown's response body.
+// AssignmentBurndownView is GET /api/workspace-cohorts/{assignmentID}/burndown's response body.
 type AssignmentBurndownView struct {
 	AssignmentID string               `json:"assignment_id"`
 	Checkpoints  []BurndownCheckpoint `json:"checkpoints"`
@@ -623,24 +617,10 @@ type TeamDashboardSummary struct {
 	Activity             TeamActivityView    `json:"activity"`
 }
 
-// AssignmentDashboardView is GET /api/projects/assignments/{assignmentID}/dashboard's response body.
+// AssignmentDashboardView is GET /api/workspace-cohorts/{assignmentID}/dashboard's response body.
 type AssignmentDashboardView struct {
 	AssignmentID string                 `json:"assignment_id"`
 	Teams        []TeamDashboardSummary `json:"teams"`
-}
-
-// MyProjectSummary is one row of GET /api/my/projects — the authenticated
-// student's own team memberships only, joined through project_team_members
-// on their own user_id (never a client-supplied filter).
-type MyProjectSummary struct {
-	TeamID          string  `json:"team_id"`
-	TeamName        string  `json:"team_name"`
-	AssignmentID    string  `json:"assignment_id"`
-	AssignmentTitle string  `json:"assignment_title"`
-	Role            string  `json:"role"`
-	ProvisionStatus string  `json:"provision_status"`
-	GitlabWebURL    *string `json:"gitlab_web_url,omitempty"`
-	PagesURL        *string `json:"pages_url,omitempty"`
 }
 
 // ─── Batch 5: checkpoints & peer review ────────────────────────────────────
@@ -764,50 +744,6 @@ type DesignProposalView struct {
 	MyVote    bool `json:"my_vote"`
 }
 
-// Task statuses.
-const (
-	TaskStatusTodo       = "todo"
-	TaskStatusInProgress = "in_progress"
-	TaskStatusReview     = "review"
-	TaskStatusDone       = "done"
-)
-
-// ProjectTask is one ungraded, day-to-day work item on a team's board —
-// distinct from ProjectCheckpoint, which stays the graded, instructor-defined
-// gate. CheckpointID is optional context (which gate this task supports),
-// never a grading input.
-type ProjectTask struct {
-	ID             string     `json:"id"`
-	OrgID          string     `json:"org_id"`
-	TeamID         string     `json:"team_id"`
-	CheckpointID   *string    `json:"checkpoint_id,omitempty"`
-	Title          string     `json:"title"`
-	Description    *string    `json:"description,omitempty"`
-	AssigneeUserID *string    `json:"assignee_user_id,omitempty"`
-	Status         string     `json:"status"`
-	DueAt          *time.Time `json:"due_at,omitempty"`
-	CreatedBy      string     `json:"created_by"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
-	// AssigneeName is populated only by Repo.ListTasksForTeam's joined
-	// query — display-only, zero-valued on rows from CreateTask/GetTask/
-	// UpdateTask/SetTaskAssignee, same convention as ProjectTeamMember's
-	// Name/Email.
-	AssigneeName string `json:"assignee_name,omitempty"`
-}
-
-// TaskPatch is PATCH .../tasks/{taskID}'s editable field set — COALESCE-based
-// like every other *Patch in this package, so a nil field leaves the current
-// value untouched. Reassigning (including explicitly unassigning) goes
-// through the dedicated PUT .../tasks/{taskID}/assignee instead — the same
-// "COALESCE can't distinguish omitted from explicit-null, so give it its own
-// endpoint" split ProjectAssignment.InstallationID already uses.
-type TaskPatch struct {
-	Title       *string    `json:"title"`
-	Description *string    `json:"description"`
-	Status      *string    `json:"status"`
-	DueAt       *time.Time `json:"due_at"`
-}
 
 // ─── Batch 8: AI MR review + feature ownership ─────────────────────────────
 // Phase C of docs/project-marketplace.md. AI review posts a comment
@@ -831,6 +767,13 @@ type FileOwnershipRow struct {
 type TeamOwnershipView struct {
 	TeamID string             `json:"team_id"`
 	Files  []FileOwnershipRow `json:"files"`
+}
+
+// AssignmentOwnershipView is GET /api/workspace-cohorts/{assignmentID}/ownership's
+// response body: one TeamOwnershipView per team under the assignment.
+type AssignmentOwnershipView struct {
+	AssignmentID string              `json:"assignment_id"`
+	Teams        []TeamOwnershipView `json:"teams"`
 }
 
 // ProjectTeamCheckpoint is one team's submission state against one
@@ -907,9 +850,11 @@ type MyCheckpointRow struct {
 	Score          *float64   `json:"score,omitempty"`
 	Feedback       *string    `json:"feedback,omitempty"`
 	Status         *string    `json:"status,omitempty"`
+	// RequiredApprovals is the parent assignment's merge-gate threshold.
+	RequiredApprovals int `json:"required_approvals"`
 }
 
-// MyProjectCheckpointsView is GET /api/my/projects/{teamID}/checkpoints's
+// MyProjectCheckpointsView is the workspace team checkpoints view's
 // response body.
 type MyProjectCheckpointsView struct {
 	TeamID      string            `json:"team_id"`
@@ -1003,7 +948,7 @@ type ProjectHandoff struct {
 	CompletedAt         *time.Time `json:"completed_at,omitempty"`
 }
 
-// HandoffRequest is POST /api/projects/teams/{teamID}/handoff's request body.
+// HandoffRequest is the handoff request: staff POST /api/workspace-cohorts/teams/{teamID}/handoff body, or built from the owner route.
 type HandoffRequest struct {
 	UserID              string `json:"user_id"`
 	Mode                string `json:"mode"`

@@ -33,7 +33,7 @@ type createAssignmentRequest struct {
 	DueAt                *time.Time `json:"due_at"`
 }
 
-// CreateAssignment handles POST /api/projects/assignments.
+// CreateAssignment handles POST /api/workspace-cohorts.
 func (h *Handler) CreateAssignment(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -109,7 +109,7 @@ func (h *Handler) CreateAssignment(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusCreated, assignment)
 }
 
-// ListAssignments handles GET /api/projects/assignments?batch_id=...
+// ListAssignments handles GET /api/workspace-cohorts?batch_id=...
 func (h *Handler) ListAssignments(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -127,7 +127,7 @@ func (h *Handler) ListAssignments(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, assignments)
 }
 
-// GetAssignment handles GET /api/projects/assignments/{assignmentID}.
+// GetAssignment handles GET /api/workspace-cohorts/{assignmentID}.
 func (h *Handler) GetAssignment(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -141,7 +141,7 @@ func (h *Handler) GetAssignment(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, assignment)
 }
 
-// UpdateAssignment handles PATCH /api/projects/assignments/{assignmentID}.
+// UpdateAssignment handles PATCH /api/workspace-cohorts/{assignmentID}.
 func (h *Handler) UpdateAssignment(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -168,7 +168,7 @@ type setAssignmentInstallationRequest struct {
 	InstallationID *string `json:"installation_id"`
 }
 
-// SetAssignmentInstallation handles PUT /api/projects/assignments/{assignmentID}/installation —
+// SetAssignmentInstallation handles PUT /api/workspace-cohorts/{assignmentID}/installation —
 // pins (installation_id set) or clears (installation_id omitted/null,
 // reverting to the org default) which GitLab pool entry this assignment's
 // teams provision against. A dedicated action rather than a field on the
@@ -191,7 +191,7 @@ func (h *Handler) SetAssignmentInstallation(w http.ResponseWriter, r *http.Reque
 	httputil.WriteJSON(w, http.StatusOK, assignment)
 }
 
-// DeleteAssignment handles DELETE /api/projects/assignments/{assignmentID}.
+// DeleteAssignment handles DELETE /api/workspace-cohorts/{assignmentID}.
 // Only draft assignments can be deleted this way — see Repo.DeleteAssignment's
 // own doc comment for why a published one returns 409 instead.
 func (h *Handler) DeleteAssignment(w http.ResponseWriter, r *http.Request) {
@@ -206,7 +206,7 @@ func (h *Handler) DeleteAssignment(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// PublishAssignment handles POST /api/projects/assignments/{assignmentID}/publish
+// PublishAssignment handles POST /api/workspace-cohorts/{assignmentID}/publish
 // — transitions draft -> active and kicks off real GitLab provisioning for
 // every team already created under it.
 func (h *Handler) PublishAssignment(w http.ResponseWriter, r *http.Request) {
@@ -222,7 +222,7 @@ func (h *Handler) PublishAssignment(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, assignment)
 }
 
-// TemplateSync handles POST /api/projects/assignments/{assignmentID}/template-sync
+// TemplateSync handles POST /api/workspace-cohorts/{assignmentID}/template-sync
 // — instructor-triggered (Batch 6), opens a cross-fork merge request from
 // the template's default branch into every ready team's fork.
 func (h *Handler) TemplateSync(w http.ResponseWriter, r *http.Request) {

@@ -1,5 +1,7 @@
-# Project Workspace (Design Draft — not yet built)
+# Project Workspace
 
+> **Status:** built. Workspace lifecycle, share link and interests, discover/apply, tracks, work items, team GitLab surfaces and cohorts are implemented. Sections 6–16 describe the full design; where the code differs, the code wins.
+>
 > **Implementation plans:** [project-workspace-plan/](project-workspace-plan/00-decisions.md). Where this doc and `00-decisions.md` differ, `00-decisions.md` wins (table name, routes, key prefix, schema additions, visibility, invite linking).
 
 A corporate-style project lifecycle for learners: someone posts a **vague requirement** (rough idea, like a real client) →
@@ -8,8 +10,9 @@ shares a link → people express interest → owner accepts → team onboards, c
 **doc → review → approve → code → review → test → done** → MindForge tracks all of it,
 including GitLab activity, per-person roles and effort, with a manager-level view.
 
-Builds on [project-marketplace.md](project-marketplace.md) (Phase A shipped:
-`backend/internal/projectmarket`) and the GitLab project system (`backend/internal/gitlab`).
+Replaces the Projects UI and the marketplace ([project-marketplace.md](project-marketplace.md), superseded;
+`backend/internal/projectmarket` deleted). Builds on the GitLab project system (`backend/internal/gitlab`), which supplies
+cohort assignments and team provisioning. `/projects*` redirects to `/workspaces`.
 
 ---
 
@@ -17,10 +20,10 @@ Builds on [project-marketplace.md](project-marketplace.md) (Phase A shipped:
 
 | Need | Existing piece |
 |---|---|
-| Scoring pattern for AI ranking (interests) | `projectmarket/service_score.go` (pattern only — workspaces use their own `workspace_projects` table and `project_interests` intake, marketplace untouched) |
+| AI ranking of interests | `workspace` `RankInterest` (`handler_recruiting.go`), owner-triggered only. Own `workspace_projects` table and `project_interests` intake; no marketplace tables |
 | Invite a person who has no account | `orgs/invite.go` (token invite → `Join`) |
 | GitLab repo/team provisioning, MR/CI webhooks, commit mirroring, AI MR review | `gitlab/service_provision.go`, `service_webhook.go`, `service_ai_review.go` |
-| Classroom team tasks | `project_tasks` stays as-is for batches — **not** migrated; workspace `work_items` start empty |
+| Classroom team tasks | Not reused. `project_tasks` (migration 022) is an unused orphan table, not migrated; workspace `work_items` are the task model and start empty |
 | Design proposals + voting | `gitlab/handler_design.go` |
 | Feature docs with versions + comments | Wiki pages (`wiki_page_versions`, comments) — one wiki space per project |
 | Duplicate detection | `pg_trgm similarity()` convention from `wiki/repo.go` |
@@ -90,7 +93,7 @@ draft ──publish──► recruiting ──start──► active ◄──res
 | `recruiting` | Share link live, interests, accept/invite | Work items can be planned but not moved past `todo` |
 | `active` | All work. Share link stays live only if `accepting_interests=true` | — |
 | `paused` | Read, comments, docs | Status changes on items, time logs, new members |
-| `completed` | Read, peer feedback, reports | Every write except feedback. GitLab repo → handed off/read-only (existing `service_handoff.go`) |
+| `completed` | Read, peer feedback, reports, GitLab handoff | Every write except feedback and the handoff. Handoff is `POST /api/workspaces/{id}/gitlab/handoff` (owner only, completed workspaces only; unarchives the repo first) |
 | `cancelled` / `archived` | Read only | Everything else |
 
 Restrictions:
@@ -515,7 +518,8 @@ workspace_projects    id, org_id, title, requirement text, skills text[], team_s
                       deadline, key_prefix, created_by, share_token text unique, share_token_rotated_at,
                       accepting_interests bool, raw_requirement text, brief_wiki_page_id,
                       brief_status (raw|clarifying|agreed), project_status (draft|recruiting|active|paused|
-                      completed|cancelled|archived), wiki_space_id, team_id, gitlab_enabled bool default true, sprints_enabled bool default false,
+                      completed|cancelled|archived), wiki_space_id, team_id, cohort_id? (→ project_assignments, migration 070),
+                      gitlab_enabled bool default true, sprints_enabled bool default false,
                       wip_limit int default 3, item_seq int default 0,
                       health_thresholds jsonb (defaults in §16.7)
 
@@ -618,6 +622,51 @@ GET    /api/workspaces/{id}/members/{uid}/report
 | 5 | Releases/sprints + release metrics + forecast, completion (peer feedback, member report, certificate), AI breakdown / assignee suggestion / weekly summary, CSV exports |
 
 Phase 2 migration and the permission matrix get an Opus review before build (data integrity + auth).
+
+---
+
+## 21. Shipped add-ons: cohorts, discover & apply, team GitLab
+
+### 21.1 Cohorts
+
+A **cohort** is a GitLab `project_assignments` row shared by several workspaces' teams. Each team workspace
+points at it through `workspace_projects.cohort_id` (migration 070). One cohort = one assignment, so the
+template, checkpoints, originality scans and dashboards are defined once and every team in the cohort reads them.
+
+- Staff UI: `/workspaces/cohorts`, `/workspaces/cohorts/new`, `/workspaces/cohorts/[cohortId]` (tabs: Teams, Checkpoints, Insights, Originality).
+- API prefix `/api/workspace-cohorts`: assignments (list/create/get), `publish`, `installation`, `template-sync`,
+  `originality`, `teams` (GET), `checkpoints`, `dashboard`, `burndown`, `leaderboard`, `ownership`,
+  `proposals/{id}/accept`, `teams/{id}/reprovision`, and `POST /{cohortID}/workspaces` `{title, member_user_ids}`,
+  which creates a team workspace in the cohort.
+- Gating: UI requires `FEATURES.GITLAB_INTEGRATION` and `PERMISSIONS.PROJECTS.MANAGE`. Backend requires org role
+  owner/admin/instructor; dashboard reads also allow mentor.
+
+### 21.2 Discover & apply
+
+- Logged-in org members find open workspaces at `/workspaces/discover` (`GET /api/workspaces/discover`).
+- Apply with `POST /api/workspaces/{id}/interest`, withdraw with `DELETE` on the same path. Their applications
+  are listed in a "My interests" section on `/workspaces` (`GET /api/my/workspace-interests`).
+- Interest statuses are the §17 set. There is no `shortlisted` status: the owner moves an interest straight to accepted or rejected.
+- AI ranking (§20 D20) is still owner-triggered only. For signed-in applicants the ranking input also includes profile
+  skills and a GitHub summary (`workspace/github.go`).
+- The public share-link form (§5) is unchanged; discover/apply is the logged-in path to the same intake.
+
+### 21.3 Team GitLab surfaces
+
+All under `/api/workspaces/{id}`:
+
+| Surface | Route | Who |
+|---|---|---|
+| Activity, contributions, file ownership | `GET gitlab/activity`, `gitlab/contributions`, `gitlab/ownership` | any viewer |
+| Checkpoints | `GET checkpoints` | member |
+| Design proposals | `GET`/`POST checkpoints/{cp}/proposals`; `POST`/`DELETE proposals/{pid}/vote`; `DELETE proposals/{pid}` | member |
+| Provision repo | `POST gitlab/provision` (optional `installation_id`) | owner |
+| Handoff | `POST gitlab/handoff` (completed workspaces only; unarchives the repo first) | owner |
+
+UI: the Checkpoints tab appears only when `cohort_id` is set; the dashboard has GitLab sections; settings has a
+GitLab section with the handoff action; the home showcase has a stats card.
+
+Team GitLab membership is re-checked in the `gitlab` package, not only in the workspace route guard.
 
 ---
 

@@ -9,7 +9,7 @@ import (
 	"github.com/mindforge/backend/internal/httputil"
 )
 
-// RequestOriginalityScan handles POST /api/projects/assignments/{assignmentID}/originality
+// RequestOriginalityScan handles POST /api/workspace-cohorts/{assignmentID}/originality
 // — creates a pending scan report and enqueues gitlab.originality_scan to
 // run it.
 func (h *Handler) RequestOriginalityScan(w http.ResponseWriter, r *http.Request) {
@@ -25,7 +25,7 @@ func (h *Handler) RequestOriginalityScan(w http.ResponseWriter, r *http.Request)
 	httputil.WriteJSON(w, http.StatusAccepted, report)
 }
 
-// ListOriginalityReports handles GET /api/projects/assignments/{assignmentID}/originality.
+// ListOriginalityReports handles GET /api/workspace-cohorts/{assignmentID}/originality.
 func (h *Handler) ListOriginalityReports(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -39,9 +39,8 @@ func (h *Handler) ListOriginalityReports(w http.ResponseWriter, r *http.Request)
 	httputil.WriteJSON(w, http.StatusOK, list)
 }
 
-// RequestHandoff handles POST /api/projects/teams/{teamID}/handoff — creates
-// (or resets) a capstone handoff request and enqueues gitlab.handoff to run
-// it, fork or transfer per the request's mode (§0.5).
+// RequestHandoff handles POST /api/workspace-cohorts/teams/{teamID}/handoff —
+// staff-initiated capstone handoff for a team member (fork or transfer).
 func (h *Handler) RequestHandoff(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -51,21 +50,10 @@ func (h *Handler) RequestHandoff(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	fields := map[string]string{}
-	if req.UserID == "" {
-		fields["user_id"] = "A user_id is required."
-	}
-	if req.Mode != HandoffModeFork && req.Mode != HandoffModeTransfer {
-		fields["mode"] = "mode must be 'fork' or 'transfer'."
-	}
-	if req.TargetNamespaceID == 0 {
-		fields["target_namespace_id"] = "A target_namespace_id is required."
-	}
-	if len(fields) > 0 {
+	if fields := ValidateHandoffRequest(req); len(fields) > 0 {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
 	}
-
 	handoff, err := h.service.RequestHandoff(r.Context(), claims.OrgID, chi.URLParam(r, "teamID"), req)
 	if err != nil {
 		writeDomainError(w, err)
