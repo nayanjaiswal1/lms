@@ -33,13 +33,13 @@ func (r *Repo) List(ctx context.Context, orgID string, f ListFilter) (ItemPage, 
 	}
 
 	var cursorCreatedAt *time.Time
-	var cursorID string
+	var cursorID *string
 	if f.Cursor != "" {
 		t, id, err := pagination.DecodeCursor(f.Cursor, "library")
 		if err != nil {
 			return ItemPage{}, fmt.Errorf("library.Repo.List: decode cursor: %w", err)
 		}
-		cursorCreatedAt, cursorID = &t, id
+		cursorCreatedAt, cursorID = &t, &id
 	}
 
 	var kinds []string
@@ -64,7 +64,7 @@ func (r *Repo) List(ctx context.Context, orgID string, f ListFilter) (ItemPage, 
 		) items
 		WHERE ($2::text[] IS NULL OR kind = ANY($2))
 		  AND ($3 = '' OR title ILIKE '%' || $3 || '%')
-		  AND ($4::timestamptz IS NULL OR (created_at, id) < ($4, $5))
+		  AND ($4::timestamptz IS NULL OR (created_at, id) < ($4, $5::uuid))
 		ORDER BY created_at DESC, id DESC
 		LIMIT $6`,
 		orgID, kinds, f.Search, cursorCreatedAt, cursorID, limit+1,

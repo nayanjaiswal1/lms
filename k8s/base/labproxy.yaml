@@ -40,6 +40,11 @@ spec:
             - configMapRef:
                 name: mindforge-config
           env:
+            - name: LABPROXY_ALLOWED_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: mindforge-config
+                  key: NEXT_PUBLIC_APP_URL
             - name: LAB_TOKEN_SECRET
               valueFrom:
                 secretKeyRef:
