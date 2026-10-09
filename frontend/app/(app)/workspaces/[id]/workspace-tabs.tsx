@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Inbox, Users, GitBranch, ListChecks, FileText, Settings, KanbanSquare, List, BookCheck, Bug, CalendarDays, LayoutDashboard, Rocket, Package, Star } from "lucide-react";
+import { Home, Inbox, Users, GitBranch, ListChecks, FileText, Settings, KanbanSquare, List, BookCheck, Bug, CalendarDays, LayoutDashboard, Rocket, Package, Star, FolderGit2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ROUTES from "@/lib/routes";
 import { useProjectRole } from "@/components/workspace/project-role-provider";
@@ -10,9 +10,10 @@ import { useProjectRole } from "@/components/workspace/project-role-provider";
 interface WorkspaceTabsProps {
   workspaceId: string;
   sprintsEnabled: boolean;
+  hasCohort: boolean;
 }
 
-export function WorkspaceTabs({ workspaceId, sprintsEnabled }: WorkspaceTabsProps) {
+export function WorkspaceTabs({ workspaceId, sprintsEnabled, hasCohort }: WorkspaceTabsProps) {
   const pathname = usePathname();
   const { atLeast, isOwner } = useProjectRole();
   const base = ROUTES.workspace(workspaceId);
@@ -35,6 +36,7 @@ export function WorkspaceTabs({ workspaceId, sprintsEnabled }: WorkspaceTabsProp
     { href: ROUTES.workspaceBugs(workspaceId), label: "Bugs", Icon: Bug, exact: false, show: true },
     { href: ROUTES.workspaceMeetings(workspaceId), label: "Meetings", Icon: CalendarDays, exact: false, show: true },
     { href: ROUTES.workspaceFeedback(workspaceId), label: "Feedback", Icon: Star, exact: false, show: true },
+    { href: ROUTES.workspaceCheckpoints(workspaceId), label: "Checkpoints", Icon: FolderGit2, exact: false, show: hasCohort },
     { href: ROUTES.workspaceSettings(workspaceId), label: "Settings", Icon: Settings, exact: false, show: isOwner },
   ].filter((tab) => tab.show);
 

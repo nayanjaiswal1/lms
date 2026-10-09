@@ -11,7 +11,7 @@ import (
 
 // ─── staff+mentor dashboards ────────────────────────────────────────────────
 
-// GetAssignmentDashboard handles GET /api/projects/assignments/{assignmentID}/dashboard.
+// GetAssignmentDashboard handles GET /api/workspace-cohorts/{assignmentID}/dashboard.
 func (h *Handler) GetAssignmentDashboard(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -25,13 +25,13 @@ func (h *Handler) GetAssignmentDashboard(w http.ResponseWriter, r *http.Request)
 	httputil.WriteJSON(w, http.StatusOK, view)
 }
 
-// GetTeamContributions handles GET /api/projects/teams/{teamID}/contributions.
-func (h *Handler) GetTeamContributions(w http.ResponseWriter, r *http.Request) {
+// GetAssignmentOwnership handles GET /api/workspace-cohorts/{assignmentID}/ownership.
+func (h *Handler) GetAssignmentOwnership(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
-	view, err := h.service.GetTeamContributions(r.Context(), claims.OrgID, chi.URLParam(r, "teamID"))
+	view, err := h.service.GetAssignmentOwnership(r.Context(), claims.OrgID, chi.URLParam(r, "assignmentID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -39,21 +39,7 @@ func (h *Handler) GetTeamContributions(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, view)
 }
 
-// GetTeamOwnership handles GET /api/projects/teams/{teamID}/ownership.
-func (h *Handler) GetTeamOwnership(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	view, err := h.service.GetTeamOwnership(r.Context(), claims.OrgID, chi.URLParam(r, "teamID"))
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, view)
-}
-
-// GetAssignmentBurndown handles GET /api/projects/assignments/{assignmentID}/burndown.
+// GetAssignmentBurndown handles GET /api/workspace-cohorts/{assignmentID}/burndown.
 func (h *Handler) GetAssignmentBurndown(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -67,7 +53,7 @@ func (h *Handler) GetAssignmentBurndown(w http.ResponseWriter, r *http.Request) 
 	httputil.WriteJSON(w, http.StatusOK, view)
 }
 
-// GetAssignmentLeaderboard handles GET /api/projects/assignments/{assignmentID}/leaderboard.
+// GetAssignmentLeaderboard handles GET /api/workspace-cohorts/{assignmentID}/leaderboard.
 func (h *Handler) GetAssignmentLeaderboard(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -82,62 +68,3 @@ func (h *Handler) GetAssignmentLeaderboard(w http.ResponseWriter, r *http.Reques
 }
 
 // ─── student-facing "my projects" (any org member, row-scoped) ────────────
-
-// ListMyProjects handles GET /api/my/projects — the authenticated user's own
-// team memberships only (see Service.ListMyProjects).
-func (h *Handler) ListMyProjects(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	projects, err := h.service.ListMyProjects(r.Context(), claims.OrgID, claims.UserID)
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, projects)
-}
-
-// GetMyProjectContributions handles GET /api/my/projects/{teamID}/contributions.
-func (h *Handler) GetMyProjectContributions(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	view, err := h.service.GetMyProjectContributions(r.Context(), claims.OrgID, claims.UserID, chi.URLParam(r, "teamID"))
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, view)
-}
-
-// GetMyProjectOwnership handles GET /api/my/projects/{teamID}/ownership.
-func (h *Handler) GetMyProjectOwnership(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	view, err := h.service.GetMyProjectOwnership(r.Context(), claims.OrgID, claims.UserID, chi.URLParam(r, "teamID"))
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, view)
-}
-
-// GetMyProjectCheckpoints handles GET /api/my/projects/{teamID}/checkpoints —
-// the student-scoped counterpart to ListCheckpoints+ListSubmissions, row
-// scoped via Service.GetMyProjectCheckpoints's membership check.
-func (h *Handler) GetMyProjectCheckpoints(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	view, err := h.service.GetMyProjectCheckpoints(r.Context(), claims.OrgID, claims.UserID, chi.URLParam(r, "teamID"))
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, view)
-}

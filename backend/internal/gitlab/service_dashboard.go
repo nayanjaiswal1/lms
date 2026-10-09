@@ -70,20 +70,6 @@ func (s *Service) GetTeamOwnership(ctx context.Context, orgID, teamID string) (*
 	return &TeamOwnershipView{TeamID: teamID, Files: files}, nil
 }
 
-// GetMyProjectOwnership returns the same view, row-scoped to a student who
-// must themselves belong to teamID — same membership guard
-// GetMyProjectContributions uses.
-func (s *Service) GetMyProjectOwnership(ctx context.Context, orgID, userID, teamID string) (*TeamOwnershipView, error) {
-	if _, err := s.repo.GetMyProject(ctx, orgID, userID, teamID); err != nil {
-		return nil, fmt.Errorf("gitlab.GetMyProjectOwnership: %w", err)
-	}
-	files, err := s.repo.ListFileOwnership(ctx, teamID)
-	if err != nil {
-		return nil, fmt.Errorf("gitlab.GetMyProjectOwnership: %w", err)
-	}
-	return &TeamOwnershipView{TeamID: teamID, Files: files}, nil
-}
-
 // GetAssignmentBurndown returns an assignment's checkpoint-linked issue
 // burndown — empty until Batch 5 seeds project_checkpoints and maps issues
 // to them (see Repo.GetAssignmentBurndown's own doc comment).
@@ -113,45 +99,39 @@ func (s *Service) GetAssignmentLeaderboard(ctx context.Context, orgID, assignmen
 
 // ─── student-facing "my projects" (row-scoped to the caller's own user_id) ─
 
-// ListMyProjects returns every team the authenticated user belongs to —
-// never a client-supplied user filter, always the caller's own claims.UserID
-// (see Repo.ListMyProjects's WHERE-clause join).
-func (s *Service) ListMyProjects(ctx context.Context, orgID, userID string) ([]MyProjectSummary, error) {
-	return s.repo.ListMyProjects(ctx, orgID, userID)
+// GetAssignmentOwnership returns every team's per-file ownership under an
+// assignment (staff view).
+func (s *Service) GetAssignmentOwnership(ctx context.Context, orgID, assignmentID string) (*AssignmentOwnershipView, error) {
+	teams, err := s.repo.ListTeams(ctx, orgID, assignmentID)
+	if err != nil {
+		return nil, fmt.Errorf("gitlab.GetAssignmentOwnership: %w", err)
+	}
+	view := &AssignmentOwnershipView{AssignmentID: assignmentID, Teams: make([]TeamOwnershipView, 0, len(teams))}
+	for _, t := range teams {
+		files, err := s.repo.ListFileOwnership(ctx, t.ID)
+		if err != nil {
+			return nil, fmt.Errorf("gitlab.GetAssignmentOwnership: %w", err)
+		}
+		view.Teams = append(view.Teams, TeamOwnershipView{TeamID: t.ID, Files: files})
+	}
+	return view, nil
 }
 
-// GetMyProjectContributions returns a team's contribution breakdown for a
-// student who must themselves belong to that team — GetMyProject's
-// membership-scoped lookup gates the read before delegating to the same
-// aggregation query the staff dashboard uses, so a student can never pull
-// another team's contribution rows by guessing a teamID.
-func (s *Service) GetMyProjectContributions(ctx context.Context, orgID, userID, teamID string) (*TeamContributionsView, error) {
-	if _, err := s.repo.GetMyProject(ctx, orgID, userID, teamID); err != nil {
-		return nil, fmt.Errorf("gitlab.GetMyProjectContributions: %w", err)
-	}
-	contributions, err := s.repo.GetTeamContributions(ctx, teamID)
+// GetTeamCheckpoints is GetMyProjectCheckpoints without the per-user
+// membership check — for callers (workspace) that already authorised the
+// caller against the owning project.
+func (s *Service) GetTeamCheckpoints(ctx context.Context, orgID, teamID string) (*MyProjectCheckpointsView, error) {
+	team, err := s.repo.GetTeam(ctx, orgID, teamID)
 	if err != nil {
-		return nil, fmt.Errorf("gitlab.GetMyProjectContributions: %w", err)
+		return nil, fmt.Errorf("gitlab.GetTeamCheckpoints: %w", err)
 	}
-	return &TeamContributionsView{TeamID: teamID, Contributions: contributions}, nil
+	return s.teamCheckpoints(ctx, team, "gitlab.GetTeamCheckpoints")
 }
 
-// GetMyProjectCheckpoints returns every checkpoint under the caller's team's
-// assignment, joined against that team's own submission row — the
-// student-scoped view of a gap staff-only routes.go leaves: a student has no
-// other way to see their team's MR/approval/CI/grade progress. Same
-// membership guard as GetMyProjectContributions: GetMyProject's
-// project_team_members join gates the read before delegating to the
-// aggregation query, so a student can never pull another team's checkpoint
-// rows by guessing a teamID.
-func (s *Service) GetMyProjectCheckpoints(ctx context.Context, orgID, userID, teamID string) (*MyProjectCheckpointsView, error) {
-	team, err := s.repo.GetMyProject(ctx, orgID, userID, teamID)
+func (s *Service) teamCheckpoints(ctx context.Context, team *ProjectTeam, op string) (*MyProjectCheckpointsView, error) {
+	checkpoints, err := s.repo.ListCheckpointsForTeam(ctx, team.AssignmentID, team.ID)
 	if err != nil {
-		return nil, fmt.Errorf("gitlab.GetMyProjectCheckpoints: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-	checkpoints, err := s.repo.ListCheckpointsForTeam(ctx, team.AssignmentID, teamID)
-	if err != nil {
-		return nil, fmt.Errorf("gitlab.GetMyProjectCheckpoints: %w", err)
-	}
-	return &MyProjectCheckpointsView{TeamID: teamID, Checkpoints: checkpoints}, nil
+	return &MyProjectCheckpointsView{TeamID: team.ID, Checkpoints: checkpoints}, nil
 }

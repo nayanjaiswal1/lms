@@ -22,8 +22,8 @@ export async function deleteTimeLogAction(workspaceId: string, logId: string): P
   return apiAction("DELETE", `/api/workspaces/${workspaceId}/time-logs/${logId}`);
 }
 
-export async function provisionGitlabAction(workspaceId: string): Promise<ActionResult<Project>> {
-  const result = await apiAction<Project>("POST", `/api/workspaces/${workspaceId}/gitlab/provision`);
+export async function provisionGitlabAction(workspaceId: string, installationId?: string): Promise<ActionResult<Project>> {
+  const result = await apiAction<Project>("POST", `/api/workspaces/${workspaceId}/gitlab/provision`, installationId ? { installation_id: installationId } : undefined);
   if (result.ok) revalidatePath(ROUTES.workspaceSettings(workspaceId));
   return result;
 }

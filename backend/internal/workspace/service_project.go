@@ -172,39 +172,16 @@ func (s *Service) CreateProject(ctx context.Context, orgID, userID string, req C
 
 	var project *Project
 	err = s.repo.InTx(ctx, func(tx pgx.Tx) error {
-		taken, err := s.repo.KeyPrefixTaken(ctx, tx, orgID, keyPrefix, "")
-		if err != nil {
-			return err
-		}
-		if taken {
-			return ErrKeyPrefixTaken
-		}
-
 		createdBy := userID
-		p, err := s.repo.InsertProject(ctx, tx, Project{
+		p, err := s.insertProjectTx(ctx, tx, userID, Project{
 			OrgID: orgID, Title: title, Requirement: requirement, Skills: skills,
 			TeamSizeMin: req.TeamSizeMin, TeamSizeMax: req.TeamSizeMax, InterestDeadline: req.InterestDeadline,
 			KeyPrefix: keyPrefix, ShareToken: token, GitlabEnabled: gitlabEnabled, SprintsEnabled: sprintsEnabled,
 			CreatedBy: &createdBy,
-		})
+		}, slug)
 		if err != nil {
-			if db.IsUniqueViolation(err) {
-				return ErrKeyPrefixTaken
-			}
-			return fmt.Errorf("workspace: create project: insert: %w", err)
-		}
-		if err := s.repo.UpsertMember(ctx, tx, p.ID, userID, RoleOwner, MemberActive, &createdBy); err != nil {
-			return fmt.Errorf("workspace: create project: owner member: %w", err)
-		}
-		if err := s.repo.InsertRequirementVersion(ctx, tx, p.ID, 1, requirement, userID); err != nil {
 			return err
 		}
-		if _, err := wiki.CreateProjectSpaceTx(ctx, tx, orgID, p.ID, title, slug, userID); err != nil {
-			return fmt.Errorf("workspace: create project: wiki space: %w", err)
-		}
-
-		writeAudit(ctx, tx, orgID, &userID, "project.created", "workspace_project", p.ID,
-			map[string]string{"title": title, "key_prefix": keyPrefix})
 		project = p
 		return nil
 	})
@@ -214,9 +191,40 @@ func (s *Service) CreateProject(ctx context.Context, orgID, userID string, req C
 	return project, nil
 }
 
+// insertProjectTx writes the project row, its owner membership, requirement
+// v1 and wiki space inside tx — shared by CreateProject and CreateCohortWorkspace.
+func (s *Service) insertProjectTx(ctx context.Context, tx pgx.Tx, userID string, in Project, wikiSlug string) (*Project, error) {
+	taken, err := s.repo.KeyPrefixTaken(ctx, tx, in.OrgID, in.KeyPrefix, "")
+	if err != nil {
+		return nil, err
+	}
+	if taken {
+		return nil, ErrKeyPrefixTaken
+	}
+	p, err := s.repo.InsertProject(ctx, tx, in)
+	if err != nil {
+		if db.IsUniqueViolation(err) {
+			return nil, ErrKeyPrefixTaken
+		}
+		return nil, fmt.Errorf("workspace: create project: insert: %w", err)
+	}
+	if err := s.repo.UpsertMember(ctx, tx, p.ID, userID, RoleOwner, MemberActive, &userID); err != nil {
+		return nil, fmt.Errorf("workspace: create project: owner member: %w", err)
+	}
+	if err := s.repo.InsertRequirementVersion(ctx, tx, p.ID, 1, in.Requirement, userID); err != nil {
+		return nil, err
+	}
+	if _, err := wiki.CreateProjectSpaceTx(ctx, tx, in.OrgID, p.ID, in.Title, wikiSlug, userID); err != nil {
+		return nil, fmt.Errorf("workspace: create project: wiki space: %w", err)
+	}
+	writeAudit(ctx, tx, in.OrgID, &userID, "project.created", "workspace_project", p.ID,
+		map[string]string{"title": in.Title, "key_prefix": in.KeyPrefix})
+	return p, nil
+}
+
 // ListProjects returns every project the caller is an active member of, or
 // (with projects.oversee) every project in the org.
-func (s *Service) ListProjects(ctx context.Context, orgID, userID, cursor string, limit int) (Page[ProjectSummary], error) {
+func (s *Service) ListProjects(ctx context.Context, orgID, userID, cohortID, cursor string, limit int) (Page[ProjectSummary], error) {
 	limit = clampLimit(limit)
 	cursorAt, cursorID, err := pagination.DecodeCursor(cursor, "workspace")
 	if err != nil {
@@ -226,7 +234,7 @@ func (s *Service) ListProjects(ctx context.Context, orgID, userID, cursor string
 	if err != nil {
 		return Page[ProjectSummary]{}, fmt.Errorf("workspace: list projects: check overseer: %w", err)
 	}
-	items, err := s.repo.ListProjects(ctx, orgID, userID, overseer, cursorAt, cursorID, limit+1)
+	items, err := s.repo.ListProjects(ctx, orgID, userID, overseer, cohortID, cursorAt, cursorID, limit+1)
 	if err != nil {
 		return Page[ProjectSummary]{}, err
 	}
@@ -266,7 +274,12 @@ func (s *Service) GetProject(ctx context.Context, pc *ProjectCtx) (*ProjectDetai
 	if err != nil {
 		return nil, err
 	}
+	gl, err := s.repo.GetProjectGitlab(ctx, s.pool, pc.ProjectID)
+	if err != nil {
+		return nil, err
+	}
 	return &ProjectDetail{
+		GitlabWebURL: gl.WebURL, GitlabPagesURL: gl.PagesURL, ProvisionStatus: gl.ProvisionStatus, ProvisionError: gl.ProvisionError,
 		Project: *p, MyRole: pc.Role, IsOverseer: pc.Overseer, MyTrackIDs: myTracks, LedTrackIDs: ledTracks,
 		SeatsUsed: seats, WikiSpaceID: wikiID, WikiSpaceSlug: wikiSlug, OnboardingDone: onboardingDone,
 	}, nil
@@ -471,7 +484,7 @@ func (s *Service) archiveGitlabRepoBestEffort(ctx context.Context, orgID, teamID
 	if team.GitlabProjectID == nil {
 		return
 	}
-	client, err := s.gitlab.ClientForOrg(ctx, orgID)
+	client, err := s.gitlab.ClientForTeam(ctx, orgID, teamID)
 	if err != nil {
 		slog.ErrorContext(ctx, "workspace: archive gitlab repo: resolve client", "team_id", teamID, "error", err)
 		return

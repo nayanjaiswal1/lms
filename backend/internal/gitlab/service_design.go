@@ -106,3 +106,13 @@ func (s *Service) AcceptDesignProposal(ctx context.Context, orgID, proposalID st
 func (s *Service) DeleteDesignProposal(ctx context.Context, orgID, userID, id string) error {
 	return s.repo.DeleteDesignProposal(ctx, orgID, id, userID)
 }
+
+// ProposalTeamID returns the team a proposal belongs to, so callers that
+// scope by another aggregate (workspace) can verify ownership.
+func (s *Service) ProposalTeamID(ctx context.Context, orgID, proposalID string) (string, error) {
+	p, err := s.repo.GetDesignProposal(ctx, orgID, proposalID)
+	if err != nil {
+		return "", fmt.Errorf("gitlab.ProposalTeamID: %w", err)
+	}
+	return p.TeamID, nil
+}

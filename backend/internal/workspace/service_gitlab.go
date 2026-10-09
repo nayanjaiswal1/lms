@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/mindforge/backend/internal/gitlab"
@@ -253,7 +254,7 @@ func (s *Service) attemptMRReviewerSync(ctx context.Context, orgID, teamID, item
 			reviewerGitlabIDs = append(reviewerGitlabIDs, glID)
 		}
 	}
-	client, err := s.gitlab.ClientForOrg(ctx, orgID)
+	client, err := s.gitlab.ClientForTeam(ctx, orgID, teamID)
 	if err != nil {
 		return fmt.Errorf("resolve client: %w", err)
 	}
@@ -268,7 +269,7 @@ func (s *Service) attemptMRReviewerSync(ctx context.Context, orgID, teamID, item
 // ProvisionGitlab is POST …/gitlab/provision (owner, StatusesPlanning,
 // gitlab_enabled): gives the project its own GitLab repo the first time,
 // reusing gitlab.Service's existing team-provisioning machinery.
-func (s *Service) ProvisionGitlab(ctx context.Context, pc *ProjectCtx) (*Project, error) {
+func (s *Service) ProvisionGitlab(ctx context.Context, pc *ProjectCtx, installationID *string) (*Project, error) {
 	if s.gitlab == nil {
 		return nil, fmt.Errorf("%w: gitlab integration is not configured for this deployment", ErrInvalidState)
 	}
@@ -281,6 +282,17 @@ func (s *Service) ProvisionGitlab(ctx context.Context, pc *ProjectCtx) (*Project
 	}
 	if project.TeamID != nil {
 		return nil, ErrConflict
+	}
+	if installationID != nil {
+		if _, err := uuid.Parse(*installationID); err != nil {
+			return nil, &FieldError{Fields: map[string]string{"installation_id": "installation_id must be a valid id."}}
+		}
+		if err := s.gitlab.InstallationExists(ctx, pc.OrgID, *installationID); err != nil {
+			if errors.Is(err, gitlab.ErrNotFound) {
+				return nil, &FieldError{Fields: map[string]string{"installation_id": "Unknown GitLab installation."}}
+			}
+			return nil, fmt.Errorf("workspace: provision gitlab: check installation: %w", err)
+		}
 	}
 
 	members, err := s.repo.ListMembers(ctx, s.pool, pc.ProjectID)
@@ -296,7 +308,7 @@ func (s *Service) ProvisionGitlab(ctx context.Context, pc *ProjectCtx) (*Project
 	}
 
 	slug := generateGitlabSlug(project.KeyPrefix, project.ID)
-	team, err := s.gitlab.ProvisionWorkspaceProject(ctx, pc.OrgID, pc.UserID, project.Title, slug, teamMembers)
+	team, err := s.gitlab.ProvisionWorkspaceProject(ctx, pc.OrgID, pc.UserID, project.Title, slug, installationID, teamMembers)
 	if err != nil {
 		return nil, fmt.Errorf("workspace: provision gitlab: %w", err)
 	}

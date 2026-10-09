@@ -64,7 +64,6 @@ export const PERMISSIONS = {
     MANAGE: "content.moderate",
   },
   PROJECTS: {
-    VIEW:    "projects.view",
     MANAGE:  "projects.manage",
     // Project Workspace (corporate-style project lifecycle) — distinct from
     // the GitLab-assignment VIEW/MANAGE pair above. CREATE grants workspace

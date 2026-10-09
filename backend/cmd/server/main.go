@@ -29,8 +29,6 @@ import (
 	"github.com/mindforge/backend/internal/metrics"
 	"github.com/mindforge/backend/internal/notifications"
 	"github.com/mindforge/backend/internal/opsalert"
-	"github.com/mindforge/backend/internal/profile"
-	"github.com/mindforge/backend/internal/projectmarket"
 	"github.com/mindforge/backend/internal/ratelimit"
 	"github.com/mindforge/backend/internal/rewards"
 	"github.com/mindforge/backend/internal/secrets"
@@ -216,10 +214,6 @@ func main() {
 	notificationsSvcForJobs := notifications.NewService(pool, jobsRegistry)
 	gitlabSvcForJobs := gitlab.NewService(pool, cfg, gitlabVault, jobsRegistry, notificationsSvcForJobs, aiProvider)
 
-	// A standalone projectmarket.Service for the AI scoring job — same
-	// "holds no state beyond shared pointers" reasoning as the others above.
-	projectmarketSvcForJobs := projectmarket.NewService(pool, profile.NewRepo(pool), aiProvider, jobsRegistry, gitlabSvcForJobs, notificationsSvcForJobs)
-
 	// A standalone workspace.Service for the daily purge job, the two Phase 3
 	// reminder jobs, and Phase 4's inactivity_sweep/manager_digest/gitlab_sync
 	// jobs below — Notif and (Phase 4) Gitlab/Jobs are wired in, but
@@ -295,8 +289,6 @@ func main() {
 	jobsRegistry.Register(handlers.HandlerGitlabOriginalityScan, handlers.NewGitlabOriginalityScanHandler(gitlabSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerGitlabHandoff, handlers.NewGitlabHandoffHandler(gitlabSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerGitlabAIReviewMR, handlers.NewGitlabAIReviewMRHandler(gitlabSvcForJobs))
-	jobsRegistry.Register(handlers.HandlerProjectmarketScoreRequirement, handlers.NewProjectmarketScoreRequirementHandler(projectmarketSvcForJobs))
-	jobsRegistry.Register(handlers.HandlerProjectmarketCloseExpired, handlers.NewProjectmarketCloseExpiredHandler(projectmarketSvcForJobs))
 	opsAlertSvc := opsalert.NewService(pool, notificationsSvcForJobs)
 	jobsRegistry.OnAnyDead(opsAlertSvc.OnJobDead)
 	jobsRegistry.Register(handlers.HandlerOpsHealth, handlers.NewOpsHealthHandler(pool, cfg, opsAlertSvc))
@@ -423,10 +415,6 @@ func cronJobs() []jobs.CronJobDef {
 		// timezone, so an hourly tick is what actually gives every
 		// timezone its own local 21:00 from one cron entry.
 		{Handler: handlers.HandlerDigestNightly, Schedule: "0 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
-		// Flips a stale "Open" badge to "Closed" once its application_deadline
-		// passes — Apply already rejects late applications regardless, this
-		// only fixes what staff see on the requirements list.
-		{Handler: handlers.HandlerProjectmarketCloseExpired, Schedule: "*/15 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 		// Project Workspace daily purge (contract-phase1.md Jobs section):
 		// expire invited-but-unresolved interests, then delete/scrub stale
 		// ones (02 §4.7). project_invite_email has no cron entry — it's

@@ -53,10 +53,11 @@ type WorkspaceTeamMember struct {
 // repository under the org's installation, registers the Batch 3 activity
 // webhook, and adds every given member to the roster. Returns the team id —
 // the caller (workspace.Service) persists it onto workspace_projects.team_id.
+// installationID optionally pins a non-default GitLab installation (nil = org default).
 // Idempotent per call site's own guard (workspace only calls this once, when
 // team_id is still nil); a second call would create a second team, which the
 // caller must not do.
-func (s *Service) ProvisionWorkspaceProject(ctx context.Context, orgID, userID, title, slug string, members []WorkspaceTeamMember) (*ProjectTeam, error) {
+func (s *Service) ProvisionWorkspaceProject(ctx context.Context, orgID, userID, title, slug string, installationID *string, members []WorkspaceTeamMember) (*ProjectTeam, error) {
 	batchID, err := s.EnsureWorkspaceBatch(ctx, orgID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("gitlab: provision workspace project: ensure batch: %w", err)
@@ -65,7 +66,7 @@ func (s *Service) ProvisionWorkspaceProject(ctx context.Context, orgID, userID, 
 	assignment, err := s.repo.CreateAssignment(ctx, ProjectAssignment{
 		OrgID: orgID, BatchID: batchID, Title: title, Slug: slug,
 		Visibility: VisibilityPrivate, RequiredApprovals: 1, DefaultBranch: "main",
-		CreatedBy: userID,
+		CreatedBy: userID, InstallationID: installationID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("gitlab: provision workspace project: create assignment: %w", err)

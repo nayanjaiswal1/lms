@@ -18,7 +18,7 @@ Where they disagree, **this file wins**. It also overrides [../project-workspace
 
 01 wanted to extend `project_requirements`; 03 wanted a new table. **New table.**
 - Workspaces never use `project_applications` (interests are the only intake), so extending buys nothing but two status columns kept in sync by a CHECK, plus a filter on the legacy board.
-- Marketplace (`projectmarket`) stays untouched.
+- Marketplace (`projectmarket`) stays untouched. _(Superseded: the marketplace was later merged into Workspaces and `projectmarket` was deleted.)_
 - Name `projects` is taken (026) → `workspace_projects`. The raw requirement is its own `requirement text` column (current version) with history in `requirement_versions`.
 - **Apply to 01's DDL:** rename `project_requirements` → `workspace_projects` for all new FKs (`project_id → workspace_projects(id)`); drop the `status`/`project_status` sync CHECK and the `project_status IS NULL` legacy rule; everything else in 01 (composite FKs, citext, partial indexes, `lock_timeout`) stands.
 
@@ -27,6 +27,10 @@ Where they disagree, **this file wins**. It also overrides [../project-workspace
 01 flagged that dropping `project_tasks` forces a synthetic workspace per classroom team. **Keep `project_tasks` for the classroom/batch product.** Workspace `work_items` start empty.
 - Migrations 038/039 from 01 are **removed**.
 - Only the planning fixtures (`handler_planning.go`, `planningdata/*.json`) are replaced by work-item reads.
+
+## D2a. Cohorts share one GitLab assignment (added after the plan)
+
+A cohort is one `project_assignments` row shared by several workspaces' teams (`workspace_projects.cohort_id`, migration 070). Teams in a cohort use the same template, checkpoints, originality scans and dashboards. This supersedes the earlier assumption that each workspace team needs its own assignment (see D2 on `project_tasks`, which is unaffected). Current surfaces: [project-workspace.md](../project-workspace.md) §21.1.
 
 ## D3. Routes
 
@@ -142,4 +146,4 @@ Renumber if another branch claims 036 first.
 
 ## D20. AI exceptions
 
-Assignee suggestion is **not** cached (live WIP) — rate-limited instead. Interest ranking runs only when the owner clicks "rank", never on submit. Existing `projectmarket/service_score.go` gets the same prompt-delimiting fix in Phase 1b.
+Assignee suggestion is **not** cached (live WIP) — rate-limited instead. Interest ranking runs only when the owner clicks "rank", never on submit. Existing `projectmarket/service_score.go` gets the same prompt-delimiting fix in Phase 1b. _(Moot: `projectmarket` was deleted; the workspace ranking path is `RankInterest`.)_

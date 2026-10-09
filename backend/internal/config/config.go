@@ -483,6 +483,7 @@ func Load() *Config {
 		AssigneeSuggestPerMinute: getEnvInt("WORKSPACE_ASSIGNEE_SUGGEST_PER_MINUTE", 1),
 		SummaryRegenPerDay:       getEnvInt("WORKSPACE_SUMMARY_REGEN_PER_DAY", 3),
 		ExportPerUserHour:        getEnvInt("WORKSPACE_EXPORT_PER_USER_HOUR", 10),
+		HandoffPerProjectDay:     getEnvInt("WORKSPACE_HANDOFF_PER_PROJECT_DAY", 5),
 	}
 	cfg.EmailBreakerThreshold = getEnvInt("EMAIL_BREAKER_THRESHOLD", 5)
 	cfg.EmailBreakerCooldown = parseDuration("EMAIL_BREAKER_COOLDOWN", "2m")
@@ -903,4 +904,5 @@ type WorkspaceLimits struct {
 	AssigneeSuggestPerMinute int
 	SummaryRegenPerDay       int
 	ExportPerUserHour        int
+	HandoffPerProjectDay     int
 }

@@ -86,21 +86,14 @@ const ROUTES = {
   BATCHES:                 "/batches",
   COHORT_GROUPS:           "/cohort-groups",
 
-  // GitLab project assignments & teams (instructor/admin management)
-  PROJECTS:                "/projects",
-  PROJECTS_NEW:            "/projects/new",
-
-  // Project marketplace (Phase A, Slice 1): staff-managed requirement postings
-  // and the open board any org member browses/applies to.
-  PROJECTS_REQUIREMENTS:     "/projects/requirements",
-  PROJECTS_REQUIREMENTS_NEW: "/projects/requirements/new",
-  PROJECTS_BOARD:            "/projects/board",
-
   // Project Workspace — corporate-style project lifecycle (distinct from the
   // GitLab-assignment PROJECTS_* routes above and the marketplace PROJECTS_*
   // routes below them).
   WORKSPACES:     "/workspaces",
   WORKSPACES_NEW: "/workspaces/new",
+  WORKSPACES_COHORTS:     "/workspaces/cohorts",
+  WORKSPACES_COHORTS_NEW: "/workspaces/cohorts/new",
+  WORKSPACES_DISCOVER:    "/workspaces/discover",
 
   // Assessments — student
   ASSESSMENTS:         "/assessments",
@@ -213,11 +206,6 @@ const ROUTES = {
   batchImport:              (id: string)                        => `/batches/${id}/import`,
   batchTests:               (id: string)                        => `/batches/${id}/tests`,
   cohortGroup:              (id: string)                        => `/cohort-groups/${id}`,
-  projectAssignment:        (id: string)                        => `/projects/${id}`,
-  myProject:                (teamId: string)                    => `/projects/team/${teamId}`,
-  teamShowcase:             (teamId: string)                    => `/projects/team/${teamId}/showcase`,
-  projectRequirement:       (id: string)                        => `/projects/requirements/${id}`,
-  boardRequirement:         (id: string)                        => `/projects/board/${id}`,
   assessmentEdit:           (id: string)                        => `/assessments/${id}/edit`,
   assessmentEditBatches:    (id: string)                        => `/assessments/${id}/edit/batches`,
   assessmentEditSettings:   (id: string)                        => `/assessments/${id}/edit/settings`,
@@ -278,6 +266,8 @@ const ROUTES = {
 
   // Project Workspace
   workspace:              (id: string) => `/workspaces/${id}`,
+  workspaceCohort:        (id: string) => `/workspaces/cohorts/${id}`,
+  workspaceCheckpoints:   (id: string) => `/workspaces/${id}/checkpoints`,
   workspaceInterests:     (id: string) => `/workspaces/${id}/interests`,
   workspaceMembers:       (id: string) => `/workspaces/${id}/members`,
   workspaceTracks:        (id: string) => `/workspaces/${id}/tracks`,

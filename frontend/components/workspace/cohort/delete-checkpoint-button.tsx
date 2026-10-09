@@ -1,0 +1,49 @@
+"use client";
+
+import * as React from "react";
+import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { deleteCohortCheckpointAction } from "@/lib/workspace/cohort-actions";
+
+interface DeleteCheckpointButtonProps {
+  checkpointId: string;
+  assignmentId: string;
+  title: string;
+}
+
+export function DeleteCheckpointButton({ checkpointId, assignmentId, title }: DeleteCheckpointButtonProps) {
+  const [pending, setPending] = React.useState(false);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
+
+  async function handleDelete() {
+    setPending(true);
+    const result = await deleteCohortCheckpointAction(checkpointId, assignmentId);
+    setPending(false);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success("Checkpoint deleted.");
+  }
+
+  return (
+    <>
+      <Button aria-label={`Delete ${title}`} disabled={pending} size="icon" variant="ghost" onClick={() => setConfirmOpen(true)}>
+        <Trash2 aria-hidden className="h-4 w-4 text-destructive" />
+      </Button>
+      <ConfirmDialog
+        destructive
+        confirmLabel="Delete"
+        description={`This permanently deletes the "${title}" checkpoint and every team's progress on it.`}
+        open={confirmOpen}
+        pending={pending}
+        title="Delete checkpoint?"
+        onConfirm={handleDelete}
+        onOpenChange={setConfirmOpen}
+      />
+    </>
+  );
+}

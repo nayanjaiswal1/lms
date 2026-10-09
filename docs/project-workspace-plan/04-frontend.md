@@ -6,10 +6,10 @@ Source design: [../project-workspace.md](../project-workspace.md). Planning only
 
 ## 0. Grounding / architecture decision
 
-`project-workspace.md` §1 reuses `project_requirements` + `project_applications` + `projectmarket/service_score.go` — the same tables the shipped marketplace Phase A uses (`app/(app)/projects/**`, `lib/projects/server.ts`, `lib/projects/types.ts`, `components/projects/**`). **Decision: extend the existing `projects` feature, do not fork a new one.**
+Historical (superseded): the original plan reused `project_requirements` + `project_applications` + `projectmarket/service_score.go` from the marketplace Phase A. The marketplace was merged into Workspaces and `projectmarket` plus the Projects UI (`app/(app)/projects/**`, `lib/projects/**`, `components/projects/**`) were deleted; `/projects*` redirects to `/workspaces`. The shipped feature is `workspace_projects`, per 00-decisions D1.
 
-- Existing marketplace routes/components stay untouched (`/projects`, `/projects/board`, `/projects/team/[teamId]`, `/projects/[assignmentId]`).
-- New workspace routes nest under `/projects/requirements/[requirementId]/...` — that segment (`app/(app)/projects/requirements/[requirementId]/page.tsx`) becomes "Project Home" and grows child routes.
+- ~~Existing marketplace routes/components stay untouched (`/projects`, `/projects/board`, `/projects/team/[teamId]`, `/projects/[assignmentId]`).~~ Superseded: those routes were removed; `/projects*` redirects to `/workspaces`.
+- ~~New workspace routes nest under `/projects/requirements/[requirementId]/...`~~ Superseded by D3: routes are `/workspaces/[id]/…`.
 - New public share page: `app/(public)/p/[token]/page.tsx`, following `app/(public)/hire/[code]/page.tsx` (unauthenticated, `notFound()` on failure, `generateMetadata` from public payload).
 - New components in `components/projects/workspace/` (same top-level feature — no cross-feature boundary edge).
 - Server fetchers appended to `lib/projects/server.ts`, types to `lib/projects/types.ts`.
@@ -30,7 +30,7 @@ Reused UI confirmed in code:
 |---|---|---|---|---|
 | 1 | `/p/[token]` | Server, `(public)` | `GET /api/p/{token}` | `notFound()` on 404/closed; no auth |
 | 2 | `/p/[token]` form | Client island | `POST /api/p/{token}/interest` | `public-interest-form.tsx`; honeypot; `useFormStatus()`. Needs a public (no-cookie) action helper in `lib/server/api.ts` |
-| 3 | `/projects/requirements/[id]` | Server | project, status, health, needs-attention | Existing page extended into Project Home; legacy rows keep old rendering |
+| 3 | `/workspaces/[id]` (was `/projects/requirements/[id]`) | Server | project, status, health, needs-attention | Project Home; the old marketplace route is removed |
 | 4 | `…/interests` | Server + client | interests (paginated) | Owner/manager; adapted from `application-review-list.tsx` |
 | 5 | `…/onboarding` | Server | steps + progress | Manager sees per-member %, member sees own |
 | 6 | `…/requirement` | Server + client | raw requirement, versions, questions | Flow B2 Q&A with inline duplicate check |
@@ -48,7 +48,7 @@ Reused UI confirmed in code:
 | 18 | `…/feedback` | Server + client | peer feedback | Owner sees per-rating; member aggregate only (≥3) |
 | 19 | `…/settings` | Server | settings | Owner only; each control gated |
 
-UI copy: "Marketplace board" (`/projects/board`) vs "Backlog board" (`…/[id]/board`) — never just "board".
+UI copy: "Backlog board" (`/workspaces/[id]/board`) — never just "board". The former "Marketplace board" (`/projects/board`) is removed.
 
 ## 2. Project-role hook (new)
 

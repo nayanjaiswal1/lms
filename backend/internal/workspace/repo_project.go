@@ -12,7 +12,7 @@ import (
 
 const projectColumns = `id, org_id, title, requirement, requirement_version, skills, team_size_min, team_size_max,
 	interest_deadline, key_prefix, project_status, brief_status, share_token, share_token_rotated_at,
-	accepting_interests, brief_wiki_page_id, team_id, gitlab_enabled, sprints_enabled, wip_limit, item_seq,
+	accepting_interests, brief_wiki_page_id, team_id, cohort_id, gitlab_enabled, sprints_enabled, wip_limit, item_seq,
 	health_thresholds, activated_at, brief_agreed_at, completed_at, feedback_closes_at, created_by, created_at, updated_at`
 
 func scanProject(row pgx.Row) (*Project, error) {
@@ -21,7 +21,7 @@ func scanProject(row pgx.Row) (*Project, error) {
 	err := row.Scan(
 		&p.ID, &p.OrgID, &p.Title, &p.Requirement, &p.RequirementVersion, &p.Skills, &p.TeamSizeMin, &p.TeamSizeMax,
 		&p.InterestDeadline, &p.KeyPrefix, &p.ProjectStatus, &p.BriefStatus, &p.ShareToken, &p.ShareTokenRotatedAt,
-		&p.AcceptingInterests, &p.BriefWikiPageID, &p.TeamID, &p.GitlabEnabled, &p.SprintsEnabled, &p.WipLimit, &p.ItemSeq,
+		&p.AcceptingInterests, &p.BriefWikiPageID, &p.TeamID, &p.CohortID, &p.GitlabEnabled, &p.SprintsEnabled, &p.WipLimit, &p.ItemSeq,
 		&health, &p.ActivatedAt, &p.BriefAgreedAt, &p.CompletedAt, &p.FeedbackClosesAt, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
@@ -49,11 +49,11 @@ func (r *Repo) InsertProject(ctx context.Context, db DBTX, p Project) (*Project,
 	row := db.QueryRow(ctx,
 		`INSERT INTO workspace_projects
 			(org_id, title, requirement, skills, team_size_min, team_size_max, interest_deadline,
-			 key_prefix, share_token, gitlab_enabled, sprints_enabled, created_by)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+			 key_prefix, share_token, gitlab_enabled, sprints_enabled, created_by, team_id, cohort_id)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 		 RETURNING `+projectColumns,
 		p.OrgID, p.Title, p.Requirement, skills, p.TeamSizeMin, p.TeamSizeMax, p.InterestDeadline,
-		p.KeyPrefix, p.ShareToken, p.GitlabEnabled, p.SprintsEnabled, p.CreatedBy,
+		p.KeyPrefix, p.ShareToken, p.GitlabEnabled, p.SprintsEnabled, p.CreatedBy, p.TeamID, p.CohortID,
 	)
 	return scanProject(row)
 }
@@ -86,7 +86,7 @@ func (r *Repo) GetProjectOrgID(ctx context.Context, db DBTX, projectID string) (
 // have an ambiguous "id" between the two tables.
 const projectColumnsQualified = `p.id, p.org_id, p.title, p.requirement, p.requirement_version, p.skills, p.team_size_min, p.team_size_max,
 	p.interest_deadline, p.key_prefix, p.project_status, p.brief_status, p.share_token, p.share_token_rotated_at,
-	p.accepting_interests, p.brief_wiki_page_id, p.team_id, p.gitlab_enabled, p.sprints_enabled, p.wip_limit, p.item_seq,
+	p.accepting_interests, p.brief_wiki_page_id, p.team_id, p.cohort_id, p.gitlab_enabled, p.sprints_enabled, p.wip_limit, p.item_seq,
 	p.health_thresholds, p.activated_at, p.brief_agreed_at, p.completed_at, p.feedback_closes_at, p.created_by, p.created_at, p.updated_at`
 
 // GetProjectByShareToken resolves the public share page's project, plus its
@@ -102,7 +102,7 @@ func (r *Repo) GetProjectByShareToken(ctx context.Context, db DBTX, shareToken s
 	).Scan(
 		&p.ID, &p.OrgID, &p.Title, &p.Requirement, &p.RequirementVersion, &p.Skills, &p.TeamSizeMin, &p.TeamSizeMax,
 		&p.InterestDeadline, &p.KeyPrefix, &p.ProjectStatus, &p.BriefStatus, &p.ShareToken, &p.ShareTokenRotatedAt,
-		&p.AcceptingInterests, &p.BriefWikiPageID, &p.TeamID, &p.GitlabEnabled, &p.SprintsEnabled, &p.WipLimit, &p.ItemSeq,
+		&p.AcceptingInterests, &p.BriefWikiPageID, &p.TeamID, &p.CohortID, &p.GitlabEnabled, &p.SprintsEnabled, &p.WipLimit, &p.ItemSeq,
 		&health, &p.ActivatedAt, &p.BriefAgreedAt, &p.CompletedAt, &p.FeedbackClosesAt, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
 		&orgName,
 	)
@@ -133,7 +133,7 @@ func (r *Repo) LockProject(ctx context.Context, tx pgx.Tx, projectID string) (*P
 func (r *Repo) KeyPrefixTaken(ctx context.Context, db DBTX, orgID, prefix, excludeProjectID string) (bool, error) {
 	var taken bool
 	err := db.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM workspace_projects WHERE org_id = $1 AND key_prefix = $2 AND id <> $3)`,
+		`SELECT EXISTS(SELECT 1 FROM workspace_projects WHERE org_id = $1 AND key_prefix = $2 AND ($3 = '' OR id::text <> $3))`,
 		orgID, prefix, excludeProjectID,
 	).Scan(&taken)
 	if err != nil {
@@ -296,36 +296,40 @@ func (r *Repo) UpdateRequirementText(ctx context.Context, db DBTX, projectID, te
 const projectSummaryColumns = `p.id, p.title, p.key_prefix, p.project_status, p.brief_status,
 	COALESCE(pm.role, 'owner') AS my_role,
 	(SELECT count(*) FROM project_members m2 WHERE m2.project_id = p.id AND m2.status = 'active') AS member_count,
-	p.team_size_max, p.created_at`
+	p.team_size_max, p.created_at, p.team_id, pt.provision_status`
 
 func scanProjectSummary(row pgx.Row) (ProjectSummary, error) {
 	var s ProjectSummary
-	err := row.Scan(&s.ID, &s.Title, &s.KeyPrefix, &s.ProjectStatus, &s.BriefStatus, &s.MyRole, &s.MemberCount, &s.TeamSizeMax, &s.CreatedAt)
+	err := row.Scan(&s.ID, &s.Title, &s.KeyPrefix, &s.ProjectStatus, &s.BriefStatus, &s.MyRole, &s.MemberCount, &s.TeamSizeMax, &s.CreatedAt, &s.TeamID, &s.ProvisionStatus)
 	return s, err
 }
 
 // ListProjects returns every project the caller is an active member of; when
 // overseer is true (projects.oversee), every project in the org instead.
-func (r *Repo) ListProjects(ctx context.Context, orgID, userID string, overseer bool, cursorAt time.Time, cursorID string, limit int) ([]ProjectSummary, error) {
+func (r *Repo) ListProjects(ctx context.Context, orgID, userID string, overseer bool, cohortID string, cursorAt time.Time, cursorID string, limit int) ([]ProjectSummary, error) {
 	var rows pgx.Rows
 	var err error
 	if cursorID == "" {
 		rows, err = r.pool.Query(ctx,
 			`SELECT `+projectSummaryColumns+`
 			   FROM workspace_projects p
+			   LEFT JOIN project_teams pt ON pt.id = p.team_id
 			   LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = $2 AND pm.status = 'active'
 			  WHERE p.org_id = $1 AND ($3::boolean OR pm.user_id IS NOT NULL)
+			    AND ($5 = '' OR p.cohort_id::text = $5)
 			  ORDER BY p.created_at ASC, p.id ASC LIMIT $4`,
-			orgID, userID, overseer, limit)
+			orgID, userID, overseer, limit, cohortID)
 	} else {
 		rows, err = r.pool.Query(ctx,
 			`SELECT `+projectSummaryColumns+`
 			   FROM workspace_projects p
+			   LEFT JOIN project_teams pt ON pt.id = p.team_id
 			   LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = $2 AND pm.status = 'active'
 			  WHERE p.org_id = $1 AND ($3::boolean OR pm.user_id IS NOT NULL)
+			    AND ($7 = '' OR p.cohort_id::text = $7)
 			    AND (p.created_at, p.id) > ($5, $6)
 			  ORDER BY p.created_at ASC, p.id ASC LIMIT $4`,
-			orgID, userID, overseer, limit, cursorAt, cursorID)
+			orgID, userID, overseer, limit, cursorAt, cursorID, cohortID)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("workspace: list projects: %w", err)
@@ -349,6 +353,7 @@ func (r *Repo) ListInvitations(ctx context.Context, db DBTX, orgID, userID strin
 	rows, err := db.Query(ctx,
 		`SELECT `+projectSummaryColumns+`
 		   FROM workspace_projects p
+		   LEFT JOIN project_teams pt ON pt.id = p.team_id
 		   JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = $2 AND pm.status = 'invited'
 		  WHERE p.org_id = $1
 		  ORDER BY p.created_at DESC`,
@@ -367,4 +372,23 @@ func (r *Repo) ListInvitations(ctx context.Context, db DBTX, orgID, userID strin
 		out = append(out, s)
 	}
 	return out, rows.Err()
+}
+
+// GitlabInfo is the provisioned gitlab project behind a workspace's team.
+type GitlabInfo struct {
+	WebURL, PagesURL, ProvisionStatus, ProvisionError *string
+}
+
+// GetProjectGitlab returns the project_teams gitlab fields for a workspace;
+// all nil when it has no team.
+func (r *Repo) GetProjectGitlab(ctx context.Context, db DBTX, projectID string) (GitlabInfo, error) {
+	var g GitlabInfo
+	err := db.QueryRow(ctx,
+		`SELECT t.gitlab_web_url, t.pages_url, t.provision_status, t.provision_error
+		   FROM workspace_projects p JOIN project_teams t ON t.id = p.team_id WHERE p.id = $1`,
+		projectID).Scan(&g.WebURL, &g.PagesURL, &g.ProvisionStatus, &g.ProvisionError)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return g, fmt.Errorf("workspace: get project gitlab: %w", err)
+	}
+	return g, nil
 }

@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PlusCircle } from "lucide-react";
+import { Compass, PlusCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
 import { InvitationList } from "@/components/workspace/invitation-list";
+import { WithdrawInterestButton } from "@/components/workspace/withdraw-interest-button";
+import { listMyWorkspaceInterests } from "@/lib/workspace/discover-server";
 import { getMyPermissions } from "@/lib/server/permissions";
 import { listMyWorkspaceInvitations, listWorkspaces } from "@/lib/workspace/server";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
@@ -17,10 +19,11 @@ export const metadata: Metadata = {
 };
 
 export default async function WorkspacesPage() {
-  const [permissions, page, invitations] = await Promise.all([
+  const [permissions, page, invitations, interests] = await Promise.all([
     getMyPermissions(),
     listWorkspaces(undefined, 50),
     listMyWorkspaceInvitations(),
+    listMyWorkspaceInterests(),
   ]);
   const canCreate = permissions.includes(PERMISSIONS.PROJECTS.CREATE);
 
@@ -31,17 +34,46 @@ export default async function WorkspacesPage() {
           <h1 className="page-title">Workspaces</h1>
           <p className="text-muted-foreground">Corporate-style projects — briefs, teams, tracks, and delivery.</p>
         </div>
-        {canCreate && (
-          <Button asChild className="gap-2">
-            <Link href={ROUTES.WORKSPACES_NEW}>
-              <PlusCircle aria-hidden className="h-4 w-4" />
-              New workspace
+        <div className="flex flex-wrap gap-2">
+          <Button asChild className="gap-2" variant="outline">
+            <Link href={ROUTES.WORKSPACES_DISCOVER}>
+              <Compass aria-hidden className="h-4 w-4" />
+              Discover projects
             </Link>
           </Button>
-        )}
+          {canCreate && (
+            <Button asChild className="gap-2">
+              <Link href={ROUTES.WORKSPACES_NEW}>
+                <PlusCircle aria-hidden className="h-4 w-4" />
+                New workspace
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       <InvitationList invitations={invitations} />
+
+      {interests.length > 0 && (
+        <section className="mt-6">
+          <h2 className="section-title">My interests</h2>
+          <ul className="mt-3 divide-y divide-border">
+            {interests.map((i) => (
+              <li className="flex items-center justify-between gap-3 py-2" key={i.id}>
+                <div className="min-w-0">
+                  <Link className="truncate font-medium hover:underline" href={ROUTES.workspace(i.workspace_id)}>
+                    {i.workspace_title}
+                  </Link>
+                  <Badge className="ml-2" variant="outline">
+                    {i.status}
+                  </Badge>
+                </div>
+                {i.status === "new" && <WithdrawInterestButton workspaceId={i.workspace_id} />}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {page.items.length === 0 ? (
         <div className="empty-state">

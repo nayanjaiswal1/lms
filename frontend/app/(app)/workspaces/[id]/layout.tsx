@@ -43,7 +43,7 @@ export default async function WorkspaceLayout({ params, children }: LayoutProps)
         myTrackIds={workspace.my_track_ids}
         role={workspace.my_role}
       >
-        <WorkspaceTabs sprintsEnabled={workspace.sprints_enabled} workspaceId={id} />
+        <WorkspaceTabs hasCohort={workspace.cohort_id !== null} sprintsEnabled={workspace.sprints_enabled} workspaceId={id} />
         {children}
       </ProjectRoleProvider>
     </main>

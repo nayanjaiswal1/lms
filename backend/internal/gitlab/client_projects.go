@@ -19,6 +19,24 @@ type Project struct {
 	Visibility        string `json:"visibility"`
 	DefaultBranch     string `json:"default_branch"`
 	ImportStatus      string `json:"import_status"`
+	Archived          bool   `json:"archived"`
+}
+
+// Namespace is the subset of GET /namespaces/:id the handoff check needs.
+type Namespace struct {
+	ID       int64  `json:"id"`
+	FullPath string `json:"full_path"`
+}
+
+// GetNamespace calls GET /namespaces/:id. Used with a member's own token it
+// succeeds only for namespaces that member can see, which is how a handoff
+// target is proven to belong to them.
+func (c *Client) GetNamespace(ctx context.Context, namespaceID int64) (*Namespace, error) {
+	var ns Namespace
+	if err := c.do(ctx, http.MethodGet, fmt.Sprintf("/namespaces/%d", namespaceID), nil, &ns); err != nil {
+		return nil, fmt.Errorf("gitlab: get namespace %d: %w", namespaceID, err)
+	}
+	return &ns, nil
 }
 
 // GetProject fetches a project by numeric ID — used both to resolve a
@@ -130,6 +148,16 @@ func (c *Client) ArchiveProject(ctx context.Context, projectID int64) (*Project,
 	var p Project
 	if err := c.do(ctx, http.MethodPost, fmt.Sprintf("/projects/%d/archive", projectID), nil, &p); err != nil {
 		return nil, fmt.Errorf("gitlab: archive project %d: %w", projectID, err)
+	}
+	return &p, nil
+}
+
+// UnarchiveProject calls POST /projects/:id/unarchive — the inverse of
+// ArchiveProject, used before a handoff of a completed workspace's repo.
+func (c *Client) UnarchiveProject(ctx context.Context, projectID int64) (*Project, error) {
+	var p Project
+	if err := c.do(ctx, http.MethodPost, fmt.Sprintf("/projects/%d/unarchive", projectID), nil, &p); err != nil {
+		return nil, fmt.Errorf("gitlab: unarchive project %d: %w", projectID, err)
 	}
 	return &p, nil
 }

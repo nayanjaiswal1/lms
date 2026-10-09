@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/notifications"
@@ -18,6 +19,72 @@ const jobHandoff = "gitlab.handoff"
 
 const handoffTimeoutMS = 180000
 
+// ValidateHandoffRequest checks the request shape (no I/O) and returns
+// per-field messages; empty means valid. Shared by the staff route and the
+// workspace owner route so both validate before any GitLab side effect.
+func ValidateHandoffRequest(req HandoffRequest) map[string]string {
+	fields := map[string]string{}
+	if req.UserID == "" {
+		fields["user_id"] = "A user_id is required."
+	}
+	if req.Mode != HandoffModeFork && req.Mode != HandoffModeTransfer {
+		fields["mode"] = "mode must be 'fork' or 'transfer'."
+	}
+	if req.TargetNamespaceID <= 0 {
+		fields["target_namespace_id"] = "A target_namespace_id is required."
+	}
+	return fields
+}
+
+// userClientFor resolves a member's own GitLab connection into an API client
+// against the org's default installation (personal connections are scoped to
+// one host per org). ErrNotFound when the member has not connected GitLab.
+func (s *Service) userClientFor(ctx context.Context, orgID, userID string) (*Client, error) {
+	inst, err := s.repo.GetDefaultInstallation(ctx, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("gitlab.userClientFor: %w", err)
+	}
+	conn, err := s.repo.GetConnection(ctx, orgID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("gitlab.userClientFor: %w", err)
+	}
+	token, err := s.vault.Decrypt(conn.AccessTokenEnc)
+	if err != nil {
+		return nil, fmt.Errorf("gitlab: decrypt connection token: %w", err)
+	}
+	return NewClient(inst.BaseURL, string(token)), nil
+}
+
+// ClientForTeam resolves the GitLab client of the team's assignment
+// installation â€” never the org default, which may be a different host.
+func (s *Service) ClientForTeam(ctx context.Context, orgID, teamID string) (*Client, error) {
+	team, err := s.repo.GetTeam(ctx, orgID, teamID)
+	if err != nil {
+		return nil, fmt.Errorf("gitlab: client for team: %w", err)
+	}
+	return s.clientForTeam(ctx, orgID, team.AssignmentID)
+}
+
+// verifyHandoffNamespace proves the target namespace is visible to the
+// recipient by looking it up with their own GitLab token.
+func (s *Service) verifyHandoffNamespace(ctx context.Context, orgID, userID string, namespaceID int64) error {
+	client, err := s.userClientFor(ctx, orgID, userID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return fmt.Errorf("%w: the recipient has not connected a GitLab account", ErrConflict)
+		}
+		return err
+	}
+	if _, err := client.GetNamespace(ctx, namespaceID); err != nil {
+		var apiErr *APIError
+		if errors.As(err, &apiErr) && (apiErr.StatusCode == http.StatusNotFound || apiErr.StatusCode == http.StatusForbidden) {
+			return fmt.Errorf("%w: target namespace %d is not accessible to the recipient's GitLab account", ErrConflict, namespaceID)
+		}
+		return err
+	}
+	return nil
+}
+
 // RequestHandoff validates the request and creates/resets a project_handoffs
 // row, then enqueues gitlab.handoff — one job per (team, user), per
 // kind-herding-cookie.md §3's job table. No idempotency key: unlike the
@@ -26,8 +93,8 @@ const handoffTimeoutMS = 180000
 // explicit retry should always get a fresh attempt, never silently no-op
 // against a stale key).
 func (s *Service) RequestHandoff(ctx context.Context, orgID, teamID string, req HandoffRequest) (*ProjectHandoff, error) {
-	if req.Mode != HandoffModeFork && req.Mode != HandoffModeTransfer {
-		return nil, fmt.Errorf("gitlab: request handoff: %w: mode must be %q or %q", ErrConflict, HandoffModeFork, HandoffModeTransfer)
+	if fields := ValidateHandoffRequest(req); len(fields) > 0 {
+		return nil, fmt.Errorf("gitlab: request handoff: %w: invalid handoff request: %v", ErrConflict, fields)
 	}
 	team, err := s.repo.GetTeam(ctx, orgID, teamID)
 	if err != nil {
@@ -43,10 +110,11 @@ func (s *Service) RequestHandoff(ctx context.Context, orgID, teamID string, req 
 		return nil, fmt.Errorf("gitlab: request handoff: %w", err)
 	}
 
-	var targetNamespaceID *int64
-	if req.TargetNamespaceID != 0 {
-		targetNamespaceID = &req.TargetNamespaceID
+	if err := s.verifyHandoffNamespace(ctx, orgID, req.UserID, req.TargetNamespaceID); err != nil {
+		return nil, fmt.Errorf("gitlab: request handoff: %w", err)
 	}
+
+	targetNamespaceID := &req.TargetNamespaceID
 	var targetNamespacePath *string
 	if req.TargetNamespacePath != "" {
 		targetNamespacePath = &req.TargetNamespacePath
@@ -122,6 +190,18 @@ func (s *Service) runHandoffSteps(ctx context.Context, handoff *ProjectHandoff) 
 	if err != nil {
 		return 0, "", fmt.Errorf("resolve installation client: %w", err)
 	}
+	// A completed workspace's repo is archived (read-only); lift that only now,
+	// after request validation, right before the move/fork.
+	src, err := client.GetProject(ctx, *team.GitlabProjectID)
+	if err != nil {
+		return 0, "", fmt.Errorf("get source project: %w", err)
+	}
+	wasArchived := src.Archived
+	if wasArchived {
+		if _, err := client.UnarchiveProject(ctx, *team.GitlabProjectID); err != nil {
+			return 0, "", fmt.Errorf("unarchive source project: %w", err)
+		}
+	}
 
 	switch handoff.Mode {
 	case HandoffModeTransfer:
@@ -153,6 +233,12 @@ func (s *Service) runHandoffSteps(ctx context.Context, handoff *ProjectHandoff) 
 		}
 		if err := s.pollImportFinished(ctx, client, fork.ID); err != nil {
 			return 0, "", fmt.Errorf("wait for fork import: %w", err)
+		}
+		// The source stays the team's read-only record: restore what completion did.
+		if wasArchived {
+			if _, err := client.ArchiveProject(ctx, *team.GitlabProjectID); err != nil {
+				slog.WarnContext(ctx, "gitlab: handoff: re-archive source failed", "team_id", team.ID, "error", err)
+			}
 		}
 		return fork.ID, fork.WebURL, nil
 

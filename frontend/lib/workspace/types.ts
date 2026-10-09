@@ -83,6 +83,8 @@ export interface ProjectSummary {
   member_count: number;
   team_size_max: number;
   created_at: string;
+  team_id: string | null;
+  provision_status: string | null;
 }
 
 export interface ProjectDetail extends Project {
@@ -94,6 +96,11 @@ export interface ProjectDetail extends Project {
   wiki_space_id: string | null;
   wiki_space_slug: string | null;
   onboarding_done: boolean;
+  cohort_id: string | null;
+  gitlab_web_url: string | null;
+  gitlab_pages_url: string | null;
+  provision_status: string | null;
+  provision_error: string | null;
 }
 
 export type PublicClosedReason = "deadline_passed" | "seats_full" | "not_accepting";
@@ -955,3 +962,10 @@ export interface ReleaseMetrics {
 }
 
 export type ExportKind = "items" | "time_logs" | "members";
+
+/** Minimal GitLab installation shape for the provision picker. */
+export interface GitlabInstallationOption {
+  id: string;
+  name: string;
+  is_default: boolean;
+}

@@ -27,7 +27,14 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 
 	r.With(authz.RequirePermission(authzSvc, PermProjectsCreate)).Post("/api/workspaces", h.CreateProject)
 	r.Get("/api/workspaces", h.ListProjects)
+	h.registerCohortRoutes(r)
 	r.Get("/api/workspaces/invitations", h.ListMyInvitations)
+	// Logged-in discover + apply: org members only (claims carry the org), not
+	// behind the per-project role gate since the caller isn't a member yet.
+	r.Get("/api/workspaces/discover", h.Discover)
+	r.Post("/api/workspaces/{workspaceID}/interest", h.ApplyInterest)
+	r.Delete("/api/workspaces/{workspaceID}/interest", h.WithdrawInterest)
+	r.Get("/api/my/workspace-interests", h.ListMyInterests)
 	r.Post("/api/workspaces/{workspaceID}/membership/respond", h.RespondToInvite)
 
 	// Planning & task board — any
@@ -237,6 +244,28 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 		// Phase 4 (D8) — GitLab provisioning; the service itself also checks
 		// gitlab_enabled (contract-phase4.md: "owner, StatusesPlanning, gitlab_enabled").
 		r.Post("/api/workspaces/{workspaceID}/gitlab/provision", h.ProvisionGitlab)
+	})
+	// Team GitLab surfaces (handler_teamgit.go): viewer reads.
+	r.Group(func(r chi.Router) {
+		gate(r, RoleViewer)
+		r.Get("/api/workspaces/{workspaceID}/gitlab/activity", h.GitActivity)
+		r.Get("/api/workspaces/{workspaceID}/gitlab/contributions", h.GitContributions)
+		r.Get("/api/workspaces/{workspaceID}/gitlab/ownership", h.GitOwnership)
+	})
+	// member: checkpoints + design proposals (gitlab re-checks team membership).
+	r.Group(func(r chi.Router) {
+		gate(r, RoleMember)
+		r.Get("/api/workspaces/{workspaceID}/checkpoints", h.GitCheckpoints)
+		r.Get("/api/workspaces/{workspaceID}/checkpoints/{checkpointID}/proposals", h.ListProposals)
+		r.Post("/api/workspaces/{workspaceID}/checkpoints/{checkpointID}/proposals", h.SubmitProposal)
+		r.Post("/api/workspaces/{workspaceID}/proposals/{proposalID}/vote", h.VoteProposal())
+		r.Delete("/api/workspaces/{workspaceID}/proposals/{proposalID}/vote", h.UnvoteProposal())
+		r.Delete("/api/workspaces/{workspaceID}/proposals/{proposalID}", h.DeleteProposal())
+	})
+	// owner, completed: hand the repo off (fork/transfer).
+	r.Group(func(r chi.Router) {
+		gate(r, RoleOwner, ProjectCompleted)
+		r.Post("/api/workspaces/{workspaceID}/gitlab/handoff", h.GitHandoff)
 	})
 }
 

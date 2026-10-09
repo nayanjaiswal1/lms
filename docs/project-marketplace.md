@@ -1,4 +1,6 @@
-# Project Marketplace (Design Draft — not yet built)
+# Project Marketplace (SUPERSEDED)
+
+> **SUPERSEDED by [project-workspace.md](project-workspace.md).** The marketplace was merged into Workspaces: the Projects UI and `backend/internal/projectmarket` are deleted, `/projects*` redirects to `/workspaces`, and the `project_requirements`, `project_applications` and `project_tasks` tables remain as unused orphans. Kept for history only; the content below is no longer the design.
 
 Extends the existing `project_assignments` / `project_teams` / `project_checkpoints` system
 (`backend/internal/gitlab`, batches 1–6) with a marketplace layer in front of it, and a
