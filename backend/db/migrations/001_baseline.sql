@@ -8,16 +8,8 @@
 -- and grants are not in a dump, so the labproxy role (ex-067) is appended.
 -- Databases that already recorded 001_baseline skip it; their stale
 -- schema_migrations rows for the removed files are harmless.
--- Next migration is 002_*.
+-- pg_dump object-header comments stripped. Next migration is 002_*.
 -- ══════════════════════════════════════════════════════════════════════════
-
---
--- PostgreSQL database dump
---
-
-
--- Dumped from database version 16.14
--- Dumped by pg_dump version 16.14
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -30,65 +22,21 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
---
--- Name: btree_gist; Type: EXTENSION; Schema: -; Owner: -
---
-
 CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;
-
-
---
--- Name: EXTENSION btree_gist; Type: COMMENT; Schema: -; Owner: -
---
 
 COMMENT ON EXTENSION btree_gist IS 'support for indexing common datatypes in GiST';
 
-
---
--- Name: citext; Type: EXTENSION; Schema: -; Owner: -
---
-
 CREATE EXTENSION IF NOT EXISTS citext WITH SCHEMA public;
-
-
---
--- Name: EXTENSION citext; Type: COMMENT; Schema: -; Owner: -
---
 
 COMMENT ON EXTENSION citext IS 'data type for case-insensitive character strings';
 
-
---
--- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
---
-
 CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
-
-
---
--- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: -
---
 
 COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
 
-
---
--- Name: pgcrypto; Type: EXTENSION; Schema: -; Owner: -
---
-
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 
-
---
--- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner: -
---
-
 COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
-
-
---
--- Name: auth_events_deny_mutation(); Type: FUNCTION; Schema: public; Owner: -
---
 
 CREATE FUNCTION public.auth_events_deny_mutation() RETURNS trigger
     LANGUAGE plpgsql
@@ -100,11 +48,6 @@ BEGIN
     RAISE EXCEPTION 'auth_events is append-only';
 END;
 $$;
-
-
---
--- Name: course_modules_lock_section(); Type: FUNCTION; Schema: public; Owner: -
---
 
 CREATE FUNCTION public.course_modules_lock_section() RETURNS trigger
     LANGUAGE plpgsql
@@ -118,11 +61,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-
---
--- Name: enforce_last_owner(); Type: FUNCTION; Schema: public; Owner: -
---
 
 CREATE FUNCTION public.enforce_last_owner() RETURNS trigger
     LANGUAGE plpgsql
@@ -147,11 +85,6 @@ BEGIN
 END;
 $$;
 
-
---
--- Name: enforce_slug_immutable(); Type: FUNCTION; Schema: public; Owner: -
---
-
 CREATE FUNCTION public.enforce_slug_immutable() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
@@ -162,11 +95,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-
---
--- Name: enroll_batch_members_in_course(); Type: FUNCTION; Schema: public; Owner: -
---
 
 CREATE FUNCTION public.enroll_batch_members_in_course() RETURNS trigger
     LANGUAGE plpgsql
@@ -180,11 +108,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-
---
--- Name: fn_check_user_role_tenant_scope(); Type: FUNCTION; Schema: public; Owner: -
---
 
 CREATE FUNCTION public.fn_check_user_role_tenant_scope() RETURNS trigger
     LANGUAGE plpgsql
@@ -206,11 +129,6 @@ BEGIN
 END;
 $$;
 
-
---
--- Name: set_updated_at(); Type: FUNCTION; Schema: public; Owner: -
---
-
 CREATE FUNCTION public.set_updated_at() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
@@ -219,11 +137,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-
---
--- Name: update_active_member_count(); Type: FUNCTION; Schema: public; Owner: -
---
 
 CREATE FUNCTION public.update_active_member_count() RETURNS trigger
     LANGUAGE plpgsql
@@ -243,11 +156,6 @@ BEGIN
 END;
 $$;
 
-
---
--- Name: update_user_stats_completion(); Type: FUNCTION; Schema: public; Owner: -
---
-
 CREATE FUNCTION public.update_user_stats_completion() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
@@ -263,11 +171,6 @@ BEGIN
 END;
 $$;
 
-
---
--- Name: update_user_stats_enrollment(); Type: FUNCTION; Schema: public; Owner: -
---
-
 CREATE FUNCTION public.update_user_stats_enrollment() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
@@ -281,14 +184,9 @@ BEGIN
 END;
 $$;
 
-
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
-
---
--- Name: assessment_attempts; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.assessment_attempts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -320,11 +218,6 @@ CREATE TABLE public.assessment_attempts (
     CONSTRAINT assessment_attempts_status_check CHECK ((status = ANY (ARRAY['created'::text, 'in_progress'::text, 'submitted'::text, 'evaluating'::text, 'evaluated'::text, 'eval_failed'::text, 'expired'::text])))
 );
 
-
---
--- Name: assessment_questions; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.assessment_questions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     assessment_id uuid NOT NULL,
@@ -336,11 +229,6 @@ CREATE TABLE public.assessment_questions (
     content_version_id uuid,
     CONSTRAINT assessment_questions_points_check CHECK ((points >= (0)::numeric))
 );
-
-
---
--- Name: assessments; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.assessments (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -379,11 +267,6 @@ CREATE TABLE public.assessments (
     CONSTRAINT assessments_type_check CHECK ((type = ANY (ARRAY['mcq'::text, 'coding'::text, 'mixed'::text, 'final_test'::text, 'offline'::text, 'practice'::text, 'knowledge_check'::text])))
 );
 
-
---
--- Name: attempt_answers; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.attempt_answers (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     attempt_id uuid NOT NULL,
@@ -404,11 +287,6 @@ CREATE TABLE public.attempt_answers (
     CONSTRAINT attempt_answers_transcript_check CHECK (((transcript IS NULL) OR (length(transcript) <= 50000)))
 );
 
-
---
--- Name: attempt_events; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.attempt_events (
     id bigint NOT NULL,
     attempt_id uuid NOT NULL,
@@ -422,17 +300,7 @@ CREATE TABLE public.attempt_events (
     CONSTRAINT attempt_events_severity_check CHECK ((severity = ANY (ARRAY['info'::text, 'warning'::text, 'critical'::text])))
 );
 
-
---
--- Name: TABLE attempt_events; Type: COMMENT; Schema: public; Owner: -
---
-
 COMMENT ON TABLE public.attempt_events IS 'Partitioning candidate — monthly range on created_at. See docs/schema-refactor-plan.md Phase 5.';
-
-
---
--- Name: attempt_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
 
 ALTER TABLE public.attempt_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.attempt_events_id_seq
@@ -442,11 +310,6 @@ ALTER TABLE public.attempt_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTI
     NO MAXVALUE
     CACHE 1
 );
-
-
---
--- Name: audit_logs; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.audit_logs (
     id bigint NOT NULL,
@@ -466,17 +329,7 @@ CREATE TABLE public.audit_logs (
     reverted_by uuid
 );
 
-
---
--- Name: TABLE audit_logs; Type: COMMENT; Schema: public; Owner: -
---
-
 COMMENT ON TABLE public.audit_logs IS 'Partitioning candidate — monthly range on created_at.';
-
-
---
--- Name: audit_logs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
 
 ALTER TABLE public.audit_logs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.audit_logs_id_seq
@@ -487,11 +340,6 @@ ALTER TABLE public.audit_logs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     CACHE 1
 );
 
-
---
--- Name: auth_events; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.auth_events (
     id bigint NOT NULL,
     user_id uuid,
@@ -501,11 +349,6 @@ CREATE TABLE public.auth_events (
     ts timestamp with time zone DEFAULT now() NOT NULL
 );
 
-
---
--- Name: auth_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
 CREATE SEQUENCE public.auth_events_id_seq
     START WITH 1
     INCREMENT BY 1
@@ -513,17 +356,7 @@ CREATE SEQUENCE public.auth_events_id_seq
     NO MAXVALUE
     CACHE 1;
 
-
---
--- Name: auth_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
 ALTER SEQUENCE public.auth_events_id_seq OWNED BY public.auth_events.id;
-
-
---
--- Name: auth_tokens; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.auth_tokens (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -537,11 +370,6 @@ CREATE TABLE public.auth_tokens (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT auth_tokens_purpose_check CHECK ((purpose = ANY (ARRAY['email_verify'::text, 'password_reset'::text, 'oauth_exchange'::text, 'calendar_feed'::text, 'mcp_auth_code'::text, 'mcp_access_token'::text, 'gitlab_oauth_state'::text, 'calendar_invite'::text])))
 );
-
-
---
--- Name: batch_invitations; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.batch_invitations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -557,11 +385,6 @@ CREATE TABLE public.batch_invitations (
     resent_at timestamp with time zone,
     import_job_id uuid
 );
-
-
---
--- Name: batch_member_details; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.batch_member_details (
     batch_id uuid NOT NULL,
@@ -580,11 +403,6 @@ CREATE TABLE public.batch_member_details (
     CONSTRAINT batch_member_details_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'invited'::text, 'resent'::text, 'enrolled_existing'::text, 'failed'::text, 'skipped'::text])))
 );
 
-
---
--- Name: batch_members; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.batch_members (
     batch_id uuid NOT NULL,
     user_id uuid NOT NULL,
@@ -592,11 +410,6 @@ CREATE TABLE public.batch_members (
     role text DEFAULT 'student'::text NOT NULL,
     added_by uuid
 );
-
-
---
--- Name: batch_messages; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.batch_messages (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -613,11 +426,6 @@ CREATE TABLE public.batch_messages (
     CONSTRAINT batch_messages_body_check CHECK (((length(body) >= 1) AND (length(body) <= 5000))),
     CONSTRAINT batch_messages_type_check CHECK ((type = ANY (ARRAY['question'::text, 'answer'::text, 'announcement'::text, 'resource'::text])))
 );
-
-
---
--- Name: batches; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.batches (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -638,11 +446,6 @@ CREATE TABLE public.batches (
     CONSTRAINT batches_status_check CHECK ((status = ANY (ARRAY['active'::text, 'archived'::text])))
 );
 
-
---
--- Name: brief_approvals; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.brief_approvals (
     project_id uuid NOT NULL,
     requirement_version integer NOT NULL,
@@ -654,11 +457,6 @@ CREATE TABLE public.brief_approvals (
     CONSTRAINT brief_approvals_wiki_version_check CHECK ((wiki_version >= 1))
 );
 
-
---
--- Name: calendar_event_attendees; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.calendar_event_attendees (
     event_id uuid NOT NULL,
     user_id uuid,
@@ -669,11 +467,6 @@ CREATE TABLE public.calendar_event_attendees (
     CONSTRAINT calendar_event_attendees_rsvp_status_check CHECK ((rsvp_status = ANY (ARRAY['pending'::text, 'accepted'::text, 'declined'::text]))),
     CONSTRAINT calendar_event_attendees_subject_chk CHECK (((user_id IS NOT NULL) <> (email IS NOT NULL)))
 );
-
-
---
--- Name: calendar_events; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.calendar_events (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -708,11 +501,6 @@ CREATE TABLE public.calendar_events (
     CONSTRAINT calendar_events_visibility_check CHECK ((visibility = ANY (ARRAY['private'::text, 'shared'::text, 'public'::text])))
 );
 
-
---
--- Name: captures; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.captures (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -738,11 +526,6 @@ CREATE TABLE public.captures (
     CONSTRAINT captures_type_check CHECK ((type = ANY (ARRAY['image'::text, 'pdf'::text, 'link'::text, 'html'::text])))
 );
 
-
---
--- Name: certificates; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.certificates (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -759,11 +542,6 @@ CREATE TABLE public.certificates (
     CONSTRAINT certificates_issue_type_check CHECK ((issue_type = ANY (ARRAY['final_test'::text, 'manual'::text, 'threshold'::text, 'project_completion'::text]))),
     CONSTRAINT certificates_note_check CHECK (((note IS NULL) OR (char_length(note) <= 2000)))
 );
-
-
---
--- Name: change_requests; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.change_requests (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -782,11 +560,6 @@ CREATE TABLE public.change_requests (
     CONSTRAINT change_requests_kind_check CHECK ((kind = ANY (ARRAY['mentor_reassignment'::text, 'course_content_proposal'::text])))
 );
 
-
---
--- Name: coding_submissions; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.coding_submissions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     attempt_answer_id uuid NOT NULL,
@@ -804,11 +577,6 @@ CREATE TABLE public.coding_submissions (
     CONSTRAINT coding_submissions_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'passed'::text, 'failed'::text, 'error'::text])))
 );
 
-
---
--- Name: cohort_groups; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.cohort_groups (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
@@ -824,11 +592,6 @@ CREATE TABLE public.cohort_groups (
     CONSTRAINT cohort_groups_status_check CHECK ((status = ANY (ARRAY['active'::text, 'archived'::text])))
 );
 
-
---
--- Name: comments; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.comments (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     subject_type text NOT NULL,
@@ -841,11 +604,6 @@ CREATE TABLE public.comments (
     deleted_at timestamp with time zone,
     CONSTRAINT comments_subject_type_check CHECK ((subject_type = ANY (ARRAY['wiki_page'::text, 'interview_exp_qna'::text, 'requirement_question'::text, 'work_item'::text])))
 );
-
-
---
--- Name: content_assignments; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.content_assignments (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -861,11 +619,6 @@ CREATE TABLE public.content_assignments (
     CONSTRAINT content_assignments_content_type_check CHECK ((content_type = ANY (ARRAY['assessment'::text, 'course'::text, 'lab'::text, 'sheet'::text, 'roadmap'::text])))
 );
 
-
---
--- Name: content_reactions; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.content_reactions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -875,11 +628,6 @@ CREATE TABLE public.content_reactions (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT content_reactions_target_type_check CHECK ((target_type = ANY (ARRAY['batch_message'::text, 'interview_exp_qna'::text])))
 );
-
-
---
--- Name: content_reports; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.content_reports (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -900,11 +648,6 @@ CREATE TABLE public.content_reports (
     CONSTRAINT content_reports_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'reviewing'::text, 'removed'::text, 'dismissed'::text])))
 );
 
-
---
--- Name: content_versions; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.content_versions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     content_type text NOT NULL,
@@ -916,11 +659,6 @@ CREATE TABLE public.content_versions (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT content_versions_content_type_check CHECK ((content_type = ANY (ARRAY['question'::text, 'wiki_page'::text])))
 );
-
-
---
--- Name: conversations; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.conversations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -942,20 +680,10 @@ CREATE TABLE public.conversations (
     CONSTRAINT conversations_kind_check CHECK ((kind = ANY (ARRAY['mentorship'::text, 'support'::text, 'direct'::text])))
 );
 
-
---
--- Name: coupon_courses; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.coupon_courses (
     coupon_id uuid NOT NULL,
     course_id uuid NOT NULL
 );
-
-
---
--- Name: coupon_redemptions; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.coupon_redemptions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -966,11 +694,6 @@ CREATE TABLE public.coupon_redemptions (
     redeemed_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT coupon_redemptions_discount_cents_check CHECK ((discount_cents >= 0))
 );
-
-
---
--- Name: coupons; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.coupons (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -996,22 +719,12 @@ CREATE TABLE public.coupons (
     CONSTRAINT coupons_window_check CHECK (((starts_at IS NULL) OR (expires_at IS NULL) OR (expires_at > starts_at)))
 );
 
-
---
--- Name: course_bundle_items; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.course_bundle_items (
     bundle_id uuid NOT NULL,
     course_id uuid NOT NULL,
     "position" integer NOT NULL,
     CONSTRAINT course_bundle_items_position_check CHECK (("position" >= 0))
 );
-
-
---
--- Name: course_bundles; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.course_bundles (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1029,11 +742,6 @@ CREATE TABLE public.course_bundles (
     CONSTRAINT course_bundles_title_check CHECK (((char_length(title) >= 3) AND (char_length(title) <= 200)))
 );
 
-
---
--- Name: course_faqs; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.course_faqs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     course_id uuid NOT NULL,
@@ -1049,11 +757,6 @@ CREATE TABLE public.course_faqs (
     CONSTRAINT course_faqs_answer_check CHECK (((length(answer) >= 10) AND (length(answer) <= 5000))),
     CONSTRAINT course_faqs_question_check CHECK (((length(question) >= 10) AND (length(question) <= 500)))
 );
-
-
---
--- Name: course_modules; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.course_modules (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1085,11 +788,6 @@ CREATE TABLE public.course_modules (
     CONSTRAINT lab_module_has_lab CHECK (((type = 'lab'::text) = (lab_id IS NOT NULL)))
 );
 
-
---
--- Name: course_sections; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.course_sections (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     course_id uuid NOT NULL,
@@ -1100,11 +798,6 @@ CREATE TABLE public.course_sections (
     CONSTRAINT course_sections_group_title_check CHECK (((group_title IS NULL) OR ((length(group_title) >= 1) AND (length(group_title) <= 200)))),
     CONSTRAINT course_sections_title_check CHECK (((length(title) >= 1) AND (length(title) <= 200)))
 );
-
-
---
--- Name: courses; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.courses (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1139,11 +832,6 @@ CREATE TABLE public.courses (
     CONSTRAINT courses_title_check CHECK (((length(title) >= 3) AND (length(title) <= 200)))
 );
 
-
---
--- Name: diary_entries; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.diary_entries (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -1156,11 +844,6 @@ CREATE TABLE public.diary_entries (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT diary_entries_content_len_check CHECK ((char_length(content) <= 20000))
 );
-
-
---
--- Name: diary_tasks; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.diary_tasks (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1178,11 +861,6 @@ CREATE TABLE public.diary_tasks (
     CONSTRAINT diary_tasks_title_len_check CHECK (((char_length(title) >= 1) AND (char_length(title) <= 300)))
 );
 
-
---
--- Name: enrollments; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.enrollments (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -1192,11 +870,6 @@ CREATE TABLE public.enrollments (
     enrolled_at timestamp with time zone DEFAULT now(),
     completed_at timestamp with time zone
 );
-
-
---
--- Name: feedback; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.feedback (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1217,22 +890,12 @@ CREATE TABLE public.feedback (
     CONSTRAINT feedback_subject_type_check CHECK ((subject_type = ANY (ARRAY['course'::text, 'assessment'::text, 'lab'::text, 'mentor'::text, 'mentor_session'::text])))
 );
 
-
---
--- Name: focus_wall_categories; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.focus_wall_categories (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
     name text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
-
-
---
--- Name: focus_wall_notes; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.focus_wall_notes (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1248,11 +911,6 @@ CREATE TABLE public.focus_wall_notes (
     CONSTRAINT focus_wall_notes_color_check CHECK ((color = ANY (ARRAY['yellow'::text, 'blue'::text, 'pink'::text, 'green'::text])))
 );
 
-
---
--- Name: gitlab_commit_files; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.gitlab_commit_files (
     org_id uuid NOT NULL,
     team_id uuid NOT NULL,
@@ -1264,11 +922,6 @@ CREATE TABLE public.gitlab_commit_files (
     committed_at timestamp with time zone,
     CONSTRAINT gitlab_commit_files_change_type_check CHECK ((change_type = ANY (ARRAY['added'::text, 'modified'::text, 'removed'::text])))
 );
-
-
---
--- Name: gitlab_commits; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.gitlab_commits (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1289,11 +942,6 @@ CREATE TABLE public.gitlab_commits (
     recorded_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-
---
--- Name: gitlab_connections; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.gitlab_connections (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
@@ -1313,11 +961,6 @@ CREATE TABLE public.gitlab_connections (
     revoked_at timestamp with time zone,
     CONSTRAINT gitlab_connections_status_check CHECK ((status = ANY (ARRAY['active'::text, 'expired'::text, 'revoked'::text])))
 );
-
-
---
--- Name: gitlab_installations; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.gitlab_installations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1351,11 +994,6 @@ CREATE TABLE public.gitlab_installations (
     CONSTRAINT gitlab_installations_webhook_mode_check CHECK ((webhook_mode = ANY (ARRAY['webhook'::text, 'poll'::text])))
 );
 
-
---
--- Name: gitlab_merge_requests; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.gitlab_merge_requests (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
@@ -1387,11 +1025,6 @@ CREATE TABLE public.gitlab_merge_requests (
     CONSTRAINT gitlab_merge_requests_state_check CHECK ((state = ANY (ARRAY['opened'::text, 'merged'::text, 'closed'::text, 'locked'::text])))
 );
 
-
---
--- Name: gitlab_objects; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.gitlab_objects (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
@@ -1402,11 +1035,6 @@ CREATE TABLE public.gitlab_objects (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT gitlab_objects_object_type_check CHECK ((object_type = ANY (ARRAY['issue'::text, 'pipeline'::text, 'note'::text])))
 );
-
-
---
--- Name: gitlab_webhook_events; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.gitlab_webhook_events (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1422,17 +1050,7 @@ CREATE TABLE public.gitlab_webhook_events (
     CONSTRAINT gitlab_webhook_events_status_check CHECK ((status = ANY (ARRAY['received'::text, 'dispatched'::text, 'ignored'::text, 'failed'::text])))
 );
 
-
---
--- Name: TABLE gitlab_webhook_events; Type: COMMENT; Schema: public; Owner: -
---
-
 COMMENT ON TABLE public.gitlab_webhook_events IS 'Retention candidate — drop processed rows after 30 days.';
-
-
---
--- Name: habit_completions; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.habit_completions (
     habit_id uuid NOT NULL,
@@ -1442,11 +1060,6 @@ CREATE TABLE public.habit_completions (
     metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
     CONSTRAINT habit_completions_count_check CHECK ((count > 0))
 );
-
-
---
--- Name: habits; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.habits (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1469,11 +1082,6 @@ CREATE TABLE public.habits (
     CONSTRAINT habits_type_check CHECK ((type = ANY (ARRAY['generic'::text, 'gym'::text, 'sleep'::text, 'reading'::text, 'custom'::text])))
 );
 
-
---
--- Name: highlight_explanations; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.highlight_explanations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     text_hash text NOT NULL,
@@ -1487,11 +1095,6 @@ CREATE TABLE public.highlight_explanations (
     diagram text
 );
 
-
---
--- Name: idempotency_keys; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.idempotency_keys (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     idem_key text NOT NULL,
@@ -1503,17 +1106,7 @@ CREATE TABLE public.idempotency_keys (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-
---
--- Name: TABLE idempotency_keys; Type: COMMENT; Schema: public; Owner: -
---
-
 COMMENT ON TABLE public.idempotency_keys IS 'Retention candidate — drop after 24-48 hours (TTL sweep, no sweep job exists yet).';
-
-
---
--- Name: interview_evaluations; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.interview_evaluations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1544,11 +1137,6 @@ CREATE TABLE public.interview_evaluations (
     CONSTRAINT interview_evaluations_scope_check CHECK ((scope = ANY (ARRAY['question'::text, 'overall'::text])))
 );
 
-
---
--- Name: interview_exp_entries; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.interview_exp_entries (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     post_id uuid NOT NULL,
@@ -1560,11 +1148,6 @@ CREATE TABLE public.interview_exp_entries (
     deleted_at timestamp with time zone,
     CONSTRAINT interview_exp_entries_round_label_not_blank_check CHECK ((btrim(round_label) <> ''::text))
 );
-
-
---
--- Name: interview_exp_posts; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.interview_exp_posts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1581,11 +1164,6 @@ CREATE TABLE public.interview_exp_posts (
     CONSTRAINT interview_exp_posts_title_not_blank_check CHECK ((btrim(title) <> ''::text))
 );
 
-
---
--- Name: interview_exp_qna; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.interview_exp_qna (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     post_id uuid NOT NULL,
@@ -1599,11 +1177,6 @@ CREATE TABLE public.interview_exp_qna (
     CONSTRAINT interview_exp_qna_question_not_blank_check CHECK ((btrim(question) <> ''::text))
 );
 
-
---
--- Name: interview_exp_qna_progress; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.interview_exp_qna_progress (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -1614,11 +1187,6 @@ CREATE TABLE public.interview_exp_qna_progress (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT interview_exp_qna_progress_status_check CHECK ((status = ANY (ARRAY['todo'::text, 'done'::text, 'revisit'::text])))
 );
-
-
---
--- Name: interview_prep_plans; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.interview_prep_plans (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1645,11 +1213,6 @@ CREATE TABLE public.interview_prep_plans (
     CONSTRAINT interview_prep_plans_status_check CHECK ((status = ANY (ARRAY['generating'::text, 'ready'::text, 'in_progress'::text, 'completed'::text, 'failed'::text])))
 );
 
-
---
--- Name: interview_prep_rounds; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.interview_prep_rounds (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     plan_id uuid NOT NULL,
@@ -1665,11 +1228,6 @@ CREATE TABLE public.interview_prep_rounds (
     CONSTRAINT interview_prep_rounds_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'completed'::text])))
 );
 
-
---
--- Name: interview_skill_scores; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.interview_skill_scores (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     attempt_id uuid NOT NULL,
@@ -1681,11 +1239,6 @@ CREATE TABLE public.interview_skill_scores (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT interview_skill_scores_skill_check CHECK (((length(skill) >= 1) AND (length(skill) <= 100)))
 );
-
-
---
--- Name: job_runs; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.job_runs (
     id bigint NOT NULL,
@@ -1702,17 +1255,7 @@ CREATE TABLE public.job_runs (
     CONSTRAINT job_runs_status_check CHECK ((status = ANY (ARRAY['running'::text, 'success'::text, 'failed'::text, 'timeout'::text, 'cancelled'::text])))
 );
 
-
---
--- Name: TABLE job_runs; Type: COMMENT; Schema: public; Owner: -
---
-
 COMMENT ON TABLE public.job_runs IS 'Retention candidate — drop after 90 days.';
-
-
---
--- Name: job_runs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
 
 ALTER TABLE public.job_runs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.job_runs_id_seq
@@ -1722,11 +1265,6 @@ ALTER TABLE public.job_runs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     NO MAXVALUE
     CACHE 1
 );
-
-
---
--- Name: jobs; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.jobs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1757,22 +1295,12 @@ CREATE TABLE public.jobs (
     CONSTRAINT jobs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'queued'::text, 'running'::text, 'success'::text, 'failed'::text, 'dead'::text, 'cancelled'::text])))
 );
 
-
---
--- Name: jti_blocklist; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.jti_blocklist (
     jti text NOT NULL,
     user_id uuid NOT NULL,
     expires_at timestamp with time zone NOT NULL,
     reason text
 );
-
-
---
--- Name: lab_ai_drafts; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.lab_ai_drafts (
     cache_key text NOT NULL,
@@ -1783,11 +1311,6 @@ CREATE TABLE public.lab_ai_drafts (
     tokens_used integer,
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
-
-
---
--- Name: lab_ai_interactions; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.lab_ai_interactions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1803,20 +1326,10 @@ CREATE TABLE public.lab_ai_interactions (
     CONSTRAINT lab_ai_interactions_interaction_type_check CHECK ((interaction_type = ANY (ARRAY['hint'::text, 'explain'::text, 'diagnose'::text, 'generate'::text, 'writeup_review'::text])))
 );
 
-
---
--- Name: lab_block_usages; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.lab_block_usages (
     build_id uuid NOT NULL,
     block_version_id uuid NOT NULL
 );
-
-
---
--- Name: lab_block_versions; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.lab_block_versions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1833,11 +1346,6 @@ CREATE TABLE public.lab_block_versions (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-
---
--- Name: lab_blocks; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.lab_blocks (
     id uuid NOT NULL,
     org_id uuid,
@@ -1846,11 +1354,6 @@ CREATE TABLE public.lab_blocks (
     stack text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
-
-
---
--- Name: lab_build_variants; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.lab_build_variants (
     build_id uuid NOT NULL,
@@ -1865,11 +1368,6 @@ CREATE TABLE public.lab_build_variants (
     ide_port integer DEFAULT 3000 NOT NULL,
     payload jsonb DEFAULT '{}'::jsonb NOT NULL
 );
-
-
---
--- Name: lab_builds; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.lab_builds (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1886,11 +1384,6 @@ CREATE TABLE public.lab_builds (
     CONSTRAINT lab_builds_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'rendering'::text, 'verifying'::text, 'verified'::text, 'failed'::text])))
 );
 
-
---
--- Name: lab_catalog_meta; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.lab_catalog_meta (
     lab_id uuid NOT NULL,
     stack text NOT NULL,
@@ -1899,11 +1392,6 @@ CREATE TABLE public.lab_catalog_meta (
     skills text[] DEFAULT '{}'::text[] NOT NULL,
     CONSTRAINT lab_catalog_meta_difficulty_check CHECK ((difficulty = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'expert'::text])))
 );
-
-
---
--- Name: lab_definitions; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.lab_definitions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1943,11 +1431,6 @@ CREATE TABLE public.lab_definitions (
     CONSTRAINT scope_module_consistency CHECK ((((scope = 'standalone'::text) AND (module_id IS NULL)) OR ((scope = 'course'::text) AND (course_id IS NOT NULL)) OR ((scope = 'module'::text) AND (module_id IS NOT NULL))))
 );
 
-
---
--- Name: lab_image_warmup_stats; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.lab_image_warmup_stats (
     image text NOT NULL,
     ewma_seconds double precision NOT NULL,
@@ -1956,11 +1439,6 @@ CREATE TABLE public.lab_image_warmup_stats (
     CONSTRAINT lab_image_warmup_stats_ewma_positive CHECK ((ewma_seconds >= (0)::double precision)),
     CONSTRAINT lab_image_warmup_stats_samples_positive CHECK ((samples >= 0))
 );
-
-
---
--- Name: lab_recipes; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.lab_recipes (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -1976,11 +1454,6 @@ CREATE TABLE public.lab_recipes (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     is_platform boolean DEFAULT false NOT NULL
 );
-
-
---
--- Name: lab_sessions; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.lab_sessions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2015,17 +1488,7 @@ CREATE TABLE public.lab_sessions (
     CONSTRAINT lab_sessions_status_check CHECK ((status = ANY (ARRAY['provisioning'::text, 'running'::text, 'paused'::text, 'completed'::text, 'expired'::text, 'failed'::text, 'terminated_abuse'::text])))
 );
 
-
---
--- Name: COLUMN lab_sessions.paused_at; Type: COMMENT; Schema: public; Owner: -
---
-
 COMMENT ON COLUMN public.lab_sessions.paused_at IS 'When the current pause began; NULL whenever status <> ''paused''. Resume adds now() - paused_at into paused_seconds and clears this.';
-
-
---
--- Name: lab_task_completions; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.lab_task_completions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2037,11 +1500,6 @@ CREATE TABLE public.lab_task_completions (
     task_version_item_id uuid NOT NULL,
     CONSTRAINT lab_task_completions_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'passed'::text, 'skipped'::text])))
 );
-
-
---
--- Name: lab_task_version_items; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.lab_task_version_items (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2060,11 +1518,6 @@ CREATE TABLE public.lab_task_version_items (
     CONSTRAINT lab_task_version_items_grader_check CHECK ((grader = ANY (ARRAY['script'::text, 'writeup_review'::text])))
 );
 
-
---
--- Name: lab_task_versions; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.lab_task_versions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     lab_id uuid NOT NULL,
@@ -2074,11 +1527,6 @@ CREATE TABLE public.lab_task_versions (
     tasks jsonb DEFAULT '[]'::jsonb NOT NULL,
     build_id uuid
 );
-
-
---
--- Name: lab_tasks; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.lab_tasks (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2097,11 +1545,6 @@ CREATE TABLE public.lab_tasks (
     CONSTRAINT lab_tasks_grader_check CHECK ((grader = ANY (ARRAY['script'::text, 'writeup_review'::text])))
 );
 
-
---
--- Name: lab_usage_events; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.lab_usage_events (
     id bigint NOT NULL,
     org_id uuid NOT NULL,
@@ -2113,17 +1556,7 @@ CREATE TABLE public.lab_usage_events (
     CONSTRAINT lab_usage_events_event_type_check CHECK ((event_type = ANY (ARRAY['container_seconds'::text, 'ai_tokens'::text, 'validation_seconds'::text])))
 );
 
-
---
--- Name: TABLE lab_usage_events; Type: COMMENT; Schema: public; Owner: -
---
-
 COMMENT ON TABLE public.lab_usage_events IS 'Partitioning candidate — monthly range on created_at.';
-
-
---
--- Name: lab_usage_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
 
 ALTER TABLE public.lab_usage_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.lab_usage_events_id_seq
@@ -2133,11 +1566,6 @@ ALTER TABLE public.lab_usage_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDEN
     NO MAXVALUE
     CACHE 1
 );
-
-
---
--- Name: lab_warm_containers; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.lab_warm_containers (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2154,11 +1582,6 @@ CREATE TABLE public.lab_warm_containers (
     CONSTRAINT lab_warm_containers_status_check CHECK ((status = ANY (ARRAY['warming'::text, 'ready'::text, 'claimed'::text])))
 );
 
-
---
--- Name: lab_warm_pool_decisions; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.lab_warm_pool_decisions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     decided_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -2170,11 +1593,6 @@ CREATE TABLE public.lab_warm_pool_decisions (
     image text NOT NULL,
     CONSTRAINT lab_warm_pool_decisions_target_check CHECK (((target >= 0) AND (previous_target >= 0)))
 );
-
-
---
--- Name: learning_annotations; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.learning_annotations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2192,11 +1610,6 @@ CREATE TABLE public.learning_annotations (
     CONSTRAINT learning_annotations_annotation_type_check CHECK ((annotation_type = ANY (ARRAY['note'::text, 'reflection'::text, 'highlight'::text, 'mistake'::text])))
 );
 
-
---
--- Name: learning_journal_entries; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.learning_journal_entries (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -2213,11 +1626,6 @@ CREATE TABLE public.learning_journal_entries (
     CONSTRAINT learning_journal_entries_title_len_check CHECK (((char_length(title) >= 1) AND (char_length(title) <= 200)))
 );
 
-
---
--- Name: legal_acceptances; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.legal_acceptances (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -2228,22 +1636,12 @@ CREATE TABLE public.legal_acceptances (
     CONSTRAINT legal_acceptances_doc_type_check CHECK ((doc_type = ANY (ARRAY['terms'::text, 'privacy'::text])))
 );
 
-
---
--- Name: mcp_clients; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.mcp_clients (
     client_id text NOT NULL,
     client_name text NOT NULL,
     redirect_uris text[] NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
-
-
---
--- Name: mcp_connections; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.mcp_connections (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2261,11 +1659,6 @@ CREATE TABLE public.mcp_connections (
     CONSTRAINT mcp_connections_status_check CHECK ((status = ANY (ARRAY['active'::text, 'revoked'::text])))
 );
 
-
---
--- Name: meeting_attendance; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.meeting_attendance (
     calendar_event_id uuid NOT NULL,
     occurrence_at timestamp with time zone NOT NULL,
@@ -2275,11 +1668,6 @@ CREATE TABLE public.meeting_attendance (
     recorded_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT meeting_attendance_status_check CHECK ((status = ANY (ARRAY['attended'::text, 'missed'::text])))
 );
-
-
---
--- Name: mentor_availability_exceptions; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.mentor_availability_exceptions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2299,11 +1687,6 @@ CREATE TABLE public.mentor_availability_exceptions (
     CONSTRAINT mentor_availability_exc_window_chk CHECK ((((start_minute IS NULL) AND (end_minute IS NULL)) OR ((start_minute >= 0) AND (end_minute <= 1440) AND (end_minute > start_minute))))
 );
 
-
---
--- Name: mentor_availability_rules; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.mentor_availability_rules (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
@@ -2321,11 +1704,6 @@ CREATE TABLE public.mentor_availability_rules (
     CONSTRAINT mentor_availability_weekday_chk CHECK (((weekday >= 0) AND (weekday <= 6))),
     CONSTRAINT mentor_availability_window_chk CHECK (((start_minute >= 0) AND (end_minute <= 1440) AND (end_minute > start_minute)))
 );
-
-
---
--- Name: mentor_sessions; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.mentor_sessions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2358,11 +1736,6 @@ CREATE TABLE public.mentor_sessions (
     CONSTRAINT mentor_sessions_window_chk CHECK ((ends_at > starts_at))
 );
 
-
---
--- Name: messages; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.messages (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
@@ -2376,11 +1749,6 @@ CREATE TABLE public.messages (
     CONSTRAINT messages_thread_type_check CHECK ((thread_type = ANY (ARRAY['mentor_ticket'::text, 'mentor_conversation'::text, 'support_ticket'::text])))
 );
 
-
---
--- Name: module_progress; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.module_progress (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -2393,11 +1761,6 @@ CREATE TABLE public.module_progress (
     CONSTRAINT module_progress_status_check CHECK ((status = ANY (ARRAY['not_started'::text, 'in_progress'::text, 'completed'::text])))
 );
 
-
---
--- Name: module_translations; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.module_translations (
     module_id uuid NOT NULL,
     locale text NOT NULL,
@@ -2407,11 +1770,6 @@ CREATE TABLE public.module_translations (
     CONSTRAINT module_translations_content_body_check CHECK ((length(content_body) > 0)),
     CONSTRAINT module_translations_locale_check CHECK ((locale ~ '^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$'::text))
 );
-
-
---
--- Name: notifications; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.notifications (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2432,28 +1790,13 @@ CREATE TABLE public.notifications (
     CONSTRAINT notifications_title_not_blank_check CHECK ((btrim(title) <> ''::text))
 );
 
-
---
--- Name: TABLE notifications; Type: COMMENT; Schema: public; Owner: -
---
-
 COMMENT ON TABLE public.notifications IS 'Partitioning candidate — monthly range on created_at.';
-
-
---
--- Name: onboarding_progress; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.onboarding_progress (
     step_id uuid NOT NULL,
     user_id uuid NOT NULL,
     done_at timestamp with time zone DEFAULT now() NOT NULL
 );
-
-
---
--- Name: onboarding_steps; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.onboarding_steps (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2466,11 +1809,6 @@ CREATE TABLE public.onboarding_steps (
     CONSTRAINT onboarding_steps_position_check CHECK (("position" >= 0)),
     CONSTRAINT onboarding_steps_title_check CHECK (((char_length(btrim(title)) >= 1) AND (char_length(btrim(title)) <= 200)))
 );
-
-
---
--- Name: ops_alert_rules; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.ops_alert_rules (
     handler text NOT NULL,
@@ -2485,11 +1823,6 @@ CREATE TABLE public.ops_alert_rules (
     CONSTRAINT ops_alert_rules_storm_threshold_check CHECK (((storm_threshold >= 1) AND (storm_threshold <= 100000))),
     CONSTRAINT ops_alert_rules_storm_window_minutes_check CHECK (((storm_window_minutes >= 1) AND (storm_window_minutes <= 1440)))
 );
-
-
---
--- Name: org_auth_config; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.org_auth_config (
     org_id uuid NOT NULL,
@@ -2512,17 +1845,7 @@ CREATE TABLE public.org_auth_config (
     CONSTRAINT org_auth_sso_provider_check CHECK ((sso_provider = ANY (ARRAY['google'::text, 'azure_ad'::text, 'okta'::text, 'saml'::text, 'oidc'::text])))
 );
 
-
---
--- Name: COLUMN org_auth_config.oidc_client_secret; Type: COMMENT; Schema: public; Owner: -
---
-
 COMMENT ON COLUMN public.org_auth_config.oidc_client_secret IS 'DEPRECATED — plaintext. Encrypt into oidc_client_secret_enc via the secrets package, then drop this column in a follow-up migration.';
-
-
---
--- Name: org_domains; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.org_domains (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2538,11 +1861,6 @@ CREATE TABLE public.org_domains (
     CONSTRAINT org_domains_verification_method_check CHECK ((verification_method = ANY (ARRAY['dns_txt'::text, 'email'::text])))
 );
 
-
---
--- Name: org_feature_flags; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.org_feature_flags (
     org_id uuid NOT NULL,
     feature_key text NOT NULL,
@@ -2550,11 +1868,6 @@ CREATE TABLE public.org_feature_flags (
     updated_by uuid NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
-
-
---
--- Name: org_invites; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.org_invites (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2576,11 +1889,6 @@ CREATE TABLE public.org_invites (
     CONSTRAINT org_invites_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'mentor'::text, 'instructor'::text, 'learner'::text])))
 );
 
-
---
--- Name: org_members; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.org_members (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
@@ -2594,11 +1902,6 @@ CREATE TABLE public.org_members (
     CONSTRAINT org_members_status_check CHECK ((status = ANY (ARRAY['active'::text, 'suspended'::text, 'removed'::text])))
 );
 
-
---
--- Name: org_settings; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.org_settings (
     org_id uuid NOT NULL,
     auth jsonb DEFAULT '{}'::jsonb NOT NULL,
@@ -2609,11 +1912,6 @@ CREATE TABLE public.org_settings (
     session_booking jsonb DEFAULT '{}'::jsonb NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
-
-
---
--- Name: organizations; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.organizations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2636,11 +1934,6 @@ CREATE TABLE public.organizations (
     CONSTRAINT orgs_status_check CHECK ((status = ANY (ARRAY['pending_verification'::text, 'onboarding'::text, 'active'::text, 'suspended'::text, 'archived'::text])))
 );
 
-
---
--- Name: payment_events; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.payment_events (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     provider text NOT NULL,
@@ -2654,11 +1947,6 @@ CREATE TABLE public.payment_events (
     error text,
     CONSTRAINT payment_events_provider_check CHECK ((provider = ANY (ARRAY['stub'::text, 'stripe'::text, 'razorpay'::text])))
 );
-
-
---
--- Name: peer_feedback; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.peer_feedback (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2674,11 +1962,6 @@ CREATE TABLE public.peer_feedback (
     CONSTRAINT peer_feedback_rating_check CHECK (((rating >= 1) AND (rating <= 5)))
 );
 
-
---
--- Name: permissions; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.permissions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     code text NOT NULL,
@@ -2689,11 +1972,6 @@ CREATE TABLE public.permissions (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
-
-
---
--- Name: plan_limits; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.plan_limits (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2710,11 +1988,6 @@ CREATE TABLE public.plan_limits (
     CONSTRAINT plan_limits_period_check CHECK ((period = ANY (ARRAY['day'::text, 'month'::text, 'concurrent'::text])))
 );
 
-
---
--- Name: practice_question_bank; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.practice_question_bank (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     technology text NOT NULL,
@@ -2727,11 +2000,6 @@ CREATE TABLE public.practice_question_bank (
     CONSTRAINT practice_question_bank_category_check CHECK ((category = ANY (ARRAY['technical'::text, 'behavioral'::text]))),
     CONSTRAINT practice_question_bank_questions_check CHECK ((cardinality(questions) > 0))
 );
-
-
---
--- Name: pricing_tiers; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.pricing_tiers (
     id text NOT NULL,
@@ -2751,11 +2019,6 @@ CREATE TABLE public.pricing_tiers (
     CONSTRAINT pricing_tiers_audience_check CHECK ((audience = ANY (ARRAY['individual'::text, 'org'::text])))
 );
 
-
---
--- Name: project_applications; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.project_applications (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
@@ -2773,11 +2036,6 @@ CREATE TABLE public.project_applications (
     CONSTRAINT project_applications_ai_score_check CHECK (((ai_score IS NULL) OR ((ai_score >= (0)::double precision) AND (ai_score <= (100)::double precision)))),
     CONSTRAINT project_applications_status_check CHECK ((status = ANY (ARRAY['submitted'::text, 'shortlisted'::text, 'selected'::text, 'rejected'::text])))
 );
-
-
---
--- Name: project_assignments; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.project_assignments (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2810,11 +2068,6 @@ CREATE TABLE public.project_assignments (
     CONSTRAINT project_assignments_visibility_check CHECK ((visibility = ANY (ARRAY['private'::text, 'internal'::text])))
 );
 
-
---
--- Name: project_checkpoints; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.project_checkpoints (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
@@ -2835,11 +2088,6 @@ CREATE TABLE public.project_checkpoints (
     CONSTRAINT project_checkpoints_weight_check CHECK ((weight >= 0))
 );
 
-
---
--- Name: project_design_proposals; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.project_design_proposals (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
@@ -2853,21 +2101,11 @@ CREATE TABLE public.project_design_proposals (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-
---
--- Name: project_design_votes; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.project_design_votes (
     proposal_id uuid NOT NULL,
     user_id uuid NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
-
-
---
--- Name: project_interests; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.project_interests (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2897,11 +2135,6 @@ CREATE TABLE public.project_interests (
     CONSTRAINT project_interests_status_check CHECK ((status = ANY (ARRAY['new'::text, 'accepted'::text, 'rejected'::text, 'invite_expired'::text, 'joined'::text])))
 );
 
-
---
--- Name: project_meetings; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.project_meetings (
     calendar_event_id uuid NOT NULL,
     project_id uuid NOT NULL,
@@ -2912,11 +2145,6 @@ CREATE TABLE public.project_meetings (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT project_meetings_kind_check CHECK ((kind = ANY (ARRAY['kickoff'::text, 'sprint_planning'::text, 'standup'::text, 'design_review'::text, 'retro'::text, 'demo'::text])))
 );
-
-
---
--- Name: project_members; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.project_members (
     project_id uuid NOT NULL,
@@ -2934,11 +2162,6 @@ CREATE TABLE public.project_members (
     CONSTRAINT project_members_status_check CHECK ((status = ANY (ARRAY['invited'::text, 'active'::text, 'left'::text, 'removed'::text])))
 );
 
-
---
--- Name: project_originality_matches; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.project_originality_matches (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     report_id uuid NOT NULL,
@@ -2951,11 +2174,6 @@ CREATE TABLE public.project_originality_matches (
     sample text,
     CONSTRAINT project_originality_matches_similarity_check CHECK (((similarity >= (0)::numeric) AND (similarity <= (1)::numeric)))
 );
-
-
---
--- Name: project_originality_reports; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.project_originality_reports (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2970,11 +2188,6 @@ CREATE TABLE public.project_originality_reports (
     completed_at timestamp with time zone,
     CONSTRAINT project_originality_reports_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'complete'::text, 'failed'::text])))
 );
-
-
---
--- Name: project_requirements; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.project_requirements (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -2993,11 +2206,6 @@ CREATE TABLE public.project_requirements (
     CONSTRAINT project_requirements_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'open'::text, 'closed'::text, 'archived'::text])))
 );
 
-
---
--- Name: project_tasks; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.project_tasks (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
@@ -3013,11 +2221,6 @@ CREATE TABLE public.project_tasks (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT project_tasks_status_check CHECK ((status = ANY (ARRAY['todo'::text, 'in_progress'::text, 'review'::text, 'done'::text])))
 );
-
-
---
--- Name: project_team_checkpoints; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.project_team_checkpoints (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3048,11 +2251,6 @@ CREATE TABLE public.project_team_checkpoints (
     CONSTRAINT project_team_checkpoints_status_check CHECK ((status = ANY (ARRAY['open'::text, 'submitted'::text, 'approved'::text, 'merged'::text, 'graded'::text])))
 );
 
-
---
--- Name: project_team_members; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.project_team_members (
     team_id uuid NOT NULL,
     user_id uuid NOT NULL,
@@ -3068,11 +2266,6 @@ CREATE TABLE public.project_team_members (
     CONSTRAINT project_team_members_role_check CHECK ((role = ANY (ARRAY['lead'::text, 'member'::text]))),
     CONSTRAINT project_team_members_sync_status_check CHECK ((sync_status = ANY (ARRAY['pending'::text, 'synced'::text, 'failed'::text, 'removing'::text])))
 );
-
-
---
--- Name: project_teams; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.project_teams (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3094,11 +2287,6 @@ CREATE TABLE public.project_teams (
     CONSTRAINT project_teams_provision_status_check CHECK ((provision_status = ANY (ARRAY['pending'::text, 'provisioning'::text, 'ready'::text, 'failed'::text])))
 );
 
-
---
--- Name: project_track_members; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.project_track_members (
     track_id uuid NOT NULL,
     project_id uuid NOT NULL,
@@ -3108,11 +2296,6 @@ CREATE TABLE public.project_track_members (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT project_track_members_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text])))
 );
-
-
---
--- Name: project_tracks; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.project_tracks (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3125,11 +2308,6 @@ CREATE TABLE public.project_tracks (
     CONSTRAINT project_tracks_name_check CHECK (((char_length(btrim(name)) >= 1) AND (char_length(btrim(name)) <= 60)))
 );
 
-
---
--- Name: projects; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.projects (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -3138,11 +2316,6 @@ CREATE TABLE public.projects (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT projects_name_len_check CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))
 );
-
-
---
--- Name: purchases; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.purchases (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3171,11 +2344,6 @@ CREATE TABLE public.purchases (
     CONSTRAINT course_purchases_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'refunding'::text, 'refunded'::text])))
 );
 
-
---
--- Name: question_categories; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.question_categories (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
@@ -3185,11 +2353,6 @@ CREATE TABLE public.question_categories (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-
---
--- Name: question_versions; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.question_versions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     question_id uuid NOT NULL,
@@ -3198,11 +2361,6 @@ CREATE TABLE public.question_versions (
     created_by uuid NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
-
-
---
--- Name: questions; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.questions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3224,22 +2382,12 @@ CREATE TABLE public.questions (
     CONSTRAINT questions_type_check CHECK ((type = ANY (ARRAY['mcq'::text, 'coding'::text, 'interview_prep'::text, 'subjective'::text])))
 );
 
-
---
--- Name: receipt_number_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
 CREATE SEQUENCE public.receipt_number_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
---
--- Name: refresh_tokens; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.refresh_tokens (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3254,22 +2402,12 @@ CREATE TABLE public.refresh_tokens (
     created_at timestamp with time zone DEFAULT now()
 );
 
-
---
--- Name: release_snapshots; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.release_snapshots (
     release_id uuid NOT NULL,
     item_id uuid NOT NULL,
     doc_version integer,
     status text NOT NULL
 );
-
-
---
--- Name: releases; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.releases (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3287,11 +2425,6 @@ CREATE TABLE public.releases (
     CONSTRAINT releases_status_check CHECK ((status = ANY (ARRAY['planned'::text, 'frozen'::text, 'released'::text]))),
     CONSTRAINT releases_version_check CHECK (((char_length(btrim(version)) >= 1) AND (char_length(btrim(version)) <= 40)))
 );
-
-
---
--- Name: requirement_questions; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.requirement_questions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3311,11 +2444,6 @@ CREATE TABLE public.requirement_questions (
     CONSTRAINT requirement_questions_question_check CHECK (((char_length(btrim(question)) >= 5) AND (char_length(btrim(question)) <= 2000)))
 );
 
-
---
--- Name: requirement_versions; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.requirement_versions (
     project_id uuid NOT NULL,
     version integer NOT NULL,
@@ -3325,11 +2453,6 @@ CREATE TABLE public.requirement_versions (
     CONSTRAINT requirement_versions_raw_requirement_check CHECK (((char_length(raw_requirement) >= 50) AND (char_length(raw_requirement) <= 20000))),
     CONSTRAINT requirement_versions_version_check CHECK ((version >= 1))
 );
-
-
---
--- Name: revision_digests; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.revision_digests (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3352,11 +2475,6 @@ CREATE TABLE public.revision_digests (
     CONSTRAINT revision_digests_cadences_check CHECK ((cardinality(cadences) > 0))
 );
 
-
---
--- Name: revision_plan_topics; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.revision_plan_topics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     revision_plan_id uuid NOT NULL,
@@ -3370,11 +2488,6 @@ CREATE TABLE public.revision_plan_topics (
     CONSTRAINT revision_plan_topics_title_check CHECK (((length(title) >= 1) AND (length(title) <= 200)))
 );
 
-
---
--- Name: revision_plans; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.revision_plans (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -3387,11 +2500,6 @@ CREATE TABLE public.revision_plans (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT revision_plans_status_check CHECK ((status = ANY (ARRAY['generating'::text, 'ready'::text, 'failed'::text])))
 );
-
-
---
--- Name: reward_definitions; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.reward_definitions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3407,21 +2515,11 @@ CREATE TABLE public.reward_definitions (
     CONSTRAINT reward_definitions_badge_tier_check CHECK ((badge_tier = ANY (ARRAY['bronze'::text, 'silver'::text, 'gold'::text, 'platinum'::text])))
 );
 
-
---
--- Name: roadmap_module_progress; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.roadmap_module_progress (
     roadmap_id uuid NOT NULL,
     module_key uuid NOT NULL,
     completed_at timestamp with time zone
 );
-
-
---
--- Name: roadmaps; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.roadmaps (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3449,20 +2547,10 @@ CREATE TABLE public.roadmaps (
     CONSTRAINT roadmaps_title_check CHECK (((length(title) >= 1) AND (length(title) <= 200)))
 );
 
-
---
--- Name: role_permissions; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.role_permissions (
     role_id uuid NOT NULL,
     permission_id uuid NOT NULL
 );
-
-
---
--- Name: roles; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.roles (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3476,11 +2564,6 @@ CREATE TABLE public.roles (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT roles_system_tenant_biconditional CHECK ((((is_system = true) AND (org_id IS NULL)) OR ((is_system = false) AND (org_id IS NOT NULL))))
 );
-
-
---
--- Name: session_credit_ledger; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.session_credit_ledger (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3497,11 +2580,6 @@ CREATE TABLE public.session_credit_ledger (
     CONSTRAINT session_credit_ledger_note_chk CHECK (((note IS NULL) OR (length(note) <= 500))),
     CONSTRAINT session_credit_ledger_reason_chk CHECK ((reason = ANY (ARRAY['purchase'::text, 'admin_grant'::text, 'admin_revoke'::text, 'booking'::text, 'cancellation_refund'::text, 'purchase_reversal'::text])))
 );
-
-
---
--- Name: session_credit_packs; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.session_credit_packs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3521,11 +2599,6 @@ CREATE TABLE public.session_credit_packs (
     CONSTRAINT session_credit_packs_sessions_chk CHECK (((sessions >= 1) AND (sessions <= 1000)))
 );
 
-
---
--- Name: sheet_items; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.sheet_items (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     sheet_id uuid NOT NULL,
@@ -3540,11 +2613,6 @@ CREATE TABLE public.sheet_items (
     CONSTRAINT sheet_items_difficulty_check CHECK ((difficulty = ANY (ARRAY['easy'::text, 'medium'::text, 'hard'::text])))
 );
 
-
---
--- Name: sheets; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.sheets (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
@@ -3558,11 +2626,6 @@ CREATE TABLE public.sheets (
     source_sheet_ids text[]
 );
 
-
---
--- Name: social_accounts; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.social_accounts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -3573,21 +2636,11 @@ CREATE TABLE public.social_accounts (
     CONSTRAINT social_accounts_provider_check CHECK ((provider = ANY (ARRAY['google'::text, 'github'::text, 'microsoft'::text])))
 );
 
-
---
--- Name: sprint_commitments; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.sprint_commitments (
     sprint_id uuid NOT NULL,
     item_id uuid NOT NULL,
     committed_at timestamp with time zone DEFAULT now() NOT NULL
 );
-
-
---
--- Name: sprints; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.sprints (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3603,11 +2656,6 @@ CREATE TABLE public.sprints (
     CONSTRAINT sprints_name_check CHECK (((char_length(btrim(name)) >= 1) AND (char_length(btrim(name)) <= 80))),
     CONSTRAINT sprints_status_check CHECK ((status = ANY (ARRAY['planned'::text, 'active'::text, 'completed'::text])))
 );
-
-
---
--- Name: srs_cards; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.srs_cards (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3626,11 +2674,6 @@ CREATE TABLE public.srs_cards (
     annotation_id uuid
 );
 
-
---
--- Name: srs_reviews; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.srs_reviews (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     card_id uuid NOT NULL,
@@ -3642,17 +2685,7 @@ CREATE TABLE public.srs_reviews (
     CONSTRAINT srs_reviews_quality_check CHECK (((quality >= 0) AND (quality <= 3)))
 );
 
-
---
--- Name: TABLE srs_reviews; Type: COMMENT; Schema: public; Owner: -
---
-
 COMMENT ON TABLE public.srs_reviews IS 'Partitioning candidate — monthly range on reviewed_at.';
-
-
---
--- Name: standup_updates; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.standup_updates (
     project_id uuid NOT NULL,
@@ -3668,11 +2701,6 @@ CREATE TABLE public.standup_updates (
     CONSTRAINT standup_updates_yesterday_check CHECK ((char_length(yesterday) <= 2000))
 );
 
-
---
--- Name: system_design_attempts; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.system_design_attempts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     module_id uuid NOT NULL,
@@ -3687,11 +2715,6 @@ CREATE TABLE public.system_design_attempts (
     CONSTRAINT system_design_attempts_attempt_number_check CHECK ((attempt_number >= 1))
 );
 
-
---
--- Name: system_design_chat_messages; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.system_design_chat_messages (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     module_id uuid NOT NULL,
@@ -3702,11 +2725,6 @@ CREATE TABLE public.system_design_chat_messages (
     CONSTRAINT system_design_chat_messages_content_check CHECK ((char_length(content) <= 4000)),
     CONSTRAINT system_design_chat_messages_role_check CHECK ((role = ANY (ARRAY['user'::text, 'assistant'::text])))
 );
-
-
---
--- Name: task_links; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.task_links (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3719,11 +2737,6 @@ CREATE TABLE public.task_links (
     CONSTRAINT task_links_target_type_check CHECK ((target_type = ANY (ARRAY['task'::text, 'diary_entry'::text, 'journal_entry'::text, 'project'::text])))
 );
 
-
---
--- Name: task_templates; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.task_templates (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -3732,11 +2745,6 @@ CREATE TABLE public.task_templates (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT task_templates_name_len_check CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))
 );
-
-
---
--- Name: test_templates; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.test_templates (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3748,11 +2756,6 @@ CREATE TABLE public.test_templates (
     CONSTRAINT test_templates_max_score_check CHECK ((max_score > (0)::numeric))
 );
 
-
---
--- Name: usage_counters; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.usage_counters (
     account_id uuid NOT NULL,
     feature_key text NOT NULL,
@@ -3762,11 +2765,6 @@ CREATE TABLE public.usage_counters (
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-
---
--- Name: user_achievements; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.user_achievements (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -3774,11 +2772,6 @@ CREATE TABLE public.user_achievements (
     org_id uuid,
     earned_at timestamp with time zone DEFAULT now() NOT NULL
 );
-
-
---
--- Name: user_feature_flags; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.user_feature_flags (
     org_id uuid NOT NULL,
@@ -3789,11 +2782,6 @@ CREATE TABLE public.user_feature_flags (
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-
---
--- Name: user_mfa; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.user_mfa (
     user_id uuid NOT NULL,
     secret_enc bytea NOT NULL,
@@ -3802,22 +2790,12 @@ CREATE TABLE public.user_mfa (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-
---
--- Name: user_mfa_recovery_codes; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.user_mfa_recovery_codes (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
     code_hash text NOT NULL,
     used_at timestamp with time zone
 );
-
-
---
--- Name: user_permission_overrides; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.user_permission_overrides (
     user_id uuid NOT NULL,
@@ -3826,11 +2804,6 @@ CREATE TABLE public.user_permission_overrides (
     granted_by uuid,
     granted_at timestamp with time zone DEFAULT now() NOT NULL
 );
-
-
---
--- Name: user_privacy_settings; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.user_privacy_settings (
     user_id uuid NOT NULL,
@@ -3841,11 +2814,6 @@ CREATE TABLE public.user_privacy_settings (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT user_privacy_settings_nominee_all_or_none CHECK ((((nominee_name IS NULL) AND (nominee_relationship IS NULL) AND (nominee_contact IS NULL)) OR ((nominee_name IS NOT NULL) AND (nominee_relationship IS NOT NULL) AND (nominee_contact IS NOT NULL))))
 );
-
-
---
--- Name: user_problem_progress; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.user_problem_progress (
     user_id uuid NOT NULL,
@@ -3858,11 +2826,6 @@ CREATE TABLE public.user_problem_progress (
     is_starred boolean DEFAULT false NOT NULL,
     CONSTRAINT user_problem_progress_status_check CHECK ((status = ANY (ARRAY['todo'::text, 'done'::text, 'revisit'::text])))
 );
-
-
---
--- Name: user_profiles; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.user_profiles (
     user_id uuid NOT NULL,
@@ -3914,21 +2877,11 @@ CREATE TABLE public.user_profiles (
     CONSTRAINT user_profiles_years_of_experience_check CHECK (((years_of_experience >= 0) AND (years_of_experience <= 50)))
 );
 
-
---
--- Name: user_roles; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.user_roles (
     user_id uuid NOT NULL,
     role_id uuid NOT NULL,
     org_id uuid NOT NULL
 );
-
-
---
--- Name: user_sheets; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.user_sheets (
     user_id uuid NOT NULL,
@@ -3939,11 +2892,6 @@ CREATE TABLE public.user_sheets (
     growth_scheme text,
     CONSTRAINT user_sheets_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'subscriber'::text])))
 );
-
-
---
--- Name: user_stats; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.user_stats (
     user_id uuid NOT NULL,
@@ -3961,11 +2909,6 @@ CREATE TABLE public.user_stats (
     xp_level_name text DEFAULT 'Apprentice'::text NOT NULL,
     tests_passed integer DEFAULT 0 NOT NULL
 );
-
-
---
--- Name: users; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.users (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3989,11 +2932,6 @@ CREATE TABLE public.users (
     CONSTRAINT users_status_check CHECK ((status = ANY (ARRAY['active'::text, 'suspended'::text, 'deactivated'::text])))
 );
 
-
---
--- Name: webauthn_credentials; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.webauthn_credentials (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -4010,11 +2948,6 @@ CREATE TABLE public.webauthn_credentials (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     last_used_at timestamp with time zone
 );
-
-
---
--- Name: whatnow_tasks; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.whatnow_tasks (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4046,11 +2979,6 @@ CREATE TABLE public.whatnow_tasks (
     CONSTRAINT whatnow_tasks_urgency_check CHECK (((urgency IS NULL) OR (urgency = ANY (ARRAY['urgent'::text, 'not_urgent'::text]))))
 );
 
-
---
--- Name: whats_new_entries; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.whats_new_entries (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     title text NOT NULL,
@@ -4067,11 +2995,6 @@ CREATE TABLE public.whats_new_entries (
     CONSTRAINT whats_new_entries_icon_check CHECK ((icon = ANY (ARRAY['sparkles'::text, 'book-open-check'::text, 'list-checks'::text, 'shield-check'::text, 'rocket'::text, 'megaphone'::text, 'zap'::text, 'star'::text]))),
     CONSTRAINT whats_new_entries_title_len_check CHECK (((char_length(title) >= 1) AND (char_length(title) <= 120)))
 );
-
-
---
--- Name: wiki_pages; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.wiki_pages (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4096,11 +3019,6 @@ CREATE TABLE public.wiki_pages (
     CONSTRAINT wiki_pages_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'published'::text])))
 );
 
-
---
--- Name: wiki_spaces; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.wiki_spaces (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
@@ -4117,11 +3035,6 @@ CREATE TABLE public.wiki_spaces (
     CONSTRAINT wiki_spaces_visibility_check CHECK ((visibility = ANY (ARRAY['members'::text, 'public'::text])))
 );
 
-
---
--- Name: work_item_assignees; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.work_item_assignees (
     item_id uuid NOT NULL,
     user_id uuid NOT NULL,
@@ -4130,11 +3043,6 @@ CREATE TABLE public.work_item_assignees (
     assigned_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT work_item_assignees_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'developer'::text, 'reviewer'::text, 'tester'::text])))
 );
-
-
---
--- Name: work_item_events; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.work_item_events (
     id bigint NOT NULL,
@@ -4156,11 +3064,6 @@ CREATE TABLE public.work_item_events (
     CONSTRAINT work_item_events_to_value_check CHECK (((to_value IS NULL) OR (char_length(to_value) <= 1000)))
 );
 
-
---
--- Name: work_item_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
 ALTER TABLE public.work_item_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.work_item_events_id_seq
     START WITH 1
@@ -4169,11 +3072,6 @@ ALTER TABLE public.work_item_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDEN
     NO MAXVALUE
     CACHE 1
 );
-
-
---
--- Name: work_item_gitlab; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.work_item_gitlab (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4191,11 +3089,6 @@ CREATE TABLE public.work_item_gitlab (
     CONSTRAINT work_item_gitlab_sync_status_check CHECK ((sync_status = ANY (ARRAY['synced'::text, 'pending'::text, 'failed'::text])))
 );
 
-
---
--- Name: work_item_links; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.work_item_links (
     project_id uuid NOT NULL,
     from_id uuid NOT NULL,
@@ -4206,11 +3099,6 @@ CREATE TABLE public.work_item_links (
     CONSTRAINT work_item_links_check CHECK ((from_id <> to_id)),
     CONSTRAINT work_item_links_kind_check CHECK ((kind = ANY (ARRAY['blocks'::text, 'relates'::text, 'duplicates'::text])))
 );
-
-
---
--- Name: work_item_reviews; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.work_item_reviews (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4232,11 +3120,6 @@ CREATE TABLE public.work_item_reviews (
     CONSTRAINT work_item_reviews_wiki_version_check CHECK (((wiki_version IS NULL) OR (wiki_version >= 1)))
 );
 
-
---
--- Name: work_item_time_logs; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.work_item_time_logs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     project_id uuid NOT NULL,
@@ -4250,11 +3133,6 @@ CREATE TABLE public.work_item_time_logs (
     CONSTRAINT work_item_time_logs_minutes_check CHECK (((minutes >= 1) AND (minutes <= 720))),
     CONSTRAINT work_item_time_logs_note_check CHECK (((note IS NULL) OR (char_length(note) <= 1000)))
 );
-
-
---
--- Name: work_items; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.work_items (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4309,11 +3187,6 @@ CREATE TABLE public.work_items (
     CONSTRAINT work_items_version_check CHECK ((version >= 1))
 );
 
-
---
--- Name: workspace_ai_cache; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.workspace_ai_cache (
     project_id uuid NOT NULL,
     kind text NOT NULL,
@@ -4324,11 +3197,6 @@ CREATE TABLE public.workspace_ai_cache (
     CONSTRAINT workspace_ai_cache_kind_check CHECK ((kind = ANY (ARRAY['requirement_gaps'::text, 'epic_suggestions'::text, 'task_breakdown'::text, 'change_impact'::text, 'weekly_summary'::text, 'late_explanation'::text, 'release_notes'::text])))
 );
 
-
---
--- Name: workspace_digests; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.workspace_digests (
     project_id uuid NOT NULL,
     digest_date date NOT NULL,
@@ -4336,11 +3204,6 @@ CREATE TABLE public.workspace_digests (
     sent_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT workspace_digests_health_color_check CHECK ((health_color = ANY (ARRAY['green'::text, 'yellow'::text, 'red'::text])))
 );
-
-
---
--- Name: workspace_projects; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.workspace_projects (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4389,11 +3252,6 @@ CREATE TABLE public.workspace_projects (
     CONSTRAINT workspace_projects_wip_limit_check CHECK (((wip_limit >= 1) AND (wip_limit <= 50)))
 );
 
-
---
--- Name: xp_events; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.xp_events (
     id bigint NOT NULL,
     user_id uuid NOT NULL,
@@ -4407,17 +3265,7 @@ CREATE TABLE public.xp_events (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-
---
--- Name: TABLE xp_events; Type: COMMENT; Schema: public; Owner: -
---
-
 COMMENT ON TABLE public.xp_events IS 'Partitioning candidate — monthly range on created_at.';
-
-
---
--- Name: xp_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
 
 ALTER TABLE public.xp_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.xp_events_id_seq
@@ -4428,605 +3276,7 @@ ALTER TABLE public.xp_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     CACHE 1
 );
 
-
---
--- Name: auth_events id; Type: DEFAULT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.auth_events ALTER COLUMN id SET DEFAULT nextval('public.auth_events_id_seq'::regclass);
-
-
---
--- Data for Name: assessment_attempts; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: assessment_questions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: assessments; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: attempt_answers; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: attempt_events; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: audit_logs; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: auth_events; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: auth_tokens; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: batch_invitations; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: batch_member_details; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: batch_members; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: batch_messages; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: batches; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: brief_approvals; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: calendar_event_attendees; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: calendar_events; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: captures; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: certificates; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: change_requests; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: coding_submissions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: cohort_groups; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: comments; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: content_assignments; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: content_reactions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: content_reports; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: content_versions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: conversations; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: coupon_courses; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: coupon_redemptions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: coupons; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: course_bundle_items; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: course_bundles; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: course_faqs; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: course_modules; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: course_sections; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: courses; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: diary_entries; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: diary_tasks; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: enrollments; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: feedback; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: focus_wall_categories; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: focus_wall_notes; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: gitlab_commit_files; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: gitlab_commits; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: gitlab_connections; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: gitlab_installations; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: gitlab_merge_requests; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: gitlab_objects; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: gitlab_webhook_events; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: habit_completions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: habits; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: highlight_explanations; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: idempotency_keys; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: interview_evaluations; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: interview_exp_entries; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: interview_exp_posts; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: interview_exp_qna; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: interview_exp_qna_progress; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: interview_prep_plans; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: interview_prep_rounds; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: interview_skill_scores; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: job_runs; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: jobs; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: jti_blocklist; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_ai_drafts; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_ai_interactions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_block_usages; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_block_versions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_blocks; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_build_variants; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_builds; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_catalog_meta; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_definitions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_image_warmup_stats; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_recipes; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_sessions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_task_completions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_task_version_items; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_task_versions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_tasks; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_usage_events; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_warm_containers; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: lab_warm_pool_decisions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: learning_annotations; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: learning_journal_entries; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: legal_acceptances; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: mcp_clients; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: mcp_connections; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: meeting_attendance; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: mentor_availability_exceptions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: mentor_availability_rules; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: mentor_sessions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: messages; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: module_progress; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: module_translations; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: notifications; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: onboarding_progress; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: onboarding_steps; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: ops_alert_rules; Type: TABLE DATA; Schema: public; Owner: -
---
 
 INSERT INTO public.ops_alert_rules VALUES ('*', 'normal', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00');
 INSERT INTO public.ops_alert_rules VALUES ('email.send', 'high', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00');
@@ -5037,67 +3287,11 @@ INSERT INTO public.ops_alert_rules VALUES ('gitlab.token_refresh', 'high', 15, 1
 INSERT INTO public.ops_alert_rules VALUES ('lab.recipe_build', 'high', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00');
 INSERT INTO public.ops_alert_rules VALUES ('lab.recipe_verify', 'high', 15, 10, 10, true, '2026-10-09 11:19:37.977255+00');
 
-
---
--- Data for Name: org_auth_config; Type: TABLE DATA; Schema: public; Owner: -
---
-
 INSERT INTO public.org_auth_config VALUES ('00000000-0000-0000-0000-000000000001', true, true, true, false, false, false, NULL, NULL, NULL, NULL, false, NULL, '{}', '{}', '2026-07-10 02:05:35.851242+00', NULL);
-
-
---
--- Data for Name: org_domains; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: org_feature_flags; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: org_invites; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: org_members; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: org_settings; Type: TABLE DATA; Schema: public; Owner: -
---
 
 INSERT INTO public.org_settings VALUES ('00000000-0000-0000-0000-000000000001', '{"sso_enabled": false, "oidc_client_id": null, "oidc_issuer_url": null, "saml_metadata_xml": null}', '{}', '{}', '{}', '{}', '{}', '2026-07-10 02:05:35.851242+00');
 
-
---
--- Data for Name: organizations; Type: TABLE DATA; Schema: public; Owner: -
---
-
 INSERT INTO public.organizations VALUES ('00000000-0000-0000-0000-000000000001', 'default', 'MindForge', 'active', NULL, NULL, NULL, 0, 4, NULL, '2026-07-10 02:05:35.847741+00', '2026-07-10 02:05:35.847741+00', '2026-07-10 02:05:35.847741+00', NULL, 'org_starter');
-
-
---
--- Data for Name: payment_events; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: peer_feedback; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: permissions; Type: TABLE DATA; Schema: public; Owner: -
---
 
 INSERT INTO public.permissions VALUES ('6f649ce6-a417-45e2-9bc7-f3d9638bcd41', 'courses.view', 'View Courses', 'Browse and read published course content', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
 INSERT INTO public.permissions VALUES ('1ed1ac19-b663-4f5f-88ba-f412f1174b4f', 'courses.enroll', 'Enroll in Courses', 'Enroll in available courses', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
@@ -5155,11 +3349,6 @@ INSERT INTO public.permissions VALUES ('cdd5a972-bcda-42e0-b2fa-9e49696ca26e', '
 INSERT INTO public.permissions VALUES ('1aacbbf4-3dde-4720-8ee5-1d47f7ca1edb', 'labauthor.compose', 'Compose Lab Recipes', 'Browse the lab block library and compose, validate and build lab recipes', 'labs', true, '2026-10-09 11:19:30.706146+00', '2026-10-09 11:19:30.706146+00');
 INSERT INTO public.permissions VALUES ('9e3536d0-ff47-4457-ad5b-bda8dd10eac1', 'labauthor.manage_blocks', 'Manage Lab Text Blocks', 'Create, edit and delete organization-owned lab text blocks (ticket, hints, rubric, presets)', 'labs', true, '2026-10-09 11:19:30.706146+00', '2026-10-09 11:19:30.706146+00');
 
-
---
--- Data for Name: plan_limits; Type: TABLE DATA; Schema: public; Owner: -
---
-
 INSERT INTO public.plan_limits VALUES ('702b1127-b411-4cd6-9ab3-b70c49facbcc', 'org_starter', 'assessments', 'gate', false, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
 INSERT INTO public.plan_limits VALUES ('6b164b2b-4f91-4428-82af-2d4d6efdd7b9', 'org_growth', 'assessments', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
 INSERT INTO public.plan_limits VALUES ('da88658e-9b5a-4ff8-8a3e-3711144e32f2', 'org_enterprise', 'assessments', 'gate', true, NULL, NULL, NULL, '2026-10-09 11:19:17.211959+00');
@@ -5185,208 +3374,12 @@ INSERT INTO public.plan_limits VALUES ('d91102d6-08a7-4955-b304-72fa3c981c6c', '
 INSERT INTO public.plan_limits VALUES ('b7cf20a1-1705-4948-9aad-71c4b8329d0b', 'individual_plus', 'lab_hours', 'quota', NULL, 15, 'month', NULL, '2026-10-09 11:19:17.211959+00');
 INSERT INTO public.plan_limits VALUES ('3004ec6c-4870-427f-8c0d-9c510754b0c2', 'individual_pro', 'lab_hours', 'quota', NULL, 40, 'month', NULL, '2026-10-09 11:19:17.211959+00');
 
-
---
--- Data for Name: practice_question_bank; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: pricing_tiers; Type: TABLE DATA; Schema: public; Owner: -
---
-
 INSERT INTO public.pricing_tiers VALUES ('individual_free', 'individual', 1, 'Free', '₹0', 'forever', 'Enough to actually learn something.', '["Enroll in free courses, no limit", "Coding problems, quizzes, and spaced-repetition flashcards", "1 lab session at a time", "Public practice tests — no account needed to try them"]', 'Start learning free', false, '/register', false, NULL, '2026-10-09 11:19:10.314725+00');
 INSERT INTO public.pricing_tiers VALUES ('individual_plus', 'individual', 2, 'Plus', '₹299', '/month', 'For steady, self-paced study.', '["Everything in Free", "Up to 15 lab-hours a month, 2 sessions at once", "AI-generated revision digest and quiz variants", "Verifiable completion certificates", "Multi-sheet problem tracker with overlap view"]', 'Coming soon', true, NULL, false, NULL, '2026-10-09 11:19:10.314725+00');
 INSERT INTO public.pricing_tiers VALUES ('individual_pro', 'individual', 3, 'Pro', '₹799', '/month', 'For interview prep on a deadline.', '["Everything in Plus", "Up to 40 lab-hours a month, priority queue", "System design canvas and live interview board", "AI mock interviews with personalized feedback", "2 mentor session credits every month"]', 'Coming soon', true, NULL, true, NULL, '2026-10-09 11:19:10.314725+00');
 INSERT INTO public.pricing_tiers VALUES ('org_starter', 'org', 1, 'Starter', '₹0', 'up to 10 seats', 'Everything you need to run one cohort.', '["Up to 10 members", "Admin, instructor, mentor, and student roles", "Shared course library and wiki", "Batch chat for each cohort"]', 'Set up your organization', false, '/org/create', false, NULL, '2026-10-09 11:19:10.314725+00');
 INSERT INTO public.pricing_tiers VALUES ('org_growth', 'org', 2, 'Growth', '₹499', '/seat/month', 'For programs that need proof of learning.', '["Unlimited seats", "Proctored assessments with auto-grading and analytics", "Anonymous public tests for candidate screening", "Mentor session booking with credit pools", "GitLab integration for graded submissions"]', 'Coming soon', true, NULL, true, NULL, '2026-10-09 11:19:10.314725+00');
 INSERT INTO public.pricing_tiers VALUES ('org_enterprise', 'org', 3, 'Enterprise', 'Contact us', 'custom', 'For large programs with custom requirements.', '["Everything in Growth", "SSO and custom domain", "Audit log and compliance exports", "Dedicated support and a custom AI token budget"]', 'Coming soon', true, NULL, false, NULL, '2026-10-09 11:19:10.314725+00');
-
-
---
--- Data for Name: project_applications; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: project_assignments; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: project_checkpoints; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: project_design_proposals; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: project_design_votes; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: project_interests; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: project_meetings; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: project_members; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: project_originality_matches; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: project_originality_reports; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: project_requirements; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: project_tasks; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: project_team_checkpoints; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: project_team_members; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: project_teams; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: project_track_members; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: project_tracks; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: projects; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: purchases; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: question_categories; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: question_versions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: questions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: refresh_tokens; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: release_snapshots; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: releases; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: requirement_questions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: requirement_versions; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: revision_digests; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: revision_plan_topics; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: revision_plans; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: reward_definitions; Type: TABLE DATA; Schema: public; Owner: -
---
 
 INSERT INTO public.reward_definitions VALUES ('0a1071a3-1997-4328-8ae9-b7f2677e1e76', 'first_problem', 'First Blood', 'Solved your first problem.', '🩸', 'bronze', 100, 'problem_solved', 1, '2026-07-10 02:05:37.255488+00');
 INSERT INTO public.reward_definitions VALUES ('bb4d39ff-2b2e-40ce-9e37-0cfb1368516a', 'problem_10', 'Problem Solver', 'Solved 10 problems.', '⚡', 'bronze', 200, 'problem_solved', 10, '2026-07-10 02:05:37.255488+00');
@@ -5401,23 +3394,6 @@ INSERT INTO public.reward_definitions VALUES ('4753f34c-23fd-4d95-9e7b-56d9f4544
 INSERT INTO public.reward_definitions VALUES ('98166ecc-2100-4b4c-b1c7-fd84d61e423f', 'level_5', 'Halfway There', 'Reached level 5 (Proficient).', '⚔️', 'silver', 0, 'level_reached', 5, '2026-07-10 02:05:37.255488+00');
 INSERT INTO public.reward_definitions VALUES ('9b87d539-e4ba-4ccf-b926-dda7f16b72ef', 'level_10', 'Legend Status', 'Reached the maximum level.', '👑', 'platinum', 0, 'level_reached', 10, '2026-07-10 02:05:37.255488+00');
 INSERT INTO public.reward_definitions VALUES ('2970852d-780b-4038-b45d-250f0cd735b2', 'perfect_quiz', 'Perfect Score', 'Achieved a perfect score on an assessment.', '✨', 'bronze', 150, 'quiz_perfect', 1, '2026-07-10 02:05:37.255488+00');
-
-
---
--- Data for Name: roadmap_module_progress; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: roadmaps; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: role_permissions; Type: TABLE DATA; Schema: public; Owner: -
---
 
 INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000001', '6f649ce6-a417-45e2-9bc7-f3d9638bcd41');
 INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '6f649ce6-a417-45e2-9bc7-f3d9638bcd41');
@@ -5551,34 +3527,12 @@ INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-00000000000
 INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '9e3536d0-ff47-4457-ad5b-bda8dd10eac1');
 INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '9e3536d0-ff47-4457-ad5b-bda8dd10eac1');
 
-
---
--- Data for Name: roles; Type: TABLE DATA; Schema: public; Owner: -
---
-
 INSERT INTO public.roles VALUES ('11111111-1111-1111-1111-000000000001', NULL, 'viewer', 'Read-only access to published content', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00');
 INSERT INTO public.roles VALUES ('11111111-1111-1111-1111-000000000002', NULL, 'member', 'Standard learner — courses, practice, tools', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00');
 INSERT INTO public.roles VALUES ('11111111-1111-1111-1111-000000000003', NULL, 'instructor', 'Course and assessment author', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00');
 INSERT INTO public.roles VALUES ('11111111-1111-1111-1111-000000000004', NULL, 'mentor', 'Mentoring and batch supervision', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00');
 INSERT INTO public.roles VALUES ('11111111-1111-1111-1111-000000000005', NULL, 'tenant_admin', 'Full organisation administration', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00');
 INSERT INTO public.roles VALUES ('11111111-1111-1111-1111-000000000006', NULL, 'support_agent', 'Support ticket queue — view, reply, triage, and get notified', true, false, true, '2026-08-10 00:00:00+00', '2026-08-10 00:00:00+00');
-
-
---
--- Data for Name: session_credit_ledger; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: session_credit_packs; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: sheet_items; Type: TABLE DATA; Schema: public; Owner: -
---
 
 INSERT INTO public.sheet_items VALUES ('a8104228-0c41-4f67-8f90-ac82d1f6a29b', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Contains Duplicate', 'contains-duplicate', 'Arrays & Hashing', 'easy', 'https://leetcode.com/problems/contains-duplicate/', 1, '2026-07-10 02:05:37.890501+00', '{}');
 INSERT INTO public.sheet_items VALUES ('986bf8e0-802f-45aa-9614-d1a616e3d593', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Valid Anagram', 'valid-anagram', 'Arrays & Hashing', 'easy', 'https://leetcode.com/problems/valid-anagram/', 2, '2026-07-10 02:05:37.890501+00', '{}');
@@ -5966,8189 +3920,2772 @@ INSERT INTO public.sheet_items VALUES ('5d908bc0-1844-44c7-baa2-0ee8ae3d6f7d', '
 INSERT INTO public.sheet_items VALUES ('10c2cea5-2843-4fa0-952d-0b3cd7344f74', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Counting Bits', 'counting-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/counting-bits/', 69, '2026-07-10 02:05:37.909128+00', '{}');
 INSERT INTO public.sheet_items VALUES ('62d88ffd-edbe-4650-a749-b5dde3cbb3af', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Sum of Two Integers', 'sum-of-two-integers', 'Bit Manipulation', 'medium', 'https://leetcode.com/problems/sum-of-two-integers/', 70, '2026-07-10 02:05:37.909128+00', '{}');
 
-
---
--- Data for Name: sheets; Type: TABLE DATA; Schema: public; Owner: -
---
-
 INSERT INTO public.sheets VALUES ('ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Striver''s A2Z DSA', 'striver-a2z', 'Step-by-step DSA course from basics to advanced, by Striver (takeuforward).', 'DSA', true, NULL, '2026-07-10 02:05:37.88717+00', '2026-07-10 02:05:37.88717+00', NULL);
 INSERT INTO public.sheets VALUES ('20b37334-c88c-45c6-b898-ec5d23e37474', 'NeetCode 150', 'neetcode-150', 'The 150 most important problems curated by NeetCode.', 'DSA', true, NULL, '2026-07-10 02:05:37.88717+00', '2026-07-10 02:05:37.88717+00', NULL);
 INSERT INTO public.sheets VALUES ('5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Blind 75', 'blind-75', 'The original 75-problem interview prep list.', 'DSA', true, NULL, '2026-07-10 02:05:37.88717+00', '2026-07-10 02:05:37.88717+00', NULL);
 INSERT INTO public.sheets VALUES ('5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Grind 169', 'grind-169', 'TechInterviewHandbook''s Grind 169 problem list.', 'DSA', true, NULL, '2026-07-10 02:05:37.88717+00', '2026-07-10 02:05:37.88717+00', NULL);
 
-
---
--- Data for Name: social_accounts; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: sprint_commitments; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: sprints; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: srs_cards; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: srs_reviews; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: standup_updates; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: system_design_attempts; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: system_design_chat_messages; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: task_links; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: task_templates; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: test_templates; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: usage_counters; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: user_achievements; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: user_feature_flags; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: user_mfa; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: user_mfa_recovery_codes; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: user_permission_overrides; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: user_privacy_settings; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: user_problem_progress; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: user_profiles; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: user_roles; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: user_sheets; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: user_stats; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: webauthn_credentials; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: whatnow_tasks; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: whats_new_entries; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: wiki_pages; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: wiki_spaces; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: work_item_assignees; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: work_item_events; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: work_item_gitlab; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: work_item_links; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: work_item_reviews; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: work_item_time_logs; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: work_items; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: workspace_ai_cache; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: workspace_digests; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: workspace_projects; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: xp_events; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Name: attempt_events_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
 SELECT pg_catalog.setval('public.attempt_events_id_seq', 1, false);
-
-
---
--- Name: audit_logs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
 
 SELECT pg_catalog.setval('public.audit_logs_id_seq', 1, false);
 
-
---
--- Name: auth_events_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
 SELECT pg_catalog.setval('public.auth_events_id_seq', 1, false);
-
-
---
--- Name: job_runs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
 
 SELECT pg_catalog.setval('public.job_runs_id_seq', 1, false);
 
-
---
--- Name: lab_usage_events_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
 SELECT pg_catalog.setval('public.lab_usage_events_id_seq', 1, false);
-
-
---
--- Name: receipt_number_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
 
 SELECT pg_catalog.setval('public.receipt_number_seq', 1, false);
 
-
---
--- Name: work_item_events_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
 SELECT pg_catalog.setval('public.work_item_events_id_seq', 1, false);
 
-
---
--- Name: xp_events_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
 SELECT pg_catalog.setval('public.xp_events_id_seq', 1, false);
-
-
---
--- Name: assessment_attempts assessment_attempts_assessment_id_user_id_attempt_number_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.assessment_attempts
     ADD CONSTRAINT assessment_attempts_assessment_id_user_id_attempt_number_key UNIQUE (assessment_id, user_id, attempt_number);
 
-
---
--- Name: assessment_attempts assessment_attempts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.assessment_attempts
     ADD CONSTRAINT assessment_attempts_pkey PRIMARY KEY (id);
-
-
---
--- Name: assessment_questions assessment_questions_assessment_id_question_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.assessment_questions
     ADD CONSTRAINT assessment_questions_assessment_id_question_id_key UNIQUE (assessment_id, question_id);
 
-
---
--- Name: assessment_questions assessment_questions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.assessment_questions
     ADD CONSTRAINT assessment_questions_pkey PRIMARY KEY (id);
-
-
---
--- Name: assessments assessments_org_id_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.assessments
     ADD CONSTRAINT assessments_org_id_slug_key UNIQUE (org_id, slug);
 
-
---
--- Name: assessments assessments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.assessments
     ADD CONSTRAINT assessments_pkey PRIMARY KEY (id);
-
-
---
--- Name: assessments assessments_short_code_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.assessments
     ADD CONSTRAINT assessments_short_code_key UNIQUE (short_code);
 
-
---
--- Name: attempt_answers attempt_answers_attempt_id_assessment_question_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.attempt_answers
     ADD CONSTRAINT attempt_answers_attempt_id_assessment_question_id_key UNIQUE (attempt_id, assessment_question_id);
-
-
---
--- Name: attempt_answers attempt_answers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.attempt_answers
     ADD CONSTRAINT attempt_answers_pkey PRIMARY KEY (id);
 
-
---
--- Name: attempt_events attempt_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.attempt_events
     ADD CONSTRAINT attempt_events_pkey PRIMARY KEY (id);
-
-
---
--- Name: audit_logs audit_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.audit_logs
     ADD CONSTRAINT audit_logs_pkey PRIMARY KEY (id);
 
-
---
--- Name: auth_events auth_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.auth_events
     ADD CONSTRAINT auth_events_pkey PRIMARY KEY (id);
-
-
---
--- Name: auth_tokens auth_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.auth_tokens
     ADD CONSTRAINT auth_tokens_pkey PRIMARY KEY (id);
 
-
---
--- Name: batch_invitations batch_invitations_batch_id_email_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.batch_invitations
     ADD CONSTRAINT batch_invitations_batch_id_email_key UNIQUE (batch_id, email);
-
-
---
--- Name: batch_invitations batch_invitations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.batch_invitations
     ADD CONSTRAINT batch_invitations_pkey PRIMARY KEY (id);
 
-
---
--- Name: batch_invitations batch_invitations_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.batch_invitations
     ADD CONSTRAINT batch_invitations_token_hash_key UNIQUE (token_hash);
-
-
---
--- Name: batch_member_details batch_member_details_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.batch_member_details
     ADD CONSTRAINT batch_member_details_pkey PRIMARY KEY (batch_id, email);
 
-
---
--- Name: batch_members batch_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.batch_members
     ADD CONSTRAINT batch_members_pkey PRIMARY KEY (batch_id, user_id);
-
-
---
--- Name: batch_messages batch_messages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.batch_messages
     ADD CONSTRAINT batch_messages_pkey PRIMARY KEY (id);
 
-
---
--- Name: batches batches_org_id_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.batches
     ADD CONSTRAINT batches_org_id_slug_key UNIQUE (org_id, slug);
-
-
---
--- Name: batches batches_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.batches
     ADD CONSTRAINT batches_pkey PRIMARY KEY (id);
 
-
---
--- Name: brief_approvals brief_approvals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.brief_approvals
     ADD CONSTRAINT brief_approvals_pkey PRIMARY KEY (project_id, requirement_version, approver_id);
-
-
---
--- Name: calendar_events calendar_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.calendar_events
     ADD CONSTRAINT calendar_events_pkey PRIMARY KEY (id);
 
-
---
--- Name: captures captures_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.captures
     ADD CONSTRAINT captures_pkey PRIMARY KEY (id);
-
-
---
--- Name: certificates certificates_attempt_unique; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.certificates
     ADD CONSTRAINT certificates_attempt_unique UNIQUE (final_test_attempt_id);
 
-
---
--- Name: certificates certificates_cert_uuid_unique; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.certificates
     ADD CONSTRAINT certificates_cert_uuid_unique UNIQUE (cert_uuid);
-
-
---
--- Name: certificates certificates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.certificates
     ADD CONSTRAINT certificates_pkey PRIMARY KEY (id);
 
-
---
--- Name: change_requests change_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.change_requests
     ADD CONSTRAINT change_requests_pkey PRIMARY KEY (id);
-
-
---
--- Name: coding_submissions coding_submissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.coding_submissions
     ADD CONSTRAINT coding_submissions_pkey PRIMARY KEY (id);
 
-
---
--- Name: cohort_groups cohort_groups_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.cohort_groups
     ADD CONSTRAINT cohort_groups_pkey PRIMARY KEY (id);
-
-
---
--- Name: comments comments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.comments
     ADD CONSTRAINT comments_pkey PRIMARY KEY (id);
 
-
---
--- Name: content_assignments content_assignments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.content_assignments
     ADD CONSTRAINT content_assignments_pkey PRIMARY KEY (id);
-
-
---
--- Name: content_reactions content_reactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.content_reactions
     ADD CONSTRAINT content_reactions_pkey PRIMARY KEY (id);
 
-
---
--- Name: content_reactions content_reactions_user_id_target_type_target_id_reaction_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.content_reactions
     ADD CONSTRAINT content_reactions_user_id_target_type_target_id_reaction_key UNIQUE (user_id, target_type, target_id, reaction);
-
-
---
--- Name: content_reports content_reports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.content_reports
     ADD CONSTRAINT content_reports_pkey PRIMARY KEY (id);
 
-
---
--- Name: content_versions content_versions_content_type_content_id_version_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.content_versions
     ADD CONSTRAINT content_versions_content_type_content_id_version_key UNIQUE (content_type, content_id, version);
-
-
---
--- Name: content_versions content_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.content_versions
     ADD CONSTRAINT content_versions_pkey PRIMARY KEY (id);
 
-
---
--- Name: conversations conversations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.conversations
     ADD CONSTRAINT conversations_pkey PRIMARY KEY (id);
-
-
---
--- Name: coupon_courses coupon_courses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.coupon_courses
     ADD CONSTRAINT coupon_courses_pkey PRIMARY KEY (coupon_id, course_id);
 
-
---
--- Name: coupon_redemptions coupon_redemptions_coupon_user_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.coupon_redemptions
     ADD CONSTRAINT coupon_redemptions_coupon_user_key UNIQUE (coupon_id, user_id);
-
-
---
--- Name: coupon_redemptions coupon_redemptions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.coupon_redemptions
     ADD CONSTRAINT coupon_redemptions_pkey PRIMARY KEY (id);
 
-
---
--- Name: coupon_redemptions coupon_redemptions_purchase_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.coupon_redemptions
     ADD CONSTRAINT coupon_redemptions_purchase_key UNIQUE (purchase_id);
-
-
---
--- Name: coupons coupons_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.coupons
     ADD CONSTRAINT coupons_pkey PRIMARY KEY (id);
 
-
---
--- Name: course_bundle_items course_bundle_items_bundle_id_position_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.course_bundle_items
     ADD CONSTRAINT course_bundle_items_bundle_id_position_key UNIQUE (bundle_id, "position") DEFERRABLE INITIALLY DEFERRED;
-
-
---
--- Name: course_bundle_items course_bundle_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.course_bundle_items
     ADD CONSTRAINT course_bundle_items_pkey PRIMARY KEY (bundle_id, course_id);
 
-
---
--- Name: course_bundles course_bundles_org_id_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.course_bundles
     ADD CONSTRAINT course_bundles_org_id_slug_key UNIQUE (org_id, slug);
-
-
---
--- Name: course_bundles course_bundles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.course_bundles
     ADD CONSTRAINT course_bundles_pkey PRIMARY KEY (id);
 
-
---
--- Name: course_faqs course_faqs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.course_faqs
     ADD CONSTRAINT course_faqs_pkey PRIMARY KEY (id);
-
-
---
--- Name: course_modules course_modules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.course_modules
     ADD CONSTRAINT course_modules_pkey PRIMARY KEY (id);
 
-
---
--- Name: course_modules course_modules_section_id_position_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.course_modules
     ADD CONSTRAINT course_modules_section_id_position_key UNIQUE (section_id, "position") DEFERRABLE INITIALLY DEFERRED;
-
-
---
--- Name: purchases course_purchases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.purchases
     ADD CONSTRAINT course_purchases_pkey PRIMARY KEY (id);
 
-
---
--- Name: course_sections course_sections_course_id_position_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.course_sections
     ADD CONSTRAINT course_sections_course_id_position_key UNIQUE (course_id, "position") DEFERRABLE INITIALLY DEFERRED;
-
-
---
--- Name: course_sections course_sections_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.course_sections
     ADD CONSTRAINT course_sections_pkey PRIMARY KEY (id);
 
-
---
--- Name: courses courses_org_id_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.courses
     ADD CONSTRAINT courses_org_id_slug_key UNIQUE (org_id, slug);
-
-
---
--- Name: courses courses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.courses
     ADD CONSTRAINT courses_pkey PRIMARY KEY (id);
 
-
---
--- Name: diary_entries diary_entries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.diary_entries
     ADD CONSTRAINT diary_entries_pkey PRIMARY KEY (id);
-
-
---
--- Name: diary_entries diary_entries_user_date_unique; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.diary_entries
     ADD CONSTRAINT diary_entries_user_date_unique UNIQUE (user_id, entry_date);
 
-
---
--- Name: diary_tasks diary_tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.diary_tasks
     ADD CONSTRAINT diary_tasks_pkey PRIMARY KEY (id);
-
-
---
--- Name: enrollments enrollments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.enrollments
     ADD CONSTRAINT enrollments_pkey PRIMARY KEY (id);
 
-
---
--- Name: enrollments enrollments_user_id_course_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.enrollments
     ADD CONSTRAINT enrollments_user_id_course_id_key UNIQUE (user_id, course_id);
-
-
---
--- Name: feedback feedback_kind_subject_user_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.feedback
     ADD CONSTRAINT feedback_kind_subject_user_key UNIQUE (kind, subject_type, subject_id, user_id);
 
-
---
--- Name: feedback feedback_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.feedback
     ADD CONSTRAINT feedback_pkey PRIMARY KEY (id);
-
-
---
--- Name: focus_wall_categories focus_wall_categories_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.focus_wall_categories
     ADD CONSTRAINT focus_wall_categories_pkey PRIMARY KEY (id);
 
-
---
--- Name: focus_wall_notes focus_wall_notes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.focus_wall_notes
     ADD CONSTRAINT focus_wall_notes_pkey PRIMARY KEY (id);
-
-
---
--- Name: gitlab_commit_files gitlab_commit_files_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.gitlab_commit_files
     ADD CONSTRAINT gitlab_commit_files_pkey PRIMARY KEY (team_id, sha, file_path);
 
-
---
--- Name: gitlab_commits gitlab_commits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.gitlab_commits
     ADD CONSTRAINT gitlab_commits_pkey PRIMARY KEY (id);
-
-
---
--- Name: gitlab_commits gitlab_commits_team_sha_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.gitlab_commits
     ADD CONSTRAINT gitlab_commits_team_sha_key UNIQUE (team_id, sha);
 
-
---
--- Name: gitlab_connections gitlab_connections_org_gitlab_user_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.gitlab_connections
     ADD CONSTRAINT gitlab_connections_org_gitlab_user_key UNIQUE (org_id, gitlab_user_id);
-
-
---
--- Name: gitlab_connections gitlab_connections_org_user_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.gitlab_connections
     ADD CONSTRAINT gitlab_connections_org_user_key UNIQUE (org_id, user_id);
 
-
---
--- Name: gitlab_connections gitlab_connections_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.gitlab_connections
     ADD CONSTRAINT gitlab_connections_pkey PRIMARY KEY (id);
-
-
---
--- Name: gitlab_installations gitlab_installations_org_name_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.gitlab_installations
     ADD CONSTRAINT gitlab_installations_org_name_key UNIQUE (org_id, name);
 
-
---
--- Name: gitlab_installations gitlab_installations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.gitlab_installations
     ADD CONSTRAINT gitlab_installations_pkey PRIMARY KEY (id);
-
-
---
--- Name: gitlab_merge_requests gitlab_merge_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.gitlab_merge_requests
     ADD CONSTRAINT gitlab_merge_requests_pkey PRIMARY KEY (id);
 
-
---
--- Name: gitlab_merge_requests gitlab_merge_requests_team_mr_iid_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.gitlab_merge_requests
     ADD CONSTRAINT gitlab_merge_requests_team_mr_iid_key UNIQUE (team_id, mr_iid);
-
-
---
--- Name: gitlab_objects gitlab_objects_org_id_object_type_gitlab_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.gitlab_objects
     ADD CONSTRAINT gitlab_objects_org_id_object_type_gitlab_id_key UNIQUE (org_id, object_type, gitlab_id);
 
-
---
--- Name: gitlab_objects gitlab_objects_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.gitlab_objects
     ADD CONSTRAINT gitlab_objects_pkey PRIMARY KEY (id);
-
-
---
--- Name: gitlab_webhook_events gitlab_webhook_events_org_event_uuid_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.gitlab_webhook_events
     ADD CONSTRAINT gitlab_webhook_events_org_event_uuid_key UNIQUE (org_id, event_uuid);
 
-
---
--- Name: gitlab_webhook_events gitlab_webhook_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.gitlab_webhook_events
     ADD CONSTRAINT gitlab_webhook_events_pkey PRIMARY KEY (id);
-
-
---
--- Name: habit_completions habit_completions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.habit_completions
     ADD CONSTRAINT habit_completions_pkey PRIMARY KEY (habit_id, period_start);
 
-
---
--- Name: habits habits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.habits
     ADD CONSTRAINT habits_pkey PRIMARY KEY (id);
-
-
---
--- Name: highlight_explanations highlight_explanations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.highlight_explanations
     ADD CONSTRAINT highlight_explanations_pkey PRIMARY KEY (id);
 
-
---
--- Name: highlight_explanations highlight_explanations_text_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.highlight_explanations
     ADD CONSTRAINT highlight_explanations_text_hash_key UNIQUE (text_hash);
-
-
---
--- Name: idempotency_keys idempotency_keys_idem_key_endpoint_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.idempotency_keys
     ADD CONSTRAINT idempotency_keys_idem_key_endpoint_user_id_key UNIQUE (idem_key, endpoint, user_id);
 
-
---
--- Name: idempotency_keys idempotency_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.idempotency_keys
     ADD CONSTRAINT idempotency_keys_pkey PRIMARY KEY (id);
-
-
---
--- Name: interview_evaluations interview_evaluations_attempt_id_question_id_scope_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.interview_evaluations
     ADD CONSTRAINT interview_evaluations_attempt_id_question_id_scope_key UNIQUE (attempt_id, question_id, scope);
 
-
---
--- Name: interview_evaluations interview_evaluations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.interview_evaluations
     ADD CONSTRAINT interview_evaluations_pkey PRIMARY KEY (id);
-
-
---
--- Name: interview_exp_entries interview_exp_entries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.interview_exp_entries
     ADD CONSTRAINT interview_exp_entries_pkey PRIMARY KEY (id);
 
-
---
--- Name: interview_exp_posts interview_exp_posts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.interview_exp_posts
     ADD CONSTRAINT interview_exp_posts_pkey PRIMARY KEY (id);
-
-
---
--- Name: interview_exp_qna interview_exp_qna_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.interview_exp_qna
     ADD CONSTRAINT interview_exp_qna_pkey PRIMARY KEY (id);
 
-
---
--- Name: interview_exp_qna_progress interview_exp_qna_progress_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.interview_exp_qna_progress
     ADD CONSTRAINT interview_exp_qna_progress_pkey PRIMARY KEY (id);
-
-
---
--- Name: interview_exp_qna_progress interview_exp_qna_progress_unique; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.interview_exp_qna_progress
     ADD CONSTRAINT interview_exp_qna_progress_unique UNIQUE (user_id, qna_id);
 
-
---
--- Name: interview_prep_plans interview_prep_plans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.interview_prep_plans
     ADD CONSTRAINT interview_prep_plans_pkey PRIMARY KEY (id);
-
-
---
--- Name: interview_prep_rounds interview_prep_rounds_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.interview_prep_rounds
     ADD CONSTRAINT interview_prep_rounds_pkey PRIMARY KEY (id);
 
-
---
--- Name: interview_prep_rounds interview_prep_rounds_plan_id_order_index_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.interview_prep_rounds
     ADD CONSTRAINT interview_prep_rounds_plan_id_order_index_key UNIQUE (plan_id, order_index);
-
-
---
--- Name: interview_skill_scores interview_skill_scores_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.interview_skill_scores
     ADD CONSTRAINT interview_skill_scores_pkey PRIMARY KEY (id);
 
-
---
--- Name: job_runs job_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.job_runs
     ADD CONSTRAINT job_runs_pkey PRIMARY KEY (id);
-
-
---
--- Name: jobs jobs_idempotency_key_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.jobs
     ADD CONSTRAINT jobs_idempotency_key_key UNIQUE (idempotency_key);
 
-
---
--- Name: jobs jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.jobs
     ADD CONSTRAINT jobs_pkey PRIMARY KEY (id);
-
-
---
--- Name: jti_blocklist jti_blocklist_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.jti_blocklist
     ADD CONSTRAINT jti_blocklist_pkey PRIMARY KEY (jti);
 
-
---
--- Name: lab_ai_drafts lab_ai_drafts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_ai_drafts
     ADD CONSTRAINT lab_ai_drafts_pkey PRIMARY KEY (cache_key);
-
-
---
--- Name: lab_ai_interactions lab_ai_interactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_ai_interactions
     ADD CONSTRAINT lab_ai_interactions_pkey PRIMARY KEY (id);
 
-
---
--- Name: lab_block_usages lab_block_usages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_block_usages
     ADD CONSTRAINT lab_block_usages_pkey PRIMARY KEY (build_id, block_version_id);
-
-
---
--- Name: lab_block_versions lab_block_versions_block_id_content_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_block_versions
     ADD CONSTRAINT lab_block_versions_block_id_content_hash_key UNIQUE (block_id, content_hash);
 
-
---
--- Name: lab_block_versions lab_block_versions_block_id_version_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_block_versions
     ADD CONSTRAINT lab_block_versions_block_id_version_key UNIQUE (block_id, version);
-
-
---
--- Name: lab_block_versions lab_block_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_block_versions
     ADD CONSTRAINT lab_block_versions_pkey PRIMARY KEY (id);
 
-
---
--- Name: lab_blocks lab_blocks_org_id_block_key_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_blocks
     ADD CONSTRAINT lab_blocks_org_id_block_key_key UNIQUE NULLS NOT DISTINCT (org_id, block_key);
-
-
---
--- Name: lab_blocks lab_blocks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_blocks
     ADD CONSTRAINT lab_blocks_pkey PRIMARY KEY (id);
 
-
---
--- Name: lab_build_variants lab_build_variants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_build_variants
     ADD CONSTRAINT lab_build_variants_pkey PRIMARY KEY (build_id, variant_key);
-
-
---
--- Name: lab_builds lab_builds_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_builds
     ADD CONSTRAINT lab_builds_pkey PRIMARY KEY (id);
 
-
---
--- Name: lab_catalog_meta lab_catalog_meta_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_catalog_meta
     ADD CONSTRAINT lab_catalog_meta_pkey PRIMARY KEY (lab_id);
-
-
---
--- Name: lab_definitions lab_definitions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_definitions
     ADD CONSTRAINT lab_definitions_pkey PRIMARY KEY (id);
 
-
---
--- Name: lab_image_warmup_stats lab_image_warmup_stats_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_image_warmup_stats
     ADD CONSTRAINT lab_image_warmup_stats_pkey PRIMARY KEY (image);
-
-
---
--- Name: lab_recipes lab_recipes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_recipes
     ADD CONSTRAINT lab_recipes_pkey PRIMARY KEY (id);
 
-
---
--- Name: lab_sessions lab_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_sessions
     ADD CONSTRAINT lab_sessions_pkey PRIMARY KEY (id);
-
-
---
--- Name: lab_task_completions lab_task_completions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_task_completions
     ADD CONSTRAINT lab_task_completions_pkey PRIMARY KEY (id);
 
-
---
--- Name: lab_task_completions lab_task_completions_session_id_task_version_item_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_task_completions
     ADD CONSTRAINT lab_task_completions_session_id_task_version_item_id_key UNIQUE (session_id, task_version_item_id);
-
-
---
--- Name: lab_task_version_items lab_task_version_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_task_version_items
     ADD CONSTRAINT lab_task_version_items_pkey PRIMARY KEY (id);
 
-
---
--- Name: lab_task_version_items lab_task_version_items_task_version_id_position_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_task_version_items
     ADD CONSTRAINT lab_task_version_items_task_version_id_position_key UNIQUE (task_version_id, "position");
-
-
---
--- Name: lab_task_version_items lab_task_version_items_task_version_id_source_task_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_task_version_items
     ADD CONSTRAINT lab_task_version_items_task_version_id_source_task_id_key UNIQUE (task_version_id, source_task_id);
 
-
---
--- Name: lab_task_versions lab_task_versions_lab_id_version_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_task_versions
     ADD CONSTRAINT lab_task_versions_lab_id_version_key UNIQUE (lab_id, version);
-
-
---
--- Name: lab_task_versions lab_task_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_task_versions
     ADD CONSTRAINT lab_task_versions_pkey PRIMARY KEY (id);
 
-
---
--- Name: lab_tasks lab_tasks_lab_id_position_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_tasks
     ADD CONSTRAINT lab_tasks_lab_id_position_key UNIQUE (lab_id, "position");
-
-
---
--- Name: lab_tasks lab_tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_tasks
     ADD CONSTRAINT lab_tasks_pkey PRIMARY KEY (id);
 
-
---
--- Name: lab_usage_events lab_usage_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_usage_events
     ADD CONSTRAINT lab_usage_events_pkey PRIMARY KEY (id);
-
-
---
--- Name: lab_warm_containers lab_warm_containers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_warm_containers
     ADD CONSTRAINT lab_warm_containers_pkey PRIMARY KEY (id);
 
-
---
--- Name: lab_warm_pool_decisions lab_warm_pool_decisions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_warm_pool_decisions
     ADD CONSTRAINT lab_warm_pool_decisions_pkey PRIMARY KEY (id);
-
-
---
--- Name: learning_annotations learning_annotations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.learning_annotations
     ADD CONSTRAINT learning_annotations_pkey PRIMARY KEY (id);
 
-
---
--- Name: learning_journal_entries learning_journal_entries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.learning_journal_entries
     ADD CONSTRAINT learning_journal_entries_pkey PRIMARY KEY (id);
-
-
---
--- Name: legal_acceptances legal_acceptances_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.legal_acceptances
     ADD CONSTRAINT legal_acceptances_pkey PRIMARY KEY (id);
 
-
---
--- Name: mcp_clients mcp_clients_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.mcp_clients
     ADD CONSTRAINT mcp_clients_pkey PRIMARY KEY (client_id);
-
-
---
--- Name: mcp_connections mcp_connections_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.mcp_connections
     ADD CONSTRAINT mcp_connections_pkey PRIMARY KEY (id);
 
-
---
--- Name: meeting_attendance meeting_attendance_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.meeting_attendance
     ADD CONSTRAINT meeting_attendance_pkey PRIMARY KEY (calendar_event_id, occurrence_at, user_id);
-
-
---
--- Name: mentor_availability_exceptions mentor_availability_exceptions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.mentor_availability_exceptions
     ADD CONSTRAINT mentor_availability_exceptions_pkey PRIMARY KEY (id);
 
-
---
--- Name: mentor_availability_rules mentor_availability_rules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.mentor_availability_rules
     ADD CONSTRAINT mentor_availability_rules_pkey PRIMARY KEY (id);
-
-
---
--- Name: mentor_sessions mentor_sessions_no_overlap; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.mentor_sessions
     ADD CONSTRAINT mentor_sessions_no_overlap EXCLUDE USING gist (mentor_id WITH =, tstzrange(starts_at, ends_at) WITH &&) WHERE ((status = 'scheduled'::text));
 
-
---
--- Name: mentor_sessions mentor_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.mentor_sessions
     ADD CONSTRAINT mentor_sessions_pkey PRIMARY KEY (id);
-
-
---
--- Name: mentor_sessions mentor_sessions_student_no_overlap; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.mentor_sessions
     ADD CONSTRAINT mentor_sessions_student_no_overlap EXCLUDE USING gist (student_id WITH =, tstzrange(starts_at, ends_at) WITH &&) WHERE (((status = 'scheduled'::text) AND (student_id IS NOT NULL)));
 
-
---
--- Name: messages messages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.messages
     ADD CONSTRAINT messages_pkey PRIMARY KEY (id);
-
-
---
--- Name: module_progress module_progress_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.module_progress
     ADD CONSTRAINT module_progress_pkey PRIMARY KEY (id);
 
-
---
--- Name: module_progress module_progress_user_id_module_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.module_progress
     ADD CONSTRAINT module_progress_user_id_module_id_key UNIQUE (user_id, module_id);
-
-
---
--- Name: module_translations module_translations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.module_translations
     ADD CONSTRAINT module_translations_pkey PRIMARY KEY (module_id, locale);
 
-
---
--- Name: notifications notifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.notifications
     ADD CONSTRAINT notifications_pkey PRIMARY KEY (id);
-
-
---
--- Name: notifications notifications_user_dedupe_key_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.notifications
     ADD CONSTRAINT notifications_user_dedupe_key_key UNIQUE (user_id, dedupe_key);
 
-
---
--- Name: onboarding_progress onboarding_progress_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.onboarding_progress
     ADD CONSTRAINT onboarding_progress_pkey PRIMARY KEY (step_id, user_id);
-
-
---
--- Name: onboarding_steps onboarding_steps_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.onboarding_steps
     ADD CONSTRAINT onboarding_steps_pkey PRIMARY KEY (id);
 
-
---
--- Name: ops_alert_rules ops_alert_rules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.ops_alert_rules
     ADD CONSTRAINT ops_alert_rules_pkey PRIMARY KEY (handler);
-
-
---
--- Name: org_auth_config org_auth_config_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.org_auth_config
     ADD CONSTRAINT org_auth_config_pkey PRIMARY KEY (org_id);
 
-
---
--- Name: org_domains org_domains_org_id_domain_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.org_domains
     ADD CONSTRAINT org_domains_org_id_domain_key UNIQUE (org_id, domain);
-
-
---
--- Name: org_domains org_domains_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.org_domains
     ADD CONSTRAINT org_domains_pkey PRIMARY KEY (id);
 
-
---
--- Name: org_feature_flags org_feature_flags_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.org_feature_flags
     ADD CONSTRAINT org_feature_flags_pkey PRIMARY KEY (org_id, feature_key);
-
-
---
--- Name: org_invites org_invites_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.org_invites
     ADD CONSTRAINT org_invites_pkey PRIMARY KEY (id);
 
-
---
--- Name: org_invites org_invites_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.org_invites
     ADD CONSTRAINT org_invites_token_hash_key UNIQUE (token_hash);
-
-
---
--- Name: org_members org_members_org_id_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.org_members
     ADD CONSTRAINT org_members_org_id_user_id_key UNIQUE (org_id, user_id);
 
-
---
--- Name: org_members org_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.org_members
     ADD CONSTRAINT org_members_pkey PRIMARY KEY (id);
-
-
---
--- Name: org_settings org_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.org_settings
     ADD CONSTRAINT org_settings_pkey PRIMARY KEY (org_id);
 
-
---
--- Name: organizations organizations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.organizations
     ADD CONSTRAINT organizations_pkey PRIMARY KEY (id);
-
-
---
--- Name: organizations organizations_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.organizations
     ADD CONSTRAINT organizations_slug_key UNIQUE (slug);
 
-
---
--- Name: payment_events payment_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.payment_events
     ADD CONSTRAINT payment_events_pkey PRIMARY KEY (id);
-
-
---
--- Name: payment_events payment_events_provider_event_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.payment_events
     ADD CONSTRAINT payment_events_provider_event_key UNIQUE (provider, event_id);
 
-
---
--- Name: peer_feedback peer_feedback_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.peer_feedback
     ADD CONSTRAINT peer_feedback_pkey PRIMARY KEY (id);
-
-
---
--- Name: peer_feedback peer_feedback_project_id_from_user_to_user_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.peer_feedback
     ADD CONSTRAINT peer_feedback_project_id_from_user_to_user_key UNIQUE (project_id, from_user, to_user);
 
-
---
--- Name: permissions permissions_code_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.permissions
     ADD CONSTRAINT permissions_code_key UNIQUE (code);
-
-
---
--- Name: permissions permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.permissions
     ADD CONSTRAINT permissions_pkey PRIMARY KEY (id);
 
-
---
--- Name: plan_limits plan_limits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.plan_limits
     ADD CONSTRAINT plan_limits_pkey PRIMARY KEY (id);
-
-
---
--- Name: plan_limits plan_limits_tier_id_feature_key_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.plan_limits
     ADD CONSTRAINT plan_limits_tier_id_feature_key_key UNIQUE (tier_id, feature_key);
 
-
---
--- Name: practice_question_bank practice_question_bank_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.practice_question_bank
     ADD CONSTRAINT practice_question_bank_pkey PRIMARY KEY (id);
-
-
---
--- Name: pricing_tiers pricing_tiers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.pricing_tiers
     ADD CONSTRAINT pricing_tiers_pkey PRIMARY KEY (id);
 
-
---
--- Name: project_applications project_applications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_applications
     ADD CONSTRAINT project_applications_pkey PRIMARY KEY (id);
-
-
---
--- Name: project_applications project_applications_requirement_id_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_applications
     ADD CONSTRAINT project_applications_requirement_id_user_id_key UNIQUE (requirement_id, user_id);
 
-
---
--- Name: project_assignments project_assignments_batch_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_assignments
     ADD CONSTRAINT project_assignments_batch_slug_key UNIQUE (batch_id, slug);
-
-
---
--- Name: project_assignments project_assignments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_assignments
     ADD CONSTRAINT project_assignments_pkey PRIMARY KEY (id);
 
-
---
--- Name: project_checkpoints project_checkpoints_assignment_position_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_checkpoints
     ADD CONSTRAINT project_checkpoints_assignment_position_key UNIQUE (assignment_id, "position");
-
-
---
--- Name: project_checkpoints project_checkpoints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_checkpoints
     ADD CONSTRAINT project_checkpoints_pkey PRIMARY KEY (id);
 
-
---
--- Name: project_design_proposals project_design_proposals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_design_proposals
     ADD CONSTRAINT project_design_proposals_pkey PRIMARY KEY (id);
-
-
---
--- Name: project_design_votes project_design_votes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_design_votes
     ADD CONSTRAINT project_design_votes_pkey PRIMARY KEY (proposal_id, user_id);
 
-
---
--- Name: project_interests project_interests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_interests
     ADD CONSTRAINT project_interests_pkey PRIMARY KEY (id);
-
-
---
--- Name: project_interests project_interests_project_id_email_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_interests
     ADD CONSTRAINT project_interests_project_id_email_key UNIQUE (project_id, email);
 
-
---
--- Name: project_meetings project_meetings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_meetings
     ADD CONSTRAINT project_meetings_pkey PRIMARY KEY (calendar_event_id);
-
-
---
--- Name: project_members project_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_members
     ADD CONSTRAINT project_members_pkey PRIMARY KEY (project_id, user_id);
 
-
---
--- Name: project_originality_matches project_originality_matches_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_originality_matches
     ADD CONSTRAINT project_originality_matches_pkey PRIMARY KEY (id);
-
-
---
--- Name: project_originality_reports project_originality_reports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_originality_reports
     ADD CONSTRAINT project_originality_reports_pkey PRIMARY KEY (id);
 
-
---
--- Name: project_requirements project_requirements_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_requirements
     ADD CONSTRAINT project_requirements_pkey PRIMARY KEY (id);
-
-
---
--- Name: project_tasks project_tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_tasks
     ADD CONSTRAINT project_tasks_pkey PRIMARY KEY (id);
 
-
---
--- Name: project_team_checkpoints project_team_checkpoints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_team_checkpoints
     ADD CONSTRAINT project_team_checkpoints_pkey PRIMARY KEY (id);
-
-
---
--- Name: project_team_checkpoints project_team_checkpoints_team_checkpoint_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_team_checkpoints
     ADD CONSTRAINT project_team_checkpoints_team_checkpoint_key UNIQUE (team_id, checkpoint_id);
 
-
---
--- Name: project_team_members project_team_members_assignment_user_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_team_members
     ADD CONSTRAINT project_team_members_assignment_user_key UNIQUE (assignment_id, user_id);
-
-
---
--- Name: project_team_members project_team_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_team_members
     ADD CONSTRAINT project_team_members_pkey PRIMARY KEY (team_id, user_id);
 
-
---
--- Name: project_teams project_teams_assignment_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_teams
     ADD CONSTRAINT project_teams_assignment_slug_key UNIQUE (assignment_id, slug);
-
-
---
--- Name: project_teams project_teams_id_assignment_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_teams
     ADD CONSTRAINT project_teams_id_assignment_key UNIQUE (id, assignment_id);
 
-
---
--- Name: project_teams project_teams_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_teams
     ADD CONSTRAINT project_teams_pkey PRIMARY KEY (id);
-
-
---
--- Name: project_track_members project_track_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_track_members
     ADD CONSTRAINT project_track_members_pkey PRIMARY KEY (track_id, user_id);
 
-
---
--- Name: project_tracks project_tracks_id_project_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_tracks
     ADD CONSTRAINT project_tracks_id_project_id_key UNIQUE (id, project_id);
-
-
---
--- Name: project_tracks project_tracks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_tracks
     ADD CONSTRAINT project_tracks_pkey PRIMARY KEY (id);
 
-
---
--- Name: projects projects_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.projects
     ADD CONSTRAINT projects_pkey PRIMARY KEY (id);
-
-
---
--- Name: question_categories question_categories_org_id_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.question_categories
     ADD CONSTRAINT question_categories_org_id_slug_key UNIQUE (org_id, slug);
 
-
---
--- Name: question_categories question_categories_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.question_categories
     ADD CONSTRAINT question_categories_pkey PRIMARY KEY (id);
-
-
---
--- Name: question_versions question_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.question_versions
     ADD CONSTRAINT question_versions_pkey PRIMARY KEY (id);
 
-
---
--- Name: question_versions question_versions_question_id_version_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.question_versions
     ADD CONSTRAINT question_versions_question_id_version_key UNIQUE (question_id, version);
-
-
---
--- Name: questions questions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.questions
     ADD CONSTRAINT questions_pkey PRIMARY KEY (id);
 
-
---
--- Name: refresh_tokens refresh_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.refresh_tokens
     ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
-
-
---
--- Name: refresh_tokens refresh_tokens_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.refresh_tokens
     ADD CONSTRAINT refresh_tokens_token_hash_key UNIQUE (token_hash);
 
-
---
--- Name: release_snapshots release_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.release_snapshots
     ADD CONSTRAINT release_snapshots_pkey PRIMARY KEY (release_id, item_id);
-
-
---
--- Name: releases releases_id_project_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.releases
     ADD CONSTRAINT releases_id_project_id_key UNIQUE (id, project_id);
 
-
---
--- Name: releases releases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.releases
     ADD CONSTRAINT releases_pkey PRIMARY KEY (id);
-
-
---
--- Name: releases releases_project_id_version_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.releases
     ADD CONSTRAINT releases_project_id_version_key UNIQUE (project_id, version);
 
-
---
--- Name: requirement_questions requirement_questions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.requirement_questions
     ADD CONSTRAINT requirement_questions_pkey PRIMARY KEY (id);
-
-
---
--- Name: requirement_versions requirement_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.requirement_versions
     ADD CONSTRAINT requirement_versions_pkey PRIMARY KEY (project_id, version);
 
-
---
--- Name: revision_digests revision_digests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.revision_digests
     ADD CONSTRAINT revision_digests_pkey PRIMARY KEY (id);
-
-
---
--- Name: revision_digests revision_digests_user_id_digest_date_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.revision_digests
     ADD CONSTRAINT revision_digests_user_id_digest_date_key UNIQUE (user_id, digest_date);
 
-
---
--- Name: revision_plan_topics revision_plan_topics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.revision_plan_topics
     ADD CONSTRAINT revision_plan_topics_pkey PRIMARY KEY (id);
-
-
---
--- Name: revision_plans revision_plans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.revision_plans
     ADD CONSTRAINT revision_plans_pkey PRIMARY KEY (id);
 
-
---
--- Name: revision_plans revision_plans_user_course_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.revision_plans
     ADD CONSTRAINT revision_plans_user_course_key UNIQUE (user_id, course_id);
-
-
---
--- Name: reward_definitions reward_definitions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.reward_definitions
     ADD CONSTRAINT reward_definitions_pkey PRIMARY KEY (id);
 
-
---
--- Name: reward_definitions reward_definitions_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.reward_definitions
     ADD CONSTRAINT reward_definitions_slug_key UNIQUE (slug);
-
-
---
--- Name: roadmap_module_progress roadmap_module_progress_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.roadmap_module_progress
     ADD CONSTRAINT roadmap_module_progress_pkey PRIMARY KEY (roadmap_id, module_key);
 
-
---
--- Name: roadmaps roadmaps_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.roadmaps
     ADD CONSTRAINT roadmaps_pkey PRIMARY KEY (id);
-
-
---
--- Name: role_permissions role_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.role_permissions
     ADD CONSTRAINT role_permissions_pkey PRIMARY KEY (role_id, permission_id);
 
-
---
--- Name: roles roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.roles
     ADD CONSTRAINT roles_pkey PRIMARY KEY (id);
-
-
---
--- Name: roles roles_tenant_id_name_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.roles
     ADD CONSTRAINT roles_tenant_id_name_key UNIQUE NULLS NOT DISTINCT (org_id, name);
 
-
---
--- Name: session_credit_ledger session_credit_ledger_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.session_credit_ledger
     ADD CONSTRAINT session_credit_ledger_pkey PRIMARY KEY (id);
-
-
---
--- Name: session_credit_packs session_credit_packs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.session_credit_packs
     ADD CONSTRAINT session_credit_packs_pkey PRIMARY KEY (id);
 
-
---
--- Name: sheet_items sheet_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.sheet_items
     ADD CONSTRAINT sheet_items_pkey PRIMARY KEY (id);
-
-
---
--- Name: sheets sheets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.sheets
     ADD CONSTRAINT sheets_pkey PRIMARY KEY (id);
 
-
---
--- Name: sheets sheets_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.sheets
     ADD CONSTRAINT sheets_slug_key UNIQUE (slug);
-
-
---
--- Name: social_accounts social_accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.social_accounts
     ADD CONSTRAINT social_accounts_pkey PRIMARY KEY (id);
 
-
---
--- Name: social_accounts social_accounts_provider_provider_uid_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.social_accounts
     ADD CONSTRAINT social_accounts_provider_provider_uid_key UNIQUE (provider, provider_uid);
-
-
---
--- Name: sprint_commitments sprint_commitments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.sprint_commitments
     ADD CONSTRAINT sprint_commitments_pkey PRIMARY KEY (sprint_id, item_id);
 
-
---
--- Name: sprints sprints_id_project_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.sprints
     ADD CONSTRAINT sprints_id_project_id_key UNIQUE (id, project_id);
-
-
---
--- Name: sprints sprints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.sprints
     ADD CONSTRAINT sprints_pkey PRIMARY KEY (id);
 
-
---
--- Name: sprints sprints_project_id_daterange_excl; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.sprints
     ADD CONSTRAINT sprints_project_id_daterange_excl EXCLUDE USING gist (project_id WITH =, daterange(starts_on, ends_on, '[]'::text) WITH &&);
-
-
---
--- Name: srs_cards srs_cards_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.srs_cards
     ADD CONSTRAINT srs_cards_pkey PRIMARY KEY (id);
 
-
---
--- Name: srs_reviews srs_reviews_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.srs_reviews
     ADD CONSTRAINT srs_reviews_pkey PRIMARY KEY (id);
-
-
---
--- Name: standup_updates standup_updates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.standup_updates
     ADD CONSTRAINT standup_updates_pkey PRIMARY KEY (project_id, user_id, standup_on);
 
-
---
--- Name: system_design_attempts system_design_attempts_module_user_attempt_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.system_design_attempts
     ADD CONSTRAINT system_design_attempts_module_user_attempt_key UNIQUE (module_id, user_id, attempt_number);
-
-
---
--- Name: system_design_attempts system_design_attempts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.system_design_attempts
     ADD CONSTRAINT system_design_attempts_pkey PRIMARY KEY (id);
 
-
---
--- Name: system_design_chat_messages system_design_chat_messages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.system_design_chat_messages
     ADD CONSTRAINT system_design_chat_messages_pkey PRIMARY KEY (id);
-
-
---
--- Name: task_links task_links_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.task_links
     ADD CONSTRAINT task_links_pkey PRIMARY KEY (id);
 
-
---
--- Name: task_links task_links_unique; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.task_links
     ADD CONSTRAINT task_links_unique UNIQUE (source_task_id, target_type, target_id);
-
-
---
--- Name: task_templates task_templates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.task_templates
     ADD CONSTRAINT task_templates_pkey PRIMARY KEY (id);
 
-
---
--- Name: test_templates test_templates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.test_templates
     ADD CONSTRAINT test_templates_pkey PRIMARY KEY (id);
-
-
---
--- Name: usage_counters usage_counters_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.usage_counters
     ADD CONSTRAINT usage_counters_pkey PRIMARY KEY (account_id, feature_key, period_start);
 
-
---
--- Name: user_achievements user_achievements_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.user_achievements
     ADD CONSTRAINT user_achievements_pkey PRIMARY KEY (id);
-
-
---
--- Name: user_feature_flags user_feature_flags_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.user_feature_flags
     ADD CONSTRAINT user_feature_flags_pkey PRIMARY KEY (org_id, user_id, feature_key);
 
-
---
--- Name: user_mfa user_mfa_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.user_mfa
     ADD CONSTRAINT user_mfa_pkey PRIMARY KEY (user_id);
-
-
---
--- Name: user_mfa_recovery_codes user_mfa_recovery_codes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.user_mfa_recovery_codes
     ADD CONSTRAINT user_mfa_recovery_codes_pkey PRIMARY KEY (id);
 
-
---
--- Name: user_mfa_recovery_codes user_mfa_recovery_codes_user_id_code_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.user_mfa_recovery_codes
     ADD CONSTRAINT user_mfa_recovery_codes_user_id_code_hash_key UNIQUE (user_id, code_hash);
-
-
---
--- Name: user_permission_overrides user_permission_overrides_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.user_permission_overrides
     ADD CONSTRAINT user_permission_overrides_pkey PRIMARY KEY (user_id, org_id, permission_id);
 
-
---
--- Name: user_privacy_settings user_privacy_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.user_privacy_settings
     ADD CONSTRAINT user_privacy_settings_pkey PRIMARY KEY (user_id);
-
-
---
--- Name: user_problem_progress user_problem_progress_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.user_problem_progress
     ADD CONSTRAINT user_problem_progress_pkey PRIMARY KEY (user_id, topic_tag);
 
-
---
--- Name: user_profiles user_profiles_display_name_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.user_profiles
     ADD CONSTRAINT user_profiles_display_name_key UNIQUE (display_name);
-
-
---
--- Name: user_profiles user_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.user_profiles
     ADD CONSTRAINT user_profiles_pkey PRIMARY KEY (user_id);
 
-
---
--- Name: user_profiles user_profiles_profile_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.user_profiles
     ADD CONSTRAINT user_profiles_profile_slug_key UNIQUE (profile_slug);
-
-
---
--- Name: user_roles user_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.user_roles
     ADD CONSTRAINT user_roles_pkey PRIMARY KEY (user_id, role_id, org_id);
 
-
---
--- Name: user_sheets user_sheets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.user_sheets
     ADD CONSTRAINT user_sheets_pkey PRIMARY KEY (user_id, sheet_id);
-
-
---
--- Name: user_stats user_stats_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.user_stats
     ADD CONSTRAINT user_stats_pkey PRIMARY KEY (user_id);
 
-
---
--- Name: users users_email_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_email_key UNIQUE (email);
-
-
---
--- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (id);
 
-
---
--- Name: webauthn_credentials webauthn_credentials_credential_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.webauthn_credentials
     ADD CONSTRAINT webauthn_credentials_credential_id_key UNIQUE (credential_id);
-
-
---
--- Name: webauthn_credentials webauthn_credentials_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.webauthn_credentials
     ADD CONSTRAINT webauthn_credentials_pkey PRIMARY KEY (id);
 
-
---
--- Name: whatnow_tasks whatnow_tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.whatnow_tasks
     ADD CONSTRAINT whatnow_tasks_pkey PRIMARY KEY (id);
-
-
---
--- Name: whats_new_entries whats_new_entries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.whats_new_entries
     ADD CONSTRAINT whats_new_entries_pkey PRIMARY KEY (id);
 
-
---
--- Name: wiki_pages wiki_pages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.wiki_pages
     ADD CONSTRAINT wiki_pages_pkey PRIMARY KEY (id);
-
-
---
--- Name: wiki_pages wiki_pages_space_id_parent_id_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.wiki_pages
     ADD CONSTRAINT wiki_pages_space_id_parent_id_slug_key UNIQUE (space_id, parent_id, slug);
 
-
---
--- Name: wiki_spaces wiki_spaces_org_id_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.wiki_spaces
     ADD CONSTRAINT wiki_spaces_org_id_slug_key UNIQUE (org_id, slug);
-
-
---
--- Name: wiki_spaces wiki_spaces_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.wiki_spaces
     ADD CONSTRAINT wiki_spaces_pkey PRIMARY KEY (id);
 
-
---
--- Name: work_item_assignees work_item_assignees_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.work_item_assignees
     ADD CONSTRAINT work_item_assignees_pkey PRIMARY KEY (item_id, user_id, role);
-
-
---
--- Name: work_item_events work_item_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.work_item_events
     ADD CONSTRAINT work_item_events_pkey PRIMARY KEY (id);
 
-
---
--- Name: work_item_gitlab work_item_gitlab_item_id_kind_gitlab_ref_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.work_item_gitlab
     ADD CONSTRAINT work_item_gitlab_item_id_kind_gitlab_ref_key UNIQUE (item_id, kind, gitlab_ref);
-
-
---
--- Name: work_item_gitlab work_item_gitlab_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.work_item_gitlab
     ADD CONSTRAINT work_item_gitlab_pkey PRIMARY KEY (id);
 
-
---
--- Name: work_item_links work_item_links_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.work_item_links
     ADD CONSTRAINT work_item_links_pkey PRIMARY KEY (from_id, to_id, kind);
-
-
---
--- Name: work_item_reviews work_item_reviews_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.work_item_reviews
     ADD CONSTRAINT work_item_reviews_pkey PRIMARY KEY (id);
 
-
---
--- Name: work_item_time_logs work_item_time_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.work_item_time_logs
     ADD CONSTRAINT work_item_time_logs_pkey PRIMARY KEY (id);
-
-
---
--- Name: work_items work_items_id_project_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.work_items
     ADD CONSTRAINT work_items_id_project_id_key UNIQUE (id, project_id);
 
-
---
--- Name: work_items work_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.work_items
     ADD CONSTRAINT work_items_pkey PRIMARY KEY (id);
-
-
---
--- Name: work_items work_items_project_id_key_num_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.work_items
     ADD CONSTRAINT work_items_project_id_key_num_key UNIQUE (project_id, key_num);
 
-
---
--- Name: workspace_ai_cache workspace_ai_cache_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.workspace_ai_cache
     ADD CONSTRAINT workspace_ai_cache_pkey PRIMARY KEY (project_id, kind, cache_key);
-
-
---
--- Name: workspace_digests workspace_digests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.workspace_digests
     ADD CONSTRAINT workspace_digests_pkey PRIMARY KEY (project_id, digest_date);
 
-
---
--- Name: workspace_projects workspace_projects_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.workspace_projects
     ADD CONSTRAINT workspace_projects_pkey PRIMARY KEY (id);
-
-
---
--- Name: xp_events xp_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.xp_events
     ADD CONSTRAINT xp_events_pkey PRIMARY KEY (id);
 
-
---
--- Name: coupons_org_code_key; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE UNIQUE INDEX coupons_org_code_key ON public.coupons USING btree (org_id, upper(code));
-
-
---
--- Name: courses_tags_gin; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX courses_tags_gin ON public.courses USING gin (tags) WHERE (status = 'published'::text);
 
-
---
--- Name: gitlab_installations_org_default_uq; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE UNIQUE INDEX gitlab_installations_org_default_uq ON public.gitlab_installations USING btree (org_id) WHERE is_default;
-
-
---
--- Name: idx_assessment_attempts_user_submitted; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_assessment_attempts_user_submitted ON public.assessment_attempts USING btree (user_id, submitted_at DESC) WHERE (submitted_at IS NOT NULL);
 
-
---
--- Name: idx_assessment_questions_order; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_assessment_questions_order ON public.assessment_questions USING btree (assessment_id, "position");
-
-
---
--- Name: idx_assessments_org_status; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_assessments_org_status ON public.assessments USING btree (org_id, status);
 
-
---
--- Name: idx_assessments_parent; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_assessments_parent ON public.assessments USING btree (parent_type, parent_id);
-
-
---
--- Name: idx_assessments_short_code; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_assessments_short_code ON public.assessments USING btree (short_code) WHERE (short_code IS NOT NULL);
 
-
---
--- Name: idx_attempt_answers_aq; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_attempt_answers_aq ON public.attempt_answers USING btree (assessment_question_id);
-
-
---
--- Name: idx_attempt_answers_attempt; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_attempt_answers_attempt ON public.attempt_answers USING btree (attempt_id);
 
-
---
--- Name: idx_attempt_events_attempt; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_attempt_events_attempt ON public.attempt_events USING btree (attempt_id, created_at);
-
-
---
--- Name: idx_attempt_events_type; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_attempt_events_type ON public.attempt_events USING btree (attempt_id, event_type);
 
-
---
--- Name: idx_attempt_events_user; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_attempt_events_user ON public.attempt_events USING btree (user_id);
-
-
---
--- Name: idx_attempts_assessment; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_attempts_assessment ON public.assessment_attempts USING btree (assessment_id, status);
 
-
---
--- Name: idx_attempts_assessment_created; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_attempts_assessment_created ON public.assessment_attempts USING btree (assessment_id, created_at DESC);
-
-
---
--- Name: idx_attempts_org; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_attempts_org ON public.assessment_attempts USING btree (org_id);
 
-
---
--- Name: idx_attempts_org_user; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_attempts_org_user ON public.assessment_attempts USING btree (org_id, user_id);
-
-
---
--- Name: idx_attempts_user; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_attempts_user ON public.assessment_attempts USING btree (user_id, status);
 
-
---
--- Name: idx_audit_logs_org_time; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_audit_logs_org_time ON public.audit_logs USING btree (org_id, created_at DESC);
-
-
---
--- Name: idx_auth_events_ts; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_auth_events_ts ON public.auth_events USING btree (ts);
 
-
---
--- Name: idx_auth_events_user_ts; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_auth_events_user_ts ON public.auth_events USING btree (user_id, ts DESC);
-
-
---
--- Name: idx_auth_tokens_hash; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX idx_auth_tokens_hash ON public.auth_tokens USING btree (token_hash);
 
-
---
--- Name: idx_auth_tokens_sweep; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_auth_tokens_sweep ON public.auth_tokens USING btree (expires_at) WHERE (consumed_at IS NULL);
-
-
---
--- Name: idx_batch_invitations_batch; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_batch_invitations_batch ON public.batch_invitations USING btree (batch_id, accepted_at, declined_at);
 
-
---
--- Name: idx_batch_invitations_email; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_batch_invitations_email ON public.batch_invitations USING btree (email, accepted_at);
-
-
---
--- Name: idx_batch_invitations_expires; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_batch_invitations_expires ON public.batch_invitations USING btree (expires_at) WHERE ((accepted_at IS NULL) AND (declined_at IS NULL));
 
-
---
--- Name: idx_batch_invitations_import_job_id; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_batch_invitations_import_job_id ON public.batch_invitations USING btree (import_job_id);
-
-
---
--- Name: idx_batch_invitations_org; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_batch_invitations_org ON public.batch_invitations USING btree (org_id);
 
-
---
--- Name: idx_batch_members_user; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_batch_members_user ON public.batch_members USING btree (user_id);
-
-
---
--- Name: idx_batch_messages_batch_ts; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_batch_messages_batch_ts ON public.batch_messages USING btree (batch_id, created_at DESC, id) WHERE (deleted_at IS NULL);
 
-
---
--- Name: idx_batch_messages_parent; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_batch_messages_parent ON public.batch_messages USING btree (parent_id) WHERE (parent_id IS NOT NULL);
-
-
---
--- Name: idx_batch_messages_pinned; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_batch_messages_pinned ON public.batch_messages USING btree (batch_id, is_pinned) WHERE ((is_pinned = true) AND (deleted_at IS NULL));
 
-
---
--- Name: idx_batch_messages_sender; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_batch_messages_sender ON public.batch_messages USING btree (sender_id);
-
-
---
--- Name: idx_batch_messages_unresolved; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_batch_messages_unresolved ON public.batch_messages USING btree (batch_id, is_resolved) WHERE ((is_resolved = false) AND (deleted_at IS NULL));
 
-
---
--- Name: idx_batches_cohort_group; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_batches_cohort_group ON public.batches USING btree (cohort_group_id);
-
-
---
--- Name: idx_batches_org; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_batches_org ON public.batches USING btree (org_id, status);
 
-
---
--- Name: idx_batches_schedule; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_batches_schedule ON public.batches USING btree (starts_at, ends_at) WHERE (starts_at IS NOT NULL);
-
-
---
--- Name: idx_bmd_roll; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX idx_bmd_roll ON public.batch_member_details USING btree (batch_id, roll_number) WHERE (roll_number IS NOT NULL);
 
-
---
--- Name: idx_bmd_user; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_bmd_user ON public.batch_member_details USING btree (user_id) WHERE (user_id IS NOT NULL);
-
-
---
--- Name: idx_calendar_event_attendees_event_user_email; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX idx_calendar_event_attendees_event_user_email ON public.calendar_event_attendees USING btree (event_id, user_id, email);
 
-
---
--- Name: idx_calendar_event_attendees_user; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_calendar_event_attendees_user ON public.calendar_event_attendees USING btree (user_id);
-
-
---
--- Name: idx_calendar_events_batch; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_calendar_events_batch ON public.calendar_events USING btree (batch_id) WHERE (batch_id IS NOT NULL);
 
-
---
--- Name: idx_calendar_events_course; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_calendar_events_course ON public.calendar_events USING btree (course_id) WHERE (course_id IS NOT NULL);
-
-
---
--- Name: idx_calendar_events_org_starts; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_calendar_events_org_starts ON public.calendar_events USING btree (org_id, starts_at);
 
-
---
--- Name: idx_calendar_events_parent; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_calendar_events_parent ON public.calendar_events USING btree (recurrence_parent_id) WHERE (recurrence_parent_id IS NOT NULL);
-
-
---
--- Name: idx_captures_user_status; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_captures_user_status ON public.captures USING btree (user_id, status, created_at DESC);
 
-
---
--- Name: idx_certificates_project; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_certificates_project ON public.certificates USING btree (project_id) WHERE (project_id IS NOT NULL);
-
-
---
--- Name: idx_certificates_user_course; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_certificates_user_course ON public.certificates USING btree (user_id, course_id);
 
-
---
--- Name: idx_change_requests_org_status; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_change_requests_org_status ON public.change_requests USING btree (org_id, status);
-
-
---
--- Name: idx_coding_submissions_answer; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_coding_submissions_answer ON public.coding_submissions USING btree (attempt_answer_id);
 
-
---
--- Name: idx_coding_submissions_status; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_coding_submissions_status ON public.coding_submissions USING btree (status);
-
-
---
--- Name: idx_cohort_groups_org; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_cohort_groups_org ON public.cohort_groups USING btree (org_id, status);
 
-
---
--- Name: idx_cohort_groups_parent; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_cohort_groups_parent ON public.cohort_groups USING btree (parent_id);
-
-
---
--- Name: idx_cohort_groups_slug; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX idx_cohort_groups_slug ON public.cohort_groups USING btree (org_id, slug);
 
-
---
--- Name: idx_comments_subject; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_comments_subject ON public.comments USING btree (subject_type, subject_id, created_at);
-
-
---
--- Name: idx_content_assignments_assignee; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_content_assignments_assignee ON public.content_assignments USING btree (assignee_type, assignee_id);
 
-
---
--- Name: idx_content_assignments_content; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_content_assignments_content ON public.content_assignments USING btree (content_type, content_id);
-
-
---
--- Name: idx_content_reports_content; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_content_reports_content ON public.content_reports USING btree (content_type, content_id);
 
-
---
--- Name: idx_content_reports_org_status; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_content_reports_org_status ON public.content_reports USING btree (org_id, status, created_at DESC);
-
-
---
--- Name: idx_conversations_direct_pair; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX idx_conversations_direct_pair ON public.conversations USING btree (org_id, requester_id, counterpart_id) WHERE (kind = 'direct'::text);
 
-
---
--- Name: idx_conversations_org_status; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_conversations_org_status ON public.conversations USING btree (org_id, status);
-
-
---
--- Name: idx_coupon_courses_course; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_coupon_courses_course ON public.coupon_courses USING btree (course_id);
 
-
---
--- Name: idx_coupon_redemptions_coupon; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_coupon_redemptions_coupon ON public.coupon_redemptions USING btree (coupon_id, redeemed_at DESC);
-
-
---
--- Name: idx_coupons_org; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_coupons_org ON public.coupons USING btree (org_id, created_at DESC);
 
-
---
--- Name: idx_course_bundle_items_course; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_course_bundle_items_course ON public.course_bundle_items USING btree (course_id);
-
-
---
--- Name: idx_course_faqs_course; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_course_faqs_course ON public.course_faqs USING btree (course_id, "position");
 
-
---
--- Name: idx_course_faqs_course_org; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_course_faqs_course_org ON public.course_faqs USING btree (course_id, org_id);
-
-
---
--- Name: idx_course_faqs_org; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_course_faqs_org ON public.course_faqs USING btree (org_id);
 
-
---
--- Name: idx_course_faqs_question_trgm; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_course_faqs_question_trgm ON public.course_faqs USING gin (question public.gin_trgm_ops);
-
-
---
--- Name: idx_course_modules_assessment; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_course_modules_assessment ON public.course_modules USING btree (assessment_id) WHERE (assessment_id IS NOT NULL);
 
-
---
--- Name: idx_course_modules_course; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_course_modules_course ON public.course_modules USING btree (course_id) WHERE (deleted_at IS NULL);
-
-
---
--- Name: idx_course_modules_lab_id; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_course_modules_lab_id ON public.course_modules USING btree (lab_id) WHERE (lab_id IS NOT NULL);
 
-
---
--- Name: idx_course_modules_schedule; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_course_modules_schedule ON public.course_modules USING btree (starts_at, ends_at) WHERE ((starts_at IS NOT NULL) AND (deleted_at IS NULL));
-
-
---
--- Name: idx_course_modules_section; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_course_modules_section ON public.course_modules USING btree (section_id, "position") WHERE (deleted_at IS NULL);
 
-
---
--- Name: idx_course_purchases_org; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_course_purchases_org ON public.purchases USING btree (org_id, purchased_at DESC);
-
-
---
--- Name: idx_course_purchases_user_course; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_course_purchases_user_course ON public.purchases USING btree (user_id, course_id, purchased_at DESC);
 
-
---
--- Name: idx_course_sections_course; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_course_sections_course ON public.course_sections USING btree (course_id, "position");
-
-
---
--- Name: idx_courses_creator; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_courses_creator ON public.courses USING btree (creator_id);
 
-
---
--- Name: idx_courses_org_status; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_courses_org_status ON public.courses USING btree (org_id, status);
-
-
---
--- Name: idx_courses_schedule; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_courses_schedule ON public.courses USING btree (starts_at, ends_at) WHERE (starts_at IS NOT NULL);
 
-
---
--- Name: idx_courses_tags; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_courses_tags ON public.courses USING gin (tags);
-
-
---
--- Name: idx_diary_entries_user_date; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_diary_entries_user_date ON public.diary_entries USING btree (user_id, entry_date DESC);
 
-
---
--- Name: idx_diary_tasks_tags; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_diary_tasks_tags ON public.diary_tasks USING gin (tags);
-
-
---
--- Name: idx_diary_tasks_user_open; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_diary_tasks_user_open ON public.diary_tasks USING btree (user_id, done, created_at DESC);
 
-
---
--- Name: idx_enrollments_batch; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_enrollments_batch ON public.enrollments USING btree (batch_id) WHERE (batch_id IS NOT NULL);
-
-
---
--- Name: idx_enrollments_course; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_enrollments_course ON public.enrollments USING btree (course_id);
 
-
---
--- Name: idx_enrollments_user; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_enrollments_user ON public.enrollments USING btree (user_id);
-
-
---
--- Name: idx_enrollments_user_completed; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_enrollments_user_completed ON public.enrollments USING btree (user_id, completed_at DESC) WHERE (completed_at IS NOT NULL);
 
-
---
--- Name: idx_feedback_subject; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_feedback_subject ON public.feedback USING btree (subject_type, subject_id);
-
-
---
--- Name: idx_focus_wall_categories_user_name; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX idx_focus_wall_categories_user_name ON public.focus_wall_categories USING btree (user_id, lower(name));
 
-
---
--- Name: idx_focus_wall_notes_user; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_focus_wall_notes_user ON public.focus_wall_notes USING btree (user_id, created_at);
-
-
---
--- Name: idx_gitlab_commit_files_ownership; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_gitlab_commit_files_ownership ON public.gitlab_commit_files USING btree (team_id, file_path);
 
-
---
--- Name: idx_gitlab_commits_pending_stats; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_gitlab_commits_pending_stats ON public.gitlab_commits USING btree (team_id) WHERE (additions IS NULL);
-
-
---
--- Name: idx_gitlab_commits_team_committed; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_gitlab_commits_team_committed ON public.gitlab_commits USING btree (team_id, committed_at DESC);
 
-
---
--- Name: idx_gitlab_commits_user_committed; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_gitlab_commits_user_committed ON public.gitlab_commits USING btree (user_id, committed_at DESC) WHERE (user_id IS NOT NULL);
-
-
---
--- Name: idx_gitlab_connections_active_gitlab_user; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_gitlab_connections_active_gitlab_user ON public.gitlab_connections USING btree (org_id, gitlab_user_id) WHERE (status = 'active'::text);
 
-
---
--- Name: idx_gitlab_connections_expiring; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_gitlab_connections_expiring ON public.gitlab_connections USING btree (access_token_expires_at) WHERE (status = 'active'::text);
-
-
---
--- Name: idx_gitlab_merge_requests_team; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_gitlab_merge_requests_team ON public.gitlab_merge_requests USING btree (team_id);
 
-
---
--- Name: idx_gitlab_webhook_events_received; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_gitlab_webhook_events_received ON public.gitlab_webhook_events USING btree (received_at) WHERE (status = 'received'::text);
-
-
---
--- Name: idx_habits_user; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_habits_user ON public.habits USING btree (user_id, sort_order);
 
-
---
--- Name: idx_he_serve_count; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_he_serve_count ON public.highlight_explanations USING btree (serve_count DESC);
-
-
---
--- Name: idx_idempotency_created; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_idempotency_created ON public.idempotency_keys USING btree (created_at);
 
-
---
--- Name: idx_interview_evals_attempt; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_interview_evals_attempt ON public.interview_evaluations USING btree (attempt_id, scope);
-
-
---
--- Name: idx_interview_evals_review; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_interview_evals_review ON public.interview_evaluations USING btree (review_required) WHERE (review_required = true);
 
-
---
--- Name: idx_interview_exp_entries_post; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_interview_exp_entries_post ON public.interview_exp_entries USING btree (post_id);
-
-
---
--- Name: idx_interview_exp_posts_company_position; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_interview_exp_posts_company_position ON public.interview_exp_posts USING btree (company, "position");
 
-
---
--- Name: idx_interview_exp_posts_created; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_interview_exp_posts_created ON public.interview_exp_posts USING btree (created_at DESC);
-
-
---
--- Name: idx_interview_exp_posts_tags; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_interview_exp_posts_tags ON public.interview_exp_posts USING gin (tags);
 
-
---
--- Name: idx_interview_exp_qna_entry; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_interview_exp_qna_entry ON public.interview_exp_qna USING btree (entry_id) WHERE (entry_id IS NOT NULL);
-
-
---
--- Name: idx_interview_exp_qna_post; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_interview_exp_qna_post ON public.interview_exp_qna USING btree (post_id);
 
-
---
--- Name: idx_interview_exp_qna_progress_user; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_interview_exp_qna_progress_user ON public.interview_exp_qna_progress USING btree (user_id);
-
-
---
--- Name: idx_interview_skill_scores_user_skill; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_interview_skill_scores_user_skill ON public.interview_skill_scores USING btree (user_id, org_id, skill, created_at DESC);
 
-
---
--- Name: idx_interview_skill_scores_user_ts; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_interview_skill_scores_user_ts ON public.interview_skill_scores USING btree (user_id, created_at DESC);
-
-
---
--- Name: idx_jobs_claim; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_jobs_claim ON public.jobs USING btree (priority, run_at) WHERE ((status = 'queued'::text) AND (deleted_at IS NULL));
 
-
---
--- Name: idx_jobs_cron; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_jobs_cron ON public.jobs USING btree (next_run_at) WHERE ((job_type = 'cron'::text) AND (deleted_at IS NULL) AND (status <> 'cancelled'::text));
-
-
---
--- Name: idx_jobs_dead_handler_updated; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_jobs_dead_handler_updated ON public.jobs USING btree (handler, updated_at) WHERE (status = 'dead'::text);
 
-
---
--- Name: idx_jobs_org_list; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_jobs_org_list ON public.jobs USING btree (org_id, created_at DESC) WHERE (deleted_at IS NULL);
-
-
---
--- Name: idx_jobs_orphan; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_jobs_orphan ON public.jobs USING btree (claimed_at) WHERE (status = 'running'::text);
 
-
---
--- Name: idx_jti_blocklist_expires; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_jti_blocklist_expires ON public.jti_blocklist USING btree (expires_at);
-
-
---
--- Name: idx_jti_blocklist_user; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_jti_blocklist_user ON public.jti_blocklist USING btree (user_id);
 
-
---
--- Name: idx_lab_catalog_meta_filter; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_lab_catalog_meta_filter ON public.lab_catalog_meta USING btree (stack, category, difficulty);
-
-
---
--- Name: idx_lab_sessions_lab_started; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_lab_sessions_lab_started ON public.lab_sessions USING btree (lab_id, started_at);
 
-
---
--- Name: idx_lab_sessions_user_completed; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_lab_sessions_user_completed ON public.lab_sessions USING btree (user_id, completed_at DESC) WHERE (completed_at IS NOT NULL);
-
-
---
--- Name: idx_lab_task_version_items_version_position; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_lab_task_version_items_version_position ON public.lab_task_version_items USING btree (task_version_id, "position");
 
-
---
--- Name: idx_lab_task_versions_lab; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_lab_task_versions_lab ON public.lab_task_versions USING btree (lab_id);
-
-
---
--- Name: idx_lab_tasks_lab_position; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_lab_tasks_lab_position ON public.lab_tasks USING btree (lab_id, "position");
 
-
---
--- Name: idx_lab_warm_containers_image_status; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_lab_warm_containers_image_status ON public.lab_warm_containers USING btree (image, status);
-
-
---
--- Name: idx_lab_warm_containers_ready; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_lab_warm_containers_ready ON public.lab_warm_containers USING btree (image, created_at) WHERE (status = 'ready'::text);
 
-
---
--- Name: idx_lab_warm_containers_session; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_lab_warm_containers_session ON public.lab_warm_containers USING btree (session_id) WHERE (session_id IS NOT NULL);
-
-
---
--- Name: idx_lab_warm_pool_decisions_image_time; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_lab_warm_pool_decisions_image_time ON public.lab_warm_pool_decisions USING btree (image, decided_at DESC);
 
-
---
--- Name: idx_lab_warm_pool_decisions_time; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_lab_warm_pool_decisions_time ON public.lab_warm_pool_decisions USING btree (decided_at);
-
-
---
--- Name: idx_learning_annotations_user_source; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_learning_annotations_user_source ON public.learning_annotations USING btree (user_id, source_type, source_id);
 
-
---
--- Name: idx_learning_journal_entries_title_trgm; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_learning_journal_entries_title_trgm ON public.learning_journal_entries USING gin (title public.gin_trgm_ops);
-
-
---
--- Name: idx_learning_journal_entries_user_category_subcategory; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_learning_journal_entries_user_category_subcategory ON public.learning_journal_entries USING btree (user_id, category, subcategory);
 
-
---
--- Name: idx_learning_journal_entries_user_date; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_learning_journal_entries_user_date ON public.learning_journal_entries USING btree (user_id, entry_date DESC, created_at DESC);
-
-
---
--- Name: idx_legal_acceptances_user; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_legal_acceptances_user ON public.legal_acceptances USING btree (user_id, doc_type, accepted_at DESC);
 
-
---
--- Name: idx_mcp_connections_previous_refresh_hash; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_mcp_connections_previous_refresh_hash ON public.mcp_connections USING btree (previous_refresh_token_hash) WHERE (previous_refresh_token_hash IS NOT NULL);
-
-
---
--- Name: idx_mcp_connections_refresh_hash; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX idx_mcp_connections_refresh_hash ON public.mcp_connections USING btree (refresh_token_hash);
 
-
---
--- Name: idx_mcp_connections_user_client; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE UNIQUE INDEX idx_mcp_connections_user_client ON public.mcp_connections USING btree (user_id, client_id);
-
-
---
--- Name: idx_meeting_attendance_user; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_meeting_attendance_user ON public.meeting_attendance USING btree (user_id, occurrence_at);
 
-
---
--- Name: idx_messages_thread; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_messages_thread ON public.messages USING btree (thread_type, thread_id, created_at);
-
-
---
--- Name: idx_module_progress_module; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_module_progress_module ON public.module_progress USING btree (module_id);
 
-
---
--- Name: idx_module_progress_user_completed; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_module_progress_user_completed ON public.module_progress USING btree (user_id, completed_at DESC) WHERE ((status = 'completed'::text) AND (completed_at IS NOT NULL));
-
-
---
--- Name: idx_module_progress_user_course; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_module_progress_user_course ON public.module_progress USING btree (user_id, course_id);
 
-
---
--- Name: idx_module_progress_user_status; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_module_progress_user_status ON public.module_progress USING btree (user_id, status);
-
-
---
--- Name: idx_notifications_user_created; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_notifications_user_created ON public.notifications USING btree (user_id, created_at DESC);
 
-
---
--- Name: idx_notifications_user_unread; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_notifications_user_unread ON public.notifications USING btree (user_id) WHERE (read_at IS NULL);
-
-
---
--- Name: idx_onboarding_steps_project; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_onboarding_steps_project ON public.onboarding_steps USING btree (project_id, "position", id);
 
-
---
--- Name: idx_org_domains_org_id; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_org_domains_org_id ON public.org_domains USING btree (org_id);
-
-
---
--- Name: idx_org_invites_org_created; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_org_invites_org_created ON public.org_invites USING btree (org_id, created_at DESC);
 
-
---
--- Name: idx_org_invites_token_hash; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_org_invites_token_hash ON public.org_invites USING btree (token_hash);
-
-
---
--- Name: idx_org_members_org_status; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_org_members_org_status ON public.org_members USING btree (org_id, status);
 
-
---
--- Name: idx_org_members_user; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_org_members_user ON public.org_members USING btree (user_id);
-
-
---
--- Name: idx_org_members_user_id; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_org_members_user_id ON public.org_members USING btree (user_id);
 
-
---
--- Name: idx_organizations_status; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_organizations_status ON public.organizations USING btree (status);
-
-
---
--- Name: idx_payment_events_unprocessed; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_payment_events_unprocessed ON public.payment_events USING btree (received_at) WHERE (processed_at IS NULL);
 
-
---
--- Name: idx_peer_feedback_to; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_peer_feedback_to ON public.peer_feedback USING btree (to_user, project_id);
-
-
---
--- Name: idx_permissions_module; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_permissions_module ON public.permissions USING btree (module, is_active);
 
-
---
--- Name: idx_practice_question_bank_lookup; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_practice_question_bank_lookup ON public.practice_question_bank USING btree (technology, difficulty, category, created_at DESC);
-
-
---
--- Name: idx_project_applications_requirement; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_project_applications_requirement ON public.project_applications USING btree (requirement_id, status);
 
-
---
--- Name: idx_project_applications_user; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_project_applications_user ON public.project_applications USING btree (user_id);
-
-
---
--- Name: idx_project_assignments_batch_status; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_project_assignments_batch_status ON public.project_assignments USING btree (batch_id, status);
 
-
---
--- Name: idx_project_checkpoints_assignment; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_project_checkpoints_assignment ON public.project_checkpoints USING btree (assignment_id);
-
-
---
--- Name: idx_project_design_proposals_lookup; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_project_design_proposals_lookup ON public.project_design_proposals USING btree (checkpoint_id, team_id);
 
-
---
--- Name: idx_project_design_proposals_one_accepted; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE UNIQUE INDEX idx_project_design_proposals_one_accepted ON public.project_design_proposals USING btree (checkpoint_id, team_id) WHERE is_accepted;
-
-
---
--- Name: idx_project_interests_invite; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_project_interests_invite ON public.project_interests USING btree (invite_id) WHERE (invite_id IS NOT NULL);
 
-
---
--- Name: idx_project_interests_purge; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_project_interests_purge ON public.project_interests USING btree (updated_at) WHERE (status = ANY (ARRAY['new'::text, 'rejected'::text, 'invite_expired'::text]));
-
-
---
--- Name: idx_project_interests_review; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_project_interests_review ON public.project_interests USING btree (project_id, status, created_at DESC, id);
 
-
---
--- Name: idx_project_meetings_project; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_project_meetings_project ON public.project_meetings USING btree (project_id, kind, created_at DESC);
-
-
---
--- Name: idx_project_members_user; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_project_members_user ON public.project_members USING btree (user_id, status);
 
-
---
--- Name: idx_project_originality_matches_report_similarity; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_project_originality_matches_report_similarity ON public.project_originality_matches USING btree (report_id, similarity DESC);
-
-
---
--- Name: idx_project_originality_reports_assignment; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_project_originality_reports_assignment ON public.project_originality_reports USING btree (assignment_id);
 
-
---
--- Name: idx_project_requirements_board; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_project_requirements_board ON public.project_requirements USING btree (org_id, status, application_deadline);
-
-
---
--- Name: idx_project_tasks_team; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_project_tasks_team ON public.project_tasks USING btree (team_id, status);
 
-
---
--- Name: idx_project_team_checkpoints_checkpoint_status; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_project_team_checkpoints_checkpoint_status ON public.project_team_checkpoints USING btree (checkpoint_id, status);
-
-
---
--- Name: idx_project_team_members_user; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_project_team_members_user ON public.project_team_members USING btree (user_id);
 
-
---
--- Name: idx_project_teams_assignment; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_project_teams_assignment ON public.project_teams USING btree (assignment_id);
-
-
---
--- Name: idx_project_track_members_member; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_project_track_members_member ON public.project_track_members USING btree (project_id, user_id);
 
-
---
--- Name: idx_projects_user; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_projects_user ON public.projects USING btree (user_id, created_at DESC);
-
-
---
--- Name: idx_purchases_user_course_completed; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX idx_purchases_user_course_completed ON public.purchases USING btree (user_id, course_id) WHERE ((status = 'completed'::text) AND (product_type = 'course'::text));
 
-
---
--- Name: idx_question_categories_org; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_question_categories_org ON public.question_categories USING btree (org_id);
-
-
---
--- Name: idx_question_categories_parent; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_question_categories_parent ON public.question_categories USING btree (parent_id);
 
-
---
--- Name: idx_question_versions_question; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_question_versions_question ON public.question_versions USING btree (question_id, version DESC);
-
-
---
--- Name: idx_questions_category; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_questions_category ON public.questions USING btree (category_id);
 
-
---
--- Name: idx_questions_org_type; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_questions_org_type ON public.questions USING btree (org_id, type, status);
-
-
---
--- Name: idx_questions_tags; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_questions_tags ON public.questions USING gin (tags);
 
-
---
--- Name: idx_refresh_tokens_family; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_refresh_tokens_family ON public.refresh_tokens USING btree (family_id);
-
-
---
--- Name: idx_refresh_tokens_user_revoked; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_refresh_tokens_user_revoked ON public.refresh_tokens USING btree (user_id, revoked_at);
 
-
---
--- Name: idx_releases_project; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_releases_project ON public.releases USING btree (project_id, created_at DESC, id);
-
-
---
--- Name: idx_requirement_questions_project; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_requirement_questions_project ON public.requirement_questions USING btree (project_id, created_at DESC, id);
 
-
---
--- Name: idx_requirement_questions_trgm; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_requirement_questions_trgm ON public.requirement_questions USING gin (question public.gin_trgm_ops);
-
-
---
--- Name: idx_requirement_questions_unanswered; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_requirement_questions_unanswered ON public.requirement_questions USING btree (created_at) WHERE (answered_at IS NULL);
 
-
---
--- Name: idx_revision_plan_topics_plan; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_revision_plan_topics_plan ON public.revision_plan_topics USING btree (revision_plan_id);
-
-
---
--- Name: idx_role_permissions_perm; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_role_permissions_perm ON public.role_permissions USING btree (permission_id);
 
-
---
--- Name: idx_roles_tenant_active; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_roles_tenant_active ON public.roles USING btree (org_id, is_active);
-
-
---
--- Name: idx_runs_heartbeat; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_runs_heartbeat ON public.job_runs USING btree (heartbeat_at) WHERE (status = 'running'::text);
 
-
---
--- Name: idx_runs_job; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_runs_job ON public.job_runs USING btree (job_id, created_at DESC);
-
-
---
--- Name: idx_sheet_items_sheet_order; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_sheet_items_sheet_order ON public.sheet_items USING btree (sheet_id, order_index);
 
-
---
--- Name: idx_sheets_category; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_sheets_category ON public.sheets USING btree (category);
-
-
---
--- Name: idx_social_accounts_user; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_social_accounts_user ON public.social_accounts USING btree (user_id);
 
-
---
--- Name: idx_srs_cards_front_trgm_capture; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_srs_cards_front_trgm_capture ON public.srs_cards USING gin (front public.gin_trgm_ops) WHERE (source_type = 'capture'::text);
-
-
---
--- Name: idx_srs_cards_user_due; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_srs_cards_user_due ON public.srs_cards USING btree (user_id, due_date);
 
-
---
--- Name: idx_srs_reviews_user_reviewed; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_srs_reviews_user_reviewed ON public.srs_reviews USING btree (user_id, reviewed_at DESC);
-
-
---
--- Name: idx_standup_updates_day; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_standup_updates_day ON public.standup_updates USING btree (project_id, standup_on);
 
-
---
--- Name: idx_system_design_attempts_module_user; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_system_design_attempts_module_user ON public.system_design_attempts USING btree (module_id, user_id, attempt_number);
-
-
---
--- Name: idx_system_design_chat_module_user; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_system_design_chat_module_user ON public.system_design_chat_messages USING btree (module_id, user_id, created_at);
 
-
---
--- Name: idx_task_links_source; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_task_links_source ON public.task_links USING btree (source_task_id);
-
-
---
--- Name: idx_user_achievements_org; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_user_achievements_org ON public.user_achievements USING btree (org_id) WHERE (org_id IS NOT NULL);
 
-
---
--- Name: idx_user_achievements_user; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_user_achievements_user ON public.user_achievements USING btree (user_id);
-
-
---
--- Name: idx_user_permission_overrides_user_tenant; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_user_permission_overrides_user_tenant ON public.user_permission_overrides USING btree (user_id, org_id);
 
-
---
--- Name: idx_user_problem_progress_user_solved; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_user_problem_progress_user_solved ON public.user_problem_progress USING btree (user_id, solved_at DESC) WHERE (solved_at IS NOT NULL);
-
-
---
--- Name: idx_user_profiles_skills_gin; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_user_profiles_skills_gin ON public.user_profiles USING gin (skills);
 
-
---
--- Name: idx_user_profiles_slug; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_user_profiles_slug ON public.user_profiles USING btree (profile_slug) WHERE (profile_slug IS NOT NULL);
-
-
---
--- Name: idx_user_roles_role; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_user_roles_role ON public.user_roles USING btree (role_id);
 
-
---
--- Name: idx_user_roles_user_tenant; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_user_roles_user_tenant ON public.user_roles USING btree (user_id, org_id);
-
-
---
--- Name: idx_user_sheets_user; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_user_sheets_user ON public.user_sheets USING btree (user_id);
 
-
---
--- Name: idx_webauthn_credentials_user_id; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_webauthn_credentials_user_id ON public.webauthn_credentials USING btree (user_id);
-
-
---
--- Name: idx_whatnow_tasks_scheduled_start; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_whatnow_tasks_scheduled_start ON public.whatnow_tasks USING btree (user_id, scheduled_start) WHERE (scheduled_start IS NOT NULL);
 
-
---
--- Name: idx_whatnow_tasks_user_status; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_whatnow_tasks_user_status ON public.whatnow_tasks USING btree (user_id, status);
-
-
---
--- Name: idx_whats_new_entries_published; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_whats_new_entries_published ON public.whats_new_entries USING btree (published, published_at DESC);
 
-
---
--- Name: idx_wiki_pages_search_text_trgm; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_wiki_pages_search_text_trgm ON public.wiki_pages USING gin (search_text public.gin_trgm_ops);
-
-
---
--- Name: idx_wiki_pages_search_vector; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_wiki_pages_search_vector ON public.wiki_pages USING gin (search_vector);
 
-
---
--- Name: idx_wiki_pages_space_parent; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_wiki_pages_space_parent ON public.wiki_pages USING btree (space_id, parent_id, order_index) WHERE (deleted_at IS NULL);
-
-
---
--- Name: idx_wiki_spaces_course; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_wiki_spaces_course ON public.wiki_spaces USING btree (course_id) WHERE (course_id IS NOT NULL);
 
-
---
--- Name: idx_wiki_spaces_org; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_wiki_spaces_org ON public.wiki_spaces USING btree (org_id);
-
-
---
--- Name: idx_work_item_assignees_user; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_work_item_assignees_user ON public.work_item_assignees USING btree (user_id, role);
 
-
---
--- Name: idx_work_item_events_item; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_work_item_events_item ON public.work_item_events USING btree (item_id, id);
-
-
---
--- Name: idx_work_item_events_project; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_work_item_events_project ON public.work_item_events USING btree (project_id, kind, created_at);
 
-
---
--- Name: idx_work_item_events_project_time; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_work_item_events_project_time ON public.work_item_events USING btree (project_id, created_at);
-
-
---
--- Name: idx_work_item_gitlab_mr; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_work_item_gitlab_mr ON public.work_item_gitlab USING btree (merge_request_id) WHERE (merge_request_id IS NOT NULL);
 
-
---
--- Name: idx_work_item_gitlab_pending; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_work_item_gitlab_pending ON public.work_item_gitlab USING btree (updated_at) WHERE (sync_status = 'pending'::text);
-
-
---
--- Name: idx_work_item_gitlab_project; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_work_item_gitlab_project ON public.work_item_gitlab USING btree (project_id, kind);
 
-
---
--- Name: idx_work_item_links_project; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_work_item_links_project ON public.work_item_links USING btree (project_id, kind);
-
-
---
--- Name: idx_work_item_links_to; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_work_item_links_to ON public.work_item_links USING btree (to_id, kind);
 
-
---
--- Name: idx_work_item_reviews_item; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_work_item_reviews_item ON public.work_item_reviews USING btree (item_id, target, created_at);
-
-
---
--- Name: idx_work_item_reviews_project; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_work_item_reviews_project ON public.work_item_reviews USING btree (project_id, target, created_at);
 
-
---
--- Name: idx_work_item_reviews_reviewer; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_work_item_reviews_reviewer ON public.work_item_reviews USING btree (reviewer_id, created_at);
-
-
---
--- Name: idx_work_item_time_logs_item; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_work_item_time_logs_item ON public.work_item_time_logs USING btree (item_id, created_at DESC, id);
 
-
---
--- Name: idx_work_item_time_logs_project_day; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_work_item_time_logs_project_day ON public.work_item_time_logs USING btree (project_id, logged_on);
-
-
---
--- Name: idx_work_item_time_logs_user_day; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_work_item_time_logs_user_day ON public.work_item_time_logs USING btree (user_id, logged_on);
 
-
---
--- Name: idx_work_items_epic; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_work_items_epic ON public.work_items USING btree (epic_id) WHERE (epic_id IS NOT NULL);
-
-
---
--- Name: idx_work_items_feature; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_work_items_feature ON public.work_items USING btree (feature_id) WHERE (feature_id IS NOT NULL);
 
-
---
--- Name: idx_work_items_list; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_work_items_list ON public.work_items USING btree (project_id, created_at DESC, id) WHERE (archived_at IS NULL);
-
-
---
--- Name: idx_work_items_open_bugs; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_work_items_open_bugs ON public.work_items USING btree (project_id, severity, created_at) WHERE ((type = 'bug'::text) AND (status <> ALL (ARRAY['done'::text, 'wont_do'::text])));
 
-
---
--- Name: idx_work_items_overdue; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_work_items_overdue ON public.work_items USING btree (project_id, due_at) WHERE ((due_at IS NOT NULL) AND (archived_at IS NULL) AND (status <> ALL (ARRAY['done'::text, 'wont_do'::text])));
-
-
---
--- Name: idx_work_items_parent; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_work_items_parent ON public.work_items USING btree (parent_id) WHERE (parent_id IS NOT NULL);
 
-
---
--- Name: idx_work_items_project_status; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_work_items_project_status ON public.work_items USING btree (project_id, status) WHERE (archived_at IS NULL);
-
-
---
--- Name: idx_work_items_project_type; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_work_items_project_type ON public.work_items USING btree (project_id, type, status) WHERE (archived_at IS NULL);
 
-
---
--- Name: idx_work_items_release; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_work_items_release ON public.work_items USING btree (release_id, status) WHERE (release_id IS NOT NULL);
-
-
---
--- Name: idx_work_items_sprint; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_work_items_sprint ON public.work_items USING btree (sprint_id, status) WHERE (sprint_id IS NOT NULL);
 
-
---
--- Name: idx_work_items_title_trgm; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_work_items_title_trgm ON public.work_items USING gin (title public.gin_trgm_ops) WHERE (archived_at IS NULL);
-
-
---
--- Name: idx_work_items_track; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_work_items_track ON public.work_items USING btree (track_id, status) WHERE (track_id IS NOT NULL);
 
-
---
--- Name: idx_workspace_projects_org; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_workspace_projects_org ON public.workspace_projects USING btree (org_id, project_status, created_at DESC, id);
-
-
---
--- Name: idx_xp_events_batch; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_xp_events_batch ON public.xp_events USING btree (batch_id, user_id) WHERE (batch_id IS NOT NULL);
 
-
---
--- Name: idx_xp_events_course; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_xp_events_course ON public.xp_events USING btree (course_id, user_id) WHERE (course_id IS NOT NULL);
-
-
---
--- Name: idx_xp_events_org; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX idx_xp_events_org ON public.xp_events USING btree (org_id, user_id) WHERE (org_id IS NOT NULL);
 
-
---
--- Name: idx_xp_events_user; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_xp_events_user ON public.xp_events USING btree (user_id, created_at DESC);
-
-
---
--- Name: interview_prep_plans_user_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX interview_prep_plans_user_id_created_at_idx ON public.interview_prep_plans USING btree (user_id, created_at DESC);
 
-
---
--- Name: interview_prep_rounds_plan_id_order_index_idx; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX interview_prep_rounds_plan_id_order_index_idx ON public.interview_prep_rounds USING btree (plan_id, order_index);
-
-
---
--- Name: lab_ai_interactions_cache_key_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX lab_ai_interactions_cache_key_idx ON public.lab_ai_interactions USING btree (cache_key) WHERE (cache_key IS NOT NULL);
 
-
---
--- Name: lab_builds_gc_idx; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX lab_builds_gc_idx ON public.lab_builds USING btree (created_at) WHERE (status = ANY (ARRAY['failed'::text, 'verified'::text]));
-
-
---
--- Name: lab_builds_inflight_recipe_hash_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX lab_builds_inflight_recipe_hash_idx ON public.lab_builds USING btree (recipe_id, recipe_hash) WHERE (status = ANY (ARRAY['queued'::text, 'rendering'::text, 'verifying'::text]));
 
-
---
--- Name: lab_builds_recipe_idx; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX lab_builds_recipe_idx ON public.lab_builds USING btree (recipe_id, created_at DESC);
-
-
---
--- Name: lab_builds_verified_recipe_hash_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX lab_builds_verified_recipe_hash_idx ON public.lab_builds USING btree (recipe_id, recipe_hash) WHERE (status = 'verified'::text);
 
-
---
--- Name: lab_definitions_course_id_module_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX lab_definitions_course_id_module_id_idx ON public.lab_definitions USING btree (course_id, module_id) WHERE is_published;
-
-
---
--- Name: lab_sessions_one_active; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX lab_sessions_one_active ON public.lab_sessions USING btree (user_id, lab_id) WHERE (status = ANY (ARRAY['provisioning'::text, 'running'::text, 'paused'::text]));
 
-
---
--- Name: lab_sessions_org_id_status_idx; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX lab_sessions_org_id_status_idx ON public.lab_sessions USING btree (org_id, status);
-
-
---
--- Name: lab_sessions_status_expires_at_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX lab_sessions_status_expires_at_idx ON public.lab_sessions USING btree (status, expires_at);
 
-
---
--- Name: lab_sessions_user_id_lab_id_status_idx; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX lab_sessions_user_id_lab_id_status_idx ON public.lab_sessions USING btree (user_id, lab_id, status);
-
-
---
--- Name: lab_task_completions_session_id_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX lab_task_completions_session_id_idx ON public.lab_task_completions USING btree (session_id);
 
-
---
--- Name: lab_usage_events_container_seconds_uq; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE UNIQUE INDEX lab_usage_events_container_seconds_uq ON public.lab_usage_events USING btree (session_id) WHERE ((event_type = 'container_seconds'::text) AND (session_id IS NOT NULL));
-
-
---
--- Name: lab_usage_events_org_id_recorded_at_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX lab_usage_events_org_id_recorded_at_idx ON public.lab_usage_events USING btree (org_id, recorded_at);
 
-
---
--- Name: lab_usage_events_org_type_recorded_idx; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX lab_usage_events_org_type_recorded_idx ON public.lab_usage_events USING btree (org_id, event_type, recorded_at DESC);
-
-
---
--- Name: lab_usage_events_session_id_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX lab_usage_events_session_id_idx ON public.lab_usage_events USING btree (session_id) WHERE (session_id IS NOT NULL);
 
-
---
--- Name: mentor_availability_exceptions_lookup_idx; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX mentor_availability_exceptions_lookup_idx ON public.mentor_availability_exceptions USING btree (mentor_id, on_date);
-
-
---
--- Name: mentor_availability_rules_mentor_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX mentor_availability_rules_mentor_idx ON public.mentor_availability_rules USING btree (mentor_id, org_id) WHERE active;
 
-
---
--- Name: mentor_sessions_batch_idx; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX mentor_sessions_batch_idx ON public.mentor_sessions USING btree (batch_id, starts_at DESC) WHERE (batch_id IS NOT NULL);
-
-
---
--- Name: mentor_sessions_mentor_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX mentor_sessions_mentor_idx ON public.mentor_sessions USING btree (mentor_id, starts_at DESC);
 
-
---
--- Name: mentor_sessions_org_upcoming_idx; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX mentor_sessions_org_upcoming_idx ON public.mentor_sessions USING btree (org_id, starts_at) WHERE (status = 'scheduled'::text);
-
-
---
--- Name: mentor_sessions_student_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX mentor_sessions_student_idx ON public.mentor_sessions USING btree (student_id, starts_at DESC) WHERE (student_id IS NOT NULL);
 
-
---
--- Name: org_domains_verified_domain_uniq; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE UNIQUE INDEX org_domains_verified_domain_uniq ON public.org_domains USING btree (lower(domain)) WHERE verified;
-
-
---
--- Name: pricing_tiers_audience_position_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX pricing_tiers_audience_position_idx ON public.pricing_tiers USING btree (audience, "position");
 
-
---
--- Name: project_teams_org_gitlab_project_key; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE UNIQUE INDEX project_teams_org_gitlab_project_key ON public.project_teams USING btree (org_id, gitlab_project_id) WHERE (gitlab_project_id IS NOT NULL);
-
-
---
--- Name: revision_digests_digest_date_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX revision_digests_digest_date_idx ON public.revision_digests USING btree (digest_date);
 
-
---
--- Name: revision_digests_user_id_digest_date_idx; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX revision_digests_user_id_digest_date_idx ON public.revision_digests USING btree (user_id, digest_date DESC);
-
-
---
--- Name: revision_plan_topics_plan_position_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX revision_plan_topics_plan_position_idx ON public.revision_plan_topics USING btree (revision_plan_id, "position");
 
-
---
--- Name: revision_plans_user_course_idx; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX revision_plans_user_course_idx ON public.revision_plans USING btree (user_id, course_id);
-
-
---
--- Name: roadmaps_public_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX roadmaps_public_idx ON public.roadmaps USING btree (created_at DESC) WHERE (is_public AND (deleted_at IS NULL));
 
-
---
--- Name: roadmaps_user_status_idx; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX roadmaps_user_status_idx ON public.roadmaps USING btree (user_id, status) WHERE (deleted_at IS NULL);
-
-
---
--- Name: session_credit_ledger_balance_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX session_credit_ledger_balance_idx ON public.session_credit_ledger USING btree (user_id, org_id);
 
-
---
--- Name: session_credit_ledger_booking_uq; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE UNIQUE INDEX session_credit_ledger_booking_uq ON public.session_credit_ledger USING btree (session_id) WHERE ((reason = 'booking'::text) AND (session_id IS NOT NULL));
-
-
---
--- Name: session_credit_ledger_refund_uq; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX session_credit_ledger_refund_uq ON public.session_credit_ledger USING btree (session_id) WHERE ((reason = 'cancellation_refund'::text) AND (session_id IS NOT NULL));
 
-
---
--- Name: session_credit_packs_org_idx; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX session_credit_packs_org_idx ON public.session_credit_packs USING btree (org_id) WHERE active;
-
-
---
--- Name: test_templates_org_id_name_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX test_templates_org_id_name_idx ON public.test_templates USING btree (org_id, name);
 
-
---
--- Name: ua_user_def_org_uniq; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE UNIQUE INDEX ua_user_def_org_uniq ON public.user_achievements USING btree (user_id, reward_definition_id, COALESCE(org_id, '00000000-0000-0000-0000-000000000000'::uuid));
-
-
---
--- Name: uq_certificates_project_user; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX uq_certificates_project_user ON public.certificates USING btree (project_id, user_id) WHERE (project_id IS NOT NULL);
 
-
---
--- Name: uq_org_invite_pending; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE UNIQUE INDEX uq_org_invite_pending ON public.org_invites USING btree (org_id, email) WHERE ((accepted_at IS NULL) AND (revoked_at IS NULL));
-
-
---
--- Name: uq_project_members_one_owner; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX uq_project_members_one_owner ON public.project_members USING btree (project_id) WHERE (role = 'owner'::text);
 
-
---
--- Name: uq_project_tracks_name; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE UNIQUE INDEX uq_project_tracks_name ON public.project_tracks USING btree (project_id, lower(name));
-
-
---
--- Name: uq_sprints_one_active; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX uq_sprints_one_active ON public.sprints USING btree (project_id) WHERE (status = 'active'::text);
 
-
---
--- Name: uq_wiki_spaces_project; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE UNIQUE INDEX uq_wiki_spaces_project ON public.wiki_spaces USING btree (project_id) WHERE (project_id IS NOT NULL);
-
-
---
--- Name: uq_work_item_assignees_one_owner; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX uq_work_item_assignees_one_owner ON public.work_item_assignees USING btree (item_id) WHERE (role = 'owner'::text);
 
-
---
--- Name: uq_work_item_links_one_original; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE UNIQUE INDEX uq_work_item_links_one_original ON public.work_item_links USING btree (from_id) WHERE (kind = 'duplicates'::text);
-
-
---
--- Name: uq_work_item_links_relates; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX uq_work_item_links_relates ON public.work_item_links USING btree (LEAST(from_id, to_id), GREATEST(from_id, to_id)) WHERE (kind = 'relates'::text);
 
-
---
--- Name: uq_work_items_doc_page; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE UNIQUE INDEX uq_work_items_doc_page ON public.work_items USING btree (doc_wiki_page_id) WHERE (doc_wiki_page_id IS NOT NULL);
-
-
---
--- Name: uq_workspace_projects_key_prefix; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX uq_workspace_projects_key_prefix ON public.workspace_projects USING btree (org_id, key_prefix);
 
-
---
--- Name: uq_workspace_projects_share_token; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE UNIQUE INDEX uq_workspace_projects_share_token ON public.workspace_projects USING btree (share_token);
-
-
---
--- Name: uq_workspace_projects_team; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX uq_workspace_projects_team ON public.workspace_projects USING btree (team_id) WHERE (team_id IS NOT NULL);
 
-
---
--- Name: user_feature_flags_org_user_idx; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX user_feature_flags_org_user_idx ON public.user_feature_flags USING btree (org_id, user_id);
-
-
---
--- Name: users_status_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX users_status_idx ON public.users USING btree (status) WHERE (status <> 'active'::text);
 
-
---
--- Name: ux_course_purchases_completed; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE UNIQUE INDEX ux_course_purchases_completed ON public.purchases USING btree (user_id, course_id) WHERE (status = 'completed'::text);
-
-
---
--- Name: ux_course_purchases_coupon_user_open; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE UNIQUE INDEX ux_course_purchases_coupon_user_open ON public.purchases USING btree (coupon_id, user_id) WHERE ((coupon_id IS NOT NULL) AND (status = ANY (ARRAY['pending'::text, 'completed'::text])));
 
-
---
--- Name: ux_course_purchases_provider_ref; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE UNIQUE INDEX ux_course_purchases_provider_ref ON public.purchases USING btree (provider, provider_ref);
-
-
---
--- Name: workspace_projects_cohort_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX workspace_projects_cohort_idx ON public.workspace_projects USING btree (cohort_id) WHERE (cohort_id IS NOT NULL);
 
-
---
--- Name: auth_events auth_events_append_only; Type: TRIGGER; Schema: public; Owner: -
---
-
 CREATE TRIGGER auth_events_append_only BEFORE DELETE OR UPDATE ON public.auth_events FOR EACH ROW EXECUTE FUNCTION public.auth_events_deny_mutation();
-
-
---
--- Name: course_modules course_modules_lock_section_trigger; Type: TRIGGER; Schema: public; Owner: -
---
 
 CREATE TRIGGER course_modules_lock_section_trigger BEFORE INSERT ON public.course_modules FOR EACH ROW EXECUTE FUNCTION public.course_modules_lock_section();
 
-
---
--- Name: lab_definitions set_lab_definitions_updated_at; Type: TRIGGER; Schema: public; Owner: -
---
-
 CREATE TRIGGER set_lab_definitions_updated_at BEFORE UPDATE ON public.lab_definitions FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
-
-
---
--- Name: enrollments trg_completion_stats; Type: TRIGGER; Schema: public; Owner: -
---
 
 CREATE TRIGGER trg_completion_stats AFTER UPDATE OF completed_at ON public.enrollments FOR EACH ROW EXECUTE FUNCTION public.update_user_stats_completion();
 
-
---
--- Name: enrollments trg_enrollment_stats; Type: TRIGGER; Schema: public; Owner: -
---
-
 CREATE TRIGGER trg_enrollment_stats AFTER INSERT ON public.enrollments FOR EACH ROW EXECUTE FUNCTION public.update_user_stats_enrollment();
-
-
---
--- Name: org_members trg_org_last_owner; Type: TRIGGER; Schema: public; Owner: -
---
 
 CREATE TRIGGER trg_org_last_owner BEFORE DELETE OR UPDATE ON public.org_members FOR EACH ROW EXECUTE FUNCTION public.enforce_last_owner();
 
-
---
--- Name: org_members trg_org_member_count; Type: TRIGGER; Schema: public; Owner: -
---
-
 CREATE TRIGGER trg_org_member_count AFTER INSERT OR DELETE OR UPDATE ON public.org_members FOR EACH ROW EXECUTE FUNCTION public.update_active_member_count();
-
-
---
--- Name: organizations trg_org_slug_immutable; Type: TRIGGER; Schema: public; Owner: -
---
 
 CREATE TRIGGER trg_org_slug_immutable BEFORE UPDATE ON public.organizations FOR EACH ROW EXECUTE FUNCTION public.enforce_slug_immutable();
 
-
---
--- Name: user_profiles trg_user_profiles_updated_at; Type: TRIGGER; Schema: public; Owner: -
---
-
 CREATE TRIGGER trg_user_profiles_updated_at BEFORE UPDATE ON public.user_profiles FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-
---
--- Name: user_roles trg_user_role_tenant_scope; Type: TRIGGER; Schema: public; Owner: -
---
-
 CREATE TRIGGER trg_user_role_tenant_scope BEFORE INSERT OR UPDATE ON public.user_roles FOR EACH ROW EXECUTE FUNCTION public.fn_check_user_role_tenant_scope();
-
-
---
--- Name: assessment_attempts assessment_attempts_assessment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.assessment_attempts
     ADD CONSTRAINT assessment_attempts_assessment_id_fkey FOREIGN KEY (assessment_id) REFERENCES public.assessments(id) ON DELETE CASCADE;
 
-
---
--- Name: assessment_attempts assessment_attempts_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.assessment_attempts
     ADD CONSTRAINT assessment_attempts_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: assessment_attempts assessment_attempts_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.assessment_attempts
     ADD CONSTRAINT assessment_attempts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: assessment_questions assessment_questions_assessment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.assessment_questions
     ADD CONSTRAINT assessment_questions_assessment_id_fkey FOREIGN KEY (assessment_id) REFERENCES public.assessments(id) ON DELETE CASCADE;
-
-
---
--- Name: assessment_questions assessment_questions_content_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.assessment_questions
     ADD CONSTRAINT assessment_questions_content_version_id_fkey FOREIGN KEY (content_version_id) REFERENCES public.content_versions(id);
 
-
---
--- Name: assessment_questions assessment_questions_question_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.assessment_questions
     ADD CONSTRAINT assessment_questions_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.questions(id) ON DELETE RESTRICT;
-
-
---
--- Name: assessment_questions assessment_questions_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.assessment_questions
     ADD CONSTRAINT assessment_questions_version_id_fkey FOREIGN KEY (version_id) REFERENCES public.question_versions(id) ON DELETE RESTRICT;
 
-
---
--- Name: assessments assessments_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.assessments
     ADD CONSTRAINT assessments_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE RESTRICT;
-
-
---
--- Name: assessments assessments_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.assessments
     ADD CONSTRAINT assessments_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: assessments assessments_test_template_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.assessments
     ADD CONSTRAINT assessments_test_template_id_fkey FOREIGN KEY (test_template_id) REFERENCES public.test_templates(id) ON DELETE SET NULL;
-
-
---
--- Name: attempt_answers attempt_answers_assessment_question_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.attempt_answers
     ADD CONSTRAINT attempt_answers_assessment_question_id_fkey FOREIGN KEY (assessment_question_id) REFERENCES public.assessment_questions(id) ON DELETE CASCADE;
 
-
---
--- Name: attempt_answers attempt_answers_attempt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.attempt_answers
     ADD CONSTRAINT attempt_answers_attempt_id_fkey FOREIGN KEY (attempt_id) REFERENCES public.assessment_attempts(id) ON DELETE CASCADE;
-
-
---
--- Name: attempt_answers attempt_answers_overridden_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.attempt_answers
     ADD CONSTRAINT attempt_answers_overridden_by_fkey FOREIGN KEY (overridden_by) REFERENCES public.users(id);
 
-
---
--- Name: attempt_answers attempt_answers_question_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.attempt_answers
     ADD CONSTRAINT attempt_answers_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.questions(id) ON DELETE RESTRICT;
-
-
---
--- Name: attempt_events attempt_events_attempt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.attempt_events
     ADD CONSTRAINT attempt_events_attempt_id_fkey FOREIGN KEY (attempt_id) REFERENCES public.assessment_attempts(id) ON DELETE CASCADE;
 
-
---
--- Name: attempt_events attempt_events_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.attempt_events
     ADD CONSTRAINT attempt_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: audit_logs audit_logs_actor_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.audit_logs
     ADD CONSTRAINT audit_logs_actor_user_id_fkey FOREIGN KEY (actor_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: audit_logs audit_logs_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.audit_logs
     ADD CONSTRAINT audit_logs_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: auth_tokens auth_tokens_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.auth_tokens
     ADD CONSTRAINT auth_tokens_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: auth_tokens auth_tokens_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.auth_tokens
     ADD CONSTRAINT auth_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: batch_invitations batch_invitations_batch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.batch_invitations
     ADD CONSTRAINT batch_invitations_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE CASCADE;
 
-
---
--- Name: batch_invitations batch_invitations_import_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.batch_invitations
     ADD CONSTRAINT batch_invitations_import_job_id_fkey FOREIGN KEY (import_job_id) REFERENCES public.jobs(id) ON DELETE SET NULL;
-
-
---
--- Name: batch_invitations batch_invitations_invited_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.batch_invitations
     ADD CONSTRAINT batch_invitations_invited_by_fkey FOREIGN KEY (invited_by) REFERENCES public.users(id) ON DELETE RESTRICT;
 
-
---
--- Name: batch_invitations batch_invitations_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.batch_invitations
     ADD CONSTRAINT batch_invitations_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: batch_member_details batch_member_details_batch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.batch_member_details
     ADD CONSTRAINT batch_member_details_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE CASCADE;
 
-
---
--- Name: batch_member_details batch_member_details_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.batch_member_details
     ADD CONSTRAINT batch_member_details_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: batch_members batch_members_batch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.batch_members
     ADD CONSTRAINT batch_members_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE CASCADE;
 
-
---
--- Name: batch_members batch_members_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.batch_members
     ADD CONSTRAINT batch_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: batch_messages batch_messages_batch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.batch_messages
     ADD CONSTRAINT batch_messages_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE CASCADE;
 
-
---
--- Name: batch_messages batch_messages_parent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.batch_messages
     ADD CONSTRAINT batch_messages_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.batch_messages(id) ON DELETE CASCADE;
-
-
---
--- Name: batch_messages batch_messages_sender_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.batch_messages
     ADD CONSTRAINT batch_messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.users(id) ON DELETE RESTRICT;
 
-
---
--- Name: batches batches_cohort_group_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.batches
     ADD CONSTRAINT batches_cohort_group_id_fkey FOREIGN KEY (cohort_group_id) REFERENCES public.cohort_groups(id) ON DELETE SET NULL;
-
-
---
--- Name: batches batches_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.batches
     ADD CONSTRAINT batches_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE RESTRICT;
 
-
---
--- Name: batches batches_mentor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.batches
     ADD CONSTRAINT batches_mentor_id_fkey FOREIGN KEY (mentor_id) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: batches batches_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.batches
     ADD CONSTRAINT batches_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: brief_approvals brief_approvals_approver_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.brief_approvals
     ADD CONSTRAINT brief_approvals_approver_id_fkey FOREIGN KEY (approver_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: brief_approvals brief_approvals_project_id_requirement_version_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.brief_approvals
     ADD CONSTRAINT brief_approvals_project_id_requirement_version_fkey FOREIGN KEY (project_id, requirement_version) REFERENCES public.requirement_versions(project_id, version) ON DELETE CASCADE;
 
-
---
--- Name: calendar_event_attendees calendar_event_attendees_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.calendar_event_attendees
     ADD CONSTRAINT calendar_event_attendees_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.calendar_events(id) ON DELETE CASCADE;
-
-
---
--- Name: calendar_event_attendees calendar_event_attendees_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.calendar_event_attendees
     ADD CONSTRAINT calendar_event_attendees_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: calendar_events calendar_events_batch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.calendar_events
     ADD CONSTRAINT calendar_events_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE CASCADE;
-
-
---
--- Name: calendar_events calendar_events_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.calendar_events
     ADD CONSTRAINT calendar_events_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
 
-
---
--- Name: calendar_events calendar_events_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.calendar_events
     ADD CONSTRAINT calendar_events_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE RESTRICT;
-
-
---
--- Name: calendar_events calendar_events_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.calendar_events
     ADD CONSTRAINT calendar_events_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: calendar_events calendar_events_recurrence_parent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.calendar_events
     ADD CONSTRAINT calendar_events_recurrence_parent_id_fkey FOREIGN KEY (recurrence_parent_id) REFERENCES public.calendar_events(id) ON DELETE CASCADE;
-
-
---
--- Name: captures captures_journal_entry_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.captures
     ADD CONSTRAINT captures_journal_entry_id_fkey FOREIGN KEY (journal_entry_id) REFERENCES public.learning_journal_entries(id) ON DELETE SET NULL;
 
-
---
--- Name: captures captures_srs_card_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.captures
     ADD CONSTRAINT captures_srs_card_id_fkey FOREIGN KEY (srs_card_id) REFERENCES public.srs_cards(id) ON DELETE SET NULL;
-
-
---
--- Name: captures captures_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.captures
     ADD CONSTRAINT captures_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: certificates certificates_assessment_attempt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.certificates
     ADD CONSTRAINT certificates_assessment_attempt_id_fkey FOREIGN KEY (assessment_attempt_id) REFERENCES public.assessment_attempts(id);
-
-
---
--- Name: certificates certificates_course_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.certificates
     ADD CONSTRAINT certificates_course_fk FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
 
-
---
--- Name: certificates certificates_issued_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.certificates
     ADD CONSTRAINT certificates_issued_by_fkey FOREIGN KEY (issued_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: certificates certificates_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.certificates
     ADD CONSTRAINT certificates_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.workspace_projects(id) ON DELETE CASCADE;
 
-
---
--- Name: certificates certificates_user_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.certificates
     ADD CONSTRAINT certificates_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: change_requests change_requests_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.change_requests
     ADD CONSTRAINT change_requests_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: change_requests change_requests_requester_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.change_requests
     ADD CONSTRAINT change_requests_requester_id_fkey FOREIGN KEY (requester_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: change_requests change_requests_reviewed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.change_requests
     ADD CONSTRAINT change_requests_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: coding_submissions coding_submissions_attempt_answer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.coding_submissions
     ADD CONSTRAINT coding_submissions_attempt_answer_id_fkey FOREIGN KEY (attempt_answer_id) REFERENCES public.attempt_answers(id) ON DELETE CASCADE;
-
-
---
--- Name: cohort_groups cohort_groups_org_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.cohort_groups
     ADD CONSTRAINT cohort_groups_org_fk FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: cohort_groups cohort_groups_parent_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.cohort_groups
     ADD CONSTRAINT cohort_groups_parent_fk FOREIGN KEY (parent_id) REFERENCES public.cohort_groups(id) ON DELETE CASCADE;
-
-
---
--- Name: comments comments_author_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.comments
     ADD CONSTRAINT comments_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: comments comments_parent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.comments
     ADD CONSTRAINT comments_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.comments(id) ON DELETE CASCADE;
-
-
---
--- Name: content_assignments content_assignments_assigned_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.content_assignments
     ADD CONSTRAINT content_assignments_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: content_reactions content_reactions_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.content_reactions
     ADD CONSTRAINT content_reactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: content_reports content_reports_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.content_reports
     ADD CONSTRAINT content_reports_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: content_reports content_reports_reporter_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.content_reports
     ADD CONSTRAINT content_reports_reporter_id_fkey FOREIGN KEY (reporter_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: content_reports content_reports_resolved_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.content_reports
     ADD CONSTRAINT content_reports_resolved_by_fkey FOREIGN KEY (resolved_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: content_versions content_versions_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.content_versions
     ADD CONSTRAINT content_versions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: conversations conversations_assigned_to_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.conversations
     ADD CONSTRAINT conversations_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: conversations conversations_counterpart_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.conversations
     ADD CONSTRAINT conversations_counterpart_id_fkey FOREIGN KEY (counterpart_id) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: conversations conversations_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.conversations
     ADD CONSTRAINT conversations_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE SET NULL;
 
-
---
--- Name: conversations conversations_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.conversations
     ADD CONSTRAINT conversations_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: conversations conversations_requester_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.conversations
     ADD CONSTRAINT conversations_requester_id_fkey FOREIGN KEY (requester_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: coupon_courses coupon_courses_coupon_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.coupon_courses
     ADD CONSTRAINT coupon_courses_coupon_id_fkey FOREIGN KEY (coupon_id) REFERENCES public.coupons(id) ON DELETE CASCADE;
-
-
---
--- Name: coupon_courses coupon_courses_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.coupon_courses
     ADD CONSTRAINT coupon_courses_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
 
-
---
--- Name: coupon_redemptions coupon_redemptions_coupon_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.coupon_redemptions
     ADD CONSTRAINT coupon_redemptions_coupon_id_fkey FOREIGN KEY (coupon_id) REFERENCES public.coupons(id) ON DELETE CASCADE;
-
-
---
--- Name: coupon_redemptions coupon_redemptions_purchase_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.coupon_redemptions
     ADD CONSTRAINT coupon_redemptions_purchase_id_fkey FOREIGN KEY (purchase_id) REFERENCES public.purchases(id) ON DELETE CASCADE;
 
-
---
--- Name: coupon_redemptions coupon_redemptions_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.coupon_redemptions
     ADD CONSTRAINT coupon_redemptions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: coupons coupons_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.coupons
     ADD CONSTRAINT coupons_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: coupons coupons_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.coupons
     ADD CONSTRAINT coupons_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: course_bundle_items course_bundle_items_bundle_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.course_bundle_items
     ADD CONSTRAINT course_bundle_items_bundle_id_fkey FOREIGN KEY (bundle_id) REFERENCES public.course_bundles(id) ON DELETE CASCADE;
 
-
---
--- Name: course_bundle_items course_bundle_items_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.course_bundle_items
     ADD CONSTRAINT course_bundle_items_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
-
-
---
--- Name: course_bundles course_bundles_creator_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.course_bundles
     ADD CONSTRAINT course_bundles_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.users(id) ON DELETE RESTRICT;
 
-
---
--- Name: course_bundles course_bundles_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.course_bundles
     ADD CONSTRAINT course_bundles_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: course_faqs course_faqs_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.course_faqs
     ADD CONSTRAINT course_faqs_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
 
-
---
--- Name: course_faqs course_faqs_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.course_faqs
     ADD CONSTRAINT course_faqs_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: course_faqs course_faqs_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.course_faqs
     ADD CONSTRAINT course_faqs_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: course_faqs course_faqs_source_message_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.course_faqs
     ADD CONSTRAINT course_faqs_source_message_id_fkey FOREIGN KEY (source_message_id) REFERENCES public.batch_messages(id) ON DELETE SET NULL;
-
-
---
--- Name: course_modules course_modules_assessment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.course_modules
     ADD CONSTRAINT course_modules_assessment_id_fkey FOREIGN KEY (assessment_id) REFERENCES public.assessments(id) ON DELETE SET NULL;
 
-
---
--- Name: course_modules course_modules_copied_from_module_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.course_modules
     ADD CONSTRAINT course_modules_copied_from_module_id_fkey FOREIGN KEY (copied_from_module_id) REFERENCES public.course_modules(id) ON DELETE SET NULL;
-
-
---
--- Name: course_modules course_modules_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.course_modules
     ADD CONSTRAINT course_modules_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
 
-
---
--- Name: course_modules course_modules_lab_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.course_modules
     ADD CONSTRAINT course_modules_lab_id_fkey FOREIGN KEY (lab_id) REFERENCES public.lab_definitions(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
-
-
---
--- Name: course_modules course_modules_section_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.course_modules
     ADD CONSTRAINT course_modules_section_id_fkey FOREIGN KEY (section_id) REFERENCES public.course_sections(id) ON DELETE CASCADE;
 
-
---
--- Name: purchases course_purchases_coupon_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.purchases
     ADD CONSTRAINT course_purchases_coupon_id_fkey FOREIGN KEY (coupon_id) REFERENCES public.coupons(id) ON DELETE SET NULL;
-
-
---
--- Name: purchases course_purchases_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.purchases
     ADD CONSTRAINT course_purchases_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
 
-
---
--- Name: purchases course_purchases_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.purchases
     ADD CONSTRAINT course_purchases_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: purchases course_purchases_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.purchases
     ADD CONSTRAINT course_purchases_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: course_sections course_sections_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.course_sections
     ADD CONSTRAINT course_sections_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
-
-
---
--- Name: courses courses_creator_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.courses
     ADD CONSTRAINT courses_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.users(id) ON DELETE RESTRICT;
 
-
---
--- Name: courses courses_forked_from_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.courses
     ADD CONSTRAINT courses_forked_from_id_fkey FOREIGN KEY (forked_from_id) REFERENCES public.courses(id) ON DELETE SET NULL;
-
-
---
--- Name: courses courses_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.courses
     ADD CONSTRAINT courses_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: diary_entries diary_entries_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.diary_entries
     ADD CONSTRAINT diary_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: diary_tasks diary_tasks_source_entry_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.diary_tasks
     ADD CONSTRAINT diary_tasks_source_entry_fkey FOREIGN KEY (source_entry_id) REFERENCES public.diary_entries(id) ON DELETE SET NULL;
 
-
---
--- Name: diary_tasks diary_tasks_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.diary_tasks
     ADD CONSTRAINT diary_tasks_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: enrollments enrollments_batch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.enrollments
     ADD CONSTRAINT enrollments_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE SET NULL;
 
-
---
--- Name: enrollments enrollments_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.enrollments
     ADD CONSTRAINT enrollments_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
-
-
---
--- Name: enrollments enrollments_enrolled_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.enrollments
     ADD CONSTRAINT enrollments_enrolled_by_fkey FOREIGN KEY (enrolled_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: enrollments enrollments_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.enrollments
     ADD CONSTRAINT enrollments_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: feedback feedback_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.feedback
     ADD CONSTRAINT feedback_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: feedback feedback_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.feedback
     ADD CONSTRAINT feedback_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: focus_wall_categories focus_wall_categories_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.focus_wall_categories
     ADD CONSTRAINT focus_wall_categories_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: focus_wall_notes focus_wall_notes_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.focus_wall_notes
     ADD CONSTRAINT focus_wall_notes_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: gitlab_commit_files gitlab_commit_files_author_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.gitlab_commit_files
     ADD CONSTRAINT gitlab_commit_files_author_user_id_fkey FOREIGN KEY (author_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: gitlab_commit_files gitlab_commit_files_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.gitlab_commit_files
     ADD CONSTRAINT gitlab_commit_files_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: gitlab_commit_files gitlab_commit_files_team_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.gitlab_commit_files
     ADD CONSTRAINT gitlab_commit_files_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.project_teams(id) ON DELETE CASCADE;
 
-
---
--- Name: gitlab_commits gitlab_commits_team_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.gitlab_commits
     ADD CONSTRAINT gitlab_commits_team_fk FOREIGN KEY (team_id) REFERENCES public.project_teams(id) ON DELETE CASCADE;
-
-
---
--- Name: gitlab_commits gitlab_commits_user_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.gitlab_commits
     ADD CONSTRAINT gitlab_commits_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: gitlab_connections gitlab_connections_org_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.gitlab_connections
     ADD CONSTRAINT gitlab_connections_org_fk FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: gitlab_connections gitlab_connections_user_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.gitlab_connections
     ADD CONSTRAINT gitlab_connections_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: gitlab_installations gitlab_installations_created_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.gitlab_installations
     ADD CONSTRAINT gitlab_installations_created_by_fk FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: gitlab_installations gitlab_installations_org_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.gitlab_installations
     ADD CONSTRAINT gitlab_installations_org_fk FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: gitlab_merge_requests gitlab_merge_requests_author_user_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.gitlab_merge_requests
     ADD CONSTRAINT gitlab_merge_requests_author_user_fk FOREIGN KEY (author_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: gitlab_merge_requests gitlab_merge_requests_team_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.gitlab_merge_requests
     ADD CONSTRAINT gitlab_merge_requests_team_fk FOREIGN KEY (team_id) REFERENCES public.project_teams(id) ON DELETE CASCADE;
 
-
---
--- Name: gitlab_objects gitlab_objects_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.gitlab_objects
     ADD CONSTRAINT gitlab_objects_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: gitlab_objects gitlab_objects_team_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.gitlab_objects
     ADD CONSTRAINT gitlab_objects_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.project_teams(id) ON DELETE CASCADE;
 
-
---
--- Name: gitlab_webhook_events gitlab_webhook_events_org_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.gitlab_webhook_events
     ADD CONSTRAINT gitlab_webhook_events_org_fk FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: habit_completions habit_completions_habit_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.habit_completions
     ADD CONSTRAINT habit_completions_habit_id_fkey FOREIGN KEY (habit_id) REFERENCES public.habits(id) ON DELETE CASCADE;
 
-
---
--- Name: habits habits_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.habits
     ADD CONSTRAINT habits_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: idempotency_keys idempotency_keys_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.idempotency_keys
     ADD CONSTRAINT idempotency_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: interview_evaluations interview_evaluations_attempt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.interview_evaluations
     ADD CONSTRAINT interview_evaluations_attempt_id_fkey FOREIGN KEY (attempt_id) REFERENCES public.assessment_attempts(id) ON DELETE CASCADE;
-
-
---
--- Name: interview_evaluations interview_evaluations_question_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.interview_evaluations
     ADD CONSTRAINT interview_evaluations_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.question_versions(id);
 
-
---
--- Name: interview_exp_entries interview_exp_entries_author_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.interview_exp_entries
     ADD CONSTRAINT interview_exp_entries_author_fk FOREIGN KEY (author_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: interview_exp_entries interview_exp_entries_post_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.interview_exp_entries
     ADD CONSTRAINT interview_exp_entries_post_fk FOREIGN KEY (post_id) REFERENCES public.interview_exp_posts(id) ON DELETE CASCADE;
 
-
---
--- Name: interview_exp_posts interview_exp_posts_author_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.interview_exp_posts
     ADD CONSTRAINT interview_exp_posts_author_fk FOREIGN KEY (author_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: interview_exp_qna interview_exp_qna_author_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.interview_exp_qna
     ADD CONSTRAINT interview_exp_qna_author_fk FOREIGN KEY (author_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: interview_exp_qna interview_exp_qna_entry_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.interview_exp_qna
     ADD CONSTRAINT interview_exp_qna_entry_fk FOREIGN KEY (entry_id) REFERENCES public.interview_exp_entries(id) ON DELETE CASCADE;
-
-
---
--- Name: interview_exp_qna interview_exp_qna_post_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.interview_exp_qna
     ADD CONSTRAINT interview_exp_qna_post_fk FOREIGN KEY (post_id) REFERENCES public.interview_exp_posts(id) ON DELETE CASCADE;
 
-
---
--- Name: interview_exp_qna_progress interview_exp_qna_progress_qna_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.interview_exp_qna_progress
     ADD CONSTRAINT interview_exp_qna_progress_qna_fk FOREIGN KEY (qna_id) REFERENCES public.interview_exp_qna(id) ON DELETE CASCADE;
-
-
---
--- Name: interview_exp_qna_progress interview_exp_qna_progress_user_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.interview_exp_qna_progress
     ADD CONSTRAINT interview_exp_qna_progress_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: interview_prep_plans interview_prep_plans_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.interview_prep_plans
     ADD CONSTRAINT interview_prep_plans_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: interview_prep_plans interview_prep_plans_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.interview_prep_plans
     ADD CONSTRAINT interview_prep_plans_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: interview_prep_rounds interview_prep_rounds_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.interview_prep_rounds
     ADD CONSTRAINT interview_prep_rounds_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.interview_prep_plans(id) ON DELETE CASCADE;
-
-
---
--- Name: interview_skill_scores interview_skill_scores_attempt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.interview_skill_scores
     ADD CONSTRAINT interview_skill_scores_attempt_id_fkey FOREIGN KEY (attempt_id) REFERENCES public.assessment_attempts(id) ON DELETE CASCADE;
 
-
---
--- Name: interview_skill_scores interview_skill_scores_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.interview_skill_scores
     ADD CONSTRAINT interview_skill_scores_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id);
-
-
---
--- Name: interview_skill_scores interview_skill_scores_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.interview_skill_scores
     ADD CONSTRAINT interview_skill_scores_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: job_runs job_runs_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.job_runs
     ADD CONSTRAINT job_runs_job_id_fkey FOREIGN KEY (job_id) REFERENCES public.jobs(id) ON DELETE CASCADE;
-
-
---
--- Name: jobs jobs_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.jobs
     ADD CONSTRAINT jobs_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: jobs jobs_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.jobs
     ADD CONSTRAINT jobs_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: jti_blocklist jti_blocklist_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.jti_blocklist
     ADD CONSTRAINT jti_blocklist_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: lab_ai_drafts lab_ai_drafts_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_ai_drafts
     ADD CONSTRAINT lab_ai_drafts_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id);
-
-
---
--- Name: lab_ai_interactions lab_ai_interactions_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_ai_interactions
     ADD CONSTRAINT lab_ai_interactions_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.lab_sessions(id) ON DELETE CASCADE;
 
-
---
--- Name: lab_block_usages lab_block_usages_block_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_block_usages
     ADD CONSTRAINT lab_block_usages_block_version_id_fkey FOREIGN KEY (block_version_id) REFERENCES public.lab_block_versions(id);
-
-
---
--- Name: lab_block_usages lab_block_usages_build_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_block_usages
     ADD CONSTRAINT lab_block_usages_build_id_fkey FOREIGN KEY (build_id) REFERENCES public.lab_builds(id) ON DELETE CASCADE;
 
-
---
--- Name: lab_block_versions lab_block_versions_block_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_block_versions
     ADD CONSTRAINT lab_block_versions_block_id_fkey FOREIGN KEY (block_id) REFERENCES public.lab_blocks(id) ON DELETE CASCADE;
-
-
---
--- Name: lab_block_versions lab_block_versions_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_block_versions
     ADD CONSTRAINT lab_block_versions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id);
 
-
---
--- Name: lab_blocks lab_blocks_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_blocks
     ADD CONSTRAINT lab_blocks_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id);
-
-
---
--- Name: lab_build_variants lab_build_variants_build_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_build_variants
     ADD CONSTRAINT lab_build_variants_build_id_fkey FOREIGN KEY (build_id) REFERENCES public.lab_builds(id) ON DELETE CASCADE;
 
-
---
--- Name: lab_builds lab_builds_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_builds
     ADD CONSTRAINT lab_builds_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id);
-
-
---
--- Name: lab_builds lab_builds_recipe_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_builds
     ADD CONSTRAINT lab_builds_recipe_id_fkey FOREIGN KEY (recipe_id) REFERENCES public.lab_recipes(id) ON DELETE CASCADE;
 
-
---
--- Name: lab_catalog_meta lab_catalog_meta_lab_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_catalog_meta
     ADD CONSTRAINT lab_catalog_meta_lab_id_fkey FOREIGN KEY (lab_id) REFERENCES public.lab_definitions(id) ON DELETE CASCADE;
-
-
---
--- Name: lab_definitions lab_definitions_build_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_definitions
     ADD CONSTRAINT lab_definitions_build_id_fkey FOREIGN KEY (build_id) REFERENCES public.lab_builds(id);
 
-
---
--- Name: lab_definitions lab_definitions_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_definitions
     ADD CONSTRAINT lab_definitions_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE SET NULL;
-
-
---
--- Name: lab_definitions lab_definitions_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_definitions
     ADD CONSTRAINT lab_definitions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id);
 
-
---
--- Name: lab_definitions lab_definitions_module_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_definitions
     ADD CONSTRAINT lab_definitions_module_id_fkey FOREIGN KEY (module_id) REFERENCES public.course_modules(id);
-
-
---
--- Name: lab_definitions lab_definitions_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_definitions
     ADD CONSTRAINT lab_definitions_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: lab_definitions lab_definitions_published_version_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_definitions
     ADD CONSTRAINT lab_definitions_published_version_fk FOREIGN KEY (published_version_id) REFERENCES public.lab_task_versions(id);
-
-
---
--- Name: lab_recipes lab_recipes_lab_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_recipes
     ADD CONSTRAINT lab_recipes_lab_id_fkey FOREIGN KEY (lab_id) REFERENCES public.lab_definitions(id);
 
-
---
--- Name: lab_recipes lab_recipes_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_recipes
     ADD CONSTRAINT lab_recipes_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id);
-
-
---
--- Name: lab_recipes lab_recipes_owner_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_recipes
     ADD CONSTRAINT lab_recipes_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES public.users(id);
 
-
---
--- Name: lab_sessions lab_sessions_lab_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_sessions
     ADD CONSTRAINT lab_sessions_lab_id_fkey FOREIGN KEY (lab_id) REFERENCES public.lab_definitions(id);
-
-
---
--- Name: lab_sessions lab_sessions_module_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_sessions
     ADD CONSTRAINT lab_sessions_module_id_fkey FOREIGN KEY (module_id) REFERENCES public.course_modules(id);
 
-
---
--- Name: lab_sessions lab_sessions_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_sessions
     ADD CONSTRAINT lab_sessions_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: lab_sessions lab_sessions_project_team_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_sessions
     ADD CONSTRAINT lab_sessions_project_team_fk FOREIGN KEY (project_team_id) REFERENCES public.project_teams(id) ON DELETE SET NULL;
 
-
---
--- Name: lab_sessions lab_sessions_task_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_sessions
     ADD CONSTRAINT lab_sessions_task_version_id_fkey FOREIGN KEY (task_version_id) REFERENCES public.lab_task_versions(id);
-
-
---
--- Name: lab_sessions lab_sessions_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_sessions
     ADD CONSTRAINT lab_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: lab_task_completions lab_task_completions_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_task_completions
     ADD CONSTRAINT lab_task_completions_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.lab_sessions(id) ON DELETE CASCADE;
-
-
---
--- Name: lab_task_completions lab_task_completions_task_version_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_task_completions
     ADD CONSTRAINT lab_task_completions_task_version_item_id_fkey FOREIGN KEY (task_version_item_id) REFERENCES public.lab_task_version_items(id) ON DELETE CASCADE;
 
-
---
--- Name: lab_task_version_items lab_task_version_items_task_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_task_version_items
     ADD CONSTRAINT lab_task_version_items_task_version_id_fkey FOREIGN KEY (task_version_id) REFERENCES public.lab_task_versions(id) ON DELETE CASCADE;
-
-
---
--- Name: lab_task_versions lab_task_versions_build_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_task_versions
     ADD CONSTRAINT lab_task_versions_build_id_fkey FOREIGN KEY (build_id) REFERENCES public.lab_builds(id);
 
-
---
--- Name: lab_task_versions lab_task_versions_lab_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_task_versions
     ADD CONSTRAINT lab_task_versions_lab_id_fkey FOREIGN KEY (lab_id) REFERENCES public.lab_definitions(id) ON DELETE CASCADE;
-
-
---
--- Name: lab_task_versions lab_task_versions_published_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_task_versions
     ADD CONSTRAINT lab_task_versions_published_by_fkey FOREIGN KEY (published_by) REFERENCES public.users(id);
 
-
---
--- Name: lab_tasks lab_tasks_lab_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_tasks
     ADD CONSTRAINT lab_tasks_lab_id_fkey FOREIGN KEY (lab_id) REFERENCES public.lab_definitions(id) ON DELETE CASCADE;
-
-
---
--- Name: lab_usage_events lab_usage_events_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_usage_events
     ADD CONSTRAINT lab_usage_events_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: lab_usage_events lab_usage_events_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.lab_usage_events
     ADD CONSTRAINT lab_usage_events_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.lab_sessions(id) ON DELETE SET NULL;
-
-
---
--- Name: lab_warm_containers lab_warm_containers_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.lab_warm_containers
     ADD CONSTRAINT lab_warm_containers_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.lab_sessions(id) ON DELETE SET NULL;
 
-
---
--- Name: learning_annotations learning_annotations_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.learning_annotations
     ADD CONSTRAINT learning_annotations_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: learning_annotations learning_annotations_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.learning_annotations
     ADD CONSTRAINT learning_annotations_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: learning_journal_entries learning_journal_entries_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.learning_journal_entries
     ADD CONSTRAINT learning_journal_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: legal_acceptances legal_acceptances_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.legal_acceptances
     ADD CONSTRAINT legal_acceptances_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: mcp_connections mcp_connections_client_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.mcp_connections
     ADD CONSTRAINT mcp_connections_client_fk FOREIGN KEY (client_id) REFERENCES public.mcp_clients(client_id) ON DELETE CASCADE;
-
-
---
--- Name: mcp_connections mcp_connections_org_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.mcp_connections
     ADD CONSTRAINT mcp_connections_org_fk FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: mcp_connections mcp_connections_user_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.mcp_connections
     ADD CONSTRAINT mcp_connections_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: meeting_attendance meeting_attendance_calendar_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.meeting_attendance
     ADD CONSTRAINT meeting_attendance_calendar_event_id_fkey FOREIGN KEY (calendar_event_id) REFERENCES public.project_meetings(calendar_event_id) ON DELETE CASCADE;
 
-
---
--- Name: meeting_attendance meeting_attendance_recorded_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.meeting_attendance
     ADD CONSTRAINT meeting_attendance_recorded_by_fkey FOREIGN KEY (recorded_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: meeting_attendance meeting_attendance_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.meeting_attendance
     ADD CONSTRAINT meeting_attendance_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: mentor_availability_exceptions mentor_availability_exceptions_mentor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.mentor_availability_exceptions
     ADD CONSTRAINT mentor_availability_exceptions_mentor_id_fkey FOREIGN KEY (mentor_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: mentor_availability_exceptions mentor_availability_exceptions_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.mentor_availability_exceptions
     ADD CONSTRAINT mentor_availability_exceptions_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: mentor_availability_rules mentor_availability_rules_mentor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.mentor_availability_rules
     ADD CONSTRAINT mentor_availability_rules_mentor_id_fkey FOREIGN KEY (mentor_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: mentor_availability_rules mentor_availability_rules_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.mentor_availability_rules
     ADD CONSTRAINT mentor_availability_rules_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: mentor_sessions mentor_sessions_batch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.mentor_sessions
     ADD CONSTRAINT mentor_sessions_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE CASCADE;
-
-
---
--- Name: mentor_sessions mentor_sessions_booked_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.mentor_sessions
     ADD CONSTRAINT mentor_sessions_booked_by_fkey FOREIGN KEY (booked_by) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: mentor_sessions mentor_sessions_calendar_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.mentor_sessions
     ADD CONSTRAINT mentor_sessions_calendar_event_id_fkey FOREIGN KEY (calendar_event_id) REFERENCES public.calendar_events(id) ON DELETE SET NULL;
-
-
---
--- Name: mentor_sessions mentor_sessions_cancelled_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.mentor_sessions
     ADD CONSTRAINT mentor_sessions_cancelled_by_fkey FOREIGN KEY (cancelled_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: mentor_sessions mentor_sessions_mentor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.mentor_sessions
     ADD CONSTRAINT mentor_sessions_mentor_id_fkey FOREIGN KEY (mentor_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: mentor_sessions mentor_sessions_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.mentor_sessions
     ADD CONSTRAINT mentor_sessions_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: mentor_sessions mentor_sessions_student_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.mentor_sessions
     ADD CONSTRAINT mentor_sessions_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: messages messages_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.messages
     ADD CONSTRAINT messages_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: messages messages_sender_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.messages
     ADD CONSTRAINT messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: module_progress module_progress_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.module_progress
     ADD CONSTRAINT module_progress_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
 
-
---
--- Name: module_progress module_progress_module_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.module_progress
     ADD CONSTRAINT module_progress_module_id_fkey FOREIGN KEY (module_id) REFERENCES public.course_modules(id) ON DELETE CASCADE;
-
-
---
--- Name: module_progress module_progress_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.module_progress
     ADD CONSTRAINT module_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: module_translations module_translations_module_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.module_translations
     ADD CONSTRAINT module_translations_module_id_fkey FOREIGN KEY (module_id) REFERENCES public.course_modules(id) ON DELETE CASCADE;
-
-
---
--- Name: notifications notifications_actor_user_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.notifications
     ADD CONSTRAINT notifications_actor_user_fk FOREIGN KEY (actor_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: notifications notifications_org_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.notifications
     ADD CONSTRAINT notifications_org_fk FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: notifications notifications_user_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.notifications
     ADD CONSTRAINT notifications_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: onboarding_progress onboarding_progress_step_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.onboarding_progress
     ADD CONSTRAINT onboarding_progress_step_id_fkey FOREIGN KEY (step_id) REFERENCES public.onboarding_steps(id) ON DELETE CASCADE;
-
-
---
--- Name: onboarding_progress onboarding_progress_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.onboarding_progress
     ADD CONSTRAINT onboarding_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: onboarding_steps onboarding_steps_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.onboarding_steps
     ADD CONSTRAINT onboarding_steps_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.workspace_projects(id) ON DELETE CASCADE;
-
-
---
--- Name: onboarding_steps onboarding_steps_wiki_page_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.onboarding_steps
     ADD CONSTRAINT onboarding_steps_wiki_page_id_fkey FOREIGN KEY (wiki_page_id) REFERENCES public.wiki_pages(id) ON DELETE SET NULL;
 
-
---
--- Name: org_auth_config org_auth_config_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.org_auth_config
     ADD CONSTRAINT org_auth_config_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: org_domains org_domains_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.org_domains
     ADD CONSTRAINT org_domains_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: org_feature_flags org_feature_flags_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.org_feature_flags
     ADD CONSTRAINT org_feature_flags_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: org_feature_flags org_feature_flags_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.org_feature_flags
     ADD CONSTRAINT org_feature_flags_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.users(id);
 
-
---
--- Name: org_invites org_invites_accepted_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.org_invites
     ADD CONSTRAINT org_invites_accepted_by_user_id_fkey FOREIGN KEY (accepted_by_user_id) REFERENCES public.users(id);
-
-
---
--- Name: org_invites org_invites_invited_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.org_invites
     ADD CONSTRAINT org_invites_invited_by_user_id_fkey FOREIGN KEY (invited_by_user_id) REFERENCES public.users(id);
 
-
---
--- Name: org_invites org_invites_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.org_invites
     ADD CONSTRAINT org_invites_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: org_members org_members_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.org_members
     ADD CONSTRAINT org_members_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: org_members org_members_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.org_members
     ADD CONSTRAINT org_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: org_settings org_settings_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.org_settings
     ADD CONSTRAINT org_settings_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: organizations organizations_tier_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.organizations
     ADD CONSTRAINT organizations_tier_id_fkey FOREIGN KEY (tier_id) REFERENCES public.pricing_tiers(id);
-
-
---
--- Name: payment_events payment_events_purchase_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.payment_events
     ADD CONSTRAINT payment_events_purchase_id_fkey FOREIGN KEY (purchase_id) REFERENCES public.purchases(id) ON DELETE SET NULL;
 
-
---
--- Name: peer_feedback peer_feedback_from_user_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.peer_feedback
     ADD CONSTRAINT peer_feedback_from_user_fkey FOREIGN KEY (from_user) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: peer_feedback peer_feedback_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.peer_feedback
     ADD CONSTRAINT peer_feedback_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.workspace_projects(id) ON DELETE CASCADE;
 
-
---
--- Name: peer_feedback peer_feedback_to_user_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.peer_feedback
     ADD CONSTRAINT peer_feedback_to_user_fkey FOREIGN KEY (to_user) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: plan_limits plan_limits_tier_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.plan_limits
     ADD CONSTRAINT plan_limits_tier_id_fkey FOREIGN KEY (tier_id) REFERENCES public.pricing_tiers(id) ON DELETE CASCADE;
 
-
---
--- Name: plan_limits plan_limits_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.plan_limits
     ADD CONSTRAINT plan_limits_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.users(id);
-
-
---
--- Name: pricing_tiers pricing_tiers_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.pricing_tiers
     ADD CONSTRAINT pricing_tiers_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.users(id);
 
-
---
--- Name: project_applications project_applications_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_applications
     ADD CONSTRAINT project_applications_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: project_applications project_applications_requirement_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_applications
     ADD CONSTRAINT project_applications_requirement_id_fkey FOREIGN KEY (requirement_id) REFERENCES public.project_requirements(id) ON DELETE CASCADE;
 
-
---
--- Name: project_applications project_applications_reviewed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_applications
     ADD CONSTRAINT project_applications_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: project_applications project_applications_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_applications
     ADD CONSTRAINT project_applications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: project_assignments project_assignments_batch_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_assignments
     ADD CONSTRAINT project_assignments_batch_fk FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE CASCADE;
-
-
---
--- Name: project_assignments project_assignments_course_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_assignments
     ADD CONSTRAINT project_assignments_course_fk FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE SET NULL;
 
-
---
--- Name: project_assignments project_assignments_created_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_assignments
     ADD CONSTRAINT project_assignments_created_by_fk FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE RESTRICT;
-
-
---
--- Name: project_assignments project_assignments_installation_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_assignments
     ADD CONSTRAINT project_assignments_installation_fk FOREIGN KEY (installation_id) REFERENCES public.gitlab_installations(id) ON DELETE RESTRICT;
 
-
---
--- Name: project_assignments project_assignments_lab_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_assignments
     ADD CONSTRAINT project_assignments_lab_fk FOREIGN KEY (lab_id) REFERENCES public.lab_definitions(id) ON DELETE SET NULL;
-
-
---
--- Name: project_assignments project_assignments_org_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_assignments
     ADD CONSTRAINT project_assignments_org_fk FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: project_checkpoints project_checkpoints_assignment_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_checkpoints
     ADD CONSTRAINT project_checkpoints_assignment_fk FOREIGN KEY (assignment_id) REFERENCES public.project_assignments(id) ON DELETE CASCADE;
-
-
---
--- Name: project_design_proposals project_design_proposals_checkpoint_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_design_proposals
     ADD CONSTRAINT project_design_proposals_checkpoint_id_fkey FOREIGN KEY (checkpoint_id) REFERENCES public.project_checkpoints(id) ON DELETE CASCADE;
 
-
---
--- Name: project_design_proposals project_design_proposals_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_design_proposals
     ADD CONSTRAINT project_design_proposals_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: project_design_proposals project_design_proposals_submitted_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_design_proposals
     ADD CONSTRAINT project_design_proposals_submitted_by_fkey FOREIGN KEY (submitted_by) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: project_design_proposals project_design_proposals_team_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_design_proposals
     ADD CONSTRAINT project_design_proposals_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.project_teams(id) ON DELETE CASCADE;
-
-
---
--- Name: project_design_votes project_design_votes_proposal_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_design_votes
     ADD CONSTRAINT project_design_votes_proposal_id_fkey FOREIGN KEY (proposal_id) REFERENCES public.project_design_proposals(id) ON DELETE CASCADE;
 
-
---
--- Name: project_design_votes project_design_votes_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_design_votes
     ADD CONSTRAINT project_design_votes_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: project_interests project_interests_invite_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_interests
     ADD CONSTRAINT project_interests_invite_id_fkey FOREIGN KEY (invite_id) REFERENCES public.org_invites(id) ON DELETE SET NULL;
 
-
---
--- Name: project_interests project_interests_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_interests
     ADD CONSTRAINT project_interests_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.workspace_projects(id) ON DELETE CASCADE;
-
-
---
--- Name: project_interests project_interests_reviewed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_interests
     ADD CONSTRAINT project_interests_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: project_interests project_interests_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_interests
     ADD CONSTRAINT project_interests_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: project_meetings project_meetings_calendar_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_meetings
     ADD CONSTRAINT project_meetings_calendar_event_id_fkey FOREIGN KEY (calendar_event_id) REFERENCES public.calendar_events(id) ON DELETE CASCADE;
 
-
---
--- Name: project_meetings project_meetings_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_meetings
     ADD CONSTRAINT project_meetings_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: project_meetings project_meetings_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_meetings
     ADD CONSTRAINT project_meetings_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.work_items(id) ON DELETE SET NULL;
 
-
---
--- Name: project_meetings project_meetings_notes_wiki_page_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_meetings
     ADD CONSTRAINT project_meetings_notes_wiki_page_id_fkey FOREIGN KEY (notes_wiki_page_id) REFERENCES public.wiki_pages(id) ON DELETE SET NULL;
-
-
---
--- Name: project_meetings project_meetings_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_meetings
     ADD CONSTRAINT project_meetings_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.workspace_projects(id) ON DELETE CASCADE;
 
-
---
--- Name: project_members project_members_added_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_members
     ADD CONSTRAINT project_members_added_by_fkey FOREIGN KEY (added_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: project_members project_members_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_members
     ADD CONSTRAINT project_members_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.workspace_projects(id) ON DELETE CASCADE;
 
-
---
--- Name: project_members project_members_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_members
     ADD CONSTRAINT project_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: project_originality_matches project_originality_matches_report_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_originality_matches
     ADD CONSTRAINT project_originality_matches_report_fk FOREIGN KEY (report_id) REFERENCES public.project_originality_reports(id) ON DELETE CASCADE;
 
-
---
--- Name: project_originality_matches project_originality_matches_team_a_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_originality_matches
     ADD CONSTRAINT project_originality_matches_team_a_fk FOREIGN KEY (team_a_id) REFERENCES public.project_teams(id) ON DELETE CASCADE;
-
-
---
--- Name: project_originality_matches project_originality_matches_team_b_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_originality_matches
     ADD CONSTRAINT project_originality_matches_team_b_fk FOREIGN KEY (team_b_id) REFERENCES public.project_teams(id) ON DELETE CASCADE;
 
-
---
--- Name: project_originality_reports project_originality_reports_assignment_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_originality_reports
     ADD CONSTRAINT project_originality_reports_assignment_fk FOREIGN KEY (assignment_id) REFERENCES public.project_assignments(id) ON DELETE CASCADE;
-
-
---
--- Name: project_originality_reports project_originality_reports_requested_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_originality_reports
     ADD CONSTRAINT project_originality_reports_requested_by_fk FOREIGN KEY (requested_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: project_requirements project_requirements_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_requirements
     ADD CONSTRAINT project_requirements_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE RESTRICT;
-
-
---
--- Name: project_requirements project_requirements_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_requirements
     ADD CONSTRAINT project_requirements_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: project_tasks project_tasks_assignee_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_tasks
     ADD CONSTRAINT project_tasks_assignee_user_id_fkey FOREIGN KEY (assignee_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: project_tasks project_tasks_checkpoint_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_tasks
     ADD CONSTRAINT project_tasks_checkpoint_id_fkey FOREIGN KEY (checkpoint_id) REFERENCES public.project_checkpoints(id) ON DELETE SET NULL;
 
-
---
--- Name: project_tasks project_tasks_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_tasks
     ADD CONSTRAINT project_tasks_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE RESTRICT;
-
-
---
--- Name: project_tasks project_tasks_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_tasks
     ADD CONSTRAINT project_tasks_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: project_tasks project_tasks_team_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_tasks
     ADD CONSTRAINT project_tasks_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.project_teams(id) ON DELETE CASCADE;
-
-
---
--- Name: project_team_checkpoints project_team_checkpoints_checkpoint_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_team_checkpoints
     ADD CONSTRAINT project_team_checkpoints_checkpoint_fk FOREIGN KEY (checkpoint_id) REFERENCES public.project_checkpoints(id) ON DELETE CASCADE;
 
-
---
--- Name: project_team_checkpoints project_team_checkpoints_graded_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_team_checkpoints
     ADD CONSTRAINT project_team_checkpoints_graded_by_fk FOREIGN KEY (graded_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: project_team_checkpoints project_team_checkpoints_team_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_team_checkpoints
     ADD CONSTRAINT project_team_checkpoints_team_fk FOREIGN KEY (team_id) REFERENCES public.project_teams(id) ON DELETE CASCADE;
 
-
---
--- Name: project_team_members project_team_members_added_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_team_members
     ADD CONSTRAINT project_team_members_added_by_fk FOREIGN KEY (added_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: project_team_members project_team_members_team_assignment_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_team_members
     ADD CONSTRAINT project_team_members_team_assignment_fk FOREIGN KEY (team_id, assignment_id) REFERENCES public.project_teams(id, assignment_id) ON DELETE CASCADE;
 
-
---
--- Name: project_team_members project_team_members_user_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_team_members
     ADD CONSTRAINT project_team_members_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: project_teams project_teams_assignment_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_teams
     ADD CONSTRAINT project_teams_assignment_fk FOREIGN KEY (assignment_id) REFERENCES public.project_assignments(id) ON DELETE CASCADE;
 
-
---
--- Name: project_teams project_teams_created_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_teams
     ADD CONSTRAINT project_teams_created_by_fk FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: project_teams project_teams_org_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_teams
     ADD CONSTRAINT project_teams_org_fk FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: project_track_members project_track_members_approved_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_track_members
     ADD CONSTRAINT project_track_members_approved_by_fkey FOREIGN KEY (approved_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: project_track_members project_track_members_project_id_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_track_members
     ADD CONSTRAINT project_track_members_project_id_user_id_fkey FOREIGN KEY (project_id, user_id) REFERENCES public.project_members(project_id, user_id) ON DELETE CASCADE;
 
-
---
--- Name: project_track_members project_track_members_track_id_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_track_members
     ADD CONSTRAINT project_track_members_track_id_project_id_fkey FOREIGN KEY (track_id, project_id) REFERENCES public.project_tracks(id, project_id) ON DELETE CASCADE;
-
-
---
--- Name: project_tracks project_tracks_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_tracks
     ADD CONSTRAINT project_tracks_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: project_tracks project_tracks_lead_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.project_tracks
     ADD CONSTRAINT project_tracks_lead_user_id_fkey FOREIGN KEY (lead_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: project_tracks project_tracks_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.project_tracks
     ADD CONSTRAINT project_tracks_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.workspace_projects(id) ON DELETE CASCADE;
 
-
---
--- Name: projects projects_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.projects
     ADD CONSTRAINT projects_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: question_categories question_categories_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.question_categories
     ADD CONSTRAINT question_categories_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: question_categories question_categories_parent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.question_categories
     ADD CONSTRAINT question_categories_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.question_categories(id) ON DELETE SET NULL;
-
-
---
--- Name: question_versions question_versions_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.question_versions
     ADD CONSTRAINT question_versions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE RESTRICT;
 
-
---
--- Name: question_versions question_versions_question_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.question_versions
     ADD CONSTRAINT question_versions_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.questions(id) ON DELETE CASCADE;
-
-
---
--- Name: questions questions_category_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.questions
     ADD CONSTRAINT questions_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.question_categories(id) ON DELETE SET NULL;
 
-
---
--- Name: questions questions_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.questions
     ADD CONSTRAINT questions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE RESTRICT;
-
-
---
--- Name: questions questions_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.questions
     ADD CONSTRAINT questions_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: refresh_tokens refresh_tokens_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.refresh_tokens
     ADD CONSTRAINT refresh_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: release_snapshots release_snapshots_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.release_snapshots
     ADD CONSTRAINT release_snapshots_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.work_items(id) ON DELETE CASCADE;
 
-
---
--- Name: release_snapshots release_snapshots_release_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.release_snapshots
     ADD CONSTRAINT release_snapshots_release_id_fkey FOREIGN KEY (release_id) REFERENCES public.releases(id) ON DELETE CASCADE;
-
-
---
--- Name: releases releases_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.releases
     ADD CONSTRAINT releases_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: releases releases_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.releases
     ADD CONSTRAINT releases_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.workspace_projects(id) ON DELETE CASCADE;
-
-
---
--- Name: requirement_questions requirement_questions_answered_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.requirement_questions
     ADD CONSTRAINT requirement_questions_answered_by_fkey FOREIGN KEY (answered_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: requirement_questions requirement_questions_asked_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.requirement_questions
     ADD CONSTRAINT requirement_questions_asked_by_fkey FOREIGN KEY (asked_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: requirement_questions requirement_questions_project_id_requirement_version_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.requirement_questions
     ADD CONSTRAINT requirement_questions_project_id_requirement_version_fkey FOREIGN KEY (project_id, requirement_version) REFERENCES public.requirement_versions(project_id, version) ON DELETE CASCADE;
 
-
---
--- Name: requirement_versions requirement_versions_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.requirement_versions
     ADD CONSTRAINT requirement_versions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: requirement_versions requirement_versions_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.requirement_versions
     ADD CONSTRAINT requirement_versions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.workspace_projects(id) ON DELETE CASCADE;
 
-
---
--- Name: revision_digests revision_digests_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.revision_digests
     ADD CONSTRAINT revision_digests_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: revision_digests revision_digests_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.revision_digests
     ADD CONSTRAINT revision_digests_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: revision_plan_topics revision_plan_topics_module_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.revision_plan_topics
     ADD CONSTRAINT revision_plan_topics_module_id_fkey FOREIGN KEY (module_id) REFERENCES public.course_modules(id) ON DELETE SET NULL;
-
-
---
--- Name: revision_plan_topics revision_plan_topics_revision_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.revision_plan_topics
     ADD CONSTRAINT revision_plan_topics_revision_plan_id_fkey FOREIGN KEY (revision_plan_id) REFERENCES public.revision_plans(id) ON DELETE CASCADE;
 
-
---
--- Name: revision_plans revision_plans_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.revision_plans
     ADD CONSTRAINT revision_plans_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
-
-
---
--- Name: revision_plans revision_plans_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.revision_plans
     ADD CONSTRAINT revision_plans_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: revision_plans revision_plans_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.revision_plans
     ADD CONSTRAINT revision_plans_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: roadmap_module_progress roadmap_module_progress_roadmap_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.roadmap_module_progress
     ADD CONSTRAINT roadmap_module_progress_roadmap_id_fkey FOREIGN KEY (roadmap_id) REFERENCES public.roadmaps(id) ON DELETE CASCADE;
 
-
---
--- Name: roadmaps roadmaps_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.roadmaps
     ADD CONSTRAINT roadmaps_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE SET NULL;
-
-
---
--- Name: roadmaps roadmaps_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.roadmaps
     ADD CONSTRAINT roadmaps_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: role_permissions role_permissions_permission_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.role_permissions
     ADD CONSTRAINT role_permissions_permission_id_fkey FOREIGN KEY (permission_id) REFERENCES public.permissions(id) ON DELETE RESTRICT;
-
-
---
--- Name: role_permissions role_permissions_role_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.role_permissions
     ADD CONSTRAINT role_permissions_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE CASCADE;
 
-
---
--- Name: roles roles_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.roles
     ADD CONSTRAINT roles_tenant_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: session_credit_ledger session_credit_ledger_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.session_credit_ledger
     ADD CONSTRAINT session_credit_ledger_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: session_credit_ledger session_credit_ledger_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.session_credit_ledger
     ADD CONSTRAINT session_credit_ledger_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: session_credit_ledger session_credit_ledger_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.session_credit_ledger
     ADD CONSTRAINT session_credit_ledger_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.mentor_sessions(id) ON DELETE SET NULL;
 
-
---
--- Name: session_credit_ledger session_credit_ledger_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.session_credit_ledger
     ADD CONSTRAINT session_credit_ledger_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: session_credit_packs session_credit_packs_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.session_credit_packs
     ADD CONSTRAINT session_credit_packs_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: session_credit_packs session_credit_packs_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.session_credit_packs
     ADD CONSTRAINT session_credit_packs_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: sheet_items sheet_items_sheet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.sheet_items
     ADD CONSTRAINT sheet_items_sheet_id_fkey FOREIGN KEY (sheet_id) REFERENCES public.sheets(id) ON DELETE CASCADE;
 
-
---
--- Name: sheets sheets_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.sheets
     ADD CONSTRAINT sheets_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: social_accounts social_accounts_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.social_accounts
     ADD CONSTRAINT social_accounts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: sprint_commitments sprint_commitments_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.sprint_commitments
     ADD CONSTRAINT sprint_commitments_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.work_items(id) ON DELETE CASCADE;
-
-
---
--- Name: sprint_commitments sprint_commitments_sprint_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.sprint_commitments
     ADD CONSTRAINT sprint_commitments_sprint_id_fkey FOREIGN KEY (sprint_id) REFERENCES public.sprints(id) ON DELETE CASCADE;
 
-
---
--- Name: sprints sprints_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.sprints
     ADD CONSTRAINT sprints_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: sprints sprints_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.sprints
     ADD CONSTRAINT sprints_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.workspace_projects(id) ON DELETE CASCADE;
 
-
---
--- Name: srs_cards srs_cards_annotation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.srs_cards
     ADD CONSTRAINT srs_cards_annotation_id_fkey FOREIGN KEY (annotation_id) REFERENCES public.learning_annotations(id);
-
-
---
--- Name: srs_cards srs_cards_question_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.srs_cards
     ADD CONSTRAINT srs_cards_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.questions(id) ON DELETE SET NULL;
 
-
---
--- Name: srs_cards srs_cards_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.srs_cards
     ADD CONSTRAINT srs_cards_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: srs_reviews srs_reviews_card_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.srs_reviews
     ADD CONSTRAINT srs_reviews_card_id_fkey FOREIGN KEY (card_id) REFERENCES public.srs_cards(id) ON DELETE CASCADE;
 
-
---
--- Name: srs_reviews srs_reviews_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.srs_reviews
     ADD CONSTRAINT srs_reviews_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: standup_updates standup_updates_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.standup_updates
     ADD CONSTRAINT standup_updates_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.workspace_projects(id) ON DELETE CASCADE;
 
-
---
--- Name: standup_updates standup_updates_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.standup_updates
     ADD CONSTRAINT standup_updates_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: system_design_attempts system_design_attempts_module_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.system_design_attempts
     ADD CONSTRAINT system_design_attempts_module_id_fkey FOREIGN KEY (module_id) REFERENCES public.course_modules(id) ON DELETE CASCADE;
 
-
---
--- Name: system_design_attempts system_design_attempts_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.system_design_attempts
     ADD CONSTRAINT system_design_attempts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: system_design_chat_messages system_design_chat_messages_module_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.system_design_chat_messages
     ADD CONSTRAINT system_design_chat_messages_module_id_fkey FOREIGN KEY (module_id) REFERENCES public.course_modules(id) ON DELETE CASCADE;
 
-
---
--- Name: system_design_chat_messages system_design_chat_messages_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.system_design_chat_messages
     ADD CONSTRAINT system_design_chat_messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: task_links task_links_source_task_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.task_links
     ADD CONSTRAINT task_links_source_task_fkey FOREIGN KEY (source_task_id) REFERENCES public.whatnow_tasks(id) ON DELETE CASCADE;
 
-
---
--- Name: task_links task_links_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.task_links
     ADD CONSTRAINT task_links_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: task_templates task_templates_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.task_templates
     ADD CONSTRAINT task_templates_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: test_templates test_templates_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.test_templates
     ADD CONSTRAINT test_templates_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: test_templates test_templates_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.test_templates
     ADD CONSTRAINT test_templates_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: user_achievements user_achievements_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.user_achievements
     ADD CONSTRAINT user_achievements_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: user_achievements user_achievements_reward_definition_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.user_achievements
     ADD CONSTRAINT user_achievements_reward_definition_id_fkey FOREIGN KEY (reward_definition_id) REFERENCES public.reward_definitions(id);
 
-
---
--- Name: user_achievements user_achievements_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.user_achievements
     ADD CONSTRAINT user_achievements_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: user_feature_flags user_feature_flags_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.user_feature_flags
     ADD CONSTRAINT user_feature_flags_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: user_feature_flags user_feature_flags_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.user_feature_flags
     ADD CONSTRAINT user_feature_flags_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.users(id);
-
-
---
--- Name: user_feature_flags user_feature_flags_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.user_feature_flags
     ADD CONSTRAINT user_feature_flags_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: user_mfa_recovery_codes user_mfa_recovery_codes_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.user_mfa_recovery_codes
     ADD CONSTRAINT user_mfa_recovery_codes_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_mfa(user_id) ON DELETE CASCADE;
-
-
---
--- Name: user_mfa user_mfa_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.user_mfa
     ADD CONSTRAINT user_mfa_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: user_permission_overrides user_permission_overrides_granted_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.user_permission_overrides
     ADD CONSTRAINT user_permission_overrides_granted_by_fkey FOREIGN KEY (granted_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: user_permission_overrides user_permission_overrides_permission_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.user_permission_overrides
     ADD CONSTRAINT user_permission_overrides_permission_fkey FOREIGN KEY (permission_id) REFERENCES public.permissions(id) ON DELETE RESTRICT;
 
-
---
--- Name: user_permission_overrides user_permission_overrides_tenant_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.user_permission_overrides
     ADD CONSTRAINT user_permission_overrides_tenant_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: user_permission_overrides user_permission_overrides_user_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.user_permission_overrides
     ADD CONSTRAINT user_permission_overrides_user_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: user_privacy_settings user_privacy_settings_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.user_privacy_settings
     ADD CONSTRAINT user_privacy_settings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: user_problem_progress user_problem_progress_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.user_problem_progress
     ADD CONSTRAINT user_problem_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: user_profiles user_profiles_mentor_verified_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.user_profiles
     ADD CONSTRAINT user_profiles_mentor_verified_by_fkey FOREIGN KEY (mentor_verified_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: user_profiles user_profiles_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.user_profiles
     ADD CONSTRAINT user_profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: user_roles user_roles_role_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.user_roles
     ADD CONSTRAINT user_roles_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE RESTRICT;
-
-
---
--- Name: user_roles user_roles_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.user_roles
     ADD CONSTRAINT user_roles_tenant_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: user_roles user_roles_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.user_roles
     ADD CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: user_sheets user_sheets_sheet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.user_sheets
     ADD CONSTRAINT user_sheets_sheet_id_fkey FOREIGN KEY (sheet_id) REFERENCES public.sheets(id) ON DELETE CASCADE;
 
-
---
--- Name: user_sheets user_sheets_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.user_sheets
     ADD CONSTRAINT user_sheets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: user_stats user_stats_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.user_stats
     ADD CONSTRAINT user_stats_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: users users_tier_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_tier_id_fkey FOREIGN KEY (tier_id) REFERENCES public.pricing_tiers(id);
-
-
---
--- Name: webauthn_credentials webauthn_credentials_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.webauthn_credentials
     ADD CONSTRAINT webauthn_credentials_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- Name: whatnow_tasks whatnow_tasks_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.whatnow_tasks
     ADD CONSTRAINT whatnow_tasks_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: whats_new_entries whats_new_entries_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.whats_new_entries
     ADD CONSTRAINT whats_new_entries_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: wiki_pages wiki_pages_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.wiki_pages
     ADD CONSTRAINT wiki_pages_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: wiki_pages wiki_pages_parent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.wiki_pages
     ADD CONSTRAINT wiki_pages_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.wiki_pages(id) ON DELETE SET NULL;
 
-
---
--- Name: wiki_pages wiki_pages_space_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.wiki_pages
     ADD CONSTRAINT wiki_pages_space_id_fkey FOREIGN KEY (space_id) REFERENCES public.wiki_spaces(id) ON DELETE CASCADE;
-
-
---
--- Name: wiki_pages wiki_pages_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.wiki_pages
     ADD CONSTRAINT wiki_pages_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.users(id);
 
-
---
--- Name: wiki_spaces wiki_spaces_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.wiki_spaces
     ADD CONSTRAINT wiki_spaces_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
-
-
---
--- Name: wiki_spaces wiki_spaces_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.wiki_spaces
     ADD CONSTRAINT wiki_spaces_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: wiki_spaces wiki_spaces_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.wiki_spaces
     ADD CONSTRAINT wiki_spaces_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: wiki_spaces wiki_spaces_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.wiki_spaces
     ADD CONSTRAINT wiki_spaces_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.workspace_projects(id) ON DELETE CASCADE;
 
-
---
--- Name: work_item_assignees work_item_assignees_assigned_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.work_item_assignees
     ADD CONSTRAINT work_item_assignees_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: work_item_assignees work_item_assignees_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.work_item_assignees
     ADD CONSTRAINT work_item_assignees_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.work_items(id) ON DELETE CASCADE;
 
-
---
--- Name: work_item_assignees work_item_assignees_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.work_item_assignees
     ADD CONSTRAINT work_item_assignees_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: work_item_events work_item_events_actor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.work_item_events
     ADD CONSTRAINT work_item_events_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: work_item_events work_item_events_item_id_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.work_item_events
     ADD CONSTRAINT work_item_events_item_id_project_id_fkey FOREIGN KEY (item_id, project_id) REFERENCES public.work_items(id, project_id) ON DELETE CASCADE;
-
-
---
--- Name: work_item_gitlab work_item_gitlab_item_id_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.work_item_gitlab
     ADD CONSTRAINT work_item_gitlab_item_id_project_id_fkey FOREIGN KEY (item_id, project_id) REFERENCES public.work_items(id, project_id) ON DELETE CASCADE;
 
-
---
--- Name: work_item_gitlab work_item_gitlab_merge_request_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.work_item_gitlab
     ADD CONSTRAINT work_item_gitlab_merge_request_id_fkey FOREIGN KEY (merge_request_id) REFERENCES public.gitlab_merge_requests(id) ON DELETE SET NULL;
-
-
---
--- Name: work_item_links work_item_links_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.work_item_links
     ADD CONSTRAINT work_item_links_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: work_item_links work_item_links_from_id_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.work_item_links
     ADD CONSTRAINT work_item_links_from_id_project_id_fkey FOREIGN KEY (from_id, project_id) REFERENCES public.work_items(id, project_id) ON DELETE CASCADE;
-
-
---
--- Name: work_item_links work_item_links_to_id_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.work_item_links
     ADD CONSTRAINT work_item_links_to_id_project_id_fkey FOREIGN KEY (to_id, project_id) REFERENCES public.work_items(id, project_id) ON DELETE CASCADE;
 
-
---
--- Name: work_item_reviews work_item_reviews_item_id_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.work_item_reviews
     ADD CONSTRAINT work_item_reviews_item_id_project_id_fkey FOREIGN KEY (item_id, project_id) REFERENCES public.work_items(id, project_id) ON DELETE CASCADE;
-
-
---
--- Name: work_item_reviews work_item_reviews_merge_request_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.work_item_reviews
     ADD CONSTRAINT work_item_reviews_merge_request_id_fkey FOREIGN KEY (merge_request_id) REFERENCES public.gitlab_merge_requests(id) ON DELETE SET NULL;
 
-
---
--- Name: work_item_reviews work_item_reviews_reviewer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.work_item_reviews
     ADD CONSTRAINT work_item_reviews_reviewer_id_fkey FOREIGN KEY (reviewer_id) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: work_item_time_logs work_item_time_logs_item_id_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.work_item_time_logs
     ADD CONSTRAINT work_item_time_logs_item_id_project_id_fkey FOREIGN KEY (item_id, project_id) REFERENCES public.work_items(id, project_id) ON DELETE CASCADE;
 
-
---
--- Name: work_item_time_logs work_item_time_logs_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.work_item_time_logs
     ADD CONSTRAINT work_item_time_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: work_items work_items_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.work_items
     ADD CONSTRAINT work_items_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
-
---
--- Name: work_items work_items_doc_wiki_page_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.work_items
     ADD CONSTRAINT work_items_doc_wiki_page_id_fkey FOREIGN KEY (doc_wiki_page_id) REFERENCES public.wiki_pages(id);
-
-
---
--- Name: work_items work_items_epic_id_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.work_items
     ADD CONSTRAINT work_items_epic_id_project_id_fkey FOREIGN KEY (epic_id, project_id) REFERENCES public.work_items(id, project_id);
 
-
---
--- Name: work_items work_items_feature_id_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.work_items
     ADD CONSTRAINT work_items_feature_id_project_id_fkey FOREIGN KEY (feature_id, project_id) REFERENCES public.work_items(id, project_id);
-
-
---
--- Name: work_items work_items_parent_id_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.work_items
     ADD CONSTRAINT work_items_parent_id_project_id_fkey FOREIGN KEY (parent_id, project_id) REFERENCES public.work_items(id, project_id);
 
-
---
--- Name: work_items work_items_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.work_items
     ADD CONSTRAINT work_items_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.workspace_projects(id) ON DELETE CASCADE;
-
-
---
--- Name: work_items work_items_release_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.work_items
     ADD CONSTRAINT work_items_release_fk FOREIGN KEY (release_id, project_id) REFERENCES public.releases(id, project_id);
 
-
---
--- Name: work_items work_items_sprint_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.work_items
     ADD CONSTRAINT work_items_sprint_fk FOREIGN KEY (sprint_id, project_id) REFERENCES public.sprints(id, project_id);
-
-
---
--- Name: work_items work_items_track_id_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.work_items
     ADD CONSTRAINT work_items_track_id_project_id_fkey FOREIGN KEY (track_id, project_id) REFERENCES public.project_tracks(id, project_id);
 
-
---
--- Name: workspace_ai_cache workspace_ai_cache_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.workspace_ai_cache
     ADD CONSTRAINT workspace_ai_cache_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.workspace_projects(id) ON DELETE CASCADE;
-
-
---
--- Name: workspace_digests workspace_digests_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.workspace_digests
     ADD CONSTRAINT workspace_digests_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.workspace_projects(id) ON DELETE CASCADE;
 
-
---
--- Name: workspace_projects workspace_projects_brief_wiki_page_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.workspace_projects
     ADD CONSTRAINT workspace_projects_brief_wiki_page_id_fkey FOREIGN KEY (brief_wiki_page_id) REFERENCES public.wiki_pages(id);
-
-
---
--- Name: workspace_projects workspace_projects_cohort_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.workspace_projects
     ADD CONSTRAINT workspace_projects_cohort_id_fkey FOREIGN KEY (cohort_id) REFERENCES public.project_assignments(id) ON DELETE SET NULL;
 
-
---
--- Name: workspace_projects workspace_projects_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.workspace_projects
     ADD CONSTRAINT workspace_projects_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: workspace_projects workspace_projects_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.workspace_projects
     ADD CONSTRAINT workspace_projects_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
-
---
--- Name: workspace_projects workspace_projects_team_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.workspace_projects
     ADD CONSTRAINT workspace_projects_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.project_teams(id) ON DELETE SET NULL;
-
-
---
--- Name: xp_events xp_events_batch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.xp_events
     ADD CONSTRAINT xp_events_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE SET NULL;
 
-
---
--- Name: xp_events xp_events_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.xp_events
     ADD CONSTRAINT xp_events_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE SET NULL;
-
-
---
--- Name: xp_events xp_events_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
 ALTER TABLE ONLY public.xp_events
     ADD CONSTRAINT xp_events_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE SET NULL;
 
-
---
--- Name: xp_events xp_events_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY public.xp_events
     ADD CONSTRAINT xp_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
-
---
--- PostgreSQL database dump complete
---
-
-
-
-
--- Least-privilege DB role for labproxy (audit C4). labproxy sits on the lab
--- network, so a compromise must not expose the app database. It reads exactly:
---   lab_sessions (id, user_id, status, container_host, lab_id, variant_key)
---   lab_definitions (id, preview_port, build_id)
---   lab_build_variants (build_id, variant_key, ide_port)
--- and writes only lab_sessions.last_active_at (terminal heartbeat).
--- The role is NOLOGIN here so no password lives in a migration; an operator
--- enables it out-of-band: ALTER ROLE labproxy LOGIN PASSWORD '...'
--- (see docs/infrastructure.md).
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'labproxy') THEN
