@@ -69,17 +69,17 @@ FROM   users u
 JOIN   org_members om ON om.user_id = u.id
 CROSS  JOIN permissions p
 WHERE  u.email = 'jaiswal2062@gmail.com'
-  AND  p.code IN ('features.what_now', 'features.revision_digest')
+  AND  p.code IN ('features.what_now', 'features.revision_digest', 'content.captures')
   AND  p.is_active = true
 ON CONFLICT (user_id, org_id, permission_id) DO NOTHING;
 
--- 6. Revision digest is meant to stay exclusive to jaiswal (beta, no
---    plan/add-on concept) — revoke any grant another user picked up
+-- 6. Revision digest and Knowledge Captures are meant to stay exclusive to
+--    jaiswal (beta, no plan/add-on concept) — revoke any grant another user picked up
 --    (manual testing, a stale seed) every time this fixture runs, so a
 --    stray grant never survives a reseed.
 DELETE FROM user_permission_overrides upo
 USING  permissions p, users u
 WHERE  upo.permission_id = p.id
   AND  upo.user_id = u.id
-  AND  p.code = 'features.revision_digest'
+  AND  p.code IN ('features.revision_digest', 'content.captures')
   AND  u.email <> 'jaiswal2062@gmail.com';

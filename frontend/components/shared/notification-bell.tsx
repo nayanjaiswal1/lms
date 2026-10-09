@@ -39,13 +39,23 @@ function setSharedUnreadCount(count: number) {
   notifyListeners();
 }
 
-async function pollUnreadCount() {
+// Shared in-flight request: a StrictMode remount (unsubscribe + resubscribe)
+// or a visibilitychange landing mid-fetch would otherwise fire a duplicate.
+let inFlightPoll: Promise<void> | null = null;
+
+function pollUnreadCount(): Promise<void> {
   // A backgrounded/minimized tab has nobody to show the badge to — skip the
   // network call and pick it back up on the next tick (or immediately via
   // the visibilitychange listener below) once it's visible again.
-  if (document.visibilityState !== "visible") return;
-  const res = await apiFetch<UnreadCountView>("/notifications/unread-count");
-  if (res) setSharedUnreadCount(res.unread_count);
+  if (document.visibilityState !== "visible") return Promise.resolve();
+  inFlightPoll ??= apiFetch<UnreadCountView>("/notifications/unread-count")
+    .then((res) => {
+      if (res) setSharedUnreadCount(res.unread_count);
+    })
+    .finally(() => {
+      inFlightPoll = null;
+    });
+  return inFlightPoll;
 }
 
 function handleVisibilityChange() {
