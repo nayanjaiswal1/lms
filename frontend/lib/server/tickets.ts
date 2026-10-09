@@ -65,8 +65,8 @@ export async function getTicketQueue(
 // getTicket returns a single ticket's detail plus its full reply thread —
 // allowed for its own requester, its current assignee, or a caller holding
 // its kind's manage permission. The backend enforces this, so a caller
-// lacking access simply gets a 403, which apiGet turns into a thrown error
-// for the page's error.tsx boundary.
+// lacking access simply gets a 403, which apiGet turns into a 404
+// (notFound) for the page.
 export async function getTicket(ticketId: string): Promise<TicketDetail> {
   return apiGet<TicketDetail>(`/api/tickets/${ticketId}`);
 }

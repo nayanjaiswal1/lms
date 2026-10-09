@@ -190,7 +190,8 @@ func (r *Repo) ToggleRevision(ctx context.Context, highlightID, userID string, s
 }
 
 // List returns the caller's highlights, newest first, filtered by f, with the
-// cached explanation LEFT JOINed in where available.
+// cached explanation LEFT JOINed in where available. The join key mirrors
+// computeHash in service.go (lowercased trimmed text | source type | source id).
 func (r *Repo) List(ctx context.Context, userID string, f ListFilter, p pagination.Params) ([]Highlight, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT la.id, la.user_id, la.source_type, la.source_id, la.text, la.saved_for_revision, la.meta,
@@ -198,12 +199,13 @@ func (r *Repo) List(ctx context.Context, userID string, f ListFilter, p paginati
 		        he.id, he.text_hash, he.selected_text, he.source_type, he.explanation, he.diagram,
 		        he.model_used, he.serve_count, he.created_at, he.updated_at
 		 FROM learning_annotations la
-		 LEFT JOIN highlight_explanations he ON he.text_hash = la.id
+		 LEFT JOIN highlight_explanations he
+		        ON he.text_hash = encode(sha256(convert_to(lower(btrim(la.text)) || '|' || la.source_type || '|' || coalesce(la.source_id::text, ''), 'UTF8')), 'hex')
 		 WHERE la.user_id = $1 AND la.annotation_type = 'highlight'
 		   AND ($2::text IS NULL OR la.source_type = $2)
 		   AND ($3::uuid IS NULL OR la.source_id = $3::uuid)
 		   AND (NOT $4 OR la.saved_for_revision)
-		   AND ($5::timestamptz IS NULL OR (la.created_at, la.id) < ($5, $6::uuid))
+		   AND ($5::timestamptz IS NULL OR (la.created_at, la.id) < ($5, NULLIF($6::text, '')::uuid))
 		 ORDER BY la.created_at DESC, la.id DESC
 		 LIMIT $7`,
 		userID, f.SourceType, f.SourceID, f.SavedOnly, p.After, p.AfterID, p.Fetch())

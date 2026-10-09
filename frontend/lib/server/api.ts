@@ -1,6 +1,6 @@
 import "server-only";
 import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { forwardSetCookies } from "@/lib/server/set-cookie";
 
@@ -79,13 +79,21 @@ export function apiPost<T>(path: string, payload?: unknown): Promise<T> {
 }
 
 async function fetchData<T>(method: "GET" | "POST", path: string, payload?: unknown): Promise<T> {
+  // authHeaders() reads cookies(), which marks the render dynamic. It must run before
+  // baseURL(): that throws when BACKEND_URL is unset, and a throw ahead of the dynamic
+  // signal fails `next build` prerendering instead of deferring to request time.
+  const headers = await authHeaders();
   const res = await fetch(`${baseURL()}${path}`, {
     method,
-    headers: await authHeaders(),
+    headers,
     body: jsonBody(payload),
     cache: "no-store",
   });
   if (res.status === 401) redirect("/login");
+  // A forbidden read means the caller may not see this page at all. 404 matches the
+  // convention for permission-gated pages (existence stays unknown) instead of
+  // surfacing the raw backend message in error.tsx.
+  if (res.status === 403 && method === "GET") notFound();
   await assertOk(res, method, path);
   const body = await res.json() as { data: T };
   return body.data;

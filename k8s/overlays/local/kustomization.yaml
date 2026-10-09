@@ -74,3 +74,6 @@ images:
     newTag: local
   - name: mindforge-frontend
     newTag: local
+  - name: minio/minio
+    newName: mindforge-minio
+    newTag: local
