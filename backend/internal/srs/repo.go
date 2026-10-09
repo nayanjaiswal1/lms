@@ -85,6 +85,47 @@ func (r *Repo) GetDueCardsBySource(ctx context.Context, userID, sourceType strin
 	return out, rows.Err()
 }
 
+// drillLimit caps the weak-spot drill queue (~10-15 minutes of cards).
+const drillLimit = 15
+
+// drillLapseWeight is how many overdue days one failed review (quality <= 1)
+// is worth when ranking the drill queue.
+const drillLapseWeight = 3
+
+// GetDrillCards returns the user's due cards ranked weakest-first: overdue
+// days plus weighted lapse count, then lowest ease factor. Ranking in SQL
+// before the LIMIT so a strong-but-older card cannot crowd out a weak one.
+func (r *Repo) GetDrillCards(ctx context.Context, userID string) ([]Card, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT c.id, c.user_id, c.question_id, c.mistake_entry_id, c.front, c.back, c.source_type,
+		        c.interval_days, c.repetitions, c.ease_factor,
+		        to_char(c.due_date, 'YYYY-MM-DD'), c.last_reviewed_at, c.created_at
+		 FROM srs_cards c
+		 WHERE c.user_id = $1 AND c.due_date <= CURRENT_DATE
+		 ORDER BY (CURRENT_DATE - c.due_date)
+		          + $3 * (SELECT count(*) FROM srs_reviews v WHERE v.card_id = c.id AND v.quality <= 1) DESC,
+		          c.ease_factor ASC
+		 LIMIT $2`, userID, drillLimit, drillLapseWeight)
+	if err != nil {
+		return nil, fmt.Errorf("srs: get drill cards: %w", err)
+	}
+	defer rows.Close()
+
+	out := []Card{}
+	for rows.Next() {
+		var c Card
+		if err := rows.Scan(
+			&c.ID, &c.UserID, &c.QuestionID, &c.MistakeEntryID, &c.Front, &c.Back, &c.SourceType,
+			&c.IntervalDays, &c.Repetitions, &c.EaseFactor,
+			&c.DueDate, &c.LastReviewedAt, &c.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("srs: scan drill card: %w", err)
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
 // CreateCard inserts a new SRS card for the user and returns the full row.
 func (r *Repo) CreateCard(ctx context.Context, userID string, req CreateCardRequest) (Card, error) {
 	var c Card

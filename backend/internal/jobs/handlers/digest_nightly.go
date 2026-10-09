@@ -64,7 +64,7 @@ func (h *DigestNightlyHandler) Handle(ctx context.Context, _ jobs.Job) error {
 	enqueued := 0
 
 	for _, u := range users {
-		if optedOut(u.Notifications) {
+		if optedOut(u.Notifications, notifKeyRevisionDigest) {
 			continue
 		}
 
@@ -144,14 +144,20 @@ func (h *DigestNightlyHandler) enqueue(ctx context.Context, u features.EntitledU
 	return int(tag.RowsAffected()), nil
 }
 
-// optedOut reports whether the user explicitly turned the digest off via
-// their notifications.revision_digest preference (frontend Preferences
+// Keys of user_profiles.notifications that opt a user out of an email.
+const (
+	notifKeyRevisionDigest = "revision_digest"
+	notifKeyWeeklyRecap    = "weekly_recap"
+)
+
+// optedOut reports whether the user explicitly turned an email off via its
+// notifications.<key> preference (frontend Preferences
 // form). Absent/unset defaults to enabled — the same "no row = on"
 // convention features.Repo.OrgAIConnectorEnabled already uses elsewhere in
 // this codebase, since the feature grant itself is the opt-in; the
 // preference is only an opt-*out*.
-func optedOut(notifications map[string]any) bool {
-	v, ok := notifications["revision_digest"]
+func optedOut(notifications map[string]any, key string) bool {
+	v, ok := notifications[key]
 	if !ok {
 		return false
 	}

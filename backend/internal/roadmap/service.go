@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/jobs"
@@ -191,6 +192,11 @@ func (s *Service) UpdateRoadmap(ctx context.Context, id, userID string, title, s
 		}
 	}
 	return s.repo.UpdateRoadmap(ctx, id, userID, title, status, isPublic)
+}
+
+// Replan re-estimates the timeframe for a behind-schedule roadmap (no AI call).
+func (s *Service) Replan(ctx context.Context, id, userID string) (Roadmap, error) {
+	return s.repo.Replan(ctx, id, userID, time.Now())
 }
 
 // Delete soft-deletes a roadmap.

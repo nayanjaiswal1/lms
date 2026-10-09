@@ -295,6 +295,8 @@ func main() {
 	jobsRegistry.Register(handlers.HandlerOpsDigest, handlers.NewOpsDigestHandler(pool, opsAlertSvc))
 	jobsRegistry.Register(handlers.HandlerDigestNightly, handlers.NewDigestNightlyHandler(pool))
 	jobsRegistry.Register(handlers.HandlerDigestUser, handlers.NewDigestUserHandler(pool, aiProvider, cfg, jobsRegistry))
+	jobsRegistry.Register(handlers.HandlerWeeklyRecap, handlers.NewWeeklyRecapHandler(pool))
+	jobsRegistry.Register(handlers.HandlerWeeklyRecapUser, handlers.NewWeeklyRecapUserHandler(pool, jobsRegistry))
 	// Knowledge Captures — extract + AI-structure a screenshot/PDF/link into
 	// a journal note or SRS flashcard candidate (internal/captures).
 	jobsRegistry.Register(handlers.HandlerCapturesProcess, handlers.NewCapturesProcessHandler(captures.NewProcessor(pool, storageClient, aiProvider, cfg)))
@@ -415,6 +417,9 @@ func cronJobs() []jobs.CronJobDef {
 		// timezone, so an hourly tick is what actually gives every
 		// timezone its own local 21:00 from one cron entry.
 		{Handler: handlers.HandlerDigestNightly, Schedule: "0 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
+		// Weekly recap fan-out: Sunday 09:00 UTC for everyone (no per-user local
+		// hour - see handlers/weekly_recap.go).
+		{Handler: handlers.HandlerWeeklyRecap, Schedule: "0 9 * * 0", Priority: jobs.PriorityBackground, TimeoutMS: 300000},
 		// Project Workspace daily purge (contract-phase1.md Jobs section):
 		// expire invited-but-unresolved interests, then delete/scrub stale
 		// ones (02 §4.7). project_invite_email has no cron entry — it's

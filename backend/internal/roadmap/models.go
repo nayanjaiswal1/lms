@@ -44,7 +44,12 @@ type Roadmap struct {
 	UpdatedAt       time.Time  `json:"updated_at"`
 	ModuleCount     int        `json:"module_count"`
 	CompletedCount  int        `json:"completed_count"`
-	Phases          []Phase    `json:"phases,omitempty"`
+	// Schedule status, computed per request by ComputePace (active roadmaps with a timeframe only).
+	ExpectedPct    float64 `json:"expected_pct"`
+	ProgressPct    float64 `json:"progress_pct"`
+	IsBehind       bool    `json:"is_behind"`
+	WeeksRemaining int     `json:"weeks_remaining"`
+	Phases         []Phase `json:"phases,omitempty"`
 }
 
 // Phase is a top-level stage of a roadmap (e.g. "Foundations").

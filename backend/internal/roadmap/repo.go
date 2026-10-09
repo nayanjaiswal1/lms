@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -144,6 +145,7 @@ func (r *Repo) GetForUser(ctx context.Context, id, userID string) (Roadmap, erro
 			}
 		}
 	}
+	rm.applyPace(time.Now())
 	return rm, nil
 }
 
@@ -476,6 +478,7 @@ func (r *Repo) listWithCounts(ctx context.Context, whereOrderLimit string, args 
 				}
 			}
 		}
+		out[i].applyPace(time.Now())
 	}
 	return out, nil
 }
@@ -574,10 +577,20 @@ func (r *Repo) ReplaceGeneratedTree(ctx context.Context, roadmapID string, phase
 		Phases []structurePhase `json:"phases"`
 	}
 
+	// The AI tree and forked trees arrive without IDs, and progress rows key
+	// on module ID (roadmap_module_progress.module_key is a uuid) — assign
+	// here, the one place every generate/regenerate/fork path routes through.
+	ensureID := func(id string) string {
+		if id == "" {
+			return uuid.NewString()
+		}
+		return id
+	}
+
 	s := structureJSON{Phases: []structurePhase{}}
 	for _, p := range phases {
 		sp := structurePhase{
-			ID:             p.ID,
+			ID:             ensureID(p.ID),
 			Title:          p.Title,
 			Description:    p.Description,
 			Position:       p.Position,
@@ -586,7 +599,7 @@ func (r *Repo) ReplaceGeneratedTree(ctx context.Context, roadmapID string, phase
 		}
 		for _, m := range p.Milestones {
 			sm := structureMilestone{
-				ID:             m.ID,
+				ID:             ensureID(m.ID),
 				Title:          m.Title,
 				Description:    m.Description,
 				Position:       m.Position,
@@ -595,7 +608,7 @@ func (r *Repo) ReplaceGeneratedTree(ctx context.Context, roadmapID string, phase
 			}
 			for _, mod := range m.Modules {
 				smod := structureModule{
-					ID:               mod.ID,
+					ID:               ensureID(mod.ID),
 					Title:            mod.Title,
 					Description:      mod.Description,
 					Position:         mod.Position,
