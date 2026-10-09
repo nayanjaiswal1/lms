@@ -12,7 +12,7 @@
 
 **Live:**
 - `plan_limits`, `usage_counters`, `users.tier_id`, `organizations.tier_id`
-  (migration `019_entitlements.sql`) and `backend/internal/entitlements`
+  (`backend/db/migrations/001_baseline.sql`) and `backend/internal/entitlements`
   (`Service.ResolveAccount`/`GateEnabled`/`QuotaLimit`, monthly usage
   read/accrue, admin CRUD).
 - Gate enforcement wired into `features.Service.Resolve`: two org-tier keys
@@ -69,7 +69,7 @@ no-stub rule if added without a reader — revisit once a real driver exists):
 // PLAN_TIERS placeholders this replaced (see frontend/lib/features.ts).
 ```
 
-- Table: `pricing_tiers` (migration `backend/db/migrations/004_pricing_tiers.sql`) — `id, audience (individual|org), position, name, price, billing_note, tagline, features (jsonb), cta_label, cta_disabled, cta_href, highlighted, updated_by, updated_at`.
+- Table: `pricing_tiers` (`backend/db/migrations/001_baseline.sql`) — `id, audience (individual|org), position, name, price, billing_note, tagline, features (jsonb), cta_label, cta_disabled, cta_href, highlighted, updated_by, updated_at`.
 - Full CRUD exists: `internal/pricing/{models,repo,service,handler,routes}.go`. `Service.Update` validates required fields and enforces `cta_href` is set exactly when `cta_disabled = false`.
 - Admin UI: `frontend/app/platform/pricing/{page.tsx,pricing-tier-card.tsx,edit-pricing-tier-dialog.tsx,actions.ts}` — lets a platform admin edit price/copy/CTA without a redeploy.
 - Rendered publicly via `frontend/lib/server/pricing.ts` on `landing-pricing.tsx` (used by both `landing-page.tsx` and `org-landing-page.tsx`).

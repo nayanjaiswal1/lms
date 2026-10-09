@@ -386,4 +386,4 @@ module_translations (
 | `PUT` | `/api/modules/{moduleID}/translations/{locale}` | owner/admin/instructor — body `{content_body}` |
 | `DELETE` | `/api/modules/{moduleID}/translations/{locale}` | owner/admin/instructor |
 
-There is no authoring UI yet; seed via the PUT endpoint or SQL (see `backend/db/fixtures/engineering-playbook.post-seed.sql`).
+There is no authoring UI yet; seed via the PUT endpoint or SQL (see `backend/db/fixtures/course-post-seed.sql`).

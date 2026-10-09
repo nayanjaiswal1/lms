@@ -100,3 +100,9 @@ duplicate of `lab_task_version_items`).
 `docs/erd.md`, `docs/learning.md`, `docs/anonymous.md`, `docs/orgs.md`, `docs/sheets.md`,
 `docs/design.md`, `docs/rbac.md`, `docs/session-booking.md`, `docs/activity.md` were all rewritten
 to describe the post-consolidation shape — no more references to the merged-away tables.
+
+**2026-10-09 re-squash:** migrations `002`–`070` were folded into `001_baseline.sql` again
+(191 tables; the `labproxy` role/grants from the old `067` are appended at the end of the file).
+Next migration is `002_*`. References to `NNN_*.sql` / "migration NNN" elsewhere in `docs/` and in
+code comments are historical — the schema they describe now lives in `001_baseline.sql`, and the
+old files are in `git log`. Databases that already recorded `001_baseline` skip it.

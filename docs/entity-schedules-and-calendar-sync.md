@@ -16,7 +16,7 @@ Out of scope (not built): push to real Google Calendar (that OAuth integration d
 exist in this codebase yet — see `docs/calendar-sync.md`), a frontend UI for setting/
 viewing these dates, and any per-user preference to opt out of seeing them.
 
-## Schema (migration `038_entity_schedules.sql`)
+## Schema (`001_baseline.sql`)
 
 ```sql
 ALTER TABLE batches        ADD COLUMN starts_at TIMESTAMPTZ, ADD COLUMN ends_at TIMESTAMPTZ, ...

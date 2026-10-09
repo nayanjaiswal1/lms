@@ -15,7 +15,7 @@ per-user timestamp; `backend/internal/activity` aggregates them at read time
 with one `UNION ALL` query, the same pattern `frontend/app/(app)/dashboard/page.tsx`
 already uses to merge assessments and calendar events into one sorted
 timeline. The one genuine gap was flashcard reviews — `srs_cards` only ever
-held *current* scheduling state, no history — so migration `014_activity_feed.sql`
+held *current* scheduling state, no history — so the activity-feed schema in `001_baseline.sql`
 added `srs_reviews`, written atomically alongside every `srs_cards` update
 inside `srs.ReviewCard` (shared by `POST /api/srs/review` and the MCP
 `mark_revision_result` tool). See [docs/learning.md](learning.md#spaced-repetition-sm-2).
@@ -93,7 +93,7 @@ to those two sources.
 
 Each source is one `UNION ALL` branch in `backend/internal/activity/repo.go`
 plus one partial `(user_id, ts DESC) ` index in a new migration — see
-`014_activity_feed.sql` for the pattern. Deliberately not included yet:
+`001_baseline.sql` (activity feed section) for the pattern. Deliberately not included yet:
 `coding_submissions`, `practice_sessions`, `wiki_pages`. Add one when it's
 actually asked for, not before — every branch added is one more index to keep
 the `MergeAppend` query plan intact as data grows (see the `ponytail:`
