@@ -71,7 +71,7 @@ All org configuration is stored as JSONB in the `org_settings` table, organized 
 | `ai_connector` | enabled | AI Connector feature toggle and settings |
 | `jobs` | max_concurrent_jobs, queued_job_ttl_minutes, active_job_timeout_hrs | Lab and project job limits |
 | `gitlab` | allow_project_override | GitLab integration settings |
-| `labs` | max_concurrent_sessions, max_session_duration, allowed_images, egress_proxy_enabled | Lab sandboxing and execution limits |
+| `labs` | max_concurrent_sessions, max_session_duration, allowed_images, egress_proxy_enabled, debug_ui (`old` default / `new`) | Lab sandboxing and execution limits; `debug_ui` picks the debug lab workspace (Org settings > Labs, `admin.manage_org`, `GET/PATCH /api/admin/labs/settings`; see `docs/debug-labs.md` "Mission UI") |
 | `session_booking` | enabled, credits_per_session, cancellation_window, feedback_required, min/max_session_duration_mins | Mentor session booking configuration |
 
 Accessor pattern: `orgs.Repo.GetAuthSettings(ctx, orgID)`, etc. — never raw SQL. Zero-value structs are returned when the namespace column is empty, enabling front-end defaults to apply without special-casing.
