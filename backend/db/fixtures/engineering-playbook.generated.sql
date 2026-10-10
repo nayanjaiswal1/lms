@@ -2,18 +2,21 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-10-04T17:24:26Z
+-- Generated at: 2026-10-10T10:04:09Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: The Engineering Playbook ─────────────────────────────────────────────
 INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, is_free, is_public, estimated_hours)
-VALUES ('42cbe755-2969-5b7b-a4d1-bd3063987435', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'The Engineering Playbook', 'engineering-playbook', 'Software engineering concepts explained from first principles, one topic at a time, and growing over time across backend and UI. Each lesson builds intuition first, then goes deep: how it works, where it breaks, and how to explain it clearly. Starts with backend API and auth (JSON Web Tokens end to end, with working FastAPI + PyJWT code and a Hinglish version of the main lesson, switchable on the lesson page).', NULL, 'intermediate', ARRAY['backend','frontend','api','security'], 'published', true, true, 1.2)
+VALUES ('42cbe755-2969-5b7b-a4d1-bd3063987435', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'The Engineering Playbook', 'engineering-playbook', 'Software engineering concepts explained from first principles, one topic at a time, and growing over time across backend and UI. Each lesson builds intuition first, then goes deep: how it works, where it breaks, and how to explain it clearly. Starts with backend API and auth (JSON Web Tokens end to end, with working FastAPI + PyJWT code and a Hinglish version of the main lesson, switchable on the lesson page).', '/course-covers/engineering-playbook.svg', 'intermediate', ARRAY['backend','frontend','api','security'], 'published', true, true, 1.2)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, is_public=EXCLUDED.is_public, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();
 
+UPDATE course_sections SET position = position + 100000 WHERE course_id = '42cbe755-2969-5b7b-a4d1-bd3063987435';
+UPDATE course_modules SET position = position + 100000 WHERE course_id = '42cbe755-2969-5b7b-a4d1-bd3063987435';
+
 -- Section: API & Auth
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('ed63228d-2db0-5bfe-8103-49095f4670b1', '42cbe755-2969-5b7b-a4d1-bd3063987435', 'API & Auth', 1)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('ed63228d-2db0-5bfe-8103-49095f4670b1', '42cbe755-2969-5b7b-a4d1-bd3063987435', 'API & Auth', 1, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('7a72cbb9-675d-54fb-8cb2-5b893666658f', '42cbe755-2969-5b7b-a4d1-bd3063987435', 'ed63228d-2db0-5bfe-8103-49095f4670b1', 'JWT, the full story', 'notes', 0, $md$# JWT, the full story
@@ -1088,4 +1091,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 INSERT INTO enrollments (id, user_id, course_id, enrolled_by)
 VALUES ('94ad0368-5144-5de5-9c61-18a48f0d33d8', '00000000-0000-0000-0000-000000000014', '42cbe755-2969-5b7b-a4d1-bd3063987435', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (user_id, course_id) DO NOTHING;
+
+DELETE FROM course_modules WHERE course_id = '42cbe755-2969-5b7b-a4d1-bd3063987435' AND id NOT IN ('7a72cbb9-675d-54fb-8cb2-5b893666658f', '7f22a489-7bed-5c99-9c30-dd05f7055657');
+DELETE FROM course_sections WHERE course_id = '42cbe755-2969-5b7b-a4d1-bd3063987435' AND id NOT IN ('ed63228d-2db0-5bfe-8103-49095f4670b1');
 

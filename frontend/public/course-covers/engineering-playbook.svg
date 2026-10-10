@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="The Engineering Playbook course cover">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#120d24"/>
+      <stop offset="55%" stop-color="#2a1b5c"/>
+      <stop offset="100%" stop-color="#6D28D9"/>
+    </linearGradient>
+    <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.4" fill="#ffffff" opacity="0.06"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#dots)"/>
+
+  <!-- playbook: open book with a route diagram -->
+  <g transform="translate(600 110)">
+    <path d="M0 40 Q120 0 250 40 V290 Q120 250 0 290 Z" fill="#EDE9FE" opacity="0.95"/>
+    <path d="M250 40 Q380 0 500 40 V290 Q380 250 250 290 Z" fill="#C4B5FD"/>
+    <line x1="250" y1="40" x2="250" y2="290" stroke="#5B21B6" stroke-width="4"/>
+    <!-- left page: token / header.payload.signature -->
+    <rect x="40" y="90" width="170" height="26" rx="13" fill="#7C3AED"/>
+    <rect x="40" y="132" width="170" height="26" rx="13" fill="#A78BFA"/>
+    <rect x="40" y="174" width="170" height="26" rx="13" fill="#F59E0B"/>
+    <rect x="40" y="216" width="110" height="12" rx="6" fill="#7C3AED" opacity="0.35"/>
+    <!-- right page: flow x-play -->
+    <g stroke="#5B21B6" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M300 220 C340 220 340 150 380 150 S430 110 455 110"/>
+      <path d="M300 220 C350 220 380 200 455 200" stroke-dasharray="2 12"/>
+    </g>
+    <circle cx="300" cy="220" r="14" fill="#F59E0B"/>
+    <circle cx="380" cy="150" r="12" fill="#5B21B6"/>
+    <circle cx="455" cy="110" r="14" fill="#F59E0B"/>
+    <circle cx="455" cy="200" r="12" fill="#5B21B6"/>
+  </g>
+
+  <path d="M540 250 l24 20 l-24 20" fill="none" stroke="#F59E0B" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+  <path d="M508 250 l24 20 l-24 20" fill="none" stroke="#F59E0B" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>
+
+  <text x="90" y="500" font-family="Georgia, serif" font-size="64" font-weight="700" fill="#F5F3FF">The Engineering Playbook</text>
+  <text x="90" y="540" font-family="Arial, sans-serif" font-size="26" fill="#EDE9FE" opacity="0.85">APIs · Auth · Backend · UI · First principles</text>
+
+  <rect x="90" y="565" width="64" height="6" rx="3" fill="#F59E0B"/>
+</svg>
