@@ -151,6 +151,9 @@ COPY lab-debug/grade.sh /opt/mindforge/grade.sh
 COPY lab-debug/grader/ /opt/mindforge/grader/
 COPY lab-debug/mf-build/ /opt/mindforge/mf-build/
 COPY lab-debug/entrypoint.sh /usr/local/bin/entrypoint.sh
+# Content stamp of everything that renders/grades a lab. The backend reads it to
+# key build reuse, so a grader change re-verifies labs without a hand-bumped version.
+RUN find /opt/mindforge /usr/local/bin/entrypoint.sh -type f ! -name '*.pyc' ! -name RUNTIME_ID -print0     | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1 > /opt/mindforge/RUNTIME_ID
 RUN chown -R root:root /opt/mindforge /usr/local/bin/entrypoint.sh \
     && chmod -R go-w /opt/mindforge \
     && chmod 755 /opt/mindforge/grade.sh /opt/mindforge/bin/* /opt/mindforge/services.d/*.sh /usr/local/bin/entrypoint.sh \

@@ -329,9 +329,14 @@ func main() {
 	router := api.NewRouter(cfg, pool, cache, rdb, storageClient, aiProvider, jobsRegistry, rewardsSvc, labsRuntime, privateStore)
 
 	srv := &http.Server{
-		Addr:        ":" + cfg.Port,
-		Handler:     router,
-		ReadTimeout: 15 * time.Second,
+		Addr:    ":" + cfg.Port,
+		Handler: router,
+		// ReadHeaderTimeout, not ReadTimeout: net/http's ReadTimeout leaves a
+		// read deadline on the connection, so its background disconnect-watcher
+		// fails at that deadline and cancels r.Context() mid-handler. That
+		// aborted every request running past 15s (a lab Check) with
+		// "context canceled", even though the client was still waiting.
+		ReadHeaderTimeout: cfg.HTTPReadHeaderTimeout,
 		// No WriteTimeout: it's a hard deadline on the whole response, which
 		// kills long-lived SSE streams (labs.Service.WaitForReadiness) after
 		// 30s even when the client is still legitimately waiting — every

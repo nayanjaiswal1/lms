@@ -370,7 +370,8 @@ WEBAUTHN_RP_DISPLAY_NAME=MindForge      # optional, defaults to "MindForge"
 - OAuth state param: CSRF token stored in `httpOnly + SameSite=Lax + Secure` cookie; verified with constant-time compare on callback.
 - OAuth email linking: only when provider asserts `email_verified=true`. GitHub: use `GET /user/emails` primary+verified field. Never use the top-level `/user` email field.
 - Session cap: count distinct `family_id` (not individual rows). On login, if `COUNT(DISTINCT family_id) >= max_sessions` → revoke the oldest family.
-- Refresh rotation grace: accept a "rotated" token up to 30 seconds after it was rotated (`rotated_at` within 30s). Reuse outside that window → revoke entire family.
+- Refresh rotation grace: accept a "rotated" token up to `REFRESH_REUSE_GRACE` (30s) after it was rotated. The successor is derived as `HMAC-SHA256(COOKIE_SECRET, parent)`, so an in-grace replay re-emits the exact successor already issued (idempotent — racing responses all set the same cookie); if that successor is no longer live the replay gets 401 without revoking. Reuse outside the window → revoke entire family.
+- Next proxy (`frontend/proxy.ts`) must append the backend's Set-Cookie headers *after* any `response.cookies.set()` — `NextResponse.cookies.set()` rebuilds the Set-Cookie list and drops headers appended earlier (this lost rotated refresh tokens and caused the E2E logout, F8/C8).
 - Impossible travel (`>1000km in 2h` between refresh IPs): send email alert + require step-up auth on next sensitive action. Do NOT auto-revoke the family (high false-positive rate with VPNs/mobile).
 - `switch-org` [planned (not built)]: if target org has `require_sso=true`, only accept sessions where `auth_method` in JWT is `"saml"` or `"oidc"`.
 - Invite acceptance: verify `accepted_at IS NULL` (single-use) + `expires_at > now()` + logged-in user email matches `org_invites.email` (case-insensitive). Set `accepted_at` and insert `org_members` in one transaction.

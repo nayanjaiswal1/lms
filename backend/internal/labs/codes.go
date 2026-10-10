@@ -9,6 +9,7 @@ const (
 	CodeSessionAlreadyEnded        = "lab_session_already_ended"
 	CodeRateLimited                = "rate_limited"
 	CodeGraderBusy                 = "grader_busy"
+	CodeGraderTimeout              = "grader_timeout"
 	CodeHintNotSupported           = "hint_not_supported"
 	CodeMaxHintsReached            = "max_hints_reached"
 	CodeWriteupReviewLimit         = "writeup_review_limit"

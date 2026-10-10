@@ -1,16 +1,11 @@
 "use client"
 
 import { useTransition } from "react"
-import { Loader2 } from "lucide-react"
 import { useQueryStates } from "nuqs"
+import { Button } from "@/components/ui/button"
 import { FilterSelect } from "@/components/labs/filter-select"
 import { CATALOG_ALL, humanizeSlug, labCatalogParsers } from "@/lib/labs/catalog-params"
 import { CATALOG_DIFFICULTIES, LAB_KIND_CATALOG, type CatalogOption } from "@/lib/labs/kinds/catalog"
-
-const kindOptions: CatalogOption[] = Object.entries(LAB_KIND_CATALOG).map(([value, config]) => ({
-  value,
-  label: config.label,
-}))
 
 const stackOptions: CatalogOption[] = [
   ...new Map(
@@ -24,28 +19,30 @@ const categoryOptions: CatalogOption[] = [
   ...new Set(Object.values(LAB_KIND_CATALOG).flatMap((c) => c.groups.flatMap((g) => g.categories))),
 ].map((value) => ({ value, label: humanizeSlug(value) }))
 
-/** Kind / stack / category / difficulty filters, stored in the URL (server re-fetches on change). */
-export function CatalogFilters() {
+interface CatalogFiltersProps {
+  count: number
+}
+
+/** Stack / category / difficulty filters in the URL (server re-fetches on change), with result count and reset. */
+export function CatalogFilters({ count }: CatalogFiltersProps) {
   const [isPending, startTransition] = useTransition()
   const [filters, setFilters] = useQueryStates(labCatalogParsers, {
     shallow: false,
     startTransition,
   })
+  const isFiltered = [filters.stack, filters.category, filters.difficulty].some((v) => v !== CATALOG_ALL)
 
   return (
-    <div aria-label="Catalog filters" className="flex flex-col gap-3 sm:flex-row sm:flex-wrap" role="group">
-      <FilterSelect
-        allLabel="All kinds"
-        allValue={CATALOG_ALL}
-        label="Filter by kind"
-        options={kindOptions}
-        value={filters.kind}
-        onChange={(kind) => void setFilters({ kind })}
-      />
+    <div
+      aria-busy={isPending}
+      aria-label="Catalog filters"
+      className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
+      role="group"
+    >
       <FilterSelect
         allLabel="All stacks"
         allValue={CATALOG_ALL}
-        label="Filter by stack"
+        label="Stack"
         options={stackOptions}
         value={filters.stack}
         onChange={(stack) => void setFilters({ stack })}
@@ -53,7 +50,7 @@ export function CatalogFilters() {
       <FilterSelect
         allLabel="All categories"
         allValue={CATALOG_ALL}
-        label="Filter by category"
+        label="Category"
         options={categoryOptions}
         value={filters.category}
         onChange={(category) => void setFilters({ category })}
@@ -61,14 +58,23 @@ export function CatalogFilters() {
       <FilterSelect
         allLabel="All difficulties"
         allValue={CATALOG_ALL}
-        label="Filter by difficulty"
+        label="Difficulty"
         options={CATALOG_DIFFICULTIES}
         value={filters.difficulty}
         onChange={(difficulty) => void setFilters({ difficulty })}
       />
-      {isPending && (
-        <Loader2 aria-label="Updating results" className="h-4 w-4 animate-spin self-center text-muted-foreground" />
+      {isFiltered && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => void setFilters({ stack: null, category: null, difficulty: null })}
+        >
+          Reset filters
+        </Button>
       )}
+      <p aria-live="polite" className="text-sm text-muted-foreground sm:ml-auto">
+        {count} {count === 1 ? "lab" : "labs"}
+      </p>
     </div>
   )
 }

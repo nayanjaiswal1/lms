@@ -176,6 +176,8 @@ export interface LabCatalogEntry {
   skills: string[]
   max_duration: number
   status: LabCatalogStatus
+  /** Highest score over completed attempts; null when never passed. */
+  best_score: number | null
 }
 
 export interface ActiveLabSession {
@@ -189,6 +191,10 @@ export interface ActiveLabSession {
   last_active_at: string
 }
 
+// Longest a Check may stay pending client-side: the backend's 5-minute batch
+// deadline (maxSubmitAllDuration) plus slack. Past it the UI shows a retryable error.
+export const LAB_CHECK_CLIENT_TIMEOUT_MS = 310_000
+
 // Machine-readable error codes from the API error envelope ({"error","code"}).
 // Mirrors the Go constants in backend/internal/labs/codes.go — keep in sync.
 export const LAB_ERROR_CODES = {
@@ -197,6 +203,7 @@ export const LAB_ERROR_CODES = {
   sessionAlreadyEnded: 'lab_session_already_ended',
   rateLimited: 'rate_limited',
   graderBusy: 'grader_busy',
+  graderTimeout: 'grader_timeout',
   hintNotSupported: 'hint_not_supported',
   maxHintsReached: 'max_hints_reached',
   writeupReviewLimit: 'writeup_review_limit',

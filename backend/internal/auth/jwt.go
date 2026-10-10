@@ -54,9 +54,27 @@ func CreateRefreshToken() (raw string, hash string, err error) {
 		return "", "", fmt.Errorf("auth: generate refresh token bytes: %w", err)
 	}
 	raw = hex.EncodeToString(buf)
-	sum := sha256.Sum256([]byte(raw))
-	hash = hex.EncodeToString(sum[:])
-	return raw, hash, nil
+	return raw, HashToken(raw), nil
+}
+
+// refreshSuccessorDomain separates the successor MAC from the CSRF MAC, which
+// is keyed by the same CookieSecret.
+const refreshSuccessorDomain = "refresh-successor:"
+
+// successorRefreshToken derives the token that replaces parent on rotation as
+// HMAC-SHA256(CookieSecret, parent). It is deterministic so that a replay of
+// parent inside the reuse grace window can re-emit the exact successor that
+// was already issued — the DB stores only hashes, so a random successor could
+// never be sent again, and a client that lost the winning response (aborted
+// navigation, a proxy that dropped its Set-Cookie) kept replaying a dead
+// parent until reuse detection revoked the family. Deriving it needs both the
+// parent token and the server secret, so it is no easier to forge than a
+// random token.
+func successorRefreshToken(cfg *config.Config, parent string) (raw, hash string) {
+	mac := hmac.New(sha256.New, []byte(cfg.CookieSecret))
+	mac.Write([]byte(refreshSuccessorDomain + parent))
+	raw = hex.EncodeToString(mac.Sum(nil))
+	return raw, HashToken(raw)
 }
 
 // ParseToken parses and validates a JWT string, pinning the algorithm to HS256.

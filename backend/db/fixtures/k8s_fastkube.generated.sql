@@ -2,7 +2,7 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-09-27T11:14:53Z
+-- Generated at: 2026-10-09T17:47:22Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: Kubernetes from Zero to Production ─────────────────────────────────────────────
@@ -10,10 +10,13 @@ INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url
 VALUES ('36d5d8be-468e-5eb6-b650-0f5c827cb390', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'Kubernetes from Zero to Production', 'fast-kubernetes', 'Learn Kubernetes from the very first idea to running real workloads in production. Starts with what a cluster is and how it works, then builds up step by step: pods, Deployments and rolling updates, DaemonSets, StatefulSets, Jobs and CronJobs, Services, DNS, Ingress and Gateway API, ConfigMaps and Secrets, persistent storage, health probes, resources and scheduling, Helm, monitoring and autoscaling, building a real cluster with kubeadm, RBAC and node maintenance. Every lesson has quick knowledge checks, interview questions with answers, and real-world troubleshooting scenarios, and every section has hands-on labs in a live Kubernetes terminal.', '/course-covers/fast-kubernetes.svg', 'beginner', ARRAY['kubernetes','k8s','devops','containers','helm','cloud-native','interview-prep'], 'published', true, false, 20.5)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, is_public=EXCLUDED.is_public, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();
 
+UPDATE course_sections SET position = position + 100000 WHERE course_id = '36d5d8be-468e-5eb6-b650-0f5c827cb390';
+UPDATE course_modules SET position = position + 100000 WHERE course_id = '36d5d8be-468e-5eb6-b650-0f5c827cb390';
+
 -- Section: Kubernetes Basics
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('85bd3d1f-d6a7-55f2-a8f2-52ff1a44d37b', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Kubernetes Basics', 1)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('85bd3d1f-d6a7-55f2-a8f2-52ff1a44d37b', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Kubernetes Basics', 1, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('75e5690e-cdcb-5a0f-befa-1e97e0d99175', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '85bd3d1f-d6a7-55f2-a8f2-52ff1a44d37b', 'What Kubernetes Is and How It Works', 'notes', 0, $md$Kubernetes (often written **K8s**, because there are 8 letters between the K and the s) is a system that runs containers for you across many machines. You tell it *what* you want running, and it keeps making that true.
@@ -681,9 +684,9 @@ VALUES ('4ef990d4-eedb-566d-b6d3-5ad316996fc0', '36d5d8be-468e-5eb6-b650-0f5c827
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Pods
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('375a87e0-e417-5b1c-8bc5-3852ed089e52', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Pods', 2)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('375a87e0-e417-5b1c-8bc5-3852ed089e52', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Pods', 2, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('6d93934c-2315-5e0e-adcc-774073f33cd5', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '375a87e0-e417-5b1c-8bc5-3852ed089e52', 'Pods, the Smallest Unit in Kubernetes', 'notes', 0, $md$Kubernetes never runs a container on its own. It always wraps containers in a **Pod**. Every other workload you will learn (Deployments, Jobs, StatefulSets) exists to create and manage pods, so this lesson is the foundation for the rest of the course.
@@ -1127,9 +1130,9 @@ The change is lost at the next restart, and nobody can review it. Fix it in the 
 $md$, 50, $json$[{"id":"k8s-pod-what-q1","type":"mcq","correct":"a"},{"id":"k8s-pod-what-q2","type":"mcq","correct":"b"},{"id":"k8s-pod-imperative-q1","type":"mcq","correct":"b"},{"id":"k8s-pod-yaml-q1","type":"mcq","correct":"b"},{"id":"k8s-pod-debug-q1","type":"mcq","correct":"a"},{"id":"k8s-pod-lifecycle-q1","type":"mcq","correct":"b"},{"id":"k8s-pod-lifecycle-q2","type":"mcq","correct":"c"},{"id":"k8s-pod-sidecar-q1","type":"mcq","correct":"c"},{"id":"k8s-pod-sidecar-q2","type":"mcq","correct":"b"},{"id":"k8s-pod-init-q1","type":"mcq","correct":"b"},{"id":"k8s-pod-portfwd-q1","type":"mcq","correct":"b"},{"id":"k8s-pod-bare-q1","type":"mcq","correct":"b"},{"id":"k8s-pod-int-q1","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)
-VALUES ('d9f9a269-17b3-56ec-9885-3b8af346cd13', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '375a87e0-e417-5b1c-8bc5-3852ed089e52', 'Lab: Create and Inspect Pods', 'lab', 1, 25)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('d9f9a269-17b3-56ec-9885-3b8af346cd13', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '375a87e0-e417-5b1c-8bc5-3852ed089e52', 'Lab: Create and Inspect Pods', 'lab', 1, 25, '3a2dfb5c-a7c1-589b-814e-0179fd5221b3', true)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
 VALUES ('3a2dfb5c-a7c1-589b-814e-0179fd5221b3', '00000000-0000-0000-0000-000000000001', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'd9f9a269-17b3-56ec-9885-3b8af346cd13', 'module', 'Lab: Create and Inspect Pods', NULL, 'terminal', 'mindforge/lab-k8s:1.31', 0, $script$mkdir -p /home/labuser/work
@@ -1351,9 +1354,9 @@ VALUES ('f9a32647-aa50-5e64-beaf-e8af561b8c06', '36d5d8be-468e-5eb6-b650-0f5c827
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Deployments & Workload Controllers
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('c70cffde-a094-57b7-b0b9-8bbbaa0578e0', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Deployments & Workload Controllers', 3)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('c70cffde-a094-57b7-b0b9-8bbbaa0578e0', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Deployments & Workload Controllers', 3, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('66141cf6-373d-5e3a-a4f6-ebaa45838fba', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'c70cffde-a094-57b7-b0b9-8bbbaa0578e0', 'Deployments: Scaling, Self-Healing and Rolling Updates', 'notes', 0, $md$In the last section you saw that a bare pod is gone for good when it dies. A **Deployment** fixes that. You tell it "run N copies of this pod", and it keeps exactly N running, replaces broken ones, and updates them to new versions without downtime. Most stateless apps (web servers, APIs) run as Deployments.
@@ -1683,9 +1686,9 @@ No readiness probe, or no graceful shutdown. Add readiness, handle SIGTERM, add 
 $md$, 50, $json$[{"id":"k8s-deploy-layers-q1","type":"mcq","correct":"b"},{"id":"k8s-deploy-yaml-q1","type":"mcq","correct":"b"},{"id":"k8s-deploy-scale-q1","type":"mcq","correct":"b"},{"id":"k8s-deploy-strategy-q1","type":"mcq","correct":"a"},{"id":"k8s-deploy-strategy-q2","type":"mcq","correct":"b"},{"id":"k8s-deploy-rollout-q1","type":"mcq","correct":"a"},{"id":"k8s-deploy-rollback-q1","type":"mcq","correct":"b"},{"id":"k8s-deploy-rollback-q2","type":"mcq","correct":"b"},{"id":"k8s-deploy-int-q1","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)
-VALUES ('ca5caa6c-ca1c-5408-8c6d-f0028b82abac', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'c70cffde-a094-57b7-b0b9-8bbbaa0578e0', 'Lab: Deployments, Scaling and Rollbacks', 'lab', 1, 30)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('ca5caa6c-ca1c-5408-8c6d-f0028b82abac', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'c70cffde-a094-57b7-b0b9-8bbbaa0578e0', 'Lab: Deployments, Scaling and Rollbacks', 'lab', 1, 30, '8a39f024-139f-52e2-ba2a-2c6c4c5cc370', true)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
 VALUES ('8a39f024-139f-52e2-ba2a-2c6c4c5cc370', '00000000-0000-0000-0000-000000000001', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'ca5caa6c-ca1c-5408-8c6d-f0028b82abac', 'module', 'Lab: Deployments, Scaling and Rollbacks', NULL, 'terminal', 'mindforge/lab-k8s:1.31', 0, $script$mkdir -p /home/labuser/work
@@ -2219,9 +2222,9 @@ Set `ttlSecondsAfterFinished` on Jobs, and history limits on CronJobs.
 $md$, 50, $json$[{"id":"k8s-ctrl-ds-q1","type":"mcq","correct":"b"},{"id":"k8s-ctrl-ds-q2","type":"mcq","correct":"b"},{"id":"k8s-ctrl-sts-q1","type":"mcq","correct":"b"},{"id":"k8s-ctrl-sts-q2","type":"mcq","correct":"b"},{"id":"k8s-ctrl-job-q1","type":"mcq","correct":"b"},{"id":"k8s-ctrl-job-q2","type":"mcq","correct":"a"},{"id":"k8s-ctrl-cron-q1","type":"mcq","correct":"b"},{"id":"k8s-ctrl-cron-q2","type":"mcq","correct":"a"},{"id":"k8s-ctrl-int-q1","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)
-VALUES ('18597e54-2b4f-598f-9f1f-86857c5162e6', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'c70cffde-a094-57b7-b0b9-8bbbaa0578e0', 'Lab: DaemonSet', 'lab', 3, 20)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('18597e54-2b4f-598f-9f1f-86857c5162e6', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'c70cffde-a094-57b7-b0b9-8bbbaa0578e0', 'Lab: DaemonSet', 'lab', 3, 20, 'bb0913dc-02d9-580b-95e0-0023ff31b9ea', true)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
 VALUES ('bb0913dc-02d9-580b-95e0-0023ff31b9ea', '00000000-0000-0000-0000-000000000001', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '18597e54-2b4f-598f-9f1f-86857c5162e6', 'module', 'Lab: DaemonSet', NULL, 'terminal', 'mindforge/lab-k8s:1.31', 0, $script$mkdir -p /home/labuser/work
@@ -2346,9 +2349,9 @@ UPDATE lab_definitions
 SET is_published = true, published_version_id = 'e858ff7d-9bf2-5c07-b12b-e0ffb4e9af9f', updated_at = now()
 WHERE id = 'bb0913dc-02d9-580b-95e0-0023ff31b9ea' AND published_version_id IS NULL;
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)
-VALUES ('eef498be-cf84-549f-bcc0-9d59d5bc9f8d', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'c70cffde-a094-57b7-b0b9-8bbbaa0578e0', 'Lab: StatefulSet', 'lab', 4, 25)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('eef498be-cf84-549f-bcc0-9d59d5bc9f8d', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'c70cffde-a094-57b7-b0b9-8bbbaa0578e0', 'Lab: StatefulSet', 'lab', 4, 25, '7827e8aa-3e5c-54a0-b5b6-c88138a496d6', true)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
 VALUES ('7827e8aa-3e5c-54a0-b5b6-c88138a496d6', '00000000-0000-0000-0000-000000000001', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'eef498be-cf84-549f-bcc0-9d59d5bc9f8d', 'module', 'Lab: StatefulSet', NULL, 'terminal', 'mindforge/lab-k8s:1.31', 0, $script$mkdir -p /home/labuser/work
@@ -2522,9 +2525,9 @@ UPDATE lab_definitions
 SET is_published = true, published_version_id = '987d401f-cc6f-50ca-a164-a92877c81d76', updated_at = now()
 WHERE id = '7827e8aa-3e5c-54a0-b5b6-c88138a496d6' AND published_version_id IS NULL;
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)
-VALUES ('1ae9f3c3-5b51-5732-a08b-48e8b115298f', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'c70cffde-a094-57b7-b0b9-8bbbaa0578e0', 'Lab: Job', 'lab', 5, 15)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('1ae9f3c3-5b51-5732-a08b-48e8b115298f', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'c70cffde-a094-57b7-b0b9-8bbbaa0578e0', 'Lab: Job', 'lab', 5, 15, 'd332d18e-88f9-526f-99bb-c69f6206ab46', true)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
 VALUES ('d332d18e-88f9-526f-99bb-c69f6206ab46', '00000000-0000-0000-0000-000000000001', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '1ae9f3c3-5b51-5732-a08b-48e8b115298f', 'module', 'Lab: Job', NULL, 'terminal', 'mindforge/lab-k8s:1.31', 0, $script$mkdir -p /home/labuser/work
@@ -2595,9 +2598,9 @@ UPDATE lab_definitions
 SET is_published = true, published_version_id = 'b3f5113a-31a6-5c85-9cda-1dc46de7f15d', updated_at = now()
 WHERE id = 'd332d18e-88f9-526f-99bb-c69f6206ab46' AND published_version_id IS NULL;
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)
-VALUES ('c71cf669-6e2e-5dc6-b600-981dc4f3f7f0', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'c70cffde-a094-57b7-b0b9-8bbbaa0578e0', 'Lab: CronJob', 'lab', 6, 15)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('c71cf669-6e2e-5dc6-b600-981dc4f3f7f0', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'c70cffde-a094-57b7-b0b9-8bbbaa0578e0', 'Lab: CronJob', 'lab', 6, 15, '18a5fbe4-abd9-5cff-aea3-8f2c6215da35', true)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
 VALUES ('18a5fbe4-abd9-5cff-aea3-8f2c6215da35', '00000000-0000-0000-0000-000000000001', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'c71cf669-6e2e-5dc6-b600-981dc4f3f7f0', 'module', 'Lab: CronJob', NULL, 'terminal', 'mindforge/lab-k8s:1.31', 0, $script$mkdir -p /home/labuser/work
@@ -2781,9 +2784,9 @@ VALUES ('bbd43c7b-762f-5386-84d8-19e2c51b38e8', '36d5d8be-468e-5eb6-b650-0f5c827
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Services & Networking
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('aa6659d6-a9c3-5d97-b61f-bf8f18a918fb', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Services & Networking', 4)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('aa6659d6-a9c3-5d97-b61f-bf8f18a918fb', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Services & Networking', 4, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('21b32b81-f51b-5566-9ed3-ed9d5bebaefe', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'aa6659d6-a9c3-5d97-b61f-bf8f18a918fb', 'Services, DNS and Ingress', 'notes', 0, $md$Pods get a new IP address every time they are recreated, and a Deployment may have many of them. So how does a frontend find its backend, and how do users on the internet reach your app? This lesson answers both: **Services** inside the cluster and **Ingress** (or Gateway API) at the edge.
@@ -3200,9 +3203,9 @@ DNS record, Ingress host rule and TLS Secret must all match the domain; with cer
 $md$, 55, $json$[{"id":"k8s-net-model-q1","type":"mcq","correct":"b"},{"id":"k8s-net-svc-q1","type":"mcq","correct":"b"},{"id":"k8s-net-svc-q2","type":"mcq","correct":"b"},{"id":"k8s-net-dns-q1","type":"mcq","correct":"b"},{"id":"k8s-net-types-q1","type":"mcq","correct":"a"},{"id":"k8s-net-types-q2","type":"mcq","correct":"b"},{"id":"k8s-net-ingress-q1","type":"mcq","correct":"b"},{"id":"k8s-net-ingress-q2","type":"mcq","correct":"b"},{"id":"k8s-net-gateway-q1","type":"mcq","correct":"c"},{"id":"k8s-net-netpol-q1","type":"mcq","correct":"c"},{"id":"k8s-net-int-q1","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)
-VALUES ('5956dcae-8351-5454-be0e-c6d05eb582ca', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'aa6659d6-a9c3-5d97-b61f-bf8f18a918fb', 'Lab: Services', 'lab', 1, 30)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('5956dcae-8351-5454-be0e-c6d05eb582ca', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'aa6659d6-a9c3-5d97-b61f-bf8f18a918fb', 'Lab: Services', 'lab', 1, 30, 'e40fae27-5833-5694-8cfc-f35a4bd4756b', true)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
 VALUES ('e40fae27-5833-5694-8cfc-f35a4bd4756b', '00000000-0000-0000-0000-000000000001', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '5956dcae-8351-5454-be0e-c6d05eb582ca', 'module', 'Lab: Services', NULL, 'terminal', 'mindforge/lab-k8s:1.31', 0, $script$mkdir -p /home/labuser/work
@@ -3365,9 +3368,9 @@ UPDATE lab_definitions
 SET is_published = true, published_version_id = '1986f45e-68ad-5486-9598-8d45ae2ff815', updated_at = now()
 WHERE id = 'e40fae27-5833-5694-8cfc-f35a4bd4756b' AND published_version_id IS NULL;
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)
-VALUES ('a3455546-475e-53a2-9b66-2f2582784d4f', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'aa6659d6-a9c3-5d97-b61f-bf8f18a918fb', 'Lab: Ingress', 'lab', 2, 25)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('a3455546-475e-53a2-9b66-2f2582784d4f', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'aa6659d6-a9c3-5d97-b61f-bf8f18a918fb', 'Lab: Ingress', 'lab', 2, 25, '515305f6-49ab-5164-9365-5d57c0e9654b', true)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
 VALUES ('515305f6-49ab-5164-9365-5d57c0e9654b', '00000000-0000-0000-0000-000000000001', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'a3455546-475e-53a2-9b66-2f2582784d4f', 'module', 'Lab: Ingress', NULL, 'terminal', 'mindforge/lab-k8s:1.31', 0, $script$mkdir -p /home/labuser/work
@@ -3668,9 +3671,9 @@ VALUES ('7386fddf-29fb-53da-be8b-aa6c29ccd4a3', '36d5d8be-468e-5eb6-b650-0f5c827
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: ConfigMaps & Secrets
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('1c403d8b-6f9e-5fe3-9443-b75a9f3759b4', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'ConfigMaps & Secrets', 5)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('1c403d8b-6f9e-5fe3-9443-b75a9f3759b4', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'ConfigMaps & Secrets', 5, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('146803ef-fe94-5911-83c6-a3d8d609fe6a', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '1c403d8b-6f9e-5fe3-9443-b75a9f3759b4', 'ConfigMaps and Secrets', 'notes', 0, $md$The same image should run in development, staging and production. What changes between them is **configuration**: database hosts, feature settings, API keys, passwords. Kubernetes keeps these outside the image in two kinds of objects: **ConfigMaps** for normal settings and **Secrets** for sensitive values.
@@ -4002,9 +4005,9 @@ The new version references a ConfigMap key or Secret that was not created in tha
 $md$, 40, $json$[{"id":"k8s-cfg-why-q1","type":"mcq","correct":"b"},{"id":"k8s-cfg-create-q1","type":"mcq","correct":"b"},{"id":"k8s-cfg-use-q1","type":"mcq","correct":"b"},{"id":"k8s-cfg-use-q2","type":"mcq","correct":"b"},{"id":"k8s-cfg-secret-q1","type":"mcq","correct":"b"},{"id":"k8s-cfg-usesecret-q1","type":"mcq","correct":"b"},{"id":"k8s-cfg-safe-q1","type":"mcq","correct":"b"},{"id":"k8s-cfg-int-q1","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)
-VALUES ('f97ad7c6-5f3b-5436-a684-62af7d559bf1', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '1c403d8b-6f9e-5fe3-9443-b75a9f3759b4', 'Lab: ConfigMaps', 'lab', 1, 20)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('f97ad7c6-5f3b-5436-a684-62af7d559bf1', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '1c403d8b-6f9e-5fe3-9443-b75a9f3759b4', 'Lab: ConfigMaps', 'lab', 1, 20, 'bb31fffe-f318-5c57-9ae9-962aacef59ab', true)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
 VALUES ('bb31fffe-f318-5c57-9ae9-962aacef59ab', '00000000-0000-0000-0000-000000000001', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'f97ad7c6-5f3b-5436-a684-62af7d559bf1', 'module', 'Lab: ConfigMaps', NULL, 'terminal', 'mindforge/lab-k8s:1.31', 0, $script$mkdir -p /home/labuser/work
@@ -4112,9 +4115,9 @@ UPDATE lab_definitions
 SET is_published = true, published_version_id = 'fd4caf13-2929-514d-8218-f5e95e207bfc', updated_at = now()
 WHERE id = 'bb31fffe-f318-5c57-9ae9-962aacef59ab' AND published_version_id IS NULL;
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)
-VALUES ('f5cb494b-5f41-5bc2-8998-b2f459c08c19', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '1c403d8b-6f9e-5fe3-9443-b75a9f3759b4', 'Lab: Secrets', 'lab', 2, 25)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('f5cb494b-5f41-5bc2-8998-b2f459c08c19', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '1c403d8b-6f9e-5fe3-9443-b75a9f3759b4', 'Lab: Secrets', 'lab', 2, 25, 'c33cca04-5574-5f1d-91e9-6a696002a5a1', true)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
 VALUES ('c33cca04-5574-5f1d-91e9-6a696002a5a1', '00000000-0000-0000-0000-000000000001', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'f5cb494b-5f41-5bc2-8998-b2f459c08c19', 'module', 'Lab: Secrets', NULL, 'terminal', 'mindforge/lab-k8s:1.31', 0, $script$mkdir -p /home/labuser/work
@@ -4355,9 +4358,9 @@ VALUES ('3dc9739f-6e70-5ded-b51f-d43242453e28', '36d5d8be-468e-5eb6-b650-0f5c827
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Storage
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('45cb3c88-5b2a-5385-98b6-2763f2717d95', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Storage', 6)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('45cb3c88-5b2a-5385-98b6-2763f2717d95', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Storage', 6, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('dbe8d427-ccc5-5398-b1f8-26ead5653c4f', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '45cb3c88-5b2a-5385-98b6-2763f2717d95', 'Volumes, PersistentVolumes and PersistentVolumeClaims', 'notes', 0, $md$A container's own filesystem is thrown away when the container is replaced. That is fine for a web server, but a database that loses its files on every restart is useless. This lesson shows how Kubernetes gives pods storage that outlives them.
@@ -4691,9 +4694,9 @@ The PVCs were deleted with the namespace and the StorageClass policy was Delete.
 $md$, 40, $json$[{"id":"k8s-storage-types-q1","type":"mcq","correct":"c"},{"id":"k8s-storage-pvpvc-q1","type":"mcq","correct":"b"},{"id":"k8s-storage-pvpvc-q2","type":"mcq","correct":"b"},{"id":"k8s-storage-access-q1","type":"mcq","correct":"c"},{"id":"k8s-storage-reclaim-q1","type":"mcq","correct":"b"},{"id":"k8s-storage-sc-q1","type":"mcq","correct":"b"},{"id":"k8s-storage-deploy-q1","type":"mcq","correct":"b"},{"id":"k8s-storage-int-q1","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)
-VALUES ('2c9b8b98-04e3-5f3b-9ad0-d613679763a1', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '45cb3c88-5b2a-5385-98b6-2763f2717d95', 'Lab: PersistentVolumes and Claims', 'lab', 1, 25)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('2c9b8b98-04e3-5f3b-9ad0-d613679763a1', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '45cb3c88-5b2a-5385-98b6-2763f2717d95', 'Lab: PersistentVolumes and Claims', 'lab', 1, 25, '200053ab-0b4e-5000-8c2b-101de471d95c', true)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
 VALUES ('200053ab-0b4e-5000-8c2b-101de471d95c', '00000000-0000-0000-0000-000000000001', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '2c9b8b98-04e3-5f3b-9ad0-d613679763a1', 'module', 'Lab: PersistentVolumes and Claims', NULL, 'terminal', 'mindforge/lab-k8s:1.31', 0, $script$mkdir -p /home/labuser/work
@@ -4952,9 +4955,9 @@ VALUES ('84d409b8-6874-55e2-baad-70c3d9ca0b97', '36d5d8be-468e-5eb6-b650-0f5c827
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Health, Resources & Scheduling
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('52756a52-681c-5932-95e7-9e7f879beff3', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Health, Resources & Scheduling', 7)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('52756a52-681c-5932-95e7-9e7f879beff3', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Health, Resources & Scheduling', 7, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('f4456cb5-eba5-5925-9b53-bb8b6b2f4ded', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '52756a52-681c-5932-95e7-9e7f879beff3', 'Health Probes, Resources and Scheduling Rules', 'notes', 0, $md$So far Kubernetes has placed pods wherever it liked and assumed they were healthy as long as the process was running. Real apps need more: detecting a frozen app, not sending traffic to a pod that is still starting, reserving enough CPU and memory, and keeping certain pods on certain machines. This lesson covers all four.
@@ -5453,9 +5456,9 @@ They were all scheduled on the same node. Add topologySpreadConstraints or pod a
 $md$, 60, $json$[{"id":"k8s-sched-probes-q1","type":"mcq","correct":"b"},{"id":"k8s-sched-probes-q2","type":"mcq","correct":"b"},{"id":"k8s-sched-writeprobe-q1","type":"mcq","correct":"b"},{"id":"k8s-sched-writeprobe-q2","type":"mcq","correct":"b"},{"id":"k8s-sched-resources-q1","type":"mcq","correct":"b"},{"id":"k8s-sched-resources-q2","type":"mcq","correct":"b"},{"id":"k8s-sched-resources-q3","type":"mcq","correct":"c"},{"id":"k8s-sched-quota-q1","type":"mcq","correct":"b"},{"id":"k8s-sched-quota-q2","type":"mcq","correct":"b"},{"id":"k8s-sched-affinity-q1","type":"mcq","correct":"b"},{"id":"k8s-sched-affinity-q2","type":"mcq","correct":"b"},{"id":"k8s-sched-spread-q1","type":"mcq","correct":"b"},{"id":"k8s-sched-taint-q1","type":"mcq","correct":"b"},{"id":"k8s-sched-taint-q2","type":"mcq","correct":"b"},{"id":"k8s-sched-int-q1","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)
-VALUES ('3f32decd-a21f-5364-9ff2-51fb58bd6ade', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '52756a52-681c-5932-95e7-9e7f879beff3', 'Lab: Probes and Resources', 'lab', 1, 30)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('3f32decd-a21f-5364-9ff2-51fb58bd6ade', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '52756a52-681c-5932-95e7-9e7f879beff3', 'Lab: Probes and Resources', 'lab', 1, 30, '7c9b2dc7-980f-5474-b333-061e60f64c3c', true)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
 VALUES ('7c9b2dc7-980f-5474-b333-061e60f64c3c', '00000000-0000-0000-0000-000000000001', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '3f32decd-a21f-5364-9ff2-51fb58bd6ade', 'module', 'Lab: Probes and Resources', NULL, 'terminal', 'mindforge/lab-k8s:1.31', 0, $script$mkdir -p /home/labuser/work
@@ -5631,9 +5634,9 @@ UPDATE lab_definitions
 SET is_published = true, published_version_id = '0eaedfda-dd2b-59b1-a546-6e2e3c5ac7a2', updated_at = now()
 WHERE id = '7c9b2dc7-980f-5474-b333-061e60f64c3c' AND published_version_id IS NULL;
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)
-VALUES ('3a44e100-25c4-5b5c-bff7-79071fdc86ae', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '52756a52-681c-5932-95e7-9e7f879beff3', 'Lab: Node Selection and Affinity', 'lab', 2, 25)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('3a44e100-25c4-5b5c-bff7-79071fdc86ae', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '52756a52-681c-5932-95e7-9e7f879beff3', 'Lab: Node Selection and Affinity', 'lab', 2, 25, '618e6f99-3c6f-59bb-8306-a2af680012b8', true)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
 VALUES ('618e6f99-3c6f-59bb-8306-a2af680012b8', '00000000-0000-0000-0000-000000000001', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '3a44e100-25c4-5b5c-bff7-79071fdc86ae', 'module', 'Lab: Node Selection and Affinity', NULL, 'terminal', 'mindforge/lab-k8s:1.31', 0, $script$mkdir -p /home/labuser/work
@@ -5765,9 +5768,9 @@ UPDATE lab_definitions
 SET is_published = true, published_version_id = '1d2949c0-a5df-546e-9d12-fa20bb497bf6', updated_at = now()
 WHERE id = '618e6f99-3c6f-59bb-8306-a2af680012b8' AND published_version_id IS NULL;
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)
-VALUES ('6dc582d6-8698-52e1-a43f-45df751a2bd2', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '52756a52-681c-5932-95e7-9e7f879beff3', 'Lab: Taints and Tolerations', 'lab', 3, 25)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)
+VALUES ('6dc582d6-8698-52e1-a43f-45df751a2bd2', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '52756a52-681c-5932-95e7-9e7f879beff3', 'Lab: Taints and Tolerations', 'lab', 3, 25, 'adc92324-910d-51f4-8ec4-017096717a93', true)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
 VALUES ('adc92324-910d-51f4-8ec4-017096717a93', '00000000-0000-0000-0000-000000000001', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '6dc582d6-8698-52e1-a43f-45df751a2bd2', 'module', 'Lab: Taints and Tolerations', NULL, 'terminal', 'mindforge/lab-k8s:1.31', 0, $script$mkdir -p /home/labuser/work
@@ -5963,9 +5966,9 @@ VALUES ('6aaf7df2-aa2a-5abc-99b4-63d92491ceca', '36d5d8be-468e-5eb6-b650-0f5c827
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Helm: Packaging Applications
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('8c7e60f0-4e81-55a1-b5d2-e985155f8562', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Helm: Packaging Applications', 8)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('8c7e60f0-4e81-55a1-b5d2-e985155f8562', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Helm: Packaging Applications', 8, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('4c83f344-4fc6-528b-ad75-f64acb9e916a', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '8c7e60f0-4e81-55a1-b5d2-e985155f8562', 'Helm Charts, Releases and Values', 'notes', 0, $md$Look at a typical app: a Deployment, a Service, a ConfigMap, a Secret, an Ingress, maybe a HorizontalPodAutoscaler. That is six YAML files, and you need slightly different versions for dev, staging and production. Copying and editing them by hand quickly goes wrong. **Helm** is the package manager for Kubernetes that solves this.
@@ -6491,9 +6494,9 @@ VALUES ('8daa77a0-ae8d-5f35-aff4-2cda833e53e7', '36d5d8be-468e-5eb6-b650-0f5c827
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Monitoring, Logging & Autoscaling
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('b5b0d081-fa01-57fe-860d-388f86b35cd6', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Monitoring, Logging & Autoscaling', 9)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('b5b0d081-fa01-57fe-860d-388f86b35cd6', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Monitoring, Logging & Autoscaling', 9, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('19c963d4-687d-5ae5-9936-3faef76f4bb5', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'b5b0d081-fa01-57fe-860d-388f86b35cd6', 'Monitoring, Logging and Autoscaling', 'notes', 0, $md$Running an app is only half the job. You also need to see what it is doing, find problems before users do, and handle more traffic without waking anyone up. This lesson covers the three pillars of **observability** in Kubernetes (events and logs, metrics, dashboards and alerts) plus **autoscaling**, which is built on metrics.
@@ -6987,9 +6990,9 @@ VALUES ('404642ba-977e-5b0c-b766-59e027ff951b', '36d5d8be-468e-5eb6-b650-0f5c827
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Real Clusters: Setup, Security and Operations
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('a6a3c179-127f-5a21-b823-1ddb520e36eb', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Real Clusters: Setup, Security and Operations', 10)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('a6a3c179-127f-5a21-b823-1ddb520e36eb', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Real Clusters: Setup, Security and Operations', 10, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('2c2863cc-1d25-5e1c-8281-0616c84947ec', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'a6a3c179-127f-5a21-b823-1ddb520e36eb', 'Building a Cluster with kubeadm', 'notes', 0, $md$Until now you used a cluster someone else built. This lesson shows how a real multi-node cluster is put together with **kubeadm**, the official tool for bootstrapping Kubernetes on your own machines. Even if you will use a managed service at work, knowing these steps explains what every node is actually running, and it is a common interview topic.
@@ -8224,9 +8227,9 @@ VALUES ('0bfbb16a-6679-565f-9573-e306d6c30409', '36d5d8be-468e-5eb6-b650-0f5c827
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Cheat Sheet
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('e4330df2-0c59-592e-be64-093765351ea3', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Cheat Sheet', 11)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('e4330df2-0c59-592e-be64-093765351ea3', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Cheat Sheet', 11, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('f533fd17-715c-5f6f-bffe-a29bef310af2', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'e4330df2-0c59-592e-be64-093765351ea3', 'kubectl and Helm Cheat Sheet', 'notes', 0, $md$A one-page reference of the commands used in this course, grouped by task. Keep it open while you work.
@@ -8463,9 +8466,9 @@ $md$, 20, $json$[{"id":"k8s-ref-cluster-q1","type":"mcq","correct":"a"},{"id":"k
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 -- Section: Interview Prep & Production Troubleshooting
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('050f01cb-eacf-550f-8789-c0f2b5a3fc5e', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Interview Prep & Production Troubleshooting', 12)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('050f01cb-eacf-550f-8789-c0f2b5a3fc5e', '36d5d8be-468e-5eb6-b650-0f5c827cb390', 'Interview Prep & Production Troubleshooting', 12, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('3c1c626d-4fb2-52b5-b3c6-8b211a42e0f9', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '050f01cb-eacf-550f-8789-c0f2b5a3fc5e', 'Kubernetes Interview Questions and Answers', 'notes', 0, $md$This lesson collects the Kubernetes questions that come up again and again in DevOps, SRE, platform and backend interviews. They go from basic to advanced, with short, correct answers you can say out loud. Everything here was taught earlier in the course; the goal now is to **explain it clearly and connect it to real situations**.
@@ -9224,4 +9227,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 INSERT INTO enrollments (id, user_id, course_id, enrolled_by)
 VALUES ('b76c3962-dcf2-5631-869c-8e2310f740dc', '00000000-0000-0000-0000-000000000014', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (user_id, course_id) DO NOTHING;
+
+DELETE FROM course_modules WHERE course_id = '36d5d8be-468e-5eb6-b650-0f5c827cb390' AND id NOT IN ('75e5690e-cdcb-5a0f-befa-1e97e0d99175', '4ef990d4-eedb-566d-b6d3-5ad316996fc0', '6d93934c-2315-5e0e-adcc-774073f33cd5', 'd9f9a269-17b3-56ec-9885-3b8af346cd13', 'f9a32647-aa50-5e64-beaf-e8af561b8c06', '66141cf6-373d-5e3a-a4f6-ebaa45838fba', 'ca5caa6c-ca1c-5408-8c6d-f0028b82abac', 'fa6ae011-5484-5ad3-961c-b85aad331271', '18597e54-2b4f-598f-9f1f-86857c5162e6', 'eef498be-cf84-549f-bcc0-9d59d5bc9f8d', '1ae9f3c3-5b51-5732-a08b-48e8b115298f', 'c71cf669-6e2e-5dc6-b600-981dc4f3f7f0', 'bbd43c7b-762f-5386-84d8-19e2c51b38e8', '21b32b81-f51b-5566-9ed3-ed9d5bebaefe', '5956dcae-8351-5454-be0e-c6d05eb582ca', 'a3455546-475e-53a2-9b66-2f2582784d4f', '7386fddf-29fb-53da-be8b-aa6c29ccd4a3', '146803ef-fe94-5911-83c6-a3d8d609fe6a', 'f97ad7c6-5f3b-5436-a684-62af7d559bf1', 'f5cb494b-5f41-5bc2-8998-b2f459c08c19', '3dc9739f-6e70-5ded-b51f-d43242453e28', 'dbe8d427-ccc5-5398-b1f8-26ead5653c4f', '2c9b8b98-04e3-5f3b-9ad0-d613679763a1', '84d409b8-6874-55e2-baad-70c3d9ca0b97', 'f4456cb5-eba5-5925-9b53-bb8b6b2f4ded', '3f32decd-a21f-5364-9ff2-51fb58bd6ade', '3a44e100-25c4-5b5c-bff7-79071fdc86ae', '6dc582d6-8698-52e1-a43f-45df751a2bd2', '6aaf7df2-aa2a-5abc-99b4-63d92491ceca', '4c83f344-4fc6-528b-ad75-f64acb9e916a', '8daa77a0-ae8d-5f35-aff4-2cda833e53e7', '19c963d4-687d-5ae5-9936-3faef76f4bb5', '404642ba-977e-5b0c-b766-59e027ff951b', '2c2863cc-1d25-5e1c-8281-0616c84947ec', 'd9affb68-e253-5271-b35e-3c0b8488c4b0', 'c1e1534c-188f-5750-a204-686ad4001fe4', '0bfbb16a-6679-565f-9573-e306d6c30409', 'f533fd17-715c-5f6f-bffe-a29bef310af2', '3c1c626d-4fb2-52b5-b3c6-8b211a42e0f9', 'fbd8c935-e981-592c-b6fe-bbfe798e1a87', '41f0d05d-57a8-5380-9c27-c27f7de3119c');
+DELETE FROM course_sections WHERE course_id = '36d5d8be-468e-5eb6-b650-0f5c827cb390' AND id NOT IN ('85bd3d1f-d6a7-55f2-a8f2-52ff1a44d37b', '375a87e0-e417-5b1c-8bc5-3852ed089e52', 'c70cffde-a094-57b7-b0b9-8bbbaa0578e0', 'aa6659d6-a9c3-5d97-b61f-bf8f18a918fb', '1c403d8b-6f9e-5fe3-9443-b75a9f3759b4', '45cb3c88-5b2a-5385-98b6-2763f2717d95', '52756a52-681c-5932-95e7-9e7f879beff3', '8c7e60f0-4e81-55a1-b5d2-e985155f8562', 'b5b0d081-fa01-57fe-860d-388f86b35cd6', 'a6a3c179-127f-5a21-b823-1ddb520e36eb', 'e4330df2-0c59-592e-be64-093765351ea3', '050f01cb-eacf-550f-8789-c0f2b5a3fc5e');
 

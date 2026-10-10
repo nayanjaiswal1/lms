@@ -22,7 +22,8 @@ type StartResult struct {
 }
 
 // StartBuild validates a recipe and queues a build of it (docs/debug-labs.md B3).
-// A verified build for the same recipe hash is reused; an in-flight one is
+// A verified build for the same recipe hash AND lab runtime (image stamp) is
+// reused - a build verified by an older grader is not trusted; an in-flight one is
 // returned as-is; otherwise a new build is queued, subject to the per-instructor
 // daily limit.
 func (s *Service) StartBuild(ctx context.Context, orgID, userID, recipeID string) (*StartResult, error) {
@@ -44,7 +45,11 @@ func (s *Service) StartBuild(ctx context.Context, orgID, userID, recipeID string
 // startBuild is the shared queue path (API and platform sync). limited applies
 // the per-user daily limit.
 func (s *Service) startBuild(ctx context.Context, recipeID, userID string, snap Snapshot, a *labauthor.Analysis, limited bool) (*StartResult, error) {
-	if prev, err := s.repo.LatestBuild(ctx, recipeID, a.RecipeHash); err != nil {
+	runtimeID, err := s.runtimeID(ctx, snap.LabKind)
+	if err != nil {
+		return nil, fmt.Errorf("labbuild.startBuild: %w", err)
+	}
+	if prev, err := s.repo.LatestBuild(ctx, recipeID, a.RecipeHash, runtimeID); err != nil {
 		return nil, fmt.Errorf("labbuild.startBuild: %w", err)
 	} else if prev != nil {
 		switch prev.Status {
@@ -60,7 +65,7 @@ func (s *Service) startBuild(ctx context.Context, recipeID, userID string, snap 
 			return nil, ErrBuildRateLimit
 		}
 	}
-	b, err := s.repo.CreateBuild(ctx, recipeID, a.RecipeHash, snap, a.Difficulty, userID)
+	b, err := s.repo.CreateBuild(ctx, recipeID, a.RecipeHash, runtimeID, snap, a.Difficulty, userID)
 	if errors.Is(err, ErrBuildInFlight) {
 		return &StartResult{Build: b}, nil
 	}
@@ -88,6 +93,10 @@ func (s *Service) GetBuild(ctx context.Context, orgID, buildID string) (*Build, 
 type BuildView struct {
 	*Build
 	Variants []VariantInfo `json:"variants"`
+	// NeedsReverify: the lab image changed since this build was verified. A lab
+	// already published from it keeps working; building the recipe again
+	// re-verifies it against the current runtime.
+	NeedsReverify bool `json:"needs_reverify"`
 }
 
 // VariantInfo is a built variant as the author sees it: its key and the
@@ -111,5 +120,9 @@ func (s *Service) View(ctx context.Context, orgID, buildID string) (*BuildView, 
 	for _, v := range vs {
 		out = append(out, VariantInfo{Key: v.Key, BriefMD: v.BriefMD})
 	}
-	return &BuildView{Build: b, Variants: out}, nil
+	cur, err := s.runtimeID(ctx, b.Snapshot.LabKind)
+	if err != nil {
+		return nil, fmt.Errorf("labbuild.View: %w", err)
+	}
+	return &BuildView{Build: b, Variants: out, NeedsReverify: b.RuntimeID != cur}, nil
 }

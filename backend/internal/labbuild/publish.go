@@ -109,19 +109,25 @@ func (s *Service) publishLab(ctx context.Context, tx pgx.Tx, in publishIn) (*pub
 			return nil, fmt.Errorf("labbuild.Service.publishLab: lock lab: %w", err)
 		case orgID != in.OrgID:
 			return nil, ErrBuildNotFound
+		default:
+			// Labs published before the default existed carry 0 (free hints); 0 is never authored here.
+			if _, err := tx.Exec(ctx, `UPDATE public.lab_definitions SET hint_penalty_pct = $2 WHERE id = $1 AND hint_penalty_pct = 0`,
+				labID, labkinds.DefaultHintPenaltyPct); err != nil {
+				return nil, fmt.Errorf("labbuild.Service.publishLab: default hint penalty: %w", err)
+			}
 		}
 	}
 	if labID == "" {
 		insertID := "gen_random_uuid()"
-		args := []any{in.OrgID, in.Title, kind.Name(), kind.Image(), kind.SetupScript(), defaultMaxDurationMinutes, previewPort, in.UserID, visibility, in.Build.ID}
+		args := []any{in.OrgID, in.Title, kind.Name(), kind.Image(), kind.SetupScript(), defaultMaxDurationMinutes, previewPort, in.UserID, visibility, in.Build.ID, labkinds.DefaultHintPenaltyPct}
 		if in.LabID != "" { // deterministic preview id
-			insertID = "$11"
+			insertID = "$12"
 			args = append(args, in.LabID)
 		}
 		if err := tx.QueryRow(ctx, `
 			INSERT INTO public.lab_definitions (id, org_id, scope, title, lab_type, environment, setup_script, max_duration,
-				preview_port, created_by, library_visibility, is_published, build_id)
-			VALUES (`+insertID+`, $1, 'standalone', $2, $3, $4, $5, $6, $7, $8, $9, false, $10) RETURNING id`, args...).Scan(&labID); err != nil {
+				preview_port, created_by, library_visibility, is_published, build_id, hint_penalty_pct)
+			VALUES (`+insertID+`, $1, 'standalone', $2, $3, $4, $5, $6, $7, $8, $9, false, $10, $11) RETURNING id`, args...).Scan(&labID); err != nil {
 			return nil, fmt.Errorf("labbuild.Service.publishLab: create lab: %w", err)
 		}
 		out.Created = true
@@ -224,7 +230,9 @@ func (s *Service) publishLab(ctx context.Context, tx pgx.Tx, in publishIn) (*pub
 
 // catalogOf derives the catalog tags of a recipe: stack (the app's, else the
 // first non-"any" block stack), category (the first non-app block's, else the
-// app's), effective difficulty, and the union of block skills.
+// app's), effective difficulty, and the skills of the fault blocks (what the lab
+// teaches; app/data/check blocks carry shared plumbing skills that would make
+// every lab look alike). A recipe without fault blocks falls back to all blocks.
 func catalogOf(r *labblock.Recipe, difficulty string) *catalogMeta {
 	c := &catalogMeta{Difficulty: difficulty, Stack: "any"}
 	skills := map[string]bool{}
@@ -239,8 +247,17 @@ func catalogOf(r *labblock.Recipe, difficulty string) *catalogMeta {
 		if c.Category == "" && m.Kind != "app" && m.Category != "" {
 			c.Category = m.Category
 		}
-		for _, sk := range m.Skills {
-			skills[sk] = true
+		if m.Kind == "fault" {
+			for _, sk := range m.Skills {
+				skills[sk] = true
+			}
+		}
+	}
+	if len(skills) == 0 {
+		for _, b := range r.Blocks {
+			for _, sk := range b.Manifest.Skills {
+				skills[sk] = true
+			}
 		}
 	}
 	if c.Category == "" {
