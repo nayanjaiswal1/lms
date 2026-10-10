@@ -118,6 +118,7 @@ func (c *SandboxCloser) Snapshot(ctx context.Context, session *LabSession) {
 			slog.Warn("labs.SandboxCloser: resume before snapshot", "session_id", session.ID, "error", err)
 		}
 	}
+	c.captureIDEActivity(ctx, session)
 	baseline := kind.HintContext(variantViewOf(rec)).BaselineRef
 	if diff := studentDiff(ctx, c.container, *session.ContainerID, baseline); diff != "" {
 		if err := c.repo.SetStudentDiff(ctx, session.ID, diff); err != nil {

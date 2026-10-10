@@ -67,3 +67,26 @@ func TestNormalizeActivity(t *testing.T) {
 		}
 	}
 }
+
+func TestParseIDEActivityLogKeepsOnlyValidEvents(t *testing.T) {
+	raw := strings.Join([]string{
+		`{"type":"file_open","detail":"src/app.py","value":0}`,
+		`not json`,
+		`{"type":"paste","detail":"x","value":120}`,
+		`{"type":"rm_rf","detail":"","value":1}`,
+		`{"type":"file_open","detail":"","value":0}`,
+	}, "\n")
+	got := parseIDEActivityLog(raw)
+	want := []ActivityEventInput{
+		{Type: ActivityFileOpen, Detail: "src/app.py"},
+		{Type: ActivityPaste, Value: 120},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %d events %+v, want %d", len(got), got, len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("event %d = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+}

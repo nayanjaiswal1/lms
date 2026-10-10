@@ -1,0 +1,12 @@
+{
+  "name": "mindforge-activity",
+  "displayName": "MindForge activity",
+  "description": "Records which files are opened and large inserts (likely pastes) into the lab activity log. The platform reads the log when the session closes.",
+  "version": "1.0.0",
+  "publisher": "mindforge",
+  "engines": { "vscode": "^1.90.0" },
+  "main": "./extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "extensionKind": ["workspace"],
+  "categories": ["Other"]
+}
