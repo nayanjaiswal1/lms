@@ -1,9 +1,6 @@
 "use client"
 
-import { useTransition } from "react"
-import { useRouter } from "next/navigation"
 import { Flag, Loader2 } from "lucide-react"
-import { toast } from "sonner"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,10 +13,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { endLabSessionAction } from "@/app/(app)/labs/[labId]/actions"
-import { isLabAuthError } from "@/lib/labs/auth-error"
-import { isLabSessionAlreadyEnded } from "@/lib/labs"
-import ROUTES from "@/lib/routes"
+import { useFinishLab } from "@/hooks/use-finish-lab"
 
 interface DebugFinishBarProps {
   sessionId: string
@@ -34,21 +28,7 @@ interface DebugFinishBarProps {
  * required tasks passed.
  */
 export function DebugFinishBar({ sessionId, enabled, onAuthExpired }: DebugFinishBarProps) {
-  const router = useRouter()
-  const [isFinishing, startFinish] = useTransition()
-
-  function finish() {
-    startFinish(async () => {
-      const res = await endLabSessionAction(sessionId)
-      if (!res.ok && !isLabSessionAlreadyEnded(res.code)) {
-        const message = res.error ?? "Could not finish the lab. Please try again."
-        if (isLabAuthError(res)) onAuthExpired()
-        else toast.error(message)
-        return
-      }
-      router.push(ROUTES.labSessionResult(sessionId))
-    })
-  }
+  const { isFinishing, finish } = useFinishLab(sessionId, onAuthExpired)
 
   return (
     <AlertDialog>

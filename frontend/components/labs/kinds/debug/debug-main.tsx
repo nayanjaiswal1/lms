@@ -7,12 +7,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DebugIdeFrame } from "@/components/labs/kinds/debug/debug-ide-frame"
 import { LabPreviewPane } from "@/components/labs/lab-preview-pane"
 import { useLabIde } from "@/hooks/use-lab-ide"
+import { cn } from "@/lib/utils"
 
 interface DebugMainProps {
   /** Left of the IDE/App tabs: panel toggle + progress. */
-  leading: ReactNode
+  leading?: ReactNode
   /** Right end of the row: Check / Finish. */
-  trailing: ReactNode
+  trailing?: ReactNode
+  /** "mission" is the dense layout of the mission workspace: Code | Live preview, one slim row. */
+  variant?: "classic" | "mission"
   sessionId: string
   labId: string
   idePort: number
@@ -24,23 +27,47 @@ interface DebugMainProps {
  * panes stay mounted (forceMount + hidden) so switching tabs never reloads
  * VS Code or the running app.
  */
-export function DebugMain({ leading, trailing, sessionId, labId, idePort, appPorts }: DebugMainProps) {
+export function DebugMain({
+  leading,
+  trailing,
+  variant = "classic",
+  sessionId,
+  labId,
+  idePort,
+  appPorts,
+}: DebugMainProps) {
   const [appPort, setAppPort] = useState(appPorts[0] ?? 0)
   const [reloadKey, setReloadKey] = useState(0)
   const ide = useLabIde(sessionId, idePort)
+  const mission = variant === "mission"
 
   return (
     <Tabs className="h-full min-h-0 gap-0" defaultValue="ide">
       <div className="flex shrink-0 items-center gap-1 border-b border-border bg-card px-2">
         {leading}
-        <TabsList className="h-10 w-auto gap-1 overflow-visible bg-transparent p-0 sm:w-auto">
-          <TabsTrigger className="h-8 flex-none px-2.5 text-xs lg:min-h-0 lg:min-w-0" value="ide">
+        <TabsList
+          className={cn(
+            "w-auto gap-1 overflow-visible bg-transparent p-0 sm:w-auto",
+            mission ? "h-9" : "h-10",
+          )}
+        >
+          <TabsTrigger
+            className={cn("flex-none px-2.5 text-xs lg:min-h-0 lg:min-w-0", mission ? "h-7" : "h-8")}
+            value="ide"
+          >
             <Code2 aria-hidden className="h-4 w-4" />
-            IDE
+            {mission ? "Code" : "IDE"}
           </TabsTrigger>
-          <TabsTrigger className="h-8 flex-none px-2.5 text-xs lg:min-h-0 lg:min-w-0" value="app">
-            <AppWindow aria-hidden className="h-4 w-4" />
-            App
+          <TabsTrigger
+            className={cn("flex-none px-2.5 text-xs lg:min-h-0 lg:min-w-0", mission ? "h-7" : "h-8")}
+            value="app"
+          >
+            {mission && appPorts.length > 0 ? (
+              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-success" />
+            ) : (
+              <AppWindow aria-hidden className="h-4 w-4" />
+            )}
+            {mission ? "Live preview" : "App"}
           </TabsTrigger>
         </TabsList>
         <div className="ml-auto flex items-center gap-1">
@@ -64,7 +91,9 @@ export function DebugMain({ leading, trailing, sessionId, labId, idePort, appPor
               <span className="max-sm:sr-only">Pop out</span>
             </Button>
           )}
-          <div className="ml-1 flex items-center gap-2 border-l border-border pl-2">{trailing}</div>
+          {trailing && (
+            <div className="ml-1 flex items-center gap-2 border-l border-border pl-2">{trailing}</div>
+          )}
         </div>
       </div>
       <TabsContent

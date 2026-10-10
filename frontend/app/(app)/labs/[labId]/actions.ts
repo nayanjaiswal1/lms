@@ -101,3 +101,10 @@ export async function reviewLabWriteupAction(
     `/api/labs/sessions/${sessionId}/writeup-review`,
   )
 }
+
+// Mission mode: starts the clock (the session keeps its full budget, counted from now).
+export async function startMissionAction(
+  sessionId: string,
+): Promise<ActionResult<{ session: LabSession }>> {
+  return apiAction<{ session: LabSession }>("POST", `/api/labs/sessions/${sessionId}/mission/start`)
+}

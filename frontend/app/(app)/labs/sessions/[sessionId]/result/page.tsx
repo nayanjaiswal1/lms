@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { Breadcrumb } from "@/components/shared/breadcrumb"
 import { LAB_KIND_DEBRIEFS } from "@/components/labs/kinds/debrief-registry"
 import { ClearActiveLabSession } from "@/components/labs/clear-active-lab-session"
+import { ResultActivity } from "@/components/labs/result/result-activity"
 import { ResultChecks } from "@/components/labs/result/result-checks"
 import { ResultHeader } from "@/components/labs/result/result-header"
 import { ResultMissedPoints } from "@/components/labs/result/result-missed-points"
@@ -11,6 +12,8 @@ import { FeedbackPrompt } from "@/components/feedback/feedback-prompt"
 import { apiGet } from "@/lib/server/api"
 import { getMyFeedback } from "@/lib/server/feedback"
 import ROUTES from "@/lib/routes"
+import { DEBUG_UI_MODE } from "@/lib/constants"
+import type { ActivitySummary } from "@/lib/labs/kinds/debug-mission"
 import type { Lab, GetSessionResponse } from "@/lib/labs"
 
 export const metadata: Metadata = {
@@ -24,7 +27,7 @@ interface PageProps {
 
 export default async function LabResultPage({ params }: PageProps) {
   const { sessionId } = await params
-  const { session, task_completions } = await apiGet<GetSessionResponse>(`/api/labs/sessions/${sessionId}`)
+  const { session, task_completions, lab_ui } = await apiGet<GetSessionResponse>(`/api/labs/sessions/${sessionId}`)
 
   if (session.status === "provisioning" || session.status === "running" || session.status === "paused") {
     redirect(ROUTES.labSession(sessionId))
@@ -40,6 +43,11 @@ export default async function LabResultPage({ params }: PageProps) {
   const Debrief = session.status === "completed" ? LAB_KIND_DEBRIEFS[lab.lab_type] : undefined
 
   const myFeedback = await getMyFeedback("lab", session.lab_id).catch(() => null)
+  // Mission attempts (new debug UI) also show what was recorded about them.
+  const activity =
+    lab_ui === DEBUG_UI_MODE.NEW && session.mission_started_at
+      ? await apiGet<ActivitySummary>(`/api/labs/sessions/${sessionId}/activity`).catch(() => null)
+      : null
 
   return (
     <main className="page-container flex max-w-4xl flex-col gap-6 pb-24">
@@ -58,6 +66,7 @@ export default async function LabResultPage({ params }: PageProps) {
       />
       <ResultMissedPoints completions={completions} tasks={lab.tasks} />
       {lab.tasks.length > 0 && <ResultChecks completions={completions} tasks={lab.tasks} />}
+      {activity && <ResultActivity summary={activity} />}
       {Debrief && <Debrief sessionId={sessionId} />}
       <FeedbackPrompt alreadyResponded={myFeedback !== null} subjectId={session.lab_id} subjectType="lab" />
       <ResultNext labId={session.lab_id} />

@@ -1,20 +1,9 @@
 "use client"
 
-import { RotateCcw, LogOut, Trophy, Columns2, Rows2 } from "lucide-react"
+import { LogOut, Trophy, Columns2, Rows2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import {
-  AlertDialog,
-  AlertDialogTrigger,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog"
+import { LabResetButton } from "@/components/labs/lab-reset-button"
 import { LabTimer } from "@/components/labs/lab-timer"
 
 interface LabEnvironmentTopBarProps {
@@ -52,7 +41,6 @@ export function LabEnvironmentTopBar({
   onToggleLayout,
 }: LabEnvironmentTopBarProps) {
   const resetsLeft = maxResets - resetCount
-  const resetLabel = `Reset lab (${resetsLeft} reset${resetsLeft !== 1 ? "s" : ""} left)`
   const busy = isPending || isResetting
 
   return (
@@ -95,45 +83,13 @@ export function LabEnvironmentTopBar({
           {layoutOrientation === "horizontal" ? <Rows2 aria-hidden /> : <Columns2 aria-hidden />}
         </Button>
 
-        {resetsLeft > 0 && (
-          <AlertDialog>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    aria-label={resetLabel}
-                    className="min-h-11 min-w-11 text-muted-foreground hover:text-foreground"
-                    disabled={busy}
-                    size="icon"
-                    variant="ghost"
-                  >
-                    <RotateCcw aria-hidden />
-                  </Button>
-                </AlertDialogTrigger>
-              </TooltipTrigger>
-              <TooltipContent>{resetLabel}</TooltipContent>
-            </Tooltip>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Reset this lab?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  All task completions and your score will be cleared. Your code in the editor will
-                  also reset. This uses one of your {resetsLeft} remaining reset
-                  {resetsLeft !== 1 ? "s" : ""} — this action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  onClick={onReset}
-                >
-                  {isResetting ? "Resetting…" : "Reset Lab"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
+        <LabResetButton
+          busy={busy}
+          className="min-h-11 min-w-11"
+          isResetting={isResetting}
+          resetsLeft={resetsLeft}
+          onReset={onReset}
+        />
 
         <div className="ml-2 border-l border-border pl-3">
           <Button

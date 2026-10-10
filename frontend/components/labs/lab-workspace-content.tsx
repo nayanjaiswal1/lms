@@ -1,7 +1,7 @@
 "use client"
 
 import { KindEmbedNotice } from "@/components/labs/kinds/kind-embed-notice"
-import { LAB_KIND_WORKSPACES } from "@/components/labs/kinds/workspace-registry"
+import { pickKindWorkspace } from "@/components/labs/kinds/workspace-registry"
 import {
   StandardLabWorkspace,
   type LabWorkspaceContentProps,
@@ -20,7 +20,7 @@ export type { LabVerifyBridge } from "@/components/labs/standard-lab-workspace"
  */
 export function LabWorkspaceContent(props: LabWorkspaceContentProps) {
   const { lab, session, kindBlock } = props
-  const KindWorkspace = LAB_KIND_WORKSPACES[lab.lab_type]
+  const KindWorkspace = pickKindWorkspace(lab.lab_type, props.labUi)
 
   if (!KindWorkspace) return <StandardLabWorkspace {...props} />
 
@@ -30,12 +30,15 @@ export function LabWorkspaceContent(props: LabWorkspaceContentProps) {
   return (
     <KindWorkspace
       initialCompletions={props.initialCompletions}
+      isResetting={props.isResetting}
       kindBlock={kindBlock}
       lab={lab}
       resetNonce={props.resetNonce ?? 0}
+      resetsLeft={props.resetsLeft}
       session={session}
       onAuthExpiredChange={props.onAuthExpiredChange}
       onLogin={props.onLogin}
+      onReset={props.onReset}
       onScoreChange={props.onScoreChange}
     />
   )

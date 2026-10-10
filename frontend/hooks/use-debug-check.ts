@@ -104,7 +104,7 @@ export function useDebugCheck({
   // A plain flag, not a transition: the pending state must paint on the click
   // itself, and the ref makes a second click in the same frame a no-op.
   const [isChecking, setIsChecking] = useState(false)
-  const inFlight = useRef(false)
+  const inFlight = useRef<Promise<void> | null>(null)
 
   const requiredPassed = tasks
     .filter((t) => !t.is_optional)
@@ -122,9 +122,16 @@ export function useDebugCheck({
     onScoreChange?.(state.score + scoreAdded)
   }
 
-  async function check() {
-    if (inFlight.current) return
-    inFlight.current = true
+  // A second call while a Check runs joins it (callers can await the outcome).
+  function check(): Promise<void> {
+    if (inFlight.current) return inFlight.current
+    inFlight.current = runCheck().finally(() => {
+      inFlight.current = null
+    })
+    return inFlight.current
+  }
+
+  async function runCheck() {
     setIsChecking(true)
     try {
       const res = await submitWithTimeout(sessionId)
@@ -175,7 +182,6 @@ export function useDebugCheck({
       onScoreChange?.(score)
       if (session_completed) onSessionCompleted()
     } finally {
-      inFlight.current = false
       setIsChecking(false)
     }
   }

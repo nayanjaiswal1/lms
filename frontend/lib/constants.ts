@@ -927,6 +927,21 @@ export const ANALYTICS_STUDENTS_DEFAULT_LIMIT = 25;
 export const ANALYTICS_MAX_LIMIT = 200;
 export const ORG_COURSES_DEFAULT_LIMIT = 20;
 
+// Workspace a debug lab renders, picked per organization (Org settings > Labs).
+// Mirrors labs.DebugUIOld/DebugUINew in backend/internal/labs/mission.go; the
+// backend resolves it per session (GET /sessions/:id -> lab_ui) and defaults to old.
+export const DEBUG_UI_MODE = {
+  OLD: "old",
+  NEW: "new",
+} as const;
+
+export type DebugUiMode = (typeof DEBUG_UI_MODE)[keyof typeof DEBUG_UI_MODE];
+
+export const DEBUG_UI_OPTIONS = [
+  { label: "Classic — ticket and checks in a side panel", value: DEBUG_UI_MODE.OLD },
+  { label: "Mission — timed briefing, rail and activity tracking", value: DEBUG_UI_MODE.NEW },
+] as const;
+
 // Notification preference labels (Settings > Profile > Preferences).
 export const NOTIFICATION_LABELS = {
   weeklyRecap: "Weekly recap email",
