@@ -2,24 +2,178 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-10-09T18:03:13Z
+-- Generated at: 2026-10-10T10:33:17Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: Git: Commits, Branches, Merges, Rebase and Recovery ─────────────────────────────────────────────
 INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, is_free, is_public, estimated_hours)
-VALUES ('ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'Git: Commits, Branches, Merges, Rebase and Recovery', 'git', 'A hands-on Git course taught entirely in real terminals. Every section pairs a short, diagram-led lesson with graded labs that inspect your actual repository: first commits, clones and remotes, branching and merging, resolving conflicts, rebasing (including interactive rebase), undoing and recovering work with restore, reset, revert, reflog, cherry-pick and stash, investigating history with blame, log -S/-G and bisect, and a capstone team workflow against a local origin.', NULL, 'beginner', ARRAY['git','version-control','cli'], 'published', true, false, 6.7)
+VALUES ('ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'Git: Commits, Branches, Merges, Rebase and Recovery', 'git', 'A hands-on Git course taught entirely in real terminals. Every section pairs a short, diagram-led lesson with graded labs that inspect your actual repository: first commits, clones and remotes, branching and merging, resolving conflicts, rebasing (including interactive rebase), undoing and recovering work with restore, reset, revert, reflog, cherry-pick and stash, investigating history with blame, log -S/-G and bisect, and a capstone team workflow against a local origin.', NULL, 'beginner', ARRAY['git','version-control','cli'], 'published', true, false, 7.4)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, is_public=EXCLUDED.is_public, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();
 
 UPDATE course_sections SET position = position + 100000 WHERE course_id = 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44';
 UPDATE course_modules SET position = position + 100000 WHERE course_id = 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44';
 
--- Section: Setup and First Commits
+-- Section: Foundation - Why Git
 INSERT INTO course_sections (id, course_id, title, position, group_title)
-VALUES ('30bd438b-14f7-5688-bfd5-d78aef9b27d3', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Setup and First Commits', 1, NULL)
+VALUES ('0384711a-2cc2-592c-ab3b-3c6fe336cbcc', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Foundation - Why Git', 1, NULL)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('74b2f660-185b-521e-8bba-942899d63e41', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '30bd438b-14f7-5688-bfd5-d78aef9b27d3', 'Init, Stage, Commit, Amend, Ignore', 'notes', 0, $md$## The three areas
+VALUES ('0f965b49-b633-5fb1-82b3-2b65dcf9af2e', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '0384711a-2cc2-592c-ab3b-3c6fe336cbcc', 'The Day You Lose Your Work (and Git Saves It)', 'notes', 0, $md$> **Start with the pain.** You have a report due. You paste the wrong text over it, save, close the editor. The real report is gone. Without version control, that is a bad afternoon. With Git, it is one command - you will do it in the first lab, in under three minutes.
+
+## Why Git exists
+
+Before version control, history lived in file names like `report_final_v2_REAL.docx`. Git records every change, who made it and why, and lets you go back or work on several ideas at once.
+
+```
+ Centralized (SVN)              Distributed (Git)
+ one server holds history       every clone holds ALL history
+ no server = no work            work offline, sync when ready
+```
+
+Your clone is a complete repository, so commits, branches and history work with no network. A server such as GitHub is just another copy the team agrees to share.
+
+[[lab-task:1]]
+
+What you should see after the fix:
+
+```
+$ git status
+On branch main
+nothing to commit, working tree clean
+```
+
+```knowledge-check
+{ "questions": [
+  { "id": "git-foundation-q1", "type": "mcq",
+    "prompt": "You overwrote a tracked file by accident and had committed it earlier. Is the old content lost?",
+    "options": [
+      {"id":"a","text":"Yes, the file is gone for good"},
+      {"id":"b","text":"No, Git still has the committed snapshot and can restore it"},
+      {"id":"c","text":"Only if you have a remote"},
+      {"id":"d","text":"Only if you saved a backup copy"}],
+    "correct": "b",
+    "explanation": "Committed snapshots stay in the repository. git restore brings the file back." }
+] }
+```
+
+## Snapshots with a name
+
+Each commit is a snapshot of the whole project, named by a hash of its content and its parent. That chain of parents is the history, and it is why history cannot be changed silently.
+
+```
+ A <-- B <-- C      each arrow points to the parent
+ first        latest
+```
+
+[[lab-task:2]]
+
+## Branches are cheap
+
+```
+ main        A---B
+                  \
+ experiment        C     <- your risky idea, isolated
+```
+
+A branch is only a pointer to a commit. Try bold ideas on a branch; if they fail, delete it and nothing is lost.
+
+[[lab-task:3]]
+
+```knowledge-check
+{ "questions": [
+  { "id": "git-foundation-q2", "type": "mcq",
+    "prompt": "What is a Git branch?",
+    "options": [
+      {"id":"a","text":"A full copy of all project files"},
+      {"id":"b","text":"A movable pointer to a commit"},
+      {"id":"c","text":"A separate repository"},
+      {"id":"d","text":"A list of changed lines"}],
+    "correct": "b",
+    "explanation": "A branch is a tiny pointer, which is why creating one is instant." }
+] }
+```
+
+> **Next:** you have seen what Git protects you from. Now start for real - on your first day at Brightside, with an empty folder.
+$md$, 20, $json$[{"id":"git-foundation-q1","type":"mcq","correct":"b"},{"id":"git-foundation-q2","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('cc52be6c-09b7-567c-9a9c-e61e072f27ba', '00000000-0000-0000-0000-000000000001', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '0f965b49-b633-5fb1-82b3-2b65dcf9af2e', 'module', 'The Day You Lose Your Work (and Git Saves It)', NULL, 'terminal', 'mindforge/lab-debug:1', 0, $script$umask 000
+git config --system init.defaultBranch main
+git config --system safe.directory '*'
+git config --system user.name "Lab Student"
+git config --system user.email "student@lab.local"
+rm -rf /home/labuser/work/notes /home/labuser/work/first.txt
+mkdir -p /home/labuser/work/notes && cd /home/labuser/work/notes
+git init -q
+export GIT_AUTHOR_DATE="2024-01-01T10:00:00+0000" GIT_COMMITTER_DATE="2024-01-01T10:00:00+0000"
+echo "Quarterly report: revenue up 12 percent" > report.txt
+git add -A; git commit -q -m "Add quarterly report"
+export GIT_AUTHOR_DATE="2024-01-02T10:00:00+0000" GIT_COMMITTER_DATE="2024-01-02T10:00:00+0000"
+echo "TODO: write summary" > summary.txt
+git add -A; git commit -q -m "Add summary stub"
+echo "oops, pasted the wrong thing" > report.txt
+chmod -R a+rwX /home/labuser/work/notes
+$script$, NULL, 30, 3, 0, false, false, NULL, 'console', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, preview_port=EXCLUDED.preview_port, setup_script=EXCLUDED.setup_script, run_script=EXCLUDED.run_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+DELETE FROM lab_task_version_items WHERE task_version_id = '9e9ba1b8-3cd8-58df-a3f2-91061f21f5cf' AND id NOT IN ('8a2dbe40-b5a7-5fbc-930b-d4e63cdd51e3', 'e7569ab1-2fc5-5971-a4c2-ccd13acf78f1', '22b5ed44-c00d-5be6-8151-a8b8760af9f3');
+UPDATE lab_task_version_items SET position = position + 100000 WHERE task_version_id = '9e9ba1b8-3cd8-58df-a3f2-91061f21f5cf';
+DELETE FROM lab_tasks WHERE lab_id = 'cc52be6c-09b7-567c-9a9c-e61e072f27ba' AND id NOT IN ('57aee3ea-1351-5a27-b8c4-cc4ad40e2178', '6aa49c71-9b47-55ef-bbdf-00a36a8cc585', 'e6972c82-98ed-501d-89bc-6270289b3271');
+UPDATE lab_tasks SET position = position + 100000 WHERE lab_id = 'cc52be6c-09b7-567c-9a9c-e61e072f27ba';
+
+INSERT INTO lab_tasks (id, lab_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful)
+VALUES
+('57aee3ea-1351-5a27-b8c4-cc4ad40e2178', 'cc52be6c-09b7-567c-9a9c-e61e072f27ba', 1, 'Rescue the overwritten report', $md$In the notes repository inside your work directory, report.txt was just overwritten by accident and the real report is gone from disk. Bring it back exactly as it was in the last commit.$md$, $script$r=/home/labuser/work/notes
+[ "$(cat $r/report.txt)" = "Quarterly report: revenue up 12 percent" ] &&
+[ -z "$(git -C $r status --porcelain)" ]
+$script$, 'git status will tell you which command restores a file from the last commit.', 'Git keeps every committed snapshot, so an overwritten file is one command from being back. git restore copies the committed version over the working copy.', 10, false, true),
+('6aa49c71-9b47-55ef-bbdf-00a36a8cc585', 'cc52be6c-09b7-567c-9a9c-e61e072f27ba', 2, 'Find where the story began', $md$Find the full hash of the very first commit in the notes repository and write it, alone on one line, into a file called first.txt inside your work directory.$md$, $script$r=/home/labuser/work/notes
+[ "$(tr -d '[:space:]' < /home/labuser/work/first.txt)" = "$(git -C $r rev-list --max-parents=0 HEAD)" ]
+$script$, 'git log --oneline shows short hashes. git log --format=%H prints full ones, and the first commit is the last line.', 'Every commit has a unique hash computed from its content and its parent. The first commit has no parent, so it is the root of the history.', 10, false, true),
+('e6972c82-98ed-501d-89bc-6270289b3271', 'cc52be6c-09b7-567c-9a9c-e61e072f27ba', 3, 'Experiment without fear', $md$Create a branch called experiment, and on it make one commit with the message "Try a bold rewrite" that changes summary.txt. Branch main must stay exactly as it was.$md$, $script$r=/home/labuser/work/notes
+[ "$(git -C $r rev-list --count main)" = 2 ] &&
+[ "$(git -C $r rev-list --count experiment)" = 3 ] &&
+[ "$(git -C $r log -1 --format=%s experiment)" = "Try a bold rewrite" ] &&
+[ "$(git -C $r show main:summary.txt)" = "TODO: write summary" ]
+$script$, 'git switch -c experiment creates and moves to the branch. Edit summary.txt, then add and commit.', 'A branch is just a pointer to a commit, so creating one is instant and free. Your experiment lives on its own line of history and main is untouched.', 15, false, true)
+ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
+
+INSERT INTO lab_task_versions (id, lab_id, version, tasks, published_by)
+VALUES ('9e9ba1b8-3cd8-58df-a3f2-91061f21f5cf', 'cc52be6c-09b7-567c-9a9c-e61e072f27ba', 1, $json$[{"id":"57aee3ea-1351-5a27-b8c4-cc4ad40e2178","lab_id":"cc52be6c-09b7-567c-9a9c-e61e072f27ba","position":1,"title":"Rescue the overwritten report","description":"In the notes repository inside your work directory, report.txt was just overwritten by accident and the real report is gone from disk. Bring it back exactly as it was in the last commit.","verification_script":"r=/home/labuser/work/notes\n[ \"$(cat $r/report.txt)\" = \"Quarterly report: revenue up 12 percent\" ] \u0026\u0026\n[ -z \"$(git -C $r status --porcelain)\" ]\n","hint_context":"git status will tell you which command restores a file from the last commit.","explanation_context":"Git keeps every committed snapshot, so an overwritten file is one command from being back. git restore copies the committed version over the working copy.","points":10,"is_optional":false,"is_stateful":true},{"id":"6aa49c71-9b47-55ef-bbdf-00a36a8cc585","lab_id":"cc52be6c-09b7-567c-9a9c-e61e072f27ba","position":2,"title":"Find where the story began","description":"Find the full hash of the very first commit in the notes repository and write it, alone on one line, into a file called first.txt inside your work directory.","verification_script":"r=/home/labuser/work/notes\n[ \"$(tr -d '[:space:]' \u003c /home/labuser/work/first.txt)\" = \"$(git -C $r rev-list --max-parents=0 HEAD)\" ]\n","hint_context":"git log --oneline shows short hashes. git log --format=%H prints full ones, and the first commit is the last line.","explanation_context":"Every commit has a unique hash computed from its content and its parent. The first commit has no parent, so it is the root of the history.","points":10,"is_optional":false,"is_stateful":true},{"id":"e6972c82-98ed-501d-89bc-6270289b3271","lab_id":"cc52be6c-09b7-567c-9a9c-e61e072f27ba","position":3,"title":"Experiment without fear","description":"Create a branch called experiment, and on it make one commit with the message \"Try a bold rewrite\" that changes summary.txt. Branch main must stay exactly as it was.","verification_script":"r=/home/labuser/work/notes\n[ \"$(git -C $r rev-list --count main)\" = 2 ] \u0026\u0026\n[ \"$(git -C $r rev-list --count experiment)\" = 3 ] \u0026\u0026\n[ \"$(git -C $r log -1 --format=%s experiment)\" = \"Try a bold rewrite\" ] \u0026\u0026\n[ \"$(git -C $r show main:summary.txt)\" = \"TODO: write summary\" ]\n","hint_context":"git switch -c experiment creates and moves to the branch. Edit summary.txt, then add and commit.","explanation_context":"A branch is just a pointer to a commit, so creating one is instant and free. Your experiment lives on its own line of history and main is untouched.","points":15,"is_optional":false,"is_stateful":true}]$json$::jsonb, '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (lab_id, version) DO UPDATE SET tasks=EXCLUDED.tasks, published_by=EXCLUDED.published_by;
+
+INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful)
+VALUES
+('8a2dbe40-b5a7-5fbc-930b-d4e63cdd51e3', '9e9ba1b8-3cd8-58df-a3f2-91061f21f5cf', '57aee3ea-1351-5a27-b8c4-cc4ad40e2178', 1, 'Rescue the overwritten report', $md$In the notes repository inside your work directory, report.txt was just overwritten by accident and the real report is gone from disk. Bring it back exactly as it was in the last commit.$md$, $script$r=/home/labuser/work/notes
+[ "$(cat $r/report.txt)" = "Quarterly report: revenue up 12 percent" ] &&
+[ -z "$(git -C $r status --porcelain)" ]
+$script$, 'git status will tell you which command restores a file from the last commit.', 'Git keeps every committed snapshot, so an overwritten file is one command from being back. git restore copies the committed version over the working copy.', 10, false, true),
+('e7569ab1-2fc5-5971-a4c2-ccd13acf78f1', '9e9ba1b8-3cd8-58df-a3f2-91061f21f5cf', '6aa49c71-9b47-55ef-bbdf-00a36a8cc585', 2, 'Find where the story began', $md$Find the full hash of the very first commit in the notes repository and write it, alone on one line, into a file called first.txt inside your work directory.$md$, $script$r=/home/labuser/work/notes
+[ "$(tr -d '[:space:]' < /home/labuser/work/first.txt)" = "$(git -C $r rev-list --max-parents=0 HEAD)" ]
+$script$, 'git log --oneline shows short hashes. git log --format=%H prints full ones, and the first commit is the last line.', 'Every commit has a unique hash computed from its content and its parent. The first commit has no parent, so it is the root of the history.', 10, false, true),
+('22b5ed44-c00d-5be6-8151-a8b8760af9f3', '9e9ba1b8-3cd8-58df-a3f2-91061f21f5cf', 'e6972c82-98ed-501d-89bc-6270289b3271', 3, 'Experiment without fear', $md$Create a branch called experiment, and on it make one commit with the message "Try a bold rewrite" that changes summary.txt. Branch main must stay exactly as it was.$md$, $script$r=/home/labuser/work/notes
+[ "$(git -C $r rev-list --count main)" = 2 ] &&
+[ "$(git -C $r rev-list --count experiment)" = 3 ] &&
+[ "$(git -C $r log -1 --format=%s experiment)" = "Try a bold rewrite" ] &&
+[ "$(git -C $r show main:summary.txt)" = "TODO: write summary" ]
+$script$, 'git switch -c experiment creates and moves to the branch. Edit summary.txt, then add and commit.', 'A branch is just a pointer to a commit, so creating one is instant and free. Your experiment lives on its own line of history and main is untouched.', 15, false, true)
+ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
+
+UPDATE lab_definitions
+SET is_published = true, published_version_id = '9e9ba1b8-3cd8-58df-a3f2-91061f21f5cf', updated_at = now()
+WHERE id = 'cc52be6c-09b7-567c-9a9c-e61e072f27ba' AND published_version_id IS NULL;
+
+-- Section: Setup and First Commits
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('30bd438b-14f7-5688-bfd5-d78aef9b27d3', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Setup and First Commits', 2, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('74b2f660-185b-521e-8bba-942899d63e41', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '30bd438b-14f7-5688-bfd5-d78aef9b27d3', 'Init, Stage, Commit, Amend, Ignore', 'notes', 0, $md$> **Day 1 at Brightside.** Maya, your tech lead, hands you an empty folder: "Start the hello tool. Commit as you go - the whole team will read this history, so keep it clean." By the end of this section you will have a tidy three-commit history you are not embarrassed to show.
+
+## The three areas
 
 Git tracks your work in three places. Files move between them with explicit commands:
 
@@ -229,6 +383,8 @@ b94e2d1 (HEAD -> main) Update README and script
     "explanation": "The amended commit is a different object. Anyone who already has the old one now has diverging history." }
 ] }
 ```
+
+> **Next:** your history is only on your laptop. Maya needs it on the team server - time to connect.
 $md$, 40, $json$[{"id":"git-first-areas-q1","type":"mcq","correct":"b"},{"id":"git-first-commit-q1","type":"mcq","correct":"b"},{"id":"git-first-ignore-q1","type":"mcq","correct":"b"},{"id":"git-first-diff-q1","type":"mcq","correct":"a"},{"id":"git-first-amend-q1","type":"mcq","correct":"a"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
@@ -330,13 +486,186 @@ UPDATE lab_definitions
 SET is_published = true, published_version_id = 'ff32e128-79ca-5208-a651-3aae00f780d4', updated_at = now()
 WHERE id = 'f5d6201c-312b-5a8a-a6ab-266493edfa55' AND published_version_id IS NULL;
 
--- Section: Clone and Remotes
+-- Section: Connecting to the Team
 INSERT INTO course_sections (id, course_id, title, position, group_title)
-VALUES ('d7c6f575-b087-5a71-9221-aabdc36b6f72', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Clone and Remotes', 2, NULL)
+VALUES ('578c95ce-e505-5625-828c-b7e7a369f64b', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Connecting to the Team', 3, NULL)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('947b350f-4ed2-52fc-a567-1835f9dc5805', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'd7c6f575-b087-5a71-9221-aabdc36b6f72', 'Clone, Fetch, Pull, Push and Tracking Branches', 'notes', 0, $md$## A remote is just another repository
+VALUES ('65110615-38ef-5178-bc97-6e91ff88397c', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '578c95ce-e505-5625-828c-b7e7a369f64b', 'Join the Team Repository - Remotes, SSH and Tokens', 'notes', 0, $md$> **Day 2.** You have a clean local history, but it lives only on your laptop. Maya says: "Join the team repo so I can see your work." That means one thing: connecting to a remote. On a real host (GitHub, GitLab) this is where most beginners get stuck, so this section covers both the commands and the errors you will meet.
+
+## A remote is a name for a URL
+
+`origin` is the default name for wherever you cloned from. It is nothing special.
+
+```bash
+git remote -v
+git remote add backup <url>
+git remote set-url origin <url>
+```
+
+[[lab-task:1]]
+
+What you should see once the URL is right:
+
+```
+$ git remote -v
+origin  /srv/git/team.git (fetch)
+origin  /srv/git/team.git (push)
+```
+
+## Proving who you are
+
+On a real host there are two ways to authenticate:
+
+```
+ HTTPS  https://host/you/project.git     username + personal access token
+                                         (account passwords are not accepted)
+ SSH    git@host:you/project.git         a key pair: the private key stays on
+                                         your machine, the public key goes to the host
+```
+
+Setting up SSH takes four commands:
+
+```bash
+ssh-keygen -t ed25519 -C "you@example.com"   # creates id_ed25519 and id_ed25519.pub
+eval "$(ssh-agent -s)" && ssh-add ~/.ssh/id_ed25519
+cat ~/.ssh/id_ed25519.pub                     # paste into the host's SSH keys page
+ssh -T git@github.com                         # should greet you by name
+```
+
+Never share or commit the private key (the file without `.pub`). For HTTPS, create a personal access token on the host and use it as the password; `git config --global credential.helper store` remembers it.
+
+## When it fails, read the error
+
+```
+ Permission denied (publickey)   public key not added to the host, or key not loaded in ssh-agent
+ Authentication failed           expired/wrong token, or the account password was used
+ Repository not found            URL typo, or no access to a private repo
+```
+
+```knowledge-check
+{ "questions": [
+  { "id": "git-connection-q1", "type": "mcq",
+    "prompt": "You get 'Permission denied (publickey)' when pushing over SSH. What do you check first?",
+    "options": [
+      {"id":"a","text":"That the public key is uploaded to the host and the key is loaded in ssh-agent"},
+      {"id":"b","text":"That the branch is called main"},
+      {"id":"c","text":"That the commit message is short"},
+      {"id":"d","text":"That the repository has a README"}],
+    "correct": "a",
+    "explanation": "The host must know your public key, and your machine must offer the matching private key." },
+  { "id": "git-connection-q2", "type": "mcq",
+    "prompt": "git push over HTTPS says 'Authentication failed' although your account password is correct. Most likely cause?",
+    "options": [
+      {"id":"a","text":"Hosts require a personal access token, not the account password"},
+      {"id":"b","text":"The branch is named main"},
+      {"id":"c","text":"Your commits are too large"},
+      {"id":"d","text":"SSH is also enabled"}],
+    "correct": "a",
+    "explanation": "GitHub and GitLab no longer accept account passwords for Git over HTTPS." }
+] }
+```
+
+## Your first push
+
+```
+ before push                     after git push origin main
+ you   : A---B---C               you   : A---B---C
+ origin: A---B                   origin: A---B---C
+```
+
+[[lab-task:2]]
+
+## More than one remote
+
+[[lab-task:3]]
+
+> **Next:** you are connected and your first commit is on the team server. Now learn the daily loop: clone, fetch, pull and push.
+$md$, 25, $json$[{"id":"git-connection-q1","type":"mcq","correct":"a"},{"id":"git-connection-q2","type":"mcq","correct":"a"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('c34c02e3-aeb7-5608-b7c0-a601eac54d2e', '00000000-0000-0000-0000-000000000001', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '65110615-38ef-5178-bc97-6e91ff88397c', 'module', 'Join the Team Repository - Remotes, SSH and Tokens', NULL, 'terminal', 'mindforge/lab-debug:1', 0, $script$umask 000
+git config --system init.defaultBranch main
+git config --system safe.directory '*'
+git config --system user.name "Lab Student"
+git config --system user.email "student@lab.local"
+rm -rf /srv/git /home/labuser/work/onboarding /tmp/seed
+mkdir -p /srv/git
+git init -q --bare /srv/git/team.git
+git init -q --bare /srv/git/backup.git
+git clone -q /srv/git/team.git /tmp/seed 2>/dev/null
+cd /tmp/seed
+export GIT_AUTHOR_NAME="Maya Lead" GIT_AUTHOR_EMAIL=maya@example.com GIT_COMMITTER_NAME="Maya Lead" GIT_COMMITTER_EMAIL=maya@example.com
+echo "# Brightside Shop" > README.md; git add -A
+GIT_AUTHOR_DATE="2024-01-01T10:00:00+0000" GIT_COMMITTER_DATE="2024-01-01T10:00:00+0000" git commit -q -m "Initial commit"
+git push -q origin main
+cd /; rm -rf /tmp/seed
+git --git-dir=/srv/git/team.git symbolic-ref HEAD refs/heads/main
+git --git-dir=/srv/git/backup.git symbolic-ref HEAD refs/heads/main
+git clone -q /srv/git/team.git /home/labuser/work/onboarding 2>/dev/null
+git -C /home/labuser/work/onboarding remote set-url origin /srv/git/tean.git
+chmod -R a+rwX /srv/git /home/labuser/work/onboarding
+$script$, NULL, 30, 3, 0, false, false, NULL, 'console', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, preview_port=EXCLUDED.preview_port, setup_script=EXCLUDED.setup_script, run_script=EXCLUDED.run_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
+
+DELETE FROM lab_task_version_items WHERE task_version_id = '29967a89-042d-52f1-9f58-17eca219b36c' AND id NOT IN ('55bcc819-d765-540c-8100-3e0d05e7134d', '939bf1f2-60aa-5da3-a413-75f4e73c430b', 'a84da144-7072-54cd-818a-43925e52e1dd');
+UPDATE lab_task_version_items SET position = position + 100000 WHERE task_version_id = '29967a89-042d-52f1-9f58-17eca219b36c';
+DELETE FROM lab_tasks WHERE lab_id = 'c34c02e3-aeb7-5608-b7c0-a601eac54d2e' AND id NOT IN ('17f854d6-9d71-5b44-82bb-b6080627c702', 'ca96d10f-2aba-58fe-a0a1-8fbb9b3f09ec', '35e262f4-b4b6-55c8-ad82-a7e275db2f42');
+UPDATE lab_tasks SET position = position + 100000 WHERE lab_id = 'c34c02e3-aeb7-5608-b7c0-a601eac54d2e';
+
+INSERT INTO lab_tasks (id, lab_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful)
+VALUES
+('17f854d6-9d71-5b44-82bb-b6080627c702', 'c34c02e3-aeb7-5608-b7c0-a601eac54d2e', 1, 'Fix the broken remote', $md$Maya set up your onboarding repository in your work directory, but git fetch fails - the origin URL has a typo. Point origin at the real team repository, /srv/git/team.git.$md$, $script$r=/home/labuser/work/onboarding
+[ "$(git -C $r remote get-url origin)" = /srv/git/team.git ] &&
+git -C $r ls-remote origin >/dev/null 2>&1
+$script$, 'git remote -v shows the current URL, git remote set-url origin <url> changes it. Run git fetch afterwards to confirm it works.', 'A remote is only a name for a URL. When fetch says repository not found, check the URL first - a typo is the most common cause.', 10, false, true),
+('ca96d10f-2aba-58fe-a0a1-8fbb9b3f09ec', 'c34c02e3-aeb7-5608-b7c0-a601eac54d2e', 2, 'Say hello to the team', $md$In onboarding, create welcome.txt containing the line "Hello from the new developer", commit it with the message "Add welcome note", and push it to origin main.$md$, $script$r=/home/labuser/work/onboarding
+[ "$(git --git-dir=/srv/git/team.git show main:welcome.txt)" = "Hello from the new developer" ] &&
+[ "$(git --git-dir=/srv/git/team.git log -1 --format=%s main)" = "Add welcome note" ] &&
+[ "$(git -C $r rev-parse HEAD)" = "$(git --git-dir=/srv/git/team.git rev-parse main)" ]
+$script$, 'Create the file, git add, git commit -m, then git push origin main.', 'A commit exists only locally until you push. After the push, the team repository''s main points at your commit, so Maya can pull it.', 15, false, true),
+('35e262f4-b4b6-55c8-ad82-a7e275db2f42', 'c34c02e3-aeb7-5608-b7c0-a601eac54d2e', 3, 'Add a second remote', $md$A repository can have several remotes. Add a remote called backup that points to /srv/git/backup.git and push main to it.$md$, $script$r=/home/labuser/work/onboarding
+[ "$(git -C $r remote get-url backup)" = /srv/git/backup.git ] &&
+[ "$(git --git-dir=/srv/git/backup.git rev-parse main)" = "$(git -C $r rev-parse main)" ]
+$script$, 'git remote add <name> <url>, then git push backup main.', 'origin is just the default name. Any number of remotes can exist, each a different URL, and you choose which one each push goes to.', 15, false, true)
+ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
+
+INSERT INTO lab_task_versions (id, lab_id, version, tasks, published_by)
+VALUES ('29967a89-042d-52f1-9f58-17eca219b36c', 'c34c02e3-aeb7-5608-b7c0-a601eac54d2e', 1, $json$[{"id":"17f854d6-9d71-5b44-82bb-b6080627c702","lab_id":"c34c02e3-aeb7-5608-b7c0-a601eac54d2e","position":1,"title":"Fix the broken remote","description":"Maya set up your onboarding repository in your work directory, but git fetch fails - the origin URL has a typo. Point origin at the real team repository, /srv/git/team.git.","verification_script":"r=/home/labuser/work/onboarding\n[ \"$(git -C $r remote get-url origin)\" = /srv/git/team.git ] \u0026\u0026\ngit -C $r ls-remote origin \u003e/dev/null 2\u003e\u00261\n","hint_context":"git remote -v shows the current URL, git remote set-url origin \u003curl\u003e changes it. Run git fetch afterwards to confirm it works.","explanation_context":"A remote is only a name for a URL. When fetch says repository not found, check the URL first - a typo is the most common cause.","points":10,"is_optional":false,"is_stateful":true},{"id":"ca96d10f-2aba-58fe-a0a1-8fbb9b3f09ec","lab_id":"c34c02e3-aeb7-5608-b7c0-a601eac54d2e","position":2,"title":"Say hello to the team","description":"In onboarding, create welcome.txt containing the line \"Hello from the new developer\", commit it with the message \"Add welcome note\", and push it to origin main.","verification_script":"r=/home/labuser/work/onboarding\n[ \"$(git --git-dir=/srv/git/team.git show main:welcome.txt)\" = \"Hello from the new developer\" ] \u0026\u0026\n[ \"$(git --git-dir=/srv/git/team.git log -1 --format=%s main)\" = \"Add welcome note\" ] \u0026\u0026\n[ \"$(git -C $r rev-parse HEAD)\" = \"$(git --git-dir=/srv/git/team.git rev-parse main)\" ]\n","hint_context":"Create the file, git add, git commit -m, then git push origin main.","explanation_context":"A commit exists only locally until you push. After the push, the team repository's main points at your commit, so Maya can pull it.","points":15,"is_optional":false,"is_stateful":true},{"id":"35e262f4-b4b6-55c8-ad82-a7e275db2f42","lab_id":"c34c02e3-aeb7-5608-b7c0-a601eac54d2e","position":3,"title":"Add a second remote","description":"A repository can have several remotes. Add a remote called backup that points to /srv/git/backup.git and push main to it.","verification_script":"r=/home/labuser/work/onboarding\n[ \"$(git -C $r remote get-url backup)\" = /srv/git/backup.git ] \u0026\u0026\n[ \"$(git --git-dir=/srv/git/backup.git rev-parse main)\" = \"$(git -C $r rev-parse main)\" ]\n","hint_context":"git remote add \u003cname\u003e \u003curl\u003e, then git push backup main.","explanation_context":"origin is just the default name. Any number of remotes can exist, each a different URL, and you choose which one each push goes to.","points":15,"is_optional":false,"is_stateful":true}]$json$::jsonb, '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (lab_id, version) DO UPDATE SET tasks=EXCLUDED.tasks, published_by=EXCLUDED.published_by;
+
+INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful)
+VALUES
+('55bcc819-d765-540c-8100-3e0d05e7134d', '29967a89-042d-52f1-9f58-17eca219b36c', '17f854d6-9d71-5b44-82bb-b6080627c702', 1, 'Fix the broken remote', $md$Maya set up your onboarding repository in your work directory, but git fetch fails - the origin URL has a typo. Point origin at the real team repository, /srv/git/team.git.$md$, $script$r=/home/labuser/work/onboarding
+[ "$(git -C $r remote get-url origin)" = /srv/git/team.git ] &&
+git -C $r ls-remote origin >/dev/null 2>&1
+$script$, 'git remote -v shows the current URL, git remote set-url origin <url> changes it. Run git fetch afterwards to confirm it works.', 'A remote is only a name for a URL. When fetch says repository not found, check the URL first - a typo is the most common cause.', 10, false, true),
+('939bf1f2-60aa-5da3-a413-75f4e73c430b', '29967a89-042d-52f1-9f58-17eca219b36c', 'ca96d10f-2aba-58fe-a0a1-8fbb9b3f09ec', 2, 'Say hello to the team', $md$In onboarding, create welcome.txt containing the line "Hello from the new developer", commit it with the message "Add welcome note", and push it to origin main.$md$, $script$r=/home/labuser/work/onboarding
+[ "$(git --git-dir=/srv/git/team.git show main:welcome.txt)" = "Hello from the new developer" ] &&
+[ "$(git --git-dir=/srv/git/team.git log -1 --format=%s main)" = "Add welcome note" ] &&
+[ "$(git -C $r rev-parse HEAD)" = "$(git --git-dir=/srv/git/team.git rev-parse main)" ]
+$script$, 'Create the file, git add, git commit -m, then git push origin main.', 'A commit exists only locally until you push. After the push, the team repository''s main points at your commit, so Maya can pull it.', 15, false, true),
+('a84da144-7072-54cd-818a-43925e52e1dd', '29967a89-042d-52f1-9f58-17eca219b36c', '35e262f4-b4b6-55c8-ad82-a7e275db2f42', 3, 'Add a second remote', $md$A repository can have several remotes. Add a remote called backup that points to /srv/git/backup.git and push main to it.$md$, $script$r=/home/labuser/work/onboarding
+[ "$(git -C $r remote get-url backup)" = /srv/git/backup.git ] &&
+[ "$(git --git-dir=/srv/git/backup.git rev-parse main)" = "$(git -C $r rev-parse main)" ]
+$script$, 'git remote add <name> <url>, then git push backup main.', 'origin is just the default name. Any number of remotes can exist, each a different URL, and you choose which one each push goes to.', 15, false, true)
+ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
+
+UPDATE lab_definitions
+SET is_published = true, published_version_id = '29967a89-042d-52f1-9f58-17eca219b36c', updated_at = now()
+WHERE id = 'c34c02e3-aeb7-5608-b7c0-a601eac54d2e' AND published_version_id IS NULL;
+
+-- Section: Clone and Remotes
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('d7c6f575-b087-5a71-9221-aabdc36b6f72', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Clone and Remotes', 4, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('947b350f-4ed2-52fc-a567-1835f9dc5805', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'd7c6f575-b087-5a71-9221-aabdc36b6f72', 'Clone, Fetch, Pull, Push and Tracking Branches', 'notes', 0, $md$> **Connected - now work together.** You can reach the team repository. Maya says: "Pull my latest, add your change, push it back." This section is the daily loop of every developer: clone, fetch, pull, push.
+
+## A remote is just another repository
 
 `origin` is a nickname for a URL (here a bare repository on disk, in real life GitHub or GitLab).
 Your clone keeps a read-only copy of each remote branch as `origin/<name>` (a remote-tracking
@@ -567,6 +896,8 @@ e0b64f9...	refs/heads/feature/search
     "explanation": "-u is short for --set-upstream and writes the tracking configuration." }
 ] }
 ```
+
+> **Next:** you and Maya both want to change the same project at once. Branches let you do that without stepping on each other.
 $md$, 45, $json$[{"id":"git-clone-remote-q1","type":"mcq","correct":"b"},{"id":"git-clone-track-q1","type":"mcq","correct":"a"},{"id":"git-clone-fetch-q1","type":"mcq","correct":"b"},{"id":"git-clone-fetch-q2","type":"mcq","correct":"c"},{"id":"git-clone-pull-q1","type":"mcq","correct":"a"},{"id":"git-clone-publish-q1","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
@@ -706,11 +1037,13 @@ WHERE id = '6c5b265a-1410-5ebf-b84d-e855e2ddd1ab' AND published_version_id IS NU
 
 -- Section: Branching and Merging
 INSERT INTO course_sections (id, course_id, title, position, group_title)
-VALUES ('498e7765-54bf-5ac3-a80c-bab3bb98f650', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Branching and Merging', 3, NULL)
+VALUES ('498e7765-54bf-5ac3-a80c-bab3bb98f650', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Branching and Merging', 5, NULL)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('e7308f90-9b11-586e-a880-349ba6e409b0', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '498e7765-54bf-5ac3-a80c-bab3bb98f650', 'Branches, Fast-Forward and Merge Commits', 'notes', 0, $md$## A branch is a pointer
+VALUES ('e7308f90-9b11-586e-a880-349ba6e409b0', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '498e7765-54bf-5ac3-a80c-bab3bb98f650', 'Branches, Fast-Forward and Merge Commits', 'notes', 0, $md$> **Two people, one codebase.** Maya is mid-release, so she tells you: "Don't touch main. Do your login form on a branch." Branches make that safe and nearly free.
+
+## A branch is a pointer
 
 A branch is a 41-byte file holding a commit hash. `HEAD` says which branch you are on. Creating a
 branch copies a pointer, nothing else.
@@ -913,6 +1246,8 @@ What you should see:
     "explanation": "-d is the safe delete. Use -D only when you are sure the work is disposable." }
 ] }
 ```
+
+> **Next:** you merged your branch - but what happens when Maya changed the same line you did?
 $md$, 40, $json$[{"id":"git-branch-pointer-q1","type":"mcq","correct":"b"},{"id":"git-branch-ff-q1","type":"mcq","correct":"b"},{"id":"git-branch-merge-q1","type":"mcq","correct":"b"},{"id":"git-branch-noff-q1","type":"mcq","correct":"b"},{"id":"git-branch-noff-q2","type":"mcq","correct":"a"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
@@ -1020,11 +1355,13 @@ WHERE id = 'e94f6752-6fb4-5825-8c8b-d36ed06f5eb5' AND published_version_id IS NU
 
 -- Section: Merge Conflicts
 INSERT INTO course_sections (id, course_id, title, position, group_title)
-VALUES ('0bfdc51c-0996-5a60-beac-0ac183d3389c', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Merge Conflicts', 4, NULL)
+VALUES ('0bfdc51c-0996-5a60-beac-0ac183d3389c', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Merge Conflicts', 6, NULL)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('74fb2616-b5a3-50ad-a6ed-381dfce33769', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '0bfdc51c-0996-5a60-beac-0ac183d3389c', 'Reading, Resolving, Aborting and Remembering Conflicts', 'notes', 0, $md$## Why conflicts happen
+VALUES ('74fb2616-b5a3-50ad-a6ed-381dfce33769', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '0bfdc51c-0996-5a60-beac-0ac183d3389c', 'Reading, Resolving, Aborting and Remembering Conflicts', 'notes', 0, $md$> **The scary moment.** Git stops and prints CONFLICT. Most beginners panic here. You will learn that a conflict is just Git asking a question it cannot answer alone - and you will answer it calmly.
+
+## Why conflicts happen
 
 Git merges by comparing each branch to their common ancestor. If only one side changed a line, that
 change wins. If both sides changed the same lines differently, Git stops and asks you.
@@ -1239,6 +1576,8 @@ postimage  preimage
     "explanation": "Each repeat of an identical conflict is resolved automatically from the recorded postimage." }
 ] }
 ```
+
+> **Next:** conflicts are easier when history is tidy. Maya wants your branch rebased before review.
 $md$, 40, $json$[{"id":"git-conflict-why-q1","type":"mcq","correct":"b"},{"id":"git-conflict-markers-q1","type":"mcq","correct":"b"},{"id":"git-conflict-resolve-q1","type":"mcq","correct":"a"},{"id":"git-conflict-resolve-q2","type":"mcq","correct":"a"},{"id":"git-conflict-abort-q1","type":"mcq","correct":"b"},{"id":"git-conflict-rerere-q1","type":"mcq","correct":"a"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
@@ -1378,11 +1717,13 @@ WHERE id = '08fe5130-784d-56e8-ad02-34ff566fe34c' AND published_version_id IS NU
 
 -- Section: Rebase
 INSERT INTO course_sections (id, course_id, title, position, group_title)
-VALUES ('bc66d97b-4855-5638-8fbb-d9d46ae7f1b7', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Rebase', 5, NULL)
+VALUES ('bc66d97b-4855-5638-8fbb-d9d46ae7f1b7', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Rebase', 7, NULL)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('86e78574-a4f8-5c6a-9b7a-7100dd51962d', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'bc66d97b-4855-5638-8fbb-d9d46ae7f1b7', 'Rebase, Interactive Rebase and force-with-lease', 'notes', 0, $md$## Rebase: move a branch onto a new base
+VALUES ('86e78574-a4f8-5c6a-9b7a-7100dd51962d', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'bc66d97b-4855-5638-8fbb-d9d46ae7f1b7', 'Rebase, Interactive Rebase and force-with-lease', 'notes', 0, $md$> **Review day.** Maya asks: "Can you clean up these seven commits into a story a reviewer can follow, and put them on top of the latest main?" That is rebase.
+
+## Rebase: move a branch onto a new base
 
 Merge joins two histories; rebase **replays** your commits on top of another branch. The result
 is a straight line, but your commits get new hashes.
@@ -1598,6 +1939,8 @@ What you should see:
     "explanation": "Rewriting commits others already have forces them to reconcile two versions of history." }
 ] }
 ```
+
+> **Next:** sooner or later you will push something wrong. Good news: almost everything in Git can be undone.
 $md$, 55, $json$[{"id":"git-rebase-basic-q1","type":"mcq","correct":"b"},{"id":"git-rebase-conflict-q1","type":"mcq","correct":"b"},{"id":"git-rebase-interactive-q1","type":"mcq","correct":"a"},{"id":"git-rebase-lease-q1","type":"mcq","correct":"a"},{"id":"git-rebase-lease-q2","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
@@ -1744,11 +2087,13 @@ WHERE id = '3aad60ea-7c5d-53e8-af8f-aec913118978' AND published_version_id IS NU
 
 -- Section: Undo and Recovery
 INSERT INTO course_sections (id, course_id, title, position, group_title)
-VALUES ('7a77d065-f51b-5ec5-9aea-a09bdcfb797c', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Undo and Recovery', 6, NULL)
+VALUES ('7a77d065-f51b-5ec5-9aea-a09bdcfb797c', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Undo and Recovery', 8, NULL)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('a9dbf033-3c13-5141-b45d-b5b6a1e8d407', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '7a77d065-f51b-5ec5-9aea-a09bdcfb797c', 'restore, reset, revert, reflog, cherry-pick and stash', 'notes', 0, $md$## restore: discard or unstage
+VALUES ('a9dbf033-3c13-5141-b45d-b5b6a1e8d407', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '7a77d065-f51b-5ec5-9aea-a09bdcfb797c', 'restore, reset, revert, reflog, cherry-pick and stash', 'notes', 0, $md$> **"I just deleted my work."** Everyone says it once. After this section you will know which undo to reach for, and that the reflog remembers almost everything.
+
+## restore: discard or unstage
 
 `git restore` fixes the working tree and the index without moving any branch.
 
@@ -2032,6 +2377,8 @@ stash@{0}: On main: wip total
     "explanation": "apply is useful when you want to apply the same stash on several branches." }
 ] }
 ```
+
+> **Next:** now the reverse - something is broken on main and nobody knows when it started. Time to be a detective.
 $md$, 60, $json$[{"id":"git-undo-restore-q1","type":"mcq","correct":"a"},{"id":"git-undo-reset-q1","type":"mcq","correct":"a"},{"id":"git-undo-reset-q2","type":"mcq","correct":"c"},{"id":"git-undo-reflog-q1","type":"mcq","correct":"b"},{"id":"git-undo-revert-q1","type":"mcq","correct":"a"},{"id":"git-undo-revert-q2","type":"mcq","correct":"a"},{"id":"git-undo-pick-q1","type":"mcq","correct":"b"},{"id":"git-undo-stash-q1","type":"mcq","correct":"a"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
@@ -2227,11 +2574,13 @@ WHERE id = '04d7844d-96d2-5567-8035-339262255ab7' AND published_version_id IS NU
 
 -- Section: Investigating History
 INSERT INTO course_sections (id, course_id, title, position, group_title)
-VALUES ('462878a1-6134-50d3-953c-444b70b83668', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Investigating History', 7, NULL)
+VALUES ('462878a1-6134-50d3-953c-444b70b83668', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Investigating History', 9, NULL)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('e9c35a89-dd93-5e9a-bcb3-722e6879a5f3', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '462878a1-6134-50d3-953c-444b70b83668', 'blame, log -S/-G, --follow, bisect and show', 'notes', 0, $md$## blame: who wrote this line?
+VALUES ('e9c35a89-dd93-5e9a-bcb3-722e6879a5f3', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '462878a1-6134-50d3-953c-444b70b83668', 'blame, log -S/-G, --follow, bisect and show', 'notes', 0, $md$> **Production is broken.** A test that passed last week now fails. Who changed it, when, and why? Git has the answers - you just need to ask the right command.
+
+## blame: who wrote this line?
 
 `git blame file` prefixes every line with the commit, author and date that last changed it.
 `-L start,end` narrows the range.
@@ -2430,6 +2779,8 @@ bisect found first bad commit
     "explanation": "0 means good, 1 to 127 (except 125 = skip) means bad." }
 ] }
 ```
+
+> **Next:** you have all the pieces. The capstone puts them together in one real team workflow.
 $md$, 50, $json$[{"id":"git-inv-blame-q1","type":"mcq","correct":"a"},{"id":"git-inv-blamewc-q1","type":"mcq","correct":"a"},{"id":"git-inv-blamewc-q2","type":"mcq","correct":"a"},{"id":"git-inv-search-q1","type":"mcq","correct":"b"},{"id":"git-inv-bisect-q1","type":"mcq","correct":"a"},{"id":"git-inv-bisect-q2","type":"mcq","correct":"a"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
@@ -2538,11 +2889,13 @@ WHERE id = 'fa0d802e-7fab-5376-a664-5c4af7a73dd5' AND published_version_id IS NU
 
 -- Section: Capstone - Team Workflow
 INSERT INTO course_sections (id, course_id, title, position, group_title)
-VALUES ('8231161f-ca60-5da8-bf27-4161f81d0844', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Capstone - Team Workflow', 8, NULL)
+VALUES ('8231161f-ca60-5da8-bf27-4161f81d0844', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Capstone - Team Workflow', 10, NULL)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('6d5dda11-b14a-5131-aa88-7b55ea3b1fe0', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '8231161f-ca60-5da8-bf27-4161f81d0844', 'Feature Branch to Release, and Fixing a Bad Commit on main', 'notes', 0, $md$## The workflow we are about to run
+VALUES ('6d5dda11-b14a-5131-aa88-7b55ea3b1fe0', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '8231161f-ca60-5da8-bf27-4161f81d0844', 'Feature Branch to Release, and Fixing a Bad Commit on main', 'notes', 0, $md$> **Your first real release.** No hints about which command to use this time - just the situation, like on the job. Feature branch, review, release, and a bad commit on main to fix.
+
+## The workflow we are about to run
 
 A typical team loop: branch, commit, publish, rebase on the latest main, clean up, merge, tag,
 and (when something slips through) revert. Keep this picture in mind:
@@ -2777,6 +3130,8 @@ OK
     "explanation": "Shared history is append-only; a revert is an ordinary, reviewable commit." }
 ] }
 ```
+
+> **You made it.** Keep the cheat sheet open next to your terminal for the first few weeks.
 $md$, 60, $json$[{"id":"git-cap-flow-q1","type":"mcq","correct":"a"},{"id":"git-cap-publish-q1","type":"mcq","correct":"a"},{"id":"git-cap-rebase-q1","type":"mcq","correct":"a"},{"id":"git-cap-squash-q1","type":"mcq","correct":"a"},{"id":"git-cap-tag-q1","type":"mcq","correct":"a"},{"id":"git-cap-revert-q1","type":"mcq","correct":"a"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
@@ -2950,11 +3305,13 @@ WHERE id = 'dd19c2d2-b23f-540c-a234-9c4126c54766' AND published_version_id IS NU
 
 -- Section: Cheat Sheet
 INSERT INTO course_sections (id, course_id, title, position, group_title)
-VALUES ('0bb14d20-e0f6-573d-b293-2dd7b7d0a02b', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Cheat Sheet', 9, NULL)
+VALUES ('0bb14d20-e0f6-573d-b293-2dd7b7d0a02b', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', 'Cheat Sheet', 11, NULL)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('2462e786-3387-523e-acf7-0bb1e9635c31', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '0bb14d20-e0f6-573d-b293-2dd7b7d0a02b', 'One-Page Git Cheat Sheet', 'notes', 0, $md$Safety legend: **safe** changes nothing you cannot recover, **rewrites** creates new commits and
+VALUES ('2462e786-3387-523e-acf7-0bb1e9635c31', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '0bb14d20-e0f6-573d-b293-2dd7b7d0a02b', 'One-Page Git Cheat Sheet', 'notes', 0, $md$> **Everything you used, on one page.** Keep it open until the commands are muscle memory.
+
+Safety legend: **safe** changes nothing you cannot recover, **rewrites** creates new commits and
 leaves the old ones only in the reflog, **destructive** can lose uncommitted work.
 
 ## Inspect (read-only)
@@ -3106,6 +3463,6 @@ INSERT INTO enrollments (id, user_id, course_id, enrolled_by)
 VALUES ('77fd5af5-36a1-58bd-8e72-f1087ec57d24', '00000000-0000-0000-0000-000000000014', 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (user_id, course_id) DO NOTHING;
 
-DELETE FROM course_modules WHERE course_id = 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44' AND id NOT IN ('74b2f660-185b-521e-8bba-942899d63e41', '947b350f-4ed2-52fc-a567-1835f9dc5805', 'e7308f90-9b11-586e-a880-349ba6e409b0', '74fb2616-b5a3-50ad-a6ed-381dfce33769', '86e78574-a4f8-5c6a-9b7a-7100dd51962d', 'a9dbf033-3c13-5141-b45d-b5b6a1e8d407', 'e9c35a89-dd93-5e9a-bcb3-722e6879a5f3', '6d5dda11-b14a-5131-aa88-7b55ea3b1fe0', '2462e786-3387-523e-acf7-0bb1e9635c31');
-DELETE FROM course_sections WHERE course_id = 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44' AND id NOT IN ('30bd438b-14f7-5688-bfd5-d78aef9b27d3', 'd7c6f575-b087-5a71-9221-aabdc36b6f72', '498e7765-54bf-5ac3-a80c-bab3bb98f650', '0bfdc51c-0996-5a60-beac-0ac183d3389c', 'bc66d97b-4855-5638-8fbb-d9d46ae7f1b7', '7a77d065-f51b-5ec5-9aea-a09bdcfb797c', '462878a1-6134-50d3-953c-444b70b83668', '8231161f-ca60-5da8-bf27-4161f81d0844', '0bb14d20-e0f6-573d-b293-2dd7b7d0a02b');
+DELETE FROM course_modules WHERE course_id = 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44' AND id NOT IN ('0f965b49-b633-5fb1-82b3-2b65dcf9af2e', '74b2f660-185b-521e-8bba-942899d63e41', '65110615-38ef-5178-bc97-6e91ff88397c', '947b350f-4ed2-52fc-a567-1835f9dc5805', 'e7308f90-9b11-586e-a880-349ba6e409b0', '74fb2616-b5a3-50ad-a6ed-381dfce33769', '86e78574-a4f8-5c6a-9b7a-7100dd51962d', 'a9dbf033-3c13-5141-b45d-b5b6a1e8d407', 'e9c35a89-dd93-5e9a-bcb3-722e6879a5f3', '6d5dda11-b14a-5131-aa88-7b55ea3b1fe0', '2462e786-3387-523e-acf7-0bb1e9635c31');
+DELETE FROM course_sections WHERE course_id = 'ece2cd04-2e10-5cb1-a0b5-9eef2950ce44' AND id NOT IN ('0384711a-2cc2-592c-ab3b-3c6fe336cbcc', '30bd438b-14f7-5688-bfd5-d78aef9b27d3', '578c95ce-e505-5625-828c-b7e7a369f64b', 'd7c6f575-b087-5a71-9221-aabdc36b6f72', '498e7765-54bf-5ac3-a80c-bab3bb98f650', '0bfdc51c-0996-5a60-beac-0ac183d3389c', 'bc66d97b-4855-5638-8fbb-d9d46ae7f1b7', '7a77d065-f51b-5ec5-9aea-a09bdcfb797c', '462878a1-6134-50d3-953c-444b70b83668', '8231161f-ca60-5da8-bf27-4161f81d0844', '0bb14d20-e0f6-573d-b293-2dd7b7d0a02b');
 

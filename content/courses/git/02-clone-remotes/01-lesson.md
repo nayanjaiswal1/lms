@@ -4,7 +4,7 @@ id_key: git/clone-remotes/lesson
 course: git
 section: clone-remotes
 section_title: Clone and Remotes
-section_position: 2
+section_position: 4
 title: Clone, Fetch, Pull, Push and Tracking Branches
 position: 0
 estimated_minutes: 45
@@ -162,6 +162,8 @@ lab:
         git commit -m "Add search stub"
         git push -u origin feature/search
 ---
+
+> **Connected - now work together.** You can reach the team repository. Maya says: "Pull my latest, add your change, push it back." This section is the daily loop of every developer: clone, fetch, pull, push.
 
 ## A remote is just another repository
 
@@ -394,3 +396,5 @@ e0b64f9...	refs/heads/feature/search
     "explanation": "-u is short for --set-upstream and writes the tracking configuration." }
 ] }
 ```
+
+> **Next:** you and Maya both want to change the same project at once. Branches let you do that without stepping on each other.

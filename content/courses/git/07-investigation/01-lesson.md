@@ -4,7 +4,7 @@ id_key: git/investigation/lesson
 course: git
 section: investigation
 section_title: Investigating History
-section_position: 7
+section_position: 9
 title: blame, log -S/-G, --follow, bisect and show
 position: 0
 estimated_minutes: 50
@@ -162,6 +162,8 @@ lab:
         e=$(git show -s --format=%ae "$(cat ~/work/culprit.txt)")
         printf 'culprit_email=%s\n' "$e" >> ~/work/answers.txt
 ---
+
+> **Production is broken.** A test that passed last week now fails. Who changed it, when, and why? Git has the answers - you just need to ask the right command.
 
 ## blame: who wrote this line?
 
@@ -362,3 +364,5 @@ bisect found first bad commit
     "explanation": "0 means good, 1 to 127 (except 125 = skip) means bad." }
 ] }
 ```
+
+> **Next:** you have all the pieces. The capstone puts them together in one real team workflow.

@@ -4,7 +4,7 @@ id_key: git/undo-recovery/lesson
 course: git
 section: undo-recovery
 section_title: Undo and Recovery
-section_position: 6
+section_position: 8
 title: restore, reset, revert, reflog, cherry-pick and stash
 position: 0
 estimated_minutes: 60
@@ -252,6 +252,8 @@ lab:
         cd ~/work/ledger
         git stash pop
 ---
+
+> **"I just deleted my work."** Everyone says it once. After this section you will know which undo to reach for, and that the reflog remembers almost everything.
 
 ## restore: discard or unstage
 
@@ -537,3 +539,5 @@ stash@{0}: On main: wip total
     "explanation": "apply is useful when you want to apply the same stash on several branches." }
 ] }
 ```
+
+> **Next:** now the reverse - something is broken on main and nobody knows when it started. Time to be a detective.

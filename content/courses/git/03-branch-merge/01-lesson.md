@@ -4,7 +4,7 @@ id_key: git/branch-merge/lesson
 course: git
 section: branch-merge
 section_title: Branching and Merging
-section_position: 3
+section_position: 5
 title: Branches, Fast-Forward and Merge Commits
 position: 0
 estimated_minutes: 40
@@ -127,6 +127,8 @@ lab:
         cd ~/work/shop
         git branch -d feature/greeting feature/cart feature/footer
 ---
+
+> **Two people, one codebase.** Maya is mid-release, so she tells you: "Don't touch main. Do your login form on a branch." Branches make that safe and nearly free.
 
 ## A branch is a pointer
 
@@ -331,3 +333,5 @@ What you should see:
     "explanation": "-d is the safe delete. Use -D only when you are sure the work is disposable." }
 ] }
 ```
+
+> **Next:** you merged your branch - but what happens when Maya changed the same line you did?

@@ -4,7 +4,7 @@ id_key: git/rebase/lesson
 course: git
 section: rebase
 section_title: Rebase
-section_position: 5
+section_position: 7
 title: Rebase, Interactive Rebase and force-with-lease
 position: 0
 estimated_minutes: 55
@@ -182,6 +182,8 @@ lab:
         git push || true
         git push --force-with-lease origin feature/profile
 ---
+
+> **Review day.** Maya asks: "Can you clean up these seven commits into a story a reviewer can follow, and put them on top of the latest main?" That is rebase.
 
 ## Rebase: move a branch onto a new base
 
@@ -399,3 +401,5 @@ What you should see:
     "explanation": "Rewriting commits others already have forces them to reconcile two versions of history." }
 ] }
 ```
+
+> **Next:** sooner or later you will push something wrong. Good news: almost everything in Git can be undone.
