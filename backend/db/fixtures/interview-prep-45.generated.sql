@@ -2,7 +2,7 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-10-01T19:33:21Z
+-- Generated at: 2026-10-10T10:57:50Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: 45-Day Interview Preparation Bootcamp ─────────────────────────────────────────────

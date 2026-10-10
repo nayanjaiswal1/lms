@@ -2,18 +2,21 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-07-25T19:01:01Z
+-- Generated at: 2026-10-10T10:57:55Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: SQL Mastery: From Scratch to Interview-Ready ─────────────────────────────────────────────
-INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, is_free, estimated_hours)
-VALUES ('a4531b49-7973-5e3f-8659-8fcae686dbdd', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'SQL Mastery: From Scratch to Interview-Ready', 'sql-mastery', 'A comprehensive, hands-on SQL course built around a single running example — a small library database (books, authors, genres, members, loans). Every lesson ships runnable "Try it Yourself" query boxes powered by an in-browser SQLite engine, so you write and execute real SQL with zero setup. Covers querying, filtering, aggregation, every join type, data modification, subqueries, schema design and constraints, dates, and a final section of classic interview query patterns (Nth highest value, duplicates, running counts) with a mixed-topic assessment.', '/course-covers/sql-mastery.svg', 'beginner', ARRAY['sql','databases','interview-prep'], 'published', true, 9.4)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();
+INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, is_free, is_public, estimated_hours)
+VALUES ('a4531b49-7973-5e3f-8659-8fcae686dbdd', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'SQL Mastery: From Scratch to Interview-Ready', 'sql-mastery', 'A comprehensive, hands-on SQL course built around a single running example — a small library database (books, authors, genres, members, loans). Every lesson ships runnable "Try it Yourself" query boxes powered by an in-browser SQLite engine, so you write and execute real SQL with zero setup. Covers querying, filtering, aggregation, every join type, data modification, subqueries, schema design and constraints, dates, and a final section of classic interview query patterns (Nth highest value, duplicates, running counts) with a mixed-topic assessment.', '/course-covers/sql-mastery.svg', 'beginner', ARRAY['sql','databases','interview-prep'], 'published', true, false, 9.4)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, is_public=EXCLUDED.is_public, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();
+
+UPDATE course_sections SET position = position + 100000 WHERE course_id = 'a4531b49-7973-5e3f-8659-8fcae686dbdd';
+UPDATE course_modules SET position = position + 100000 WHERE course_id = 'a4531b49-7973-5e3f-8659-8fcae686dbdd';
 
 -- Section: Getting Started
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('ec8706bf-ebe9-5b3b-b724-5dd325900479', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Getting Started', 1)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('ec8706bf-ebe9-5b3b-b724-5dd325900479', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Getting Started', 1, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('2cad97e4-5913-5521-a963-b8500d72e23c', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'ec8706bf-ebe9-5b3b-b724-5dd325900479', 'What SQL Is, and Your First Queries', 'notes', 0, $md$SQL (Structured Query Language) is how you talk to a relational database — a database that stores data in **tables**, where each table is a grid of **rows** (records) and **columns** (fields). Every example in this course runs against the same small database: a library with five tables — `genres`, `authors`, `books`, `members`, and `loans` — so once you understand the shape of that data, every new SQL concept just becomes a new way of asking questions about it.
@@ -146,7 +149,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('d4cdd6e0-4a7f-559e-8340-240c611e1372', '00000000-0000-0000-0000-000000000001', 'mcq', 'What does SQL stand for?', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('0be442ce-1038-5ebe-b2d5-886f8b4b2350', 'd4cdd6e0-4a7f-559e-8340-240c611e1372', 1, $json${"prompt":"What does SQL stand for?","multiple":false,"options":[{"id":"a","text":"Structured Query Language","is_correct":true},{"id":"b","text":"Sequential Query Logic","is_correct":false},{"id":"c","text":"System Query List","is_correct":false},{"id":"d","text":"Standard Query Layer","is_correct":false}],"explanation":"SQL stands for Structured Query Language — the standard language for interacting with relational databases."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -154,7 +157,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('aaa99c2b-1bec-5136-9d88-c867a6dd7ca4', '00000000-0000-0000-0000-000000000001', 'mcq', 'Why do real applications usually avoid `SELECT *` in favor of naming exact co...', 'beginner', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('f5891ed2-7035-5031-9aab-33508de76057', 'aaa99c2b-1bec-5136-9d88-c867a6dd7ca4', 1, $json${"prompt":"Why do real applications usually avoid `SELECT *` in favor of naming exact columns?","multiple":false,"options":[{"id":"a","text":"SELECT * is invalid SQL syntax","is_correct":false},{"id":"b","text":"Naming columns explicitly is more explicit and doesn't silently change if the table's columns change later","is_correct":true},{"id":"c","text":"SELECT * only works on tables with a primary key","is_correct":false},{"id":"d","text":"SELECT * cannot be combined with WHERE","is_correct":false}],"explanation":"SELECT * is valid and fine for quick exploration, but naming columns explicitly keeps queries predictable as schemas evolve."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -162,7 +165,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('c6c8600f-a912-5e47-9c8f-eb629a5cff85', '00000000-0000-0000-0000-000000000001', 'mcq', 'Given `SELECT DISTINCT author_id, genre_id FROM books;`, which rows are colla...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('d024dae1-d950-5bc4-97d0-6d6c6df7f461', 'c6c8600f-a912-5e47-9c8f-eb629a5cff85', 1, $json${"prompt":"Given `SELECT DISTINCT author_id, genre_id FROM books;`, which rows are collapsed together?","multiple":false,"options":[{"id":"a","text":"Rows where author_id matches, regardless of genre_id","is_correct":false},{"id":"b","text":"Rows where genre_id matches, regardless of author_id","is_correct":false},{"id":"c","text":"Rows where both author_id AND genre_id match","is_correct":true},{"id":"d","text":"DISTINCT cannot be used with more than one column","is_correct":false}],"explanation":"DISTINCT applies to the combination of every selected column — two rows are only collapsed if they match on all of them."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -170,7 +173,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('754da70f-81fa-59da-9cb8-2572a609a313', '00000000-0000-0000-0000-000000000001', 'mcq', 'Which keyword limits the number of rows returned in SQLite, MySQL, and Postgr...', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('31a6e781-3ea7-5a57-8e1d-8c0adbba1d64', '754da70f-81fa-59da-9cb8-2572a609a313', 1, $json${"prompt":"Which keyword limits the number of rows returned in SQLite, MySQL, and PostgreSQL?","multiple":false,"options":[{"id":"a","text":"TOP","is_correct":false},{"id":"b","text":"LIMIT","is_correct":true},{"id":"c","text":"FETCH FIRST","is_correct":false},{"id":"d","text":"ROWNUM","is_correct":false}],"explanation":"LIMIT is used by SQLite, MySQL, and PostgreSQL. SQL Server uses TOP instead — same idea, different keyword."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -178,7 +181,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('e6386e47-446f-5f73-882a-25e7552e74d1', '00000000-0000-0000-0000-000000000001', 'mcq', 'In the loans table, what does a NULL return_date mean?', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('e951b7b8-711d-5c7d-9dbc-c788c6203a98', 'e6386e47-446f-5f73-882a-25e7552e74d1', 1, $json${"prompt":"In the loans table, what does a NULL return_date mean?","multiple":false,"options":[{"id":"a","text":"The loan record is corrupted","is_correct":false},{"id":"b","text":"The book has never been borrowed","is_correct":false},{"id":"c","text":"The book was borrowed and hasn't been returned yet","is_correct":true},{"id":"d","text":"The book was returned on the same day it was borrowed","is_correct":false}],"explanation":"A NULL return_date represents an open loan — the book is still checked out."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -187,6 +190,8 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 INSERT INTO assessments (id, org_id, title, slug, description, type, status, parent_type, parent_id, duration_minutes, pass_percentage, max_attempts, total_points, shuffle_questions, shuffle_options, allow_backtrack, show_results, created_by, published_at)
 VALUES ('265e7683-4152-5e8e-81a4-d9952197b04a', '00000000-0000-0000-0000-000000000001', 'Quiz: SQL Basics', 'sql-mastery-getting-started-quiz', 'Quiz covering Getting Started.', 'mcq', 'published', 'module', '5f9f9b49-bfb7-5ee4-ada0-1c9e750bf37d', 10, 70, 5, 8, true, true, true, true, '00000000-0000-0000-0000-000000000012', now())
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, type=EXCLUDED.type, duration_minutes=EXCLUDED.duration_minutes, pass_percentage=EXCLUDED.pass_percentage, total_points=EXCLUDED.total_points, updated_at=now();
+
+DELETE FROM assessment_questions WHERE assessment_id = '265e7683-4152-5e8e-81a4-d9952197b04a' AND question_id NOT IN ('d4cdd6e0-4a7f-559e-8340-240c611e1372', 'aaa99c2b-1bec-5136-9d88-c867a6dd7ca4', 'c6c8600f-a912-5e47-9c8f-eb629a5cff85', '754da70f-81fa-59da-9cb8-2572a609a313', 'e6386e47-446f-5f73-882a-25e7552e74d1');
 
 INSERT INTO assessment_questions (id, assessment_id, question_id, version_id, position, points)
 VALUES
@@ -202,9 +207,9 @@ VALUES ('5f9f9b49-bfb7-5ee4-ada0-1c9e750bf37d', 'a4531b49-7973-5e3f-8659-8fcae68
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Filtering & Sorting
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('0b221161-76a6-53d8-97fe-3b8d48a4d523', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Filtering & Sorting', 2)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('0b221161-76a6-53d8-97fe-3b8d48a4d523', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Filtering & Sorting', 2, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('d643f99a-51b6-5b0c-86ed-a5d19cfe5c37', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '0b221161-76a6-53d8-97fe-3b8d48a4d523', 'Filtering Rows with WHERE and Sorting with ORDER BY', 'notes', 0, $md$So far every query has returned *every* row in a table. Real questions are narrower — "which books cost less than $12," "which members joined from Paris." `WHERE` picks rows; `ORDER BY` decides what order they come back in. Both work on the same library schema from the last lesson.
@@ -401,7 +406,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('93920a9b-269f-5faa-a1db-0f48e98b8b7e', '00000000-0000-0000-0000-000000000001', 'mcq', 'What does a WHERE clause do?', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('1afd500e-fd6c-567c-8d19-b1ce81786e1e', '93920a9b-269f-5faa-a1db-0f48e98b8b7e', 1, $json${"prompt":"What does a WHERE clause do?","multiple":false,"options":[{"id":"a","text":"Sorts the result set","is_correct":false},{"id":"b","text":"Keeps only the rows where the condition evaluates to true","is_correct":true},{"id":"c","text":"Removes duplicate rows","is_correct":false},{"id":"d","text":"Renames a column in the output","is_correct":false}],"explanation":"WHERE filters rows before they're returned — only rows matching the condition make it into the result."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -409,7 +414,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('125b2e31-31de-53e7-8e3a-5ab2fe3c6a80', '00000000-0000-0000-0000-000000000001', 'mcq', 'Given `SELECT title FROM books WHERE genre_id = 3 AND stock > 0;`, how many r...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('80856825-e2b7-5cd2-90f8-b18c13bab3c5', '125b2e31-31de-53e7-8e3a-5ab2fe3c6a80', 1, $json${"prompt":"Given `SELECT title FROM books WHERE genre_id = 3 AND stock \u003e 0;`, how many rows does this return? (Genre 3 has three books: Kingdom of Ash Roses with stock 0, The Last Alchemist with stock 1, and Ash Roses: The Sequel with stock 0.)","multiple":false,"options":[{"id":"a","text":"0","is_correct":false},{"id":"b","text":"1","is_correct":true},{"id":"c","text":"2","is_correct":false},{"id":"d","text":"3","is_correct":false}],"explanation":"AND requires both conditions to hold. Only The Last Alchemist is genre 3 AND has stock greater than 0 — the other two Fantasy titles are out of stock."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -417,7 +422,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('57a9b49e-52da-557f-89e8-fe3053408e36', '00000000-0000-0000-0000-000000000001', 'mcq', 'Why does `WHERE referred_by = NULL` always return zero rows, even though seve...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('02ea0215-9d52-5dec-824f-99e9c170d45f', '57a9b49e-52da-557f-89e8-fe3053408e36', 1, $json${"prompt":"Why does `WHERE referred_by = NULL` always return zero rows, even though several members have a NULL referred_by?","multiple":false,"options":[{"id":"a","text":"NULL comparisons always evaluate to unknown, not true, so WHERE never keeps the row — you need IS NULL instead","is_correct":true},{"id":"b","text":"referred_by is never actually NULL in the members table","is_correct":false},{"id":"c","text":"= NULL is invalid SQL syntax and the query fails to run","is_correct":false},{"id":"d","text":"NULL only works with the IN operator","is_correct":false},{"id":"e","text":"SQLite treats NULL as the number 0, which never matches an explicit NULL","is_correct":false}],"explanation":"NULL represents an unknown value, so any = comparison involving it is also unknown — never true. IS NULL / IS NOT NULL are the only correct way to test for it."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -425,7 +430,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('fdd71073-a42e-58c1-a671-39c55af874ff', '00000000-0000-0000-0000-000000000001', 'mcq', 'Given `SELECT name, city FROM members WHERE city LIKE ''P_r%'';`, which members...', 'advanced', 3, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('12ccf7b6-be1f-50dd-907c-9fdd42ae8847', 'fdd71073-a42e-58c1-a671-39c55af874ff', 1, $json${"prompt":"Given `SELECT name, city FROM members WHERE city LIKE 'P_r%';`, which members are returned? (Cities in the data: Lisbon, Lagos, Paris, Mumbai, Stockholm, Kabul, Seoul, Osaka, Porto, Berlin.)","multiple":false,"options":[{"id":"a","text":"Only the member from Paris","is_correct":false},{"id":"b","text":"Only the member from Porto","is_correct":false},{"id":"c","text":"The members from Paris and Porto","is_correct":true},{"id":"d","text":"No members — the pattern doesn't match any city","is_correct":false}],"explanation":"'P_r%' means P, then exactly one character, then r, then anything. Both Paris (P-a-r-is) and Porto (P-o-r-to) fit — the underscore doesn't care what that middle letter is."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -433,7 +438,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('3398bdf3-fb42-564c-b9a6-01680ee06a6e', '00000000-0000-0000-0000-000000000001', 'mcq', 'Is BETWEEN inclusive or exclusive of its two boundary values?', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('607a10b5-4e99-5c06-a7ea-5a4435aa367b', '3398bdf3-fb42-564c-b9a6-01680ee06a6e', 1, $json${"prompt":"Is BETWEEN inclusive or exclusive of its two boundary values?","multiple":false,"options":[{"id":"a","text":"Inclusive — both boundary values are included in the match","is_correct":true},{"id":"b","text":"Exclusive — only values strictly between the boundaries match","is_correct":false},{"id":"c","text":"Inclusive of the lower bound only","is_correct":false},{"id":"d","text":"Inclusive of the upper bound only","is_correct":false}],"explanation":"BETWEEN 2018 AND 2020 matches 2018, 2019, and 2020 — both endpoints are included."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -441,7 +446,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('c98ef282-2ec4-5206-9c9e-5f21fad705e4', '00000000-0000-0000-0000-000000000001', 'mcq', 'In `ORDER BY genre_id ASC, price DESC`, what determines the final row order?', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('56fd8ffd-f7a4-5709-811a-374bde053235', 'c98ef282-2ec4-5206-9c9e-5f21fad705e4', 1, $json${"prompt":"In `ORDER BY genre_id ASC, price DESC`, what determines the final row order?","multiple":false,"options":[{"id":"a","text":"Only price DESC matters — genre_id is ignored","is_correct":false},{"id":"b","text":"Rows are sorted by genre_id ascending first; within each matching genre_id, price DESC breaks the tie","is_correct":true},{"id":"c","text":"The two columns are averaged together to produce a single sort key","is_correct":false},{"id":"d","text":"SQLite raises an error — ORDER BY only accepts one column","is_correct":false}],"explanation":"Multi-column ORDER BY sorts by the first column, then uses the next column(s) to break ties among rows that share the same value in the first."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -450,6 +455,8 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 INSERT INTO assessments (id, org_id, title, slug, description, type, status, parent_type, parent_id, duration_minutes, pass_percentage, max_attempts, total_points, shuffle_questions, shuffle_options, allow_backtrack, show_results, created_by, published_at)
 VALUES ('8d86744c-4b2d-52e3-93a4-8b26bd426ca9', '00000000-0000-0000-0000-000000000001', 'Quiz: Filtering & Sorting', 'sql-mastery-filtering-quiz', 'Quiz covering Filtering & Sorting.', 'mcq', 'published', 'module', 'd7d96d37-94e8-595d-8f1b-a71051b62112', 10, 70, 5, 11, true, true, true, true, '00000000-0000-0000-0000-000000000012', now())
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, type=EXCLUDED.type, duration_minutes=EXCLUDED.duration_minutes, pass_percentage=EXCLUDED.pass_percentage, total_points=EXCLUDED.total_points, updated_at=now();
+
+DELETE FROM assessment_questions WHERE assessment_id = '8d86744c-4b2d-52e3-93a4-8b26bd426ca9' AND question_id NOT IN ('93920a9b-269f-5faa-a1db-0f48e98b8b7e', '125b2e31-31de-53e7-8e3a-5ab2fe3c6a80', '57a9b49e-52da-557f-89e8-fe3053408e36', 'fdd71073-a42e-58c1-a671-39c55af874ff', '3398bdf3-fb42-564c-b9a6-01680ee06a6e', 'c98ef282-2ec4-5206-9c9e-5f21fad705e4');
 
 INSERT INTO assessment_questions (id, assessment_id, question_id, version_id, position, points)
 VALUES
@@ -466,9 +473,9 @@ VALUES ('d7d96d37-94e8-595d-8f1b-a71051b62112', 'a4531b49-7973-5e3f-8659-8fcae68
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Aggregation
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('9e77b8f4-1f70-5617-a4bc-37d4711c0a5c', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Aggregation', 3)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('9e77b8f4-1f70-5617-a4bc-37d4711c0a5c', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Aggregation', 3, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('83058bf6-1aac-56a9-b00b-879371fbe42e', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '9e77b8f4-1f70-5617-a4bc-37d4711c0a5c', 'Aggregate Functions and GROUP BY', 'notes', 0, $md$Filtering picks rows. **Aggregation** turns many rows into a single summary number — "how many books do we have," "what's the average price," "how many books per genre." That last kind of question needs `GROUP BY`, which is where aggregation gets genuinely powerful.
@@ -598,7 +605,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('707522fd-8d79-5f6a-8773-07883ead30b2', '00000000-0000-0000-0000-000000000001', 'mcq', 'What does `SELECT COUNT(*) FROM books;` return, given the library has 15 books?', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('15ca628e-4311-56ef-b5e3-90bd7b24ac82', '707522fd-8d79-5f6a-8773-07883ead30b2', 1, $json${"prompt":"What does `SELECT COUNT(*) FROM books;` return, given the library has 15 books?","multiple":false,"options":[{"id":"a","text":"15 rows, each with the value 1","is_correct":false},{"id":"b","text":"One row with the single value 15","is_correct":true},{"id":"c","text":"The value 15 repeated for every column","is_correct":false},{"id":"d","text":"An error, because COUNT requires a column name","is_correct":false}],"explanation":"COUNT(*) collapses the whole table into a single summary row containing the row count."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -606,7 +613,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('8f1d4599-87ce-5549-abb5-343acedcbd61', '00000000-0000-0000-0000-000000000001', 'mcq', 'Why can''t `WHERE COUNT(*) > 2` be used to keep only genres with more than 2 b...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('1318a667-3c3d-5ba4-a794-64584e59f0aa', '8f1d4599-87ce-5549-abb5-343acedcbd61', 1, $json${"prompt":"Why can't `WHERE COUNT(*) \u003e 2` be used to keep only genres with more than 2 books, while `HAVING COUNT(*) \u003e 2` works?","multiple":false,"options":[{"id":"a","text":"WHERE runs before grouping happens, so the aggregate COUNT(*) doesn't exist yet at that point — HAVING runs after grouping and can reference it","is_correct":true},{"id":"b","text":"WHERE and HAVING are just two different names for the exact same clause","is_correct":false},{"id":"c","text":"COUNT(*) can only ever be used in a SELECT list, never in a filter","is_correct":false},{"id":"d","text":"WHERE only works on TEXT columns, not on aggregate results","is_correct":false}],"explanation":"WHERE filters individual rows before GROUP BY runs. HAVING filters the groups that GROUP BY produces, so it's the only clause that can test an aggregate's result."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -614,7 +621,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('cc457641-c638-55c8-bcd1-c3b0a2d87a1b', '00000000-0000-0000-0000-000000000001', 'mcq', 'Given `SELECT genre_id, COUNT(*) AS num_books FROM books GROUP BY genre_id HA...', 'advanced', 3, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('9db6cfef-f3a4-5dcb-91fe-c178f79aa54d', 'cc457641-c638-55c8-bcd1-c3b0a2d87a1b', 1, $json${"prompt":"Given `SELECT genre_id, COUNT(*) AS num_books FROM books GROUP BY genre_id HAVING COUNT(*) \u003e 2;` — the library has 4 Fiction books, 2 Science Fiction, 3 Fantasy, 2 Mystery, 2 Non-Fiction, and 2 Biography — how many rows does this return?","multiple":false,"options":[{"id":"a","text":"6 — one for every genre","is_correct":false},{"id":"b","text":"2 — Fiction (4 books) and Fantasy (3 books)","is_correct":true},{"id":"c","text":"1 — only Fiction, the largest genre","is_correct":false},{"id":"d","text":"0 — no genre has more than 2 books","is_correct":false}],"explanation":"Only Fiction (4) and Fantasy (3) have more than 2 books; the other four genres, each with exactly 2, are filtered out by HAVING."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -622,7 +629,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('b23daebf-fae1-51d1-83af-0c6dd36de1d4', '00000000-0000-0000-0000-000000000001', 'mcq', 'Which book does `SELECT title FROM books ORDER BY price DESC LIMIT 1;` return...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('76b2e127-1289-599b-8ff3-188b7d78383b', 'b23daebf-fae1-51d1-83af-0c6dd36de1d4', 1, $json${"prompt":"Which book does `SELECT title FROM books ORDER BY price DESC LIMIT 1;` return, and how does that relate to MAX(price)?","multiple":false,"options":[{"id":"a","text":"Nobody's Almanac — it returns the cheapest book, same as MIN(price)","is_correct":false},{"id":"b","text":"Watanabe: A Life — it returns the book at the highest price, the same value MAX(price) would compute","is_correct":true},{"id":"c","text":"The Last Alchemist — a random book with no relation to price","is_correct":false},{"id":"d","text":"It returns all 15 books sorted by price","is_correct":false}],"explanation":"Watanabe: A Life is priced at $22.50, the highest in the table — sorting descending and taking the top row is one way to find the same book MAX(price) would identify by value alone."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -630,7 +637,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('886427e1-cde7-527e-81b3-b3169c157ace', '00000000-0000-0000-0000-000000000001', 'mcq', 'Why use `AS` on an aggregate like `COUNT(*) AS total_books` instead of leavin...', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('649e6f93-62a5-54cb-8255-ca40f644b0cd', '886427e1-cde7-527e-81b3-b3169c157ace', 1, $json${"prompt":"Why use `AS` on an aggregate like `COUNT(*) AS total_books` instead of leaving it unnamed?","multiple":false,"options":[{"id":"a","text":"AS is required by SQLite syntax — an unnamed aggregate causes an error","is_correct":false},{"id":"b","text":"Without it, the output column has an unreadable default name like COUNT(*) instead of a clear label","is_correct":true},{"id":"c","text":"AS changes the aggregate's calculation, not just its label","is_correct":false},{"id":"d","text":"AS is only valid on TEXT columns, not on numeric aggregate results","is_correct":false}],"explanation":"AS just renames the output column. It's optional, but without it you're stuck reading raw expressions like COUNT(*) or AVG(price) as column headers."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -639,6 +646,8 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 INSERT INTO assessments (id, org_id, title, slug, description, type, status, parent_type, parent_id, duration_minutes, pass_percentage, max_attempts, total_points, shuffle_questions, shuffle_options, allow_backtrack, show_results, created_by, published_at)
 VALUES ('de050e4d-ee61-51cb-87cd-f983441df3bf', '00000000-0000-0000-0000-000000000001', 'Quiz: Aggregation', 'sql-mastery-aggregation-quiz', 'Quiz covering Aggregation.', 'mcq', 'published', 'module', 'e7f8c830-99e7-5672-828e-076eeb001c7a', 10, 70, 5, 9, true, true, true, true, '00000000-0000-0000-0000-000000000012', now())
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, type=EXCLUDED.type, duration_minutes=EXCLUDED.duration_minutes, pass_percentage=EXCLUDED.pass_percentage, total_points=EXCLUDED.total_points, updated_at=now();
+
+DELETE FROM assessment_questions WHERE assessment_id = 'de050e4d-ee61-51cb-87cd-f983441df3bf' AND question_id NOT IN ('707522fd-8d79-5f6a-8773-07883ead30b2', '8f1d4599-87ce-5549-abb5-343acedcbd61', 'cc457641-c638-55c8-bcd1-c3b0a2d87a1b', 'b23daebf-fae1-51d1-83af-0c6dd36de1d4', '886427e1-cde7-527e-81b3-b3169c157ace');
 
 INSERT INTO assessment_questions (id, assessment_id, question_id, version_id, position, points)
 VALUES
@@ -654,9 +663,9 @@ VALUES ('e7f8c830-99e7-5672-828e-076eeb001c7a', 'a4531b49-7973-5e3f-8659-8fcae68
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Joining Tables
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('8f22fa33-bfba-53e7-bd87-383159ceb34a', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Joining Tables', 4)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('8f22fa33-bfba-53e7-bd87-383159ceb34a', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Joining Tables', 4, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('66199163-0731-5e44-9f9e-4f489f8fae47', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '8f22fa33-bfba-53e7-bd87-383159ceb34a', 'Joining Tables: INNER, LEFT, RIGHT, FULL OUTER, and Self Joins', 'notes', 0, $md$Everything so far has queried one table at a time. But `books.author_id` only makes sense next to `authors.id`, and `loans.book_id` only makes sense next to `books.id` — the useful questions live *across* tables. A `JOIN` combines rows from two tables based on a matching condition, usually a foreign key.
@@ -832,7 +841,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('30a309b7-4622-57d0-9e0d-66e4e5eb4d6a', '00000000-0000-0000-0000-000000000001', 'mcq', 'What''s the key difference between INNER JOIN and LEFT JOIN?', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('c8c7b6f1-b908-5e11-8022-d365e0b96baa', '30a309b7-4622-57d0-9e0d-66e4e5eb4d6a', 1, $json${"prompt":"What's the key difference between INNER JOIN and LEFT JOIN?","multiple":false,"options":[{"id":"a","text":"INNER JOIN only returns rows with a match in both tables; LEFT JOIN keeps every row from the left table even without a match","is_correct":true},{"id":"b","text":"INNER JOIN is faster but returns identical results to LEFT JOIN in every case","is_correct":false},{"id":"c","text":"LEFT JOIN can only be used with two columns of the same name","is_correct":false},{"id":"d","text":"INNER JOIN keeps unmatched rows; LEFT JOIN discards them","is_correct":false}],"explanation":"INNER JOIN drops any row lacking a match on either side. LEFT JOIN always keeps every left-table row, filling unmatched right-side columns with NULL."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -840,7 +849,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('4eb9343b-f8fa-5921-a31f-248221e5e22c', '00000000-0000-0000-0000-000000000001', 'mcq', '`SELECT b.title FROM books b LEFT JOIN loans l ON b.id = l.book_id WHERE l.id...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('a6da6233-d53b-5c55-84ee-5695ad33cafc', '4eb9343b-f8fa-5921-a31f-248221e5e22c', 1, $json${"prompt":"`SELECT b.title FROM books b LEFT JOIN loans l ON b.id = l.book_id WHERE l.id IS NULL;` — what does this return?","multiple":false,"options":[{"id":"a","text":"Every book that has been loaned at least once","is_correct":false},{"id":"b","text":"Every book that has never been loaned","is_correct":true},{"id":"c","text":"Every loan that has no matching book","is_correct":false},{"id":"d","text":"An error, because WHERE can't reference a joined column","is_correct":false}],"explanation":"LEFT JOIN keeps every book even without a loan match, producing NULL loan columns for unmatched books. Filtering to l.id IS NULL isolates exactly the books with zero loans."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -848,7 +857,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('0f977804-0849-5834-988b-edb1c573e80f', '00000000-0000-0000-0000-000000000001', 'mcq', 'Using a self join on members (m.referred_by = r.id), who referred Hiro Tanaka...', 'advanced', 3, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('7cb67e64-b8f9-5e43-a6f6-04351e8ac791', '0f977804-0849-5834-988b-edb1c573e80f', 1, $json${"prompt":"Using a self join on members (m.referred_by = r.id), who referred Hiro Tanaka? (Hiro Tanaka's referred_by points at member id 7.)","multiple":false,"options":[{"id":"a","text":"Ana Torres","is_correct":false},{"id":"b","text":"Chloe Martin","is_correct":false},{"id":"c","text":"Grace Kim","is_correct":true},{"id":"d","text":"No one — Hiro Tanaka joined with no referrer","is_correct":false}],"explanation":"Member id 7 is Grace Kim, so Hiro Tanaka's referred_by (7) resolves to Grace Kim in the self join."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -856,7 +865,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('b3bf3b25-1950-5228-baa7-dec1cecf1d08', '00000000-0000-0000-0000-000000000001', 'mcq', 'MySQL has historically had no native FULL OUTER JOIN. What''s the standard wor...', 'advanced', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('2674915a-c1e8-55af-8b49-69a3e83df1fa', 'b3bf3b25-1950-5228-baa7-dec1cecf1d08', 1, $json${"prompt":"MySQL has historically had no native FULL OUTER JOIN. What's the standard workaround?","multiple":false,"options":[{"id":"a","text":"A LEFT JOIN combined with a RIGHT JOIN (or a mirrored LEFT JOIN), combined with UNION to de-duplicate overlapping rows","is_correct":true},{"id":"b","text":"MySQL simply cannot express a full outer join under any circumstances","is_correct":false},{"id":"c","text":"Running the query twice and manually merging the results in application code","is_correct":false},{"id":"d","text":"Using INNER JOIN with an extra WHERE clause","is_correct":false}],"explanation":"A LEFT JOIN unions with a RIGHT JOIN (or a second LEFT JOIN with tables swapped) reproduces FULL OUTER JOIN behavior, with UNION removing the rows both sides already agree on."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -864,7 +873,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('1c245756-255e-53a8-a5ff-6fb7683b154d', '00000000-0000-0000-0000-000000000001', 'mcq', 'What''s the difference between UNION and UNION ALL?', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('a7d62366-4276-520c-b26b-642eb9e8df9e', '1c245756-255e-53a8-a5ff-6fb7683b154d', 1, $json${"prompt":"What's the difference between UNION and UNION ALL?","multiple":false,"options":[{"id":"a","text":"UNION requires the two SELECTs to query the same table; UNION ALL does not","is_correct":false},{"id":"b","text":"UNION removes duplicate rows that appear in both result sets; UNION ALL keeps every row, duplicates included","is_correct":true},{"id":"c","text":"UNION ALL is only valid inside a subquery","is_correct":false},{"id":"d","text":"UNION sorts the combined result; UNION ALL does not","is_correct":false}],"explanation":"UNION de-duplicates the combined rows; UNION ALL skips that step entirely, so it's both faster and keeps duplicates."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -872,7 +881,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('5b3d1cea-0ab3-58dd-bc87-4d81e95e65d5', '00000000-0000-0000-0000-000000000001', 'mcq', 'Amara Diallo (author_id 3) wrote exactly the three Fantasy (genre_id 3) books...', 'advanced', 3, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('3323ff07-d8cf-5895-8d4c-5138a78f8b1c', '5b3d1cea-0ab3-58dd-bc87-4d81e95e65d5', 1, $json${"prompt":"Amara Diallo (author_id 3) wrote exactly the three Fantasy (genre_id 3) books in the library — no more, no less. How many rows does `SELECT title FROM books WHERE author_id = 3 UNION ALL SELECT title FROM books WHERE genre_id = 3;` return?","multiple":false,"options":[{"id":"a","text":"3 — UNION ALL always de-duplicates","is_correct":false},{"id":"b","text":"6 — each of the three titles appears twice, once from each SELECT","is_correct":true},{"id":"c","text":"0 — the two conditions never overlap","is_correct":false},{"id":"d","text":"9 — because author_id and genre_id together match nine books","is_correct":false}],"explanation":"Since every author-3 book is also a genre-3 book, both SELECTs produce the same three titles. UNION ALL doesn't remove duplicates, so all six rows come back — 3 + 3."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -881,6 +890,8 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 INSERT INTO assessments (id, org_id, title, slug, description, type, status, parent_type, parent_id, duration_minutes, pass_percentage, max_attempts, total_points, shuffle_questions, shuffle_options, allow_backtrack, show_results, created_by, published_at)
 VALUES ('689c5110-4097-53f8-9d5f-f16a9521636d', '00000000-0000-0000-0000-000000000001', 'Quiz: Joining Tables', 'sql-mastery-joins-quiz', 'Quiz covering Joining Tables.', 'mcq', 'published', 'module', '8da41f22-2066-58f5-aab4-f31f234105d0', 10, 70, 5, 13, true, true, true, true, '00000000-0000-0000-0000-000000000012', now())
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, type=EXCLUDED.type, duration_minutes=EXCLUDED.duration_minutes, pass_percentage=EXCLUDED.pass_percentage, total_points=EXCLUDED.total_points, updated_at=now();
+
+DELETE FROM assessment_questions WHERE assessment_id = '689c5110-4097-53f8-9d5f-f16a9521636d' AND question_id NOT IN ('30a309b7-4622-57d0-9e0d-66e4e5eb4d6a', '4eb9343b-f8fa-5921-a31f-248221e5e22c', '0f977804-0849-5834-988b-edb1c573e80f', 'b3bf3b25-1950-5228-baa7-dec1cecf1d08', '1c245756-255e-53a8-a5ff-6fb7683b154d', '5b3d1cea-0ab3-58dd-bc87-4d81e95e65d5');
 
 INSERT INTO assessment_questions (id, assessment_id, question_id, version_id, position, points)
 VALUES
@@ -971,9 +982,9 @@ $md$, 10, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 -- Section: Modifying Data
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('fad91ed3-1863-541b-98fe-5ebb27565bc7', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Modifying Data', 5)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('fad91ed3-1863-541b-98fe-5ebb27565bc7', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Modifying Data', 5, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('8cb03e01-4ff9-5863-b252-6d60abdd18ee', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'fad91ed3-1863-541b-98fe-5ebb27565bc7', 'INSERT, UPDATE, DELETE — Changing the Data', 'notes', 0, $md$Every lesson so far has only *read* data with `SELECT`. Real applications also need to write it — adding new rows, correcting existing ones, and removing rows that shouldn't be there anymore. That's `INSERT`, `UPDATE`, and `DELETE`, together known as **DML** (Data Manipulation Language).
@@ -1159,7 +1170,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('5cfb48b4-721b-5fb5-980c-25262fb2e4ef', '00000000-0000-0000-0000-000000000001', 'mcq', 'What must be true for `INSERT INTO genres VALUES (101, ''Poetry'');` (no column...', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('7caeedb7-9f83-58f3-aae6-403c97dfc7d1', '5cfb48b4-721b-5fb5-980c-25262fb2e4ef', 1, $json${"prompt":"What must be true for `INSERT INTO genres VALUES (101, 'Poetry');` (no column list) to work?","multiple":false,"options":[{"id":"a","text":"Nothing extra — INSERT always works without a column list","is_correct":false},{"id":"b","text":"The values must be supplied for every column, in the exact order the table was created with","is_correct":true},{"id":"c","text":"The table must have exactly one column","is_correct":false},{"id":"d","text":"You must run CREATE TABLE again first","is_correct":false}],"explanation":"The full-row form skips naming columns, but that only works if you provide a value for every column in the table's declared order — otherwise SQLite either errors or misassigns values."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1167,7 +1178,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('562ba116-4b55-5cc7-a41c-c20c2a9340ac', '00000000-0000-0000-0000-000000000001', 'mcq', 'What happens if you run `UPDATE books SET stock = 0;` with no WHERE clause?', 'beginner', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('b366e06b-1f6e-5879-9f2f-aa0be8f9fe4b', '562ba116-4b55-5cc7-a41c-c20c2a9340ac', 1, $json${"prompt":"What happens if you run `UPDATE books SET stock = 0;` with no WHERE clause?","multiple":false,"options":[{"id":"a","text":"SQLite rejects the statement because WHERE is required","is_correct":false},{"id":"b","text":"Only the first row is updated","is_correct":false},{"id":"c","text":"Every row in the books table gets stock set to 0","is_correct":true},{"id":"d","text":"Nothing happens until you add a WHERE clause afterward","is_correct":false}],"explanation":"UPDATE without WHERE applies to every row in the table — one of the most common and costly mistakes in SQL. Always double-check your WHERE clause before running an UPDATE."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1175,7 +1186,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('66da2c2b-196e-517b-9b76-adc2db870bd1', '00000000-0000-0000-0000-000000000001', 'mcq', 'Starting from the original seed data, what is book id 9''s stock after running...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('09dcb1ff-d24b-502d-9f5c-e7dc51c4db32', '66da2c2b-196e-517b-9b76-adc2db870bd1', 1, $json${"prompt":"Starting from the original seed data, what is book id 9's stock after running `UPDATE books SET stock = stock + 5 WHERE id = 9;`?","multiple":false,"options":[{"id":"a","text":"0","is_correct":false},{"id":"b","text":"5","is_correct":true},{"id":"c","text":"9","is_correct":false},{"id":"d","text":"NULL","is_correct":false}],"explanation":"Book id 9 (Cold Case: Reykjavik) starts at stock = 0 in the seed data. stock + 5 evaluates against the current value, so the new stock is 5."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1183,7 +1194,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('32c6891d-60ee-5a4a-a940-420aedde898d', '00000000-0000-0000-0000-000000000001', 'mcq', 'What does `DELETE FROM loans;` (no WHERE clause) do?', 'beginner', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('2d1e3a7a-88aa-5071-95f8-8ccb7a2d2a52', '32c6891d-60ee-5a4a-a940-420aedde898d', 1, $json${"prompt":"What does `DELETE FROM loans;` (no WHERE clause) do?","multiple":false,"options":[{"id":"a","text":"Deletes only loans with a NULL return_date","is_correct":false},{"id":"b","text":"Deletes every row in the loans table","is_correct":true},{"id":"c","text":"Deletes the loans table itself, including its structure","is_correct":false},{"id":"d","text":"Fails with a syntax error","is_correct":false}],"explanation":"DELETE without WHERE removes every row in the table — but unlike DROP TABLE, the table itself and its structure still exist afterward, just empty."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1191,7 +1202,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('015c1153-c111-5e92-b0c8-737377e6827c', '00000000-0000-0000-0000-000000000001', 'mcq', 'What does `INSERT INTO ... SELECT ...` let you do that a plain `INSERT INTO ....', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('68b0ae1a-55ca-5a6c-837c-03fcb9eb3a5d', '015c1153-c111-5e92-b0c8-737377e6827c', 1, $json${"prompt":"What does `INSERT INTO ... SELECT ...` let you do that a plain `INSERT INTO ... VALUES ...` can't?","multiple":false,"options":[{"id":"a","text":"Insert rows whose values are computed from an existing query, row by row, instead of being typed as literals","is_correct":true},{"id":"b","text":"Insert into more than one table at once","is_correct":false},{"id":"c","text":"Skip the CHECK constraints on the target table","is_correct":false},{"id":"d","text":"Insert rows without specifying a table name","is_correct":false}],"explanation":"INSERT INTO ... SELECT takes each row produced by the SELECT and inserts it — letting you copy, filter, and transform existing data into new rows in a single statement."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1202,7 +1213,7 @@ VALUES ('c9e25ddc-6d0f-5d06-b0c0-31e1499b15ce', '00000000-0000-0000-0000-0000000
 
 ```sql
 INSERT...', 'advanced', 3, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('5cf22135-c6c8-50d2-9f0b-d9a0f04780fe', 'c9e25ddc-6d0f-5d06-b0c0-31e1499b15ce', 1, $json${"prompt":"How many rows does this insert against the original seed data?\n\n```sql\nINSERT INTO books (id, title, author_id, genre_id, price, published_year, stock)\nSELECT id + 200, title || ' (Reprint)', author_id, genre_id, price, published_year, 10\nFROM books\nWHERE stock = 0;\n```","multiple":false,"options":[{"id":"a","text":"0","is_correct":false},{"id":"b","text":"1","is_correct":false},{"id":"c","text":"3","is_correct":true},{"id":"d","text":"15","is_correct":false}],"explanation":"Three books in the seed data have stock = 0 (Kingdom of Ash Roses, Cold Case: Reykjavik, and Ash Roses: The Sequel), so the SELECT produces three rows and three new books get inserted."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1211,6 +1222,8 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 INSERT INTO assessments (id, org_id, title, slug, description, type, status, parent_type, parent_id, duration_minutes, pass_percentage, max_attempts, total_points, shuffle_questions, shuffle_options, allow_backtrack, show_results, created_by, published_at)
 VALUES ('51d523fe-1a20-5f00-9512-a5dbd0f6c07e', '00000000-0000-0000-0000-000000000001', 'Quiz: Modifying Data', 'sql-mastery-modifying-data-quiz', 'Quiz covering Modifying Data.', 'mcq', 'published', 'module', 'e993e43a-e47e-55ba-8919-e6d1b4201a46', 10, 70, 5, 12, true, true, true, true, '00000000-0000-0000-0000-000000000012', now())
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, type=EXCLUDED.type, duration_minutes=EXCLUDED.duration_minutes, pass_percentage=EXCLUDED.pass_percentage, total_points=EXCLUDED.total_points, updated_at=now();
+
+DELETE FROM assessment_questions WHERE assessment_id = '51d523fe-1a20-5f00-9512-a5dbd0f6c07e' AND question_id NOT IN ('5cfb48b4-721b-5fb5-980c-25262fb2e4ef', '562ba116-4b55-5cc7-a41c-c20c2a9340ac', '66da2c2b-196e-517b-9b76-adc2db870bd1', '32c6891d-60ee-5a4a-a940-420aedde898d', '015c1153-c111-5e92-b0c8-737377e6827c', 'c9e25ddc-6d0f-5d06-b0c0-31e1499b15ce');
 
 INSERT INTO assessment_questions (id, assessment_id, question_id, version_id, position, points)
 VALUES
@@ -1227,9 +1240,9 @@ VALUES ('e993e43a-e47e-55ba-8919-e6d1b4201a46', 'a4531b49-7973-5e3f-8659-8fcae68
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Advanced Queries
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('eb95795c-8a47-5888-a951-3748874737f6', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Advanced Queries', 6)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('eb95795c-8a47-5888-a951-3748874737f6', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Advanced Queries', 6, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('7e786747-70f8-588a-af4b-92bdc0b3812b', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'eb95795c-8a47-5888-a951-3748874737f6', 'Subqueries, EXISTS, and CASE Expressions', 'notes', 0, $md$So far every `WHERE` clause has compared a column to a literal value or another column in the same row. SQL lets you go further: a `WHERE` clause can compare against the *result of another query* — a **subquery**. This lesson covers subqueries, the `EXISTS` alternative to them, conditional logic with `CASE`, and a quick recap of `LIMIT` and aliasing tying back to lesson one.
@@ -1405,7 +1418,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('8246c4e8-508a-52fe-a371-ac29378ea87b', '00000000-0000-0000-0000-000000000001', 'mcq', 'How many rows does `SELECT title FROM books WHERE id NOT IN (SELECT book_id F...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('ff322474-45bd-5ba2-a444-d7319cb2a9d2', '8246c4e8-508a-52fe-a371-ac29378ea87b', 1, $json${"prompt":"How many rows does `SELECT title FROM books WHERE id NOT IN (SELECT book_id FROM loans);` return against the library data?","multiple":false,"options":[{"id":"a","text":"3","is_correct":false},{"id":"b","text":"4","is_correct":false},{"id":"c","text":"5","is_correct":true},{"id":"d","text":"10","is_correct":false}],"explanation":"10 distinct books appear in the loans table across its 20 rows. The library has 15 books total, so 5 have never been loaned: Kingdom of Ash Roses, The Last Alchemist, Watanabe: A Life, Diallo Speaks, and Ash Roses: The Sequel."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1413,7 +1426,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('8343bea1-669b-5503-8847-018fff84fa57', '00000000-0000-0000-0000-000000000001', 'mcq', 'If the subquery inside a NOT IN clause returns even one NULL value, what happ...', 'advanced', 3, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('67274e96-a352-5fea-9279-12ce40ce447b', '8343bea1-669b-5503-8847-018fff84fa57', 1, $json${"prompt":"If the subquery inside a NOT IN clause returns even one NULL value, what happens to the outer query?","multiple":false,"options":[{"id":"a","text":"SQLite raises a syntax error","is_correct":false},{"id":"b","text":"The NULL is ignored and NOT IN works normally","is_correct":false},{"id":"c","text":"NOT IN silently stops matching anything, so the outer query returns zero rows","is_correct":true},{"id":"d","text":"The NULL is treated as matching every row","is_correct":false}],"explanation":"Comparing against a NULL produces UNKNOWN rather than TRUE or FALSE, and NOT IN requires the value to be provably unequal to every item in the list. One NULL in the subquery poisons the whole comparison, silently zeroing out the results — this is exactly the failure mode NOT EXISTS avoids."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1421,7 +1434,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('df66aa69-e388-5838-b7f3-72c704b3aad4', '00000000-0000-0000-0000-000000000001', 'mcq', 'Does SQLite support writing `price > ALL (subquery)` the way PostgreSQL or SQ...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('669b3c05-5294-5bd8-82cd-192779535f79', 'df66aa69-e388-5838-b7f3-72c704b3aad4', 1, $json${"prompt":"Does SQLite support writing `price \u003e ALL (subquery)` the way PostgreSQL or SQL Server do?","multiple":false,"options":[{"id":"a","text":"Yes, with identical syntax","is_correct":false},{"id":"b","text":"No — the same comparison has to be written using MAX()/MIN() subqueries instead","is_correct":true},{"id":"c","text":"Yes, but only inside a CHECK constraint","is_correct":false},{"id":"d","text":"No — SQLite has no way to express this comparison at all","is_correct":false}],"explanation":"SQLite doesn't implement the ANY/ALL comparison syntax. The same logic is fully expressible with MAX()/MIN() subqueries — price \u003e ALL(subquery) becomes price \u003e (SELECT MAX(...) FROM ...)."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1429,7 +1442,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('f53468c2-f750-5882-aaee-07ebd480d039', '00000000-0000-0000-0000-000000000001', 'mcq', 'In `WHERE NOT EXISTS (SELECT 1 FROM loans l WHERE l.book_id = b.id)`, why is ...', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('320af2d3-1623-559b-8a37-257394a2f80e', 'f53468c2-f750-5882-aaee-07ebd480d039', 1, $json${"prompt":"In `WHERE NOT EXISTS (SELECT 1 FROM loans l WHERE l.book_id = b.id)`, why is `1` selected instead of an actual column?","multiple":false,"options":[{"id":"a","text":"EXISTS only checks whether any row comes back, not what values it contains, so the selected value doesn't matter","is_correct":true},{"id":"b","text":"SQLite requires a numeric literal inside every subquery","is_correct":false},{"id":"c","text":"It limits the subquery to returning exactly 1 row","is_correct":false},{"id":"d","text":"It's a typo — it should select book_id","is_correct":false}],"explanation":"EXISTS evaluates to true or false based purely on whether the subquery returns any rows at all. Selecting 1 (or * or any column) is a convention that signals 'we don't care about the value.'"}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1437,7 +1450,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('c5321417-36b9-598f-ac2f-2e9711b49b9b', '00000000-0000-0000-0000-000000000001', 'mcq', 'Using `CASE WHEN price < 10 THEN ''Budget'' WHEN price <= 18 THEN ''Standard'' EL...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('29b3e60f-d2f9-5039-84a9-82c2d76a0d4f', 'c5321417-36b9-598f-ac2f-2e9711b49b9b', 1, $json${"prompt":"Using `CASE WHEN price \u003c 10 THEN 'Budget' WHEN price \u003c= 18 THEN 'Standard' ELSE 'Premium' END`, which tier does Kingdom of Ash Roses ($18.00) fall into?","multiple":false,"options":[{"id":"a","text":"Budget","is_correct":false},{"id":"b","text":"Standard","is_correct":true},{"id":"c","text":"Premium","is_correct":false},{"id":"d","text":"NULL, because $18.00 matches no branch","is_correct":false}],"explanation":"WHEN branches are checked in order and the first match wins. $18.00 fails price \u003c 10 but satisfies price \u003c= 18, so it lands in 'Standard' — it never reaches the ELSE branch."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1445,7 +1458,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('6ce15575-277a-5579-a3b6-a469f68e6e4b', '00000000-0000-0000-0000-000000000001', 'mcq', 'What does adding `LIMIT 3` to a query do?', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('21548900-8ca7-54da-b103-dfc70453a99b', '6ce15575-277a-5579-a3b6-a469f68e6e4b', 1, $json${"prompt":"What does adding `LIMIT 3` to a query do?","multiple":false,"options":[{"id":"a","text":"Restricts the query to only the first 3 columns","is_correct":false},{"id":"b","text":"Caps the result set to at most 3 rows","is_correct":true},{"id":"c","text":"Requires the query to run in under 3 seconds","is_correct":false},{"id":"d","text":"Skips the first 3 rows of the result","is_correct":false}],"explanation":"LIMIT caps how many rows the query returns — combined with ORDER BY, it's how you get a top-N result like the 3 priciest books."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1454,6 +1467,8 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 INSERT INTO assessments (id, org_id, title, slug, description, type, status, parent_type, parent_id, duration_minutes, pass_percentage, max_attempts, total_points, shuffle_questions, shuffle_options, allow_backtrack, show_results, created_by, published_at)
 VALUES ('64909eca-09f9-566e-9da6-cbe33f6ca9eb', '00000000-0000-0000-0000-000000000001', 'Quiz: Advanced Queries', 'sql-mastery-advanced-queries-quiz', 'Quiz covering Advanced Queries.', 'mcq', 'published', 'module', '770defb5-4faa-5eff-a117-00246076dcad', 10, 70, 5, 11, true, true, true, true, '00000000-0000-0000-0000-000000000012', now())
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, type=EXCLUDED.type, duration_minutes=EXCLUDED.duration_minutes, pass_percentage=EXCLUDED.pass_percentage, total_points=EXCLUDED.total_points, updated_at=now();
+
+DELETE FROM assessment_questions WHERE assessment_id = '64909eca-09f9-566e-9da6-cbe33f6ca9eb' AND question_id NOT IN ('8246c4e8-508a-52fe-a371-ac29378ea87b', '8343bea1-669b-5503-8847-018fff84fa57', 'df66aa69-e388-5838-b7f3-72c704b3aad4', 'f53468c2-f750-5882-aaee-07ebd480d039', 'c5321417-36b9-598f-ac2f-2e9711b49b9b', '6ce15575-277a-5579-a3b6-a469f68e6e4b');
 
 INSERT INTO assessment_questions (id, assessment_id, question_id, version_id, position, points)
 VALUES
@@ -1470,9 +1485,9 @@ VALUES ('770defb5-4faa-5eff-a117-00246076dcad', 'a4531b49-7973-5e3f-8659-8fcae68
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Database & Table Design
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('4eb23bfa-1550-5e4a-b344-5cc8599b42d7', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Database & Table Design', 7)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('4eb23bfa-1550-5e4a-b344-5cc8599b42d7', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Database & Table Design', 7, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('20d4754a-e9ca-5f33-8b16-ce2e23ce0f1a', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '4eb23bfa-1550-5e4a-b344-5cc8599b42d7', 'Creating Tables, Constraints, Indexes, and Views', 'notes', 0, $md$Every lesson up to now has queried and modified tables that were already there. This lesson is about defining the tables yourself — the **DDL** (Data Definition Language) side of SQL: `CREATE TABLE`, constraints, `ALTER TABLE`, `DROP TABLE`, indexes, and views. Because every query box here starts from a fresh copy of the seeded database, it's completely safe to create a new table in one of these boxes — it won't collide with anything, and it won't linger into the next box either.
@@ -1672,7 +1687,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('c7d6aac4-b44b-5358-9c37-10201e959e54', '00000000-0000-0000-0000-000000000001', 'mcq', 'In SQLite, what happens when you INSERT into a table without providing a valu...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('27045e11-5f32-574f-8666-4d5ba3272f26', 'c7d6aac4-b44b-5358-9c37-10201e959e54', 1, $json${"prompt":"In SQLite, what happens when you INSERT into a table without providing a value for a column declared exactly INTEGER PRIMARY KEY?","multiple":false,"options":[{"id":"a","text":"The insert fails, because a value must always be provided","is_correct":false},{"id":"b","text":"SQLite stores NULL for that column","is_correct":false},{"id":"c","text":"SQLite automatically assigns the next available integer, since that column is the table's row identifier","is_correct":true},{"id":"d","text":"SQLite always reuses id 1","is_correct":false}],"explanation":"INTEGER PRIMARY KEY in SQLite is the table's actual rowid. Omitting it lets SQLite auto-assign the next integer — the same idea as MySQL's AUTO_INCREMENT or Postgres's SERIAL/IDENTITY, just spelled differently."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1680,7 +1695,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('52809f08-70cb-57b7-8c4d-d5b5742fa783', '00000000-0000-0000-0000-000000000001', 'mcq', 'What''s the difference between DELETE FROM reviews; and DROP TABLE reviews;?', 'beginner', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('295dcfa8-789b-509a-a623-4d970eb8dcd1', '52809f08-70cb-57b7-8c4d-d5b5742fa783', 1, $json${"prompt":"What's the difference between DELETE FROM reviews; and DROP TABLE reviews;?","multiple":false,"options":[{"id":"a","text":"There is no difference — they do the same thing","is_correct":false},{"id":"b","text":"DELETE removes all rows but keeps the table structure; DROP TABLE removes the table itself entirely","is_correct":true},{"id":"c","text":"DROP TABLE only removes rows; DELETE removes the table structure","is_correct":false},{"id":"d","text":"DELETE requires a WHERE clause but DROP TABLE does not","is_correct":false}],"explanation":"DELETE FROM empties a table's rows while the table (and its columns, constraints, and indexes) still exists. DROP TABLE removes the table definition entirely — querying it afterward errors with 'no such table.'"}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1688,7 +1703,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('1f713792-0148-587e-8b09-66116b6be858', '00000000-0000-0000-0000-000000000001', 'mcq', 'Given `rating INTEGER CHECK (rating BETWEEN 1 AND 5)`, what happens when you ...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('f9b00010-0219-554b-b396-4ce196c1cbde', '1f713792-0148-587e-8b09-66116b6be858', 1, $json${"prompt":"Given `rating INTEGER CHECK (rating BETWEEN 1 AND 5)`, what happens when you try to INSERT a review with rating = 9?","multiple":false,"options":[{"id":"a","text":"The row is inserted with rating silently capped at 5","is_correct":false},{"id":"b","text":"The row is inserted with rating set to NULL","is_correct":false},{"id":"c","text":"The INSERT fails — the CHECK constraint rejects the row","is_correct":true},{"id":"d","text":"The row is inserted, and a warning is logged","is_correct":false}],"explanation":"CHECK constraints are enforced at the database level. A rating of 9 violates BETWEEN 1 AND 5, so SQLite refuses the INSERT outright rather than storing invalid data."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1696,7 +1711,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('16f02eb5-f333-5ece-b76f-6579bdd2fe14', '00000000-0000-0000-0000-000000000001', 'mcq', 'members.email is declared TEXT NOT NULL UNIQUE. What happens if you try to in...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('fdcdaaf2-3a7d-5592-a151-e504e2b575fc', '16f02eb5-f333-5ece-b76f-6579bdd2fe14', 1, $json${"prompt":"members.email is declared TEXT NOT NULL UNIQUE. What happens if you try to insert a new member using an email address that already belongs to another member?","multiple":false,"options":[{"id":"a","text":"The new row overwrites the existing member's email","is_correct":false},{"id":"b","text":"The INSERT fails with a UNIQUE constraint violation","is_correct":true},{"id":"c","text":"Both rows are inserted, since NOT NULL only blocks empty values","is_correct":false},{"id":"d","text":"SQLite appends a number to make the email unique automatically","is_correct":false}],"explanation":"UNIQUE means no two rows can share that column's value. Inserting a duplicate email fails outright — the database, not the application, enforces this rule."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1704,7 +1719,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('00295d4c-82d3-52b1-95f2-a45fd8e76be2', '00000000-0000-0000-0000-000000000001', 'mcq', 'What does `CREATE INDEX idx_books_genre ON books(genre_id);` primarily do?', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('fd21f37e-90aa-59ed-9140-ae1260786a89', '00295d4c-82d3-52b1-95f2-a45fd8e76be2', 1, $json${"prompt":"What does `CREATE INDEX idx_books_genre ON books(genre_id);` primarily do?","multiple":false,"options":[{"id":"a","text":"It changes what SELECT * FROM books returns","is_correct":false},{"id":"b","text":"It lets SQLite find rows matching a given genre_id without scanning the whole table, at the cost of extra work on writes","is_correct":true},{"id":"c","text":"It enforces that genre_id must be unique","is_correct":false},{"id":"d","text":"It automatically sorts the books table by genre_id on disk permanently","is_correct":false}],"explanation":"An index is a separate structure the database maintains so it can jump straight to matching rows instead of scanning every one — it speeds up lookups and joins on that column, but every write to the column now also has to update the index."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1712,7 +1727,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('2bb1df26-d5ea-5512-816b-0bbe95e57ac5', '00000000-0000-0000-0000-000000000001', 'mcq', 'What is a SQL view?', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('e47cb2d5-8295-5333-a8de-6b4ec41d6f73', '2bb1df26-d5ea-5512-816b-0bbe95e57ac5', 1, $json${"prompt":"What is a SQL view?","multiple":false,"options":[{"id":"a","text":"A saved SELECT query that you can query like a table, recomputed from its underlying tables each time","is_correct":true},{"id":"b","text":"A physical copy of a table's data, refreshed on a schedule","is_correct":false},{"id":"c","text":"A type of index used for full-text search","is_correct":false},{"id":"d","text":"A backup snapshot of the entire database","is_correct":false}],"explanation":"A view doesn't store its own data — it wraps a SELECT (often a join) under a name, and running that name re-executes the underlying query against the current data every time."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1721,6 +1736,8 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 INSERT INTO assessments (id, org_id, title, slug, description, type, status, parent_type, parent_id, duration_minutes, pass_percentage, max_attempts, total_points, shuffle_questions, shuffle_options, allow_backtrack, show_results, created_by, published_at)
 VALUES ('55de8810-6e9a-5261-bce6-04f54d2b782c', '00000000-0000-0000-0000-000000000001', 'Quiz: Database & Table Design', 'sql-mastery-schema-design-quiz', 'Quiz covering Database & Table Design.', 'mcq', 'published', 'module', 'dd9a5489-f523-55c8-a87b-4eb6541c77a9', 10, 70, 5, 11, true, true, true, true, '00000000-0000-0000-0000-000000000012', now())
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, type=EXCLUDED.type, duration_minutes=EXCLUDED.duration_minutes, pass_percentage=EXCLUDED.pass_percentage, total_points=EXCLUDED.total_points, updated_at=now();
+
+DELETE FROM assessment_questions WHERE assessment_id = '55de8810-6e9a-5261-bce6-04f54d2b782c' AND question_id NOT IN ('c7d6aac4-b44b-5358-9c37-10201e959e54', '52809f08-70cb-57b7-8c4d-d5b5742fa783', '1f713792-0148-587e-8b09-66116b6be858', '16f02eb5-f333-5ece-b76f-6579bdd2fe14', '00295d4c-82d3-52b1-95f2-a45fd8e76be2', '2bb1df26-d5ea-5512-816b-0bbe95e57ac5');
 
 INSERT INTO assessment_questions (id, assessment_id, question_id, version_id, position, points)
 VALUES
@@ -1800,9 +1817,9 @@ $md$, 20, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 -- Section: Dates & Useful Functions
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('146b0641-5cfc-5f8c-811b-09a129b2d8c5', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Dates & Useful Functions', 8)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('146b0641-5cfc-5f8c-811b-09a129b2d8c5', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Dates & Useful Functions', 8, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('113a2912-8ee1-55cb-a0b0-23cdb463294a', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '146b0641-5cfc-5f8c-811b-09a129b2d8c5', 'Working with Dates, NULLs, and Comments', 'notes', 0, $md$Every date in this database — `books.published_year`, `members.joined_date`, `loans.loan_date`, `loans.return_date` — is stored as plain **text** in `YYYY-MM-DD` format (or a plain integer, for `published_year`). SQLite has no dedicated `DATE` or `DATETIME` type; it stores whatever you hand it and gives you a family of date *functions* that know how to parse ISO-8601 text. This is a real difference worth knowing for interviews: PostgreSQL, MySQL, and SQL Server all have native `DATE`/`DATETIME` column types with their own storage format and functions (`DATEDIFF`, `DATE_ADD`, and so on). In SQLite, a "date" is just a sortable string — which turns out to be more convenient than it sounds, as you'll see below.
@@ -1972,7 +1989,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('8ac14422-9d70-5519-9c8b-0bbcdaac6942', '00000000-0000-0000-0000-000000000001', 'mcq', 'How does SQLite store a value like `loans.loan_date`?', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('be8c472c-81bd-55ed-81da-e58c96b35a8a', '8ac14422-9d70-5519-9c8b-0bbcdaac6942', 1, $json${"prompt":"How does SQLite store a value like `loans.loan_date`?","multiple":false,"options":[{"id":"a","text":"As a native DATE type with its own binary format","is_correct":false},{"id":"b","text":"As plain TEXT in YYYY-MM-DD format","is_correct":true},{"id":"c","text":"As a UNIX timestamp integer","is_correct":false},{"id":"d","text":"SQLite refuses to store dates without an extension","is_correct":false},{"id":"e","text":"As a floating-point Julian day number by default","is_correct":false}],"explanation":"SQLite has no dedicated DATE/DATETIME column type — dates are stored as ordinary TEXT in ISO-8601 format, unlike PostgreSQL, MySQL, or SQL Server which have real date types."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1980,7 +1997,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('cb5ef77f-5f9f-5f4b-929e-e13bc984f1fe', '00000000-0000-0000-0000-000000000001', 'mcq', 'Why does `WHERE loan_date BETWEEN ''2024-01-01'' AND ''2024-01-31''` correctly fi...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('cc8de933-50d9-5c14-8305-e01e4803c475', 'cb5ef77f-5f9f-5f4b-929e-e13bc984f1fe', 1, $json${"prompt":"Why does `WHERE loan_date BETWEEN '2024-01-01' AND '2024-01-31'` correctly filter to January 2024, even though loan_date is just TEXT?","multiple":false,"options":[{"id":"a","text":"SQLite silently converts the column to a DATE type at query time","is_correct":false},{"id":"b","text":"YYYY-MM-DD is zero-padded and big-endian, so plain string comparison happens to sort chronologically","is_correct":true},{"id":"c","text":"BETWEEN has special built-in awareness of calendar dates","is_correct":false},{"id":"d","text":"It doesn't — the query only works by coincidence for this specific dataset","is_correct":false},{"id":"e","text":"SQLite always compares numerically first","is_correct":false}],"explanation":"Because the year comes first and every field is zero-padded to a fixed width, ordinary lexicographic string comparison produces correct chronological ordering — this trick breaks if the format isn't zero-padded (e.g. '2024-1-3')."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1988,7 +2005,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('afbae17c-6be3-559e-9258-653cd0a8df40', '00000000-0000-0000-0000-000000000001', 'mcq', 'What does `julianday(return_date) - julianday(loan_date)` compute?', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('375533d3-0ab2-527b-85c6-d926308a39b0', 'afbae17c-6be3-559e-9258-653cd0a8df40', 1, $json${"prompt":"What does `julianday(return_date) - julianday(loan_date)` compute?","multiple":false,"options":[{"id":"a","text":"The number of days between loan_date and return_date","is_correct":true},{"id":"b","text":"A boolean indicating whether the loan is overdue","is_correct":false},{"id":"c","text":"The current date minus the loan date","is_correct":false},{"id":"d","text":"It always returns NULL if return_date is a string","is_correct":false},{"id":"e","text":"The year difference between the two dates","is_correct":false}],"explanation":"julianday() converts a date string to a Julian day number (a continuous count of days); subtracting two of them gives the elapsed day count between the dates — most loans in this library last exactly 14 days."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -1996,7 +2013,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('405761e5-907a-5c86-aded-0e331e9b8d14', '00000000-0000-0000-0000-000000000001', 'mcq', 'For a loan where return_date IS NULL, what does `COALESCE(return_date, ''still...', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('cdab25f8-ba7a-534a-af5f-4cb2be822089', '405761e5-907a-5c86-aded-0e331e9b8d14', 1, $json${"prompt":"For a loan where return_date IS NULL, what does `COALESCE(return_date, 'still out')` return?","multiple":false,"options":[{"id":"a","text":"NULL","is_correct":false},{"id":"b","text":"'still out'","is_correct":true},{"id":"c","text":"An empty string","is_correct":false},{"id":"d","text":"It raises an error because return_date is NULL","is_correct":false}],"explanation":"COALESCE returns the first non-NULL argument in its list — since return_date is NULL, it falls through to the literal 'still out'."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -2004,7 +2021,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('cdbb785f-21be-5143-b485-1923c4041d26', '00000000-0000-0000-0000-000000000001', 'mcq', 'Given `SELECT strftime(''%Y'', loan_date) AS loan_year, COUNT(*) FROM loans GRO...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('c2a7d39c-0629-569f-a004-3114b7b7d577', 'cdbb785f-21be-5143-b485-1923c4041d26', 1, $json${"prompt":"Given `SELECT strftime('%Y', loan_date) AS loan_year, COUNT(*) FROM loans GROUP BY loan_year;` against the seed data, how many loans fall in 2023 vs 2024?","multiple":false,"options":[{"id":"a","text":"10 in 2023, 10 in 2024","is_correct":false},{"id":"b","text":"3 in 2023, 17 in 2024","is_correct":true},{"id":"c","text":"0 in 2023, 20 in 2024","is_correct":false},{"id":"d","text":"All 20 loans are in 2024 since strftime only reads the current year","is_correct":false}],"explanation":"Only loans 1, 2, and 3 were opened in 2023 (loan_date starting with '2023-'); the remaining 17 loans all have a 2024 loan_date."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -2012,7 +2029,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('f6f9b2c8-00d3-5372-8013-bc6c3e3d166c', '00000000-0000-0000-0000-000000000001', 'mcq', 'SQL Server doesn''t support IFNULL/COALESCE-style substitution the same way as...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('d8ffb556-cbe6-5994-a215-2e9a96077658', 'f6f9b2c8-00d3-5372-8013-bc6c3e3d166c', 1, $json${"prompt":"SQL Server doesn't support IFNULL/COALESCE-style substitution the same way as SQLite's IFNULL — what's its equivalent single-purpose function?","multiple":false,"options":[{"id":"a","text":"NVL","is_correct":false},{"id":"b","text":"ISNULL","is_correct":true},{"id":"c","text":"NULLIF","is_correct":false},{"id":"d","text":"SQL Server has no equivalent function","is_correct":false}],"explanation":"SQL Server uses ISNULL(expr, value) for the two-argument case. (COALESCE itself is standard SQL and also works in SQL Server for the general multi-argument case — ISNULL is its SQL-Server-specific, two-argument-only cousin, mirroring SQLite's IFNULL.)"}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -2021,6 +2038,8 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 INSERT INTO assessments (id, org_id, title, slug, description, type, status, parent_type, parent_id, duration_minutes, pass_percentage, max_attempts, total_points, shuffle_questions, shuffle_options, allow_backtrack, show_results, created_by, published_at)
 VALUES ('ba8eee7d-7993-5182-8416-a296ae88b292', '00000000-0000-0000-0000-000000000001', 'Quiz: Dates & Useful Functions', 'sql-mastery-dates-and-functions-quiz', 'Quiz covering Dates & Useful Functions.', 'mcq', 'published', 'module', '3b62031f-738f-590e-bb0e-ea4bde6bd6a5', 10, 70, 5, 10, true, true, true, true, '00000000-0000-0000-0000-000000000012', now())
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, type=EXCLUDED.type, duration_minutes=EXCLUDED.duration_minutes, pass_percentage=EXCLUDED.pass_percentage, total_points=EXCLUDED.total_points, updated_at=now();
+
+DELETE FROM assessment_questions WHERE assessment_id = 'ba8eee7d-7993-5182-8416-a296ae88b292' AND question_id NOT IN ('8ac14422-9d70-5519-9c8b-0bbcdaac6942', 'cb5ef77f-5f9f-5f4b-929e-e13bc984f1fe', 'afbae17c-6be3-559e-9258-653cd0a8df40', '405761e5-907a-5c86-aded-0e331e9b8d14', 'cdbb785f-21be-5143-b485-1923c4041d26', 'f6f9b2c8-00d3-5372-8013-bc6c3e3d166c');
 
 INSERT INTO assessment_questions (id, assessment_id, question_id, version_id, position, points)
 VALUES
@@ -2037,9 +2056,9 @@ VALUES ('3b62031f-738f-590e-bb0e-ea4bde6bd6a5', 'a4531b49-7973-5e3f-8659-8fcae68
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Window Functions
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('1538b09b-a39c-5f45-af24-772ae0ebc7f7', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Window Functions', 10)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('1538b09b-a39c-5f45-af24-772ae0ebc7f7', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Window Functions', 10, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('b5012113-9352-5d1c-a40e-8a70e3660e4f', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '1538b09b-a39c-5f45-af24-772ae0ebc7f7', 'Window Functions: OVER, PARTITION BY, RANK, and Running Totals', 'notes', 0, $md$Every aggregate function you've used so far — `COUNT`, `SUM`, `AVG` — collapses many rows into one, via `GROUP BY`. Window functions do something different: they compute an aggregate-like value **per row**, while still showing every row individually, by looking at a "window" of related rows around it. This is the tool for running totals, rankings, and "compare this row to the next/previous row" questions — genuinely common in reporting, dashboards, and interviews alike.
@@ -2278,9 +2297,9 @@ $md$, 10, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 -- Section: Indexing & Query Performance
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('81fb90fc-1997-565d-af29-9667cea13a55', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Indexing & Query Performance', 11)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('81fb90fc-1997-565d-af29-9667cea13a55', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Indexing & Query Performance', 11, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('941b1547-2ce3-5551-aed1-50209e5c6de6', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '81fb90fc-1997-565d-af29-9667cea13a55', 'Indexing & Query Performance: CREATE INDEX and EXPLAIN QUERY PLAN', 'notes', 0, $md$You met `CREATE INDEX` briefly back in Database & Table Design. This lesson goes deeper: what an index actually is under the hood, when SQLite can and can't use one, how to check its query plan instead of guessing, and the tradeoff every index makes against write performance.
@@ -2435,9 +2454,9 @@ $md$, 15, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 -- Section: Transactions & Concurrency
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('dffba7a6-fe2c-50b7-84a3-53fc15a08d92', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Transactions & Concurrency', 12)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('dffba7a6-fe2c-50b7-84a3-53fc15a08d92', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'Transactions & Concurrency', 12, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('10848ef6-6ec2-5a78-a754-29539e492765', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'dffba7a6-fe2c-50b7-84a3-53fc15a08d92', 'Transactions & Concurrency: BEGIN, COMMIT, ROLLBACK', 'notes', 0, $md$Every `INSERT`/`UPDATE`/`DELETE` in this course so far has run as its own standalone statement. Real applications frequently need several statements to succeed or fail *together* — moving stock from one book to another, or registering a new member and their first loan in one action. That's what a transaction gives you.
@@ -2590,9 +2609,9 @@ $md$, 15, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 -- Section: SQL for Interviews
-INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('6f6f149b-633c-5cfa-a03f-40ecfc1e7fd7', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'SQL for Interviews', 13)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+INSERT INTO course_sections (id, course_id, title, position, group_title)
+VALUES ('6f6f149b-633c-5cfa-a03f-40ecfc1e7fd7', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'SQL for Interviews', 13, NULL)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, group_title=EXCLUDED.group_title;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('4df7e7f0-4bda-5d3a-a45b-46fc1ceee9cb', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '6f6f149b-633c-5cfa-a03f-40ecfc1e7fd7', 'Classic SQL Interview Patterns', 'notes', 0, $md$You've now covered every SQL building block this course teaches: `SELECT`, filtering, aggregation, every join type, data modification, subqueries, schema design, and dates. SQL interviews rarely test a single keyword in isolation — they test whether you recognize a handful of recurring *shapes* of problem and can reach for the right pattern under pressure. This lesson walks through five of the most common ones, each against the same library database you already know, followed by advice on how to talk through your reasoning out loud.
@@ -2785,7 +2804,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('897639d2-6192-57e4-8ecb-9a7bc7360335', '00000000-0000-0000-0000-000000000001', 'mcq', 'In `SELECT title, price FROM books ORDER BY price DESC LIMIT 1 OFFSET 1;`, wh...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('bd948830-7203-54ba-bfbe-f629ebd6a022', '897639d2-6192-57e4-8ecb-9a7bc7360335', 1, $json${"prompt":"In `SELECT title, price FROM books ORDER BY price DESC LIMIT 1 OFFSET 1;`, what does `OFFSET 1` do?","multiple":false,"options":[{"id":"a","text":"Skips the first row of the ordered result before LIMIT starts counting","is_correct":true},{"id":"b","text":"Limits the query to return only 1 column","is_correct":false},{"id":"c","text":"Adds 1 to every price value in the result","is_correct":false},{"id":"d","text":"Returns only rows where price = 1","is_correct":false}],"explanation":"ORDER BY price DESC puts the highest price first; OFFSET 1 then skips that single row before LIMIT 1 takes the next one — giving the 2nd-highest price ($21.00, Diallo Speaks), not the highest."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -2793,7 +2812,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('d2c02ef0-ff60-5a55-8699-91436d5d638d', '00000000-0000-0000-0000-000000000001', 'mcq', 'Why must `HAVING COUNT(*) > 1` be used instead of `WHERE COUNT(*) > 1` when f...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('db40933f-d5e7-5dbc-ac77-4de1c39e149b', 'd2c02ef0-ff60-5a55-8699-91436d5d638d', 1, $json${"prompt":"Why must `HAVING COUNT(*) \u003e 1` be used instead of `WHERE COUNT(*) \u003e 1` when finding books that share the same price?","multiple":false,"options":[{"id":"a","text":"WHERE filters rows before GROUP BY runs and can't reference an aggregate like COUNT(*); HAVING filters after grouping","is_correct":true},{"id":"b","text":"WHERE and HAVING are fully interchangeable in SQLite","is_correct":false},{"id":"c","text":"COUNT(*) can only appear in a SELECT list, never in any filter","is_correct":false},{"id":"d","text":"HAVING is only required when ORDER BY is also present","is_correct":false}],"explanation":"WHERE filters individual rows before grouping/aggregation happens, so aggregate results aren't available to it yet. HAVING runs after GROUP BY and can filter on the aggregated value."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -2801,7 +2820,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('ab26f027-2cab-5efd-9617-74238dc2385d', '00000000-0000-0000-0000-000000000001', 'mcq', 'Both `WHERE id NOT IN (SELECT book_id FROM loans)` and `LEFT JOIN loans ON .....', 'advanced', 3, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('1656f916-eb88-5db6-9a47-63e6177ba2a4', 'ab26f027-2cab-5efd-9617-74238dc2385d', 1, $json${"prompt":"Both `WHERE id NOT IN (SELECT book_id FROM loans)` and `LEFT JOIN loans ON ... WHERE loans.id IS NULL` find books that were never loaned. Why do many engineers treat the LEFT JOIN version as the 'safer' pattern?","multiple":false,"options":[{"id":"a","text":"If the NOT IN subquery's column ever contains a NULL, the whole NOT IN comparison silently returns zero rows; LEFT JOIN/IS NULL has no such failure mode","is_correct":true},{"id":"b","text":"LEFT JOIN is always faster than NOT IN, regardless of table size","is_correct":false},{"id":"c","text":"NOT IN cannot be combined with a subquery, only with a literal list","is_correct":false},{"id":"d","text":"LEFT JOIN works in more database engines than NOT IN does","is_correct":false}],"explanation":"If any row returned by the NOT IN subquery is NULL, every NOT IN comparison evaluates to UNKNOWN and the outer query returns nothing at all — a classic, easy-to-miss bug. The LEFT JOIN / IS NULL pattern doesn't have this trap."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -2809,7 +2828,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('cea15ff0-445c-516d-bbb8-a8d6529c375c', '00000000-0000-0000-0000-000000000001', 'mcq', '`SELECT member_id, COUNT(*) FROM loans GROUP BY member_id HAVING COUNT(*) > (...', 'advanced', 3, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('24fab267-33c5-5c0c-81c2-2f18e69b367a', 'cea15ff0-445c-516d-bbb8-a8d6529c375c', 1, $json${"prompt":"`SELECT member_id, COUNT(*) FROM loans GROUP BY member_id HAVING COUNT(*) \u003e (SELECT AVG(cnt) FROM (SELECT COUNT(*) AS cnt FROM loans GROUP BY member_id));` — against the seed data, who ends up in the result?","multiple":false,"options":[{"id":"a","text":"All 10 members, since everyone has borrowed at least once","is_correct":false},{"id":"b","text":"Only member_id 3 (Chloe Martin), whose 3 loans exceed the 2.0 average loans-per-member","is_correct":true},{"id":"c","text":"No members — COUNT(*) can't be compared against AVG() in a HAVING clause","is_correct":false},{"id":"d","text":"The member with the fewest loans, since HAVING inverts the comparison","is_correct":false}],"explanation":"Every member's loan count is 1, 2, or 3, averaging to 2.0 across all 10 members. Only Chloe Martin has 3 loans, clearing that average — everyone else sits at or below it."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -2817,7 +2836,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('75a37ce3-cf5c-5f0d-9eba-d18043e9f1fa', '00000000-0000-0000-0000-000000000001', 'mcq', 'In `SELECT m.name, r.name FROM members m LEFT JOIN members r ON m.referred_by...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('5de76063-e12f-502d-b686-72933f6dd402', '75a37ce3-cf5c-5f0d-9eba-d18043e9f1fa', 1, $json${"prompt":"In `SELECT m.name, r.name FROM members m LEFT JOIN members r ON m.referred_by = r.id;`, why is LEFT JOIN required instead of INNER JOIN?","multiple":false,"options":[{"id":"a","text":"A table cannot legally INNER JOIN to itself in SQLite","is_correct":false},{"id":"b","text":"INNER JOIN would silently drop every member whose referred_by is NULL; LEFT JOIN keeps them with a NULL referrer name","is_correct":true},{"id":"c","text":"LEFT JOIN is required any time two aliases of the same table are used","is_correct":false},{"id":"d","text":"referred_by must have a UNIQUE constraint before INNER JOIN can be used","is_correct":false}],"explanation":"5 of the 10 members have no referrer (referred_by IS NULL). INNER JOIN only keeps rows with a match on both sides, so it would drop those 5 members entirely; LEFT JOIN preserves every member row."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -2825,7 +2844,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('3a9c87a2-ab5a-52f7-8c83-dd6e74982837', '00000000-0000-0000-0000-000000000001', 'mcq', 'For loan 5, return_date is ''2024-01-24'' (not NULL). What does `COALESCE(retur...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('e19a0190-a24d-5ed6-ac37-caba100a62f7', '3a9c87a2-ab5a-52f7-8c83-dd6e74982837', 1, $json${"prompt":"For loan 5, return_date is '2024-01-24' (not NULL). What does `COALESCE(return_date, 'still out')` evaluate to for that row?","multiple":false,"options":[{"id":"a","text":"'still out'","is_correct":false},{"id":"b","text":"NULL","is_correct":false},{"id":"c","text":"'2024-01-24'","is_correct":true},{"id":"d","text":"'2024-01-24, still out'","is_correct":false}],"explanation":"COALESCE returns the first non-NULL argument in its list. Since return_date already has a value, that value passes through unchanged — the fallback only applies when the first argument is NULL."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -2833,7 +2852,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('746e7b8d-a40e-55a8-8871-2f7b06663043', '00000000-0000-0000-0000-000000000001', 'mcq', 'Loan 3 has loan_date ''2023-11-20'' and return_date ''2023-12-01''. What does `ju...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('e5eaf92a-b04c-58bf-b881-cd55155e7783', '746e7b8d-a40e-55a8-8871-2f7b06663043', 1, $json${"prompt":"Loan 3 has loan_date '2023-11-20' and return_date '2023-12-01'. What does `julianday(return_date) - julianday(loan_date)` evaluate to?","multiple":false,"options":[{"id":"a","text":"9","is_correct":false},{"id":"b","text":"10","is_correct":false},{"id":"c","text":"11","is_correct":true},{"id":"d","text":"14","is_correct":false}],"explanation":"November 20 to December 1 spans 11 days. This is one of only two closed loans shorter than the library's usual 14-day loan period (the other is loan 1, at 13 days)."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -2841,7 +2860,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('5b8f48fc-6a1e-50a2-b903-87c23eb9a6d0', '00000000-0000-0000-0000-000000000001', 'mcq', 'books.author_id is declared `INTEGER REFERENCES authors(id)`. By default in S...', 'advanced', 3, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('4d7f815c-709d-5da8-bd92-ce3e267f97fc', '5b8f48fc-6a1e-50a2-b903-87c23eb9a6d0', 1, $json${"prompt":"books.author_id is declared `INTEGER REFERENCES authors(id)`. By default in SQLite, is inserting a books row with an author_id that doesn't exist in authors actually rejected?","multiple":false,"options":[{"id":"a","text":"Yes — foreign keys are enforced by default in SQLite","is_correct":false},{"id":"b","text":"No — SQLite parses the REFERENCES syntax but does not enforce it unless PRAGMA foreign_keys = ON is set for that connection","is_correct":true},{"id":"c","text":"No — SQLite doesn't support foreign key syntax at all","is_correct":false},{"id":"d","text":"Yes, but only for columns that are also INTEGER PRIMARY KEY","is_correct":false}],"explanation":"This is a well-known SQLite gotcha: REFERENCES is accepted and stored as metadata, but constraint enforcement is off by default and must be turned on per-connection with PRAGMA foreign_keys = ON."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -2849,7 +2868,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('a0ab936a-57e0-519f-bde0-682a6d758283', '00000000-0000-0000-0000-000000000001', 'mcq', 'How do the row counts compare between `books INNER JOIN loans ON loans.book_i...', 'advanced', 3, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('daea6da7-b71f-5742-82ea-b72a09455126', 'a0ab936a-57e0-519f-bde0-682a6d758283', 1, $json${"prompt":"How do the row counts compare between `books INNER JOIN loans ON loans.book_id = books.id` and the same query with LEFT JOIN, given the seed data?","multiple":false,"options":[{"id":"a","text":"Both return 20 rows — every book has been loaned at least once","is_correct":false},{"id":"b","text":"INNER JOIN returns 20 rows (one per loan); LEFT JOIN returns 25 rows, adding one row per never-loaned book with loan columns as NULL","is_correct":true},{"id":"c","text":"INNER JOIN returns 15 rows (one per book); LEFT JOIN returns 20","is_correct":false},{"id":"d","text":"Both return exactly 15 rows, one per book","is_correct":false}],"explanation":"There are 20 loan rows total, so INNER JOIN produces 20 matched rows. 5 books (ids 3, 7, 12, 13, 14) were never loaned; LEFT JOIN still includes them, one row each with NULL loan columns, for 25 rows total."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -2857,7 +2876,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('37272b09-4f6f-525c-853f-a6934e619ef9', '00000000-0000-0000-0000-000000000001', 'mcq', 'Which WHERE clause has a bug caused by AND/OR operator precedence, incorrectl...', 'advanced', 3, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type, title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
 VALUES ('dae76970-a34b-5c37-b959-97e7127beaab', '37272b09-4f6f-525c-853f-a6934e619ef9', 1, $json${"prompt":"Which WHERE clause has a bug caused by AND/OR operator precedence, incorrectly including every Fantasy book (genre_id = 3) regardless of price?","multiple":false,"options":[{"id":"a","text":"WHERE price \u003c 15 AND genre_id = 1 OR genre_id = 3","is_correct":true},{"id":"b","text":"WHERE price \u003c 15 AND (genre_id = 1 OR genre_id = 3)","is_correct":false},{"id":"c","text":"WHERE price \u003c 15 AND genre_id IN (1, 3)","is_correct":false},{"id":"d","text":"WHERE genre_id IN (1, 3) AND price \u003c 15","is_correct":false}],"explanation":"AND binds more tightly than OR, so without parentheses `price \u003c 15 AND genre_id = 1 OR genre_id = 3` parses as `(price \u003c 15 AND genre_id = 1) OR genre_id = 3` — every Fantasy book is included no matter its price. Parenthesizing the OR, or using IN, avoids the bug."}$json$::jsonb, '00000000-0000-0000-0000-000000000012')
@@ -2866,6 +2885,8 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 INSERT INTO assessments (id, org_id, title, slug, description, type, status, parent_type, parent_id, duration_minutes, pass_percentage, max_attempts, total_points, shuffle_questions, shuffle_options, allow_backtrack, show_results, created_by, published_at)
 VALUES ('3051448e-3ac4-5de4-9142-0ab52b7d3f25', '00000000-0000-0000-0000-000000000001', 'Final Assessment: SQL Mastery', 'sql-mastery-interview-ready-quiz', 'Quiz covering SQL for Interviews.', 'mcq', 'published', 'module', 'b395c65d-bb64-5d8c-ad58-297cd78ebfa6', 25, 70, 5, 25, true, true, true, true, '00000000-0000-0000-0000-000000000012', now())
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, type=EXCLUDED.type, duration_minutes=EXCLUDED.duration_minutes, pass_percentage=EXCLUDED.pass_percentage, total_points=EXCLUDED.total_points, updated_at=now();
+
+DELETE FROM assessment_questions WHERE assessment_id = '3051448e-3ac4-5de4-9142-0ab52b7d3f25' AND question_id NOT IN ('897639d2-6192-57e4-8ecb-9a7bc7360335', 'd2c02ef0-ff60-5a55-8699-91436d5d638d', 'ab26f027-2cab-5efd-9617-74238dc2385d', 'cea15ff0-445c-516d-bbb8-a8d6529c375c', '75a37ce3-cf5c-5f0d-9eba-d18043e9f1fa', '3a9c87a2-ab5a-52f7-8c83-dd6e74982837', '746e7b8d-a40e-55a8-8871-2f7b06663043', '5b8f48fc-6a1e-50a2-b903-87c23eb9a6d0', 'a0ab936a-57e0-519f-bde0-682a6d758283', '37272b09-4f6f-525c-853f-a6934e619ef9');
 
 INSERT INTO assessment_questions (id, assessment_id, question_id, version_id, position, points)
 VALUES
@@ -2931,4 +2952,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 INSERT INTO enrollments (id, user_id, course_id, enrolled_by)
 VALUES ('3008a9b9-fd48-50a0-9aa6-06d300a965d6', '00000000-0000-0000-0000-000000000014', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (user_id, course_id) DO NOTHING;
+
+DELETE FROM course_modules WHERE course_id = 'a4531b49-7973-5e3f-8659-8fcae686dbdd' AND id NOT IN ('2cad97e4-5913-5521-a963-b8500d72e23c', '5f9f9b49-bfb7-5ee4-ada0-1c9e750bf37d', 'd643f99a-51b6-5b0c-86ed-a5d19cfe5c37', 'd7d96d37-94e8-595d-8f1b-a71051b62112', '83058bf6-1aac-56a9-b00b-879371fbe42e', 'e7f8c830-99e7-5672-828e-076eeb001c7a', '66199163-0731-5e44-9f9e-4f489f8fae47', '8da41f22-2066-58f5-aab4-f31f234105d0', 'fdb6648e-4b12-5338-a474-651f865c550b', '4269e709-e3fe-59b9-a226-f1b10bb9db0a', '8cb03e01-4ff9-5863-b252-6d60abdd18ee', 'e993e43a-e47e-55ba-8919-e6d1b4201a46', '7e786747-70f8-588a-af4b-92bdc0b3812b', '770defb5-4faa-5eff-a117-00246076dcad', '20d4754a-e9ca-5f33-8b16-ce2e23ce0f1a', 'dd9a5489-f523-55c8-a87b-4eb6541c77a9', '15247137-f471-5c59-a9a6-2d29bf83776d', '113a2912-8ee1-55cb-a0b0-23cdb463294a', '3b62031f-738f-590e-bb0e-ea4bde6bd6a5', 'b5012113-9352-5d1c-a40e-8a70e3660e4f', '8cc622c0-fefe-5db0-ba78-369d729dff22', 'bf077b54-1574-5f51-9c07-c306ffdc166f', '941b1547-2ce3-5551-aed1-50209e5c6de6', 'c68c63ec-0668-515d-bd97-a30688f368ff', '10848ef6-6ec2-5a78-a754-29539e492765', 'e7c37c2a-24d3-50df-8990-bf7d79dfb34c', '4df7e7f0-4bda-5d3a-a45b-46fc1ceee9cb', 'b395c65d-bb64-5d8c-ad58-297cd78ebfa6', '126e0634-8a16-5ac5-8cef-bdc0d7926512');
+DELETE FROM course_sections WHERE course_id = 'a4531b49-7973-5e3f-8659-8fcae686dbdd' AND id NOT IN ('ec8706bf-ebe9-5b3b-b724-5dd325900479', '0b221161-76a6-53d8-97fe-3b8d48a4d523', '9e77b8f4-1f70-5617-a4bc-37d4711c0a5c', '8f22fa33-bfba-53e7-bd87-383159ceb34a', 'fad91ed3-1863-541b-98fe-5ebb27565bc7', 'eb95795c-8a47-5888-a951-3748874737f6', '4eb23bfa-1550-5e4a-b344-5cc8599b42d7', '146b0641-5cfc-5f8c-811b-09a129b2d8c5', '1538b09b-a39c-5f45-af24-772ae0ebc7f7', '81fb90fc-1997-565d-af29-9667cea13a55', 'dffba7a6-fe2c-50b7-84a3-53fc15a08d92', '6f6f149b-633c-5cfa-a03f-40ecfc1e7fd7');
 
