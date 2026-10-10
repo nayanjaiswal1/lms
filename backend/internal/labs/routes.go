@@ -63,6 +63,11 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/api/labs/sessions/{sessionID}/debrief", h.HandleDebrief)
 	r.Post("/api/labs/sessions/{sessionID}/writeup-review", h.HandleWriteupReview)
 
+	// Mission mode (orgs on org_settings.labs.debug_ui = "new"): start gate + activity.
+	r.Post("/api/labs/sessions/{sessionID}/mission/start", h.HandleStartMission)
+	r.Post("/api/labs/sessions/{sessionID}/activity", h.HandleRecordActivity)
+	r.Get("/api/labs/sessions/{sessionID}/activity", h.HandleGetActivity)
+
 	r.Get("/api/labs/sessions/{sessionID}/files", h.HandleListFiles)
 	r.Get("/api/labs/sessions/{sessionID}/files/read", h.HandleReadFile)
 	r.Put("/api/labs/sessions/{sessionID}/files", h.HandleWriteFile)
@@ -96,5 +101,8 @@ func (h *Handler) RegisterAdminRoutes(r chi.Router, authzSvc *authz.Service) {
 	r.With(authz.RequirePermission(authzSvc, permManageOrg)).Group(func(r chi.Router) {
 		r.Get("/api/admin/labs/warm-pools", h.HandleListWarmPools)
 		r.Get("/api/admin/labs/usage", h.HandleGetLabUsage)
+		r.Get("/api/admin/labs/settings", h.HandleGetLabSettings)
+		r.Patch("/api/admin/labs/settings", h.HandleSetLabSettings)
+		r.Get("/api/admin/labs/sessions/{sessionID}/activity", h.HandleAdminActivity)
 	})
 }

@@ -380,7 +380,11 @@ type TaskSnapshot struct {
 // ─── Domain rows ─────────────────────────────────────────────────────────────
 
 type LabOrgConfig struct {
-	OrgID                 string    `json:"org_id"`
+	OrgID string `json:"org_id"`
+	// DebugUI is org_settings.labs.debug_ui: which workspace composed (debug)
+	// labs render — DebugUIOld (side-panel, the default) or DebugUINew
+	// (mission briefing + Start gate + activity tracking).
+	DebugUI               string    `json:"debug_ui"`
 	MaxConcurrentSessions int       `json:"max_concurrent_sessions"`
 	MaxSessionDuration    int       `json:"max_session_duration"`
 	AllowedImages         []string  `json:"allowed_images"`
@@ -509,6 +513,11 @@ type LabSession struct {
 	// RequiredPassedAt is set once every required task passed under a
 	// CompleteOnFinish kind: the session stays active until Finish/deadline.
 	RequiredPassedAt *time.Time `json:"required_passed_at,omitempty"`
+	// MissionStartedAt is when the student pressed Start on the mission
+	// briefing. nil = still on the briefing (the clock has not started). It is
+	// set at creation for every session that never shows a briefing: labs
+	// without a kind and orgs on the old debug UI.
+	MissionStartedAt *time.Time `json:"mission_started_at"`
 }
 
 // ─── Pluggable lab kinds (docs/debug-labs.md; backend/internal/labkinds) ────

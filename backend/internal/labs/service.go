@@ -329,8 +329,16 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 	// configured — a 30-minute lab silently held its container 4x longer
 	// than intended.
 	sessionMinutes := min(lab.MaxDuration, orgCfg.MaxSessionDuration)
-	expiresAt := time.Now().Add(time.Duration(sessionMinutes) * time.Minute)
+	now := time.Now()
+	expiresAt := now.Add(time.Duration(sessionMinutes) * time.Minute)
+	// Only mission-mode sessions wait for a Start press; every other session
+	// counts as started from creation.
+	var missionStartedAt *time.Time
+	if _, hasKind := kindFor(lab); !missionOn(hasKind, orgCfg.DebugUI) {
+		missionStartedAt = &now
+	}
 	session, err := s.repo.CreateSession(ctx, tx, CreateSessionParams{
+		MissionStartedAt: missionStartedAt,
 		LabID:         labID,
 		TaskVersionID: *lab.PublishedVersionID,
 		UserID:        userID,

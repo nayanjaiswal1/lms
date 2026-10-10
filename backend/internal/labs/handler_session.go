@@ -283,6 +283,14 @@ func (h *Handler) HandleGetSession(w http.ResponseWriter, r *http.Request) {
 		}
 		if ok {
 			resp[key] = payload
+			// The org's workspace mode is resolved here, server-side, so the
+			// client never has to guess which debug workspace to mount.
+			mode, err := h.service.DebugUIFor(r.Context(), session.OrgID)
+			if err != nil {
+				writeDomainError(w, err)
+				return
+			}
+			resp["lab_ui"] = mode
 		}
 	}
 	httputil.WriteJSON(w, http.StatusOK, resp)

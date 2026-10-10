@@ -183,6 +183,7 @@ func (r *Repo) GetOrgConfig(ctx context.Context, orgID string) (LabOrgConfig, er
 				OrgID:                 orgID,
 				MaxConcurrentSessions: MaxConcurrentSessionsDefault,
 				MaxSessionDuration:    MaxSessionDurationDefault,
+				DebugUI:               DebugUIOld,
 			}, nil
 		}
 		return LabOrgConfig{}, fmt.Errorf("labs.Repo.GetOrgConfig: %w", err)
@@ -192,6 +193,7 @@ func (r *Repo) GetOrgConfig(ctx context.Context, orgID string) (LabOrgConfig, er
 		OrgID:                 orgID,
 		MaxConcurrentSessions: MaxConcurrentSessionsDefault,
 		MaxSessionDuration:    MaxSessionDurationDefault,
+		DebugUI:               DebugUIOld,
 	}
 
 	type labsJSON struct {
@@ -199,6 +201,7 @@ func (r *Repo) GetOrgConfig(ctx context.Context, orgID string) (LabOrgConfig, er
 		MaxSessionDuration    *int     `json:"max_session_duration"`
 		AllowedImages         []string `json:"allowed_images"`
 		EgressProxyEnabled    *bool    `json:"egress_proxy_enabled"`
+		DebugUI               *string  `json:"debug_ui"`
 	}
 
 	var parsed labsJSON
@@ -213,6 +216,7 @@ func (r *Repo) GetOrgConfig(ctx context.Context, orgID string) (LabOrgConfig, er
 			cfg.MaxSessionDuration = *parsed.MaxSessionDuration
 		}
 		cfg.AllowedImages = parsed.AllowedImages
+		cfg.DebugUI = resolveDebugUI(parsed.DebugUI)
 		if parsed.EgressProxyEnabled != nil {
 			cfg.EgressProxyEnabled = *parsed.EgressProxyEnabled
 		}
@@ -237,26 +241,44 @@ type CreateSessionParams struct {
 	// VariantKey pins a debug lab's structural variant for the life of the
 	// session (docs/debug-labs.md Part 2 §B6) — nil for every other lab type.
 	VariantKey *string
+	// MissionStartedAt is set for sessions that skip the mission briefing
+	// (see LabSession.MissionStartedAt); nil leaves the clock waiting for Start.
+	MissionStartedAt *time.Time
+}
+
+// sessionColumns is the one column list every lab_sessions read selects, in
+// the order scanSession scans them.
+const sessionColumns = `id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
+		status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
+		completed_at, last_active_at, end_reason, provision_error, module_id, variant_key,
+		required_passed_at, mission_started_at`
+
+// scanSession scans one sessionColumns row.
+func scanSession(row pgx.Row) (*LabSession, error) {
+	var s LabSession
+	err := row.Scan(
+		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
+		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
+		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError, &s.ModuleID, &s.VariantKey,
+		&s.RequiredPassedAt, &s.MissionStartedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
 }
 
 // CreateSession inserts a new lab_sessions row inside the given transaction.
 // Returns ErrSessionActive when the per-user-per-lab unique index fires.
 func (r *Repo) CreateSession(ctx context.Context, tx pgx.Tx, params CreateSessionParams) (*LabSession, error) {
-	var s LabSession
-	err := tx.QueryRow(ctx, `
-		INSERT INTO lab_sessions (lab_id, task_version_id, user_id, org_id, expires_at, is_test, module_id, variant_key)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-		RETURNING id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
-		          status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
-		          completed_at, last_active_at, end_reason, module_id, variant_key, required_passed_at`,
+	s, err := scanSession(tx.QueryRow(ctx, `
+		INSERT INTO lab_sessions (lab_id, task_version_id, user_id, org_id, expires_at, is_test, module_id, variant_key, mission_started_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+		RETURNING `+sessionColumns,
 		params.LabID, params.TaskVersionID, params.UserID, params.OrgID,
-		params.ExpiresAt, params.IsTest, params.ModuleID, params.VariantKey,
-	).Scan(
-		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
-		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
-		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
-		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ModuleID, &s.VariantKey, &s.RequiredPassedAt,
-	)
+		params.ExpiresAt, params.IsTest, params.ModuleID, params.VariantKey, params.MissionStartedAt,
+	))
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -264,55 +286,34 @@ func (r *Repo) CreateSession(ctx context.Context, tx pgx.Tx, params CreateSessio
 		}
 		return nil, fmt.Errorf("labs.Repo.CreateSession: %w", err)
 	}
-	return &s, nil
+	return s, nil
 }
 
 // GetSession loads a session, enforcing that it belongs to userID (IDOR guard).
 func (r *Repo) GetSession(ctx context.Context, sessionID, userID string) (*LabSession, error) {
-	var s LabSession
-	err := r.pool.QueryRow(ctx, `
-		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
-		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
-		       completed_at, last_active_at, end_reason, provision_error, module_id, variant_key, required_passed_at
-		FROM lab_sessions WHERE id=$1 AND user_id=$2`,
-		sessionID, userID,
-	).Scan(
-		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
-		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
-		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
-		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError, &s.ModuleID, &s.VariantKey, &s.RequiredPassedAt,
-	)
+	s, err := scanSession(r.pool.QueryRow(ctx,
+		`SELECT `+sessionColumns+` FROM lab_sessions WHERE id=$1 AND user_id=$2`, sessionID, userID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("labs.Repo.GetSession: %w", err)
 	}
-	return &s, nil
+	return s, nil
 }
 
 // GetSessionByID loads a session without an ownership check. For internal use
 // only (provisioning goroutines, background jobs).
 func (r *Repo) GetSessionByID(ctx context.Context, sessionID string) (*LabSession, error) {
-	var s LabSession
-	err := r.pool.QueryRow(ctx, `
-		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
-		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
-		       completed_at, last_active_at, end_reason, provision_error, module_id, variant_key, required_passed_at
-		FROM lab_sessions WHERE id=$1`, sessionID,
-	).Scan(
-		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
-		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
-		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
-		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError, &s.ModuleID, &s.VariantKey, &s.RequiredPassedAt,
-	)
+	s, err := scanSession(r.pool.QueryRow(ctx,
+		`SELECT `+sessionColumns+` FROM lab_sessions WHERE id=$1`, sessionID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("labs.Repo.GetSessionByID: %w", err)
 	}
-	return &s, nil
+	return s, nil
 }
 
 // ListActiveSessions returns every non-test session the user currently has in
@@ -354,28 +355,20 @@ func (r *Repo) ListActiveSessions(ctx context.Context, userID string) ([]ActiveL
 // GetActiveSessionForLab returns the active (provisioning/running/paused) session
 // a user has for a specific lab, if one exists.
 func (r *Repo) GetActiveSessionForLab(ctx context.Context, userID, labID string) (*LabSession, error) {
-	var s LabSession
-	err := r.pool.QueryRow(ctx, `
-		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
-		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
-		       completed_at, last_active_at, end_reason, module_id, variant_key, required_passed_at
+	s, err := scanSession(r.pool.QueryRow(ctx, `
+		SELECT `+sessionColumns+`
 		FROM lab_sessions
 		WHERE user_id=$1 AND lab_id=$2 AND status IN ('provisioning','running','paused')
 		LIMIT 1`,
 		userID, labID,
-	).Scan(
-		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
-		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
-		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
-		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ModuleID, &s.VariantKey, &s.RequiredPassedAt,
-	)
+	))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("labs.Repo.GetActiveSessionForLab: %w", err)
 	}
-	return &s, nil
+	return s, nil
 }
 
 // UpdateSessionRunning marks a session as running and records its container coordinates.
