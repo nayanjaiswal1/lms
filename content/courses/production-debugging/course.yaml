@@ -11,7 +11,7 @@ description: >-
   error contracts, validation models, proxy configuration and authorization. The React track covers hooks and closures, async races, state and keys, render performance and leaks, and API and build configuration. The Fullstack track covers sessions, cookies and CORS, API contracts, and values that change meaning between browser and API. Each section starts
   with a short lesson on the debugging skill, never on the answer.
 difficulty: intermediate
-cover_url: "/course-covers/production-debugging.svg"
+cover_url: "/course-covers/production-debugging.png"
 tags:
   - debugging
   - django
