@@ -28,14 +28,14 @@ const LINE_CLASSES: Record<DiffLineKind, string> = {
 
 /**
  * Accessible unified-diff view: the +/- markers stay in the text (so colour is
- * never the only signal) and the block scrolls horizontally instead of wrapping.
+ * never the only signal) and long lines wrap and the block scrolls vertically inside a bounded height.
  */
 export function DebugDiffView({ title, diff, emptyMessage }: DebugDiffViewProps) {
   const lines = diff.replace(/\n$/, "").split("\n")
 
   return (
     <figure className="flex min-w-0 flex-col gap-1.5">
-      <figcaption className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</figcaption>
+      <figcaption className="text-xs font-medium text-muted-foreground">{title}</figcaption>
       {diff.trim() === "" ? (
         <p className="rounded-md border border-border p-3 text-sm text-muted-foreground">
           {emptyMessage}
@@ -43,14 +43,14 @@ export function DebugDiffView({ title, diff, emptyMessage }: DebugDiffViewProps)
       ) : (
         <pre
           aria-label={title}
-          className="max-h-96 overflow-auto rounded-md border border-border bg-card py-2 font-mono text-xs leading-5"
+          className="max-h-[32rem] overflow-auto rounded-md border border-border bg-card py-2 font-mono text-xs leading-5"
           // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- keyboard users must be able to focus and scroll a wide diff
           tabIndex={0}
         >
-          <code className="block min-w-max">
+          <code className="block">
             {lines.map((line, i) => (
               <span
-                className={cn("block whitespace-pre px-3", LINE_CLASSES[classify(line)])}
+                className={cn("block whitespace-pre-wrap break-words px-3", LINE_CLASSES[classify(line)])}
                 // Diff lines have no identity beyond their position.
                 key={i}
               >

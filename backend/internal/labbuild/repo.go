@@ -19,12 +19,12 @@ type Repo struct{ pool *pgxpool.Pool }
 // NewRepo returns a Repo over pool.
 func NewRepo(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool} }
 
-const buildCols = `b.id, b.recipe_id, b.recipe_hash, b.status, b.report, b.derived_difficulty, b.created_by, b.created_at, b.finished_at, b.spec_snapshot`
+const buildCols = `b.id, b.recipe_id, b.recipe_hash, b.runtime_id, b.status, b.report, b.derived_difficulty, b.created_by, b.created_at, b.finished_at, b.spec_snapshot`
 
 func scanBuild(row pgx.Row) (*Build, error) {
 	var b Build
 	var snap []byte
-	if err := row.Scan(&b.ID, &b.RecipeID, &b.RecipeHash, &b.Status, &b.Report, &b.DerivedDifficulty, &b.CreatedBy, &b.CreatedAt, &b.FinishedAt, &snap); err != nil {
+	if err := row.Scan(&b.ID, &b.RecipeID, &b.RecipeHash, &b.RuntimeID, &b.Status, &b.Report, &b.DerivedDifficulty, &b.CreatedBy, &b.CreatedAt, &b.FinishedAt, &snap); err != nil {
 		return nil, fmt.Errorf("labbuild.scanBuild: %w", err)
 	}
 	if err := json.Unmarshal(snap, &b.Snapshot); err != nil {
@@ -35,19 +35,19 @@ func scanBuild(row pgx.Row) (*Build, error) {
 
 // CreateBuild inserts a queued build. If the recipe already has an in-flight
 // build for the same hash, that build is returned with ErrBuildInFlight.
-func (r *Repo) CreateBuild(ctx context.Context, recipeID, hash string, snap Snapshot, difficulty, createdBy string) (*Build, error) {
+func (r *Repo) CreateBuild(ctx context.Context, recipeID, hash, runtimeID string, snap Snapshot, difficulty, createdBy string) (*Build, error) {
 	raw, err := json.Marshal(snap)
 	if err != nil {
 		return nil, fmt.Errorf("labbuild.Repo.CreateBuild: %w", err)
 	}
 	b, err := scanBuild(r.pool.QueryRow(ctx, `
-		INSERT INTO public.lab_builds AS b (recipe_id, recipe_hash, spec_snapshot, status, derived_difficulty, created_by)
-		VALUES ($1, $2, $3::jsonb, 'queued', NULLIF($4,''), $5)
-		RETURNING `+buildCols, recipeID, hash, raw, difficulty, createdBy))
+		INSERT INTO public.lab_builds AS b (recipe_id, recipe_hash, runtime_id, spec_snapshot, status, derived_difficulty, created_by)
+		VALUES ($1, $2, $6, $3::jsonb, 'queued', NULLIF($4,''), $5)
+		RETURNING `+buildCols, recipeID, hash, raw, difficulty, createdBy, runtimeID))
 	if err != nil {
 		var pe *pgconn.PgError
 		if errors.As(err, &pe) && pe.Code == "23505" {
-			existing, gerr := r.LatestBuild(ctx, recipeID, hash)
+			existing, gerr := r.LatestBuild(ctx, recipeID, hash, runtimeID)
 			if gerr != nil {
 				return nil, gerr
 			}
@@ -85,11 +85,11 @@ func (r *Repo) GetBuildForOrg(ctx context.Context, orgID, id string) (*Build, er
 	return b, nil
 }
 
-// LatestBuild returns the newest build of a recipe for a hash, or (nil, nil).
-func (r *Repo) LatestBuild(ctx context.Context, recipeID, hash string) (*Build, error) {
+// LatestBuild returns the newest build of a recipe for a hash and lab runtime, or (nil, nil).
+func (r *Repo) LatestBuild(ctx context.Context, recipeID, hash, runtimeID string) (*Build, error) {
 	b, err := scanBuild(r.pool.QueryRow(ctx, `
 		SELECT `+buildCols+` FROM public.lab_builds b
-		WHERE b.recipe_id = $1 AND b.recipe_hash = $2 ORDER BY b.created_at DESC LIMIT 1`, recipeID, hash))
+		WHERE b.recipe_id = $1 AND b.recipe_hash = $2 AND b.runtime_id = $3 ORDER BY b.created_at DESC LIMIT 1`, recipeID, hash, runtimeID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}

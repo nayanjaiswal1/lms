@@ -31,6 +31,11 @@ import (
 	"github.com/mindforge/backend/internal/labblock"
 )
 
+// DefaultHintPenaltyPct is the per-hint score penalty (percent of the task's
+// points) a debug lab gets unless its authoring says otherwise. The single
+// source for the content generator, labbuild publish and migration 003.
+const DefaultHintPenaltyPct = 10
+
 // TaskTemplate is one task a lab kind's build publishes into lab_tasks/
 // lab_task_version_items.
 type TaskTemplate struct {

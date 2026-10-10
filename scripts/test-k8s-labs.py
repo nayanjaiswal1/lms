@@ -7,17 +7,23 @@ runs (catches always-true checks) and PASSES after it.
 
 usage: python scripts/test-k8s-labs.py content/courses/<course>/<section>/<file>.md [...]
 env:   LAB_IMAGE (default mindforge/lab-k8s:1.31) — build it first from lab-images/.
+       LAB_READY_CMD (default "test -f /tmp/lab-ready") — in-container readiness probe, e.g.
+       "test -d /home/labuser/work" for images without a lab-ready marker (git course on lab-debug).
+Works for any lab image, not just k8s.
 """
 import os, subprocess, sys, time, uuid
 
 import yaml
 
 IMAGE = os.environ.get("LAB_IMAGE", "mindforge/lab-k8s:1.31")
+READY_CMD = os.environ.get("LAB_READY_CMD", "test -f /tmp/lab-ready")
 
 
 def sh(name, script, user="labuser"):
-    r = subprocess.run(["docker", "exec", "-i", "-u", user, "-w", "/home/labuser/work", name, "bash", "-s"],
-                       input=script.encode(), capture_output=True, timeout=180)
+    # bash -c with the script as an argument (like the backend's `timeout 10 bash -c`), so commands
+    # that read stdin cannot swallow the rest of the script.
+    r = subprocess.run(["docker", "exec", "-u", user, "-w", "/home/labuser/work", name, "timeout", "120", "bash", "-c", script],
+                       capture_output=True, timeout=180)
     return r.returncode, (r.stdout + r.stderr).decode(errors="replace")
 
 
@@ -34,7 +40,7 @@ def run(path):
     ok = True
     try:
         for _ in range(150):
-            if subprocess.run(["docker", "exec", name, "test", "-f", "/tmp/lab-ready"]).returncode == 0:
+            if subprocess.run(["docker", "exec", name, "sh", "-c", READY_CMD]).returncode == 0:
                 break
             time.sleep(2)
         for f in lab.get("files") or []:

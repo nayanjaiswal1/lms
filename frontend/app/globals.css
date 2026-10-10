@@ -493,7 +493,7 @@
 
   /* ── Status / badge colours ─────────────────────────────────────── */
   .badge-success     { @apply bg-success/10     text-success          border-success/20; }
-  .badge-warning     { @apply bg-warning/10     text-warning-foreground border-warning/20; }
+  .badge-warning     { @apply bg-warning/10     text-warning border-warning/20; }
   .badge-destructive { @apply bg-destructive/10 text-destructive       border-destructive/20; }
   .badge-ai          { @apply bg-ai/10          text-ai               border-ai/20; }
   /* badge-info = upgrade/add-on CTA badge — amber to indicate action */

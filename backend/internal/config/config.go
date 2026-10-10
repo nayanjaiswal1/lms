@@ -262,6 +262,13 @@ type Config struct {
 	LabsImageRegistry string
 	// LabsPidsLimit caps processes per lab container (LABS_PIDS_LIMIT).
 	LabsPidsLimit int
+	// LabsGradeTimeout bounds one whole clean-room Check (sandbox start, seed,
+	// every grade.sh mode) (LABS_GRADE_TIMEOUT). Must cover the slowest real
+	// grader run on a loaded host, not the typical one.
+	LabsGradeTimeout time.Duration
+	// HTTPReadHeaderTimeout bounds reading request headers (HTTP_READ_HEADER_TIMEOUT).
+	// Not a whole-request ReadTimeout: that one also cancels r.Context() mid-handler.
+	HTTPReadHeaderTimeout time.Duration
 	// MaxBodyBytes caps non-multipart request bodies (MAX_BODY_BYTES).
 	MaxBodyBytes int64
 	// LabsNetworkPerSession gives each lab container its own Docker network
@@ -534,6 +541,8 @@ func Load() *Config {
 	cfg.LabsNestedDockerRuntimeClass = os.Getenv("LABS_NESTED_DOCKER_RUNTIME_CLASS")
 	cfg.LabsImageRegistry = os.Getenv("LABS_IMAGE_REGISTRY")
 	cfg.LabsPidsLimit = getEnvInt("LABS_PIDS_LIMIT", 512)
+	cfg.LabsGradeTimeout = parseDuration("LABS_GRADE_TIMEOUT", "4m")
+	cfg.HTTPReadHeaderTimeout = parseDuration("HTTP_READ_HEADER_TIMEOUT", "15s")
 	cfg.MaxBodyBytes = int64(getEnvInt("MAX_BODY_BYTES", 8<<20))
 	cfg.LabsNetworkPerSession = getEnvBool("LABS_NETWORK_PER_SESSION", true)
 	cfg.LabsNetworkInternal = getEnvBool("LABS_NETWORK_INTERNAL", false)

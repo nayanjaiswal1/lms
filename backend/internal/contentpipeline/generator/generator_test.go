@@ -321,3 +321,15 @@ func TestLoad_SectionGroupMismatchErrors(t *testing.T) {
 	require.Contains(t, err.Error(), `"Frontend"`)
 	require.Contains(t, err.Error(), `"Backend"`)
 }
+
+// A type='lab' module must carry lab_id in the same INSERT: baseline's
+// lab_module_has_lab CHECK ((type='lab') = (lab_id IS NOT NULL)) is not
+// deferrable, so a lab row without lab_id aborts the whole fixture.
+func TestRender_LabModuleSatisfiesLabModuleHasLab(t *testing.T) {
+	out, err := Render(sampleDocs(), canonical.CourseMeta{})
+	require.NoError(t, err)
+	labID := canonical.ID("test/section/lab", "lab")
+	require.Contains(t, out, "INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)")
+	require.Contains(t, out, fmt.Sprintf("'lab', 1, 30, '%s', true)", labID))
+	require.NotRegexp(t, `'lab', \d+, \d+\)\n`, out, "lab module row without lab_id violates lab_module_has_lab")
+}

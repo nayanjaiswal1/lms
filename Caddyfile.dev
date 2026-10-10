@@ -18,6 +18,16 @@
 		reverse_proxy labproxy:8081
 	}
 
+	# labproxy down/unreachable: Caddy's default 502 body is empty, so the IDE and
+	# App iframes would render a blank pane. Show a readable message instead.
+	handle_errors {
+		@labws path /lab-ws/*
+		handle @labws {
+			header Content-Type "text/html; charset=utf-8"
+			respond "<!doctype html><meta name=viewport content='width=device-width'><body style='font-family:system-ui;padding:2rem;color:#555'><p>The lab environment is unavailable right now. Reload in a few seconds.</p></body>" {err.status_code}
+		}
+	}
+
 	reverse_proxy /mindforge/* minio:9000
 
 	reverse_proxy frontend:3000

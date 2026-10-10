@@ -129,7 +129,9 @@ func (s *Service) SubmitAll(ctx context.Context, sessionID, userID string) (*Sub
 
 	// Bounds the whole batch, not just each task's own exec — see
 	// maxSubmitAllDuration's doc comment.
-	ctx, cancel := context.WithTimeout(ctx, maxSubmitAllDuration)
+	// A client disconnect must not abandon a half-graded Check (grading and
+	// score persistence run to completion); the deadline still bounds it.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), maxSubmitAllDuration)
 	defer cancel()
 
 	tasks, err := s.repo.GetPublishedVersion(ctx, session.TaskVersionID)

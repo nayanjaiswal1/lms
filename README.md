@@ -247,7 +247,7 @@ Copy `.env.example` to `.env` for local development.
 | `ENCRYPTION_KEY` | Yes | — | Exactly 32 bytes. AES-256-GCM for sensitive fields. |
 | `ACCESS_TOKEN_TTL` | No | `15m` | Access token lifetime. |
 | `REFRESH_TOKEN_TTL` | No | `720h` | Refresh token lifetime (30 days). |
-| `REFRESH_REUSE_GRACE` | No | `30s` | A refresh token rotated this recently and presented again (multi-tab race) gets a fresh access token instead of revoking the whole session family. |
+| `REFRESH_REUSE_GRACE` | No | `30s` | A refresh token rotated this recently and presented again (multi-tab race) gets the same (HMAC-derived) successor refresh token plus a fresh access token instead of revoking the whole session family. |
 | `PASSWORD_RESET_TTL` | No | `30m` | Password reset link lifetime. |
 | `EMAIL_VERIFICATION_TTL` | No | `24h` | Email verification link lifetime. |
 

@@ -11,6 +11,16 @@
 		reverse_proxy {$LABPROXY_UPSTREAM:labproxy:8081}
 	}
 
+	# labproxy down/unreachable: Caddy's default 502 body is empty, so the IDE and
+	# App iframes would render a blank pane. Show a readable message instead.
+	handle_errors {
+		@labws path /lab-ws/*
+		handle @labws {
+			header Content-Type "text/html; charset=utf-8"
+			respond "<!doctype html><meta name=viewport content='width=device-width'><body style='font-family:system-ui;padding:2rem;color:#555'><p>The lab environment is unavailable right now. Reload in a few seconds.</p></body>" {err.status_code}
+		}
+	}
+
 	# MinIO S3 API — presigned PUT/GET URLs and public-read object fetches are
 	# signed against {$MINIO_PUBLIC_ENDPOINT}, so the bucket path must be
 	# proxied through unmodified (no prefix stripping) for signatures to verify.

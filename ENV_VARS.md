@@ -63,7 +63,10 @@ must additionally differ from the dev values. `ENCRYPTION_KEY` must be exactly
 
 `REFRESH_REUSE_GRACE` (default `30s`): a refresh token rotated less than this
 long ago and presented again is treated as a multi-tab race, not theft — the
-caller gets a fresh access token and the family stays alive. Past the window
+caller gets the same successor refresh token the first rotation issued (it is
+derived as HMAC(COOKIE_SECRET, parent)) plus a fresh access token, and the
+family stays alive. If that successor is already gone (logged out, revoked,
+rotated on) the replay is refused without revoking anything. Past the window
 reuse revokes the whole token family (all sessions). Raise it if slow clients
 or throttled background tabs hit "Session reuse detected"; keep it short, since
 it is also the window in which a stolen rotated token is still honoured.
@@ -192,6 +195,8 @@ points at Caddy's port-80 `/mindforge/*` proxy (`Caddyfile.dev`) instead of
 tokens labproxy verifies; labproxy never receives `JWT_SECRET`. `LABPROXY_DB_URL` uses
 the least-privilege `labproxy` role (see docs/infrastructure.md). `LABS_SNIPPET_DAILY_LIMIT`
 (default 200) caps `/api/labs/run` per user per day.
+
+`LABS_GRADE_TIMEOUT` (default `4m`) is the total budget for one "Check my fix" (every grade mode plus the regression run); a check cancelled by it returns 504 `grader_timeout`, an interrupted one 503. Size it above the slowest real grader run. `HTTP_READ_HEADER_TIMEOUT` (default `15s`) bounds reading request headers only; the server deliberately has no whole-request read deadline, which would cancel any request still running at that point.
 
 ### Live app preview (`LABPROXY_PREVIEW_DOMAIN`)
 
