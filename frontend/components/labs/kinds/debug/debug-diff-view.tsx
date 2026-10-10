@@ -1,65 +1,58 @@
 import { cn } from "@/lib/utils"
+import type { DiffRow, DiffRowKind } from "@/lib/labs/kinds/diff"
 
 interface DebugDiffViewProps {
-  title: string
-  diff: string
+  rows: DiffRow[]
+  label: string
   emptyMessage: string
 }
 
-type DiffLineKind = "add" | "remove" | "hunk" | "meta" | "context"
-
-function classify(line: string): DiffLineKind {
-  if (line.startsWith("+++") || line.startsWith("---") || line.startsWith("diff ") || line.startsWith("index ")) {
-    return "meta"
-  }
-  if (line.startsWith("@@")) return "hunk"
-  if (line.startsWith("+")) return "add"
-  if (line.startsWith("-")) return "remove"
-  return "context"
+const ROW_CLASSES: Record<DiffRowKind, string> = {
+  add: "bg-success/10",
+  remove: "bg-destructive/10",
+  hunk: "bg-muted text-muted-foreground",
+  context: "",
 }
 
-const LINE_CLASSES: Record<DiffLineKind, string> = {
-  add: "bg-success/10 text-success",
-  remove: "bg-destructive/10 text-destructive",
-  hunk: "bg-muted text-muted-foreground",
-  meta: "font-semibold text-muted-foreground",
-  context: "text-foreground",
+const MARKERS: Record<DiffRowKind, string> = { add: "+", remove: "-", hunk: "", context: " " }
+
+const MARKER_CLASSES: Record<DiffRowKind, string> = {
+  add: "text-success",
+  remove: "text-destructive",
+  hunk: "",
+  context: "",
 }
 
 /**
- * Accessible unified-diff view: the +/- markers stay in the text (so colour is
- * never the only signal) and long lines wrap and the block scrolls vertically inside a bounded height.
+ * One file's diff with line numbers. The +/- markers stay as text so colour is
+ * never the only signal; long lines wrap, so nothing is clipped or scrolled sideways.
  */
-export function DebugDiffView({ title, diff, emptyMessage }: DebugDiffViewProps) {
-  const lines = diff.replace(/\n$/, "").split("\n")
+export function DebugDiffView({ rows, label, emptyMessage }: DebugDiffViewProps) {
+  if (rows.length === 0) {
+    return <p className="rounded-md border border-border p-3 text-sm text-muted-foreground">{emptyMessage}</p>
+  }
 
   return (
-    <figure className="flex min-w-0 flex-col gap-1.5">
-      <figcaption className="text-xs font-medium text-muted-foreground">{title}</figcaption>
-      {diff.trim() === "" ? (
-        <p className="rounded-md border border-border p-3 text-sm text-muted-foreground">
-          {emptyMessage}
-        </p>
-      ) : (
-        <pre
-          aria-label={title}
-          className="max-h-[32rem] overflow-auto rounded-md border border-border bg-card py-2 font-mono text-xs leading-5"
-          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- keyboard users must be able to focus and scroll a wide diff
-          tabIndex={0}
+    <div
+      aria-label={label}
+      className="overflow-hidden rounded-md border border-border bg-card py-1 font-mono text-xs leading-5"
+      role="region"
+    >
+      {rows.map((row, i) => (
+        <div
+          className={cn("grid grid-cols-[3rem_1.25rem_minmax(0,1fr)]", ROW_CLASSES[row.kind])}
+          // Diff rows have no identity beyond their position.
+          key={i}
         >
-          <code className="block">
-            {lines.map((line, i) => (
-              <span
-                className={cn("block whitespace-pre-wrap break-words px-3", LINE_CLASSES[classify(line)])}
-                // Diff lines have no identity beyond their position.
-                key={i}
-              >
-                {line === "" ? " " : line}
-              </span>
-            ))}
-          </code>
-        </pre>
-      )}
-    </figure>
+          <span aria-hidden className="select-none pr-2 text-right text-muted-foreground tabular-nums">
+            {row.lineNumber}
+          </span>
+          <span className={cn("select-none font-semibold", MARKER_CLASSES[row.kind])}>{MARKERS[row.kind]}</span>
+          <span className={cn("whitespace-pre-wrap break-words pr-3", row.kind === "hunk" && "italic")}>
+            {row.kind === "hunk" ? `@@ ${row.text}`.trim() : row.text || " "}
+          </span>
+        </div>
+      ))}
+    </div>
   )
 }

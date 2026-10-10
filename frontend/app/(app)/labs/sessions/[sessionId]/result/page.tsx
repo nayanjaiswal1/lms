@@ -5,6 +5,8 @@ import { LAB_KIND_DEBRIEFS } from "@/components/labs/kinds/debrief-registry"
 import { ClearActiveLabSession } from "@/components/labs/clear-active-lab-session"
 import { ResultChecks } from "@/components/labs/result/result-checks"
 import { ResultHeader } from "@/components/labs/result/result-header"
+import { ResultMissedPoints } from "@/components/labs/result/result-missed-points"
+import { ResultNext } from "@/components/labs/result/result-next"
 import { FeedbackPrompt } from "@/components/feedback/feedback-prompt"
 import { apiGet } from "@/lib/server/api"
 import { getMyFeedback } from "@/lib/server/feedback"
@@ -40,13 +42,13 @@ export default async function LabResultPage({ params }: PageProps) {
   const myFeedback = await getMyFeedback("lab", session.lab_id).catch(() => null)
 
   return (
-    <main className="page-container flex max-w-4xl flex-col gap-6">
+    <main className="page-container flex max-w-4xl flex-col gap-6 pb-24">
       <Breadcrumb items={[{ label: "Labs", href: ROUTES.LABS_CATALOG }, { label: "Result" }]} />
       <ClearActiveLabSession sessionId={sessionId} />
-      <FeedbackPrompt alreadyResponded={myFeedback !== null} subjectId={session.lab_id} subjectType="lab" />
       <ResultHeader
         didPass={didPass}
-        labId={session.lab_id}
+        hintsUsed={task_completions.reduce((sum, c) => sum + c.hints_used, 0)}
+        labType={lab.lab_type}
         maxScore={lab.tasks.reduce((s, t) => s + t.points, 0)}
         passedChecks={task_completions.filter((c) => c.status === "passed").length}
         score={session.score}
@@ -54,8 +56,11 @@ export default async function LabResultPage({ params }: PageProps) {
         title={lab.title}
         totalChecks={lab.tasks.length}
       />
+      <ResultMissedPoints completions={completions} tasks={lab.tasks} />
       {lab.tasks.length > 0 && <ResultChecks completions={completions} tasks={lab.tasks} />}
       {Debrief && <Debrief sessionId={sessionId} />}
+      <FeedbackPrompt alreadyResponded={myFeedback !== null} subjectId={session.lab_id} subjectType="lab" />
+      <ResultNext labId={session.lab_id} />
     </main>
   )
 }

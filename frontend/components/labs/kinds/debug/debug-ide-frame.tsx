@@ -47,7 +47,11 @@ export function DebugIdeFrame({ ide, sessionId, labId, reloaded }: DebugIdeFrame
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
                 src={freshSrc ? (popOutUrl ?? ideUrl) : ideUrl}
                 title="Browser IDE"
-                onLoad={onLoad}
+                onLoad={(e) => {
+                  onLoad()
+                  // Hand keyboard focus to VS Code so Ctrl+P and friends reach it, not the page.
+                  e.currentTarget.focus()
+                }}
               />
             )}
             {!isLoaded && (

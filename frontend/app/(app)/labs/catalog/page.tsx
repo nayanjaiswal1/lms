@@ -8,7 +8,7 @@ import { groupCatalog } from "@/lib/labs/kinds/catalog"
 import type { LabCatalogEntry } from "@/lib/labs"
 
 export const metadata: Metadata = {
-  title: "Debug Labs",
+  title: "Labs",
   robots: { index: false, follow: false },
 }
 
@@ -26,10 +26,9 @@ export default async function LabCatalogPage({ searchParams }: PageProps) {
   return (
     <main className="page-container flex flex-col gap-6">
       <header className="flex flex-col gap-1">
-        <h1 className="page-title">Debug labs</h1>
+        <h1 className="page-title">Labs</h1>
         <p className="text-sm text-muted-foreground">
-          Broken, realistic apps to debug in a browser IDE. Work through the levels in order, or
-          jump to what you want to practice.
+          Debug realistic broken apps in a browser IDE, level by level or by topic.
         </p>
       </header>
 
@@ -49,12 +48,16 @@ export default async function LabCatalogPage({ searchParams }: PageProps) {
             <div className="flex flex-col gap-0.5">
               <h2 className="subsection-title" id={`group-${group.id}`}>
                 {group.label}
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  {groupEntries.filter((e) => e.status === "completed").length} of{" "}
+                  {groupEntries.length} passed
+                </span>
               </h2>
               {group.description && (
                 <p className="text-sm text-muted-foreground">{group.description}</p>
               )}
             </div>
-            <div className="grid-responsive">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
               {groupEntries.map((entry) => (
                 <CatalogCard entry={entry} key={entry.lab_id} />
               ))}

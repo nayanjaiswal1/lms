@@ -36,13 +36,13 @@ export function CatalogFilters({ count }: CatalogFiltersProps) {
     <div
       aria-busy={isPending}
       aria-label="Catalog filters"
-      className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
+      className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
       role="group"
     >
       <FilterSelect
         allLabel="All stacks"
         allValue={CATALOG_ALL}
-        label="Filter by stack"
+        label="Stack"
         options={stackOptions}
         value={filters.stack}
         onChange={(stack) => void setFilters({ stack })}
@@ -50,7 +50,7 @@ export function CatalogFilters({ count }: CatalogFiltersProps) {
       <FilterSelect
         allLabel="All categories"
         allValue={CATALOG_ALL}
-        label="Filter by category"
+        label="Category"
         options={categoryOptions}
         value={filters.category}
         onChange={(category) => void setFilters({ category })}
@@ -58,7 +58,7 @@ export function CatalogFilters({ count }: CatalogFiltersProps) {
       <FilterSelect
         allLabel="All difficulties"
         allValue={CATALOG_ALL}
-        label="Filter by difficulty"
+        label="Difficulty"
         options={CATALOG_DIFFICULTIES}
         value={filters.difficulty}
         onChange={(difficulty) => void setFilters({ difficulty })}

@@ -34,16 +34,19 @@ export function useLabIde(sessionId: string, idePort: number): UseLabIdeReturn {
   // older than labproxy's 5-minute lifetime in a throttled background tab.
   async function popOut() {
     const tab = window.open("about:blank", "_blank")
-    if (tab) tab.opener = null
+    if (!tab) {
+      toast.error("Your browser blocked the pop-up. Allow pop-ups for this site and try again.")
+      return
+    }
+    tab.opener = null
     const token = await store.mintNow()
     if (!token) {
-      tab?.close()
+      tab.close()
       toast.error("Your lab session expired. End the lab and start a fresh one.")
       return
     }
     const url = buildLabPreviewUrl(token, idePort)
-    if (tab) tab.location.href = url
-    else window.location.assign(url)
+    tab.location.href = url
   }
 
   return {

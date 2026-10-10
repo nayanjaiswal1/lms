@@ -16,7 +16,7 @@ export default function LabCatalogLoading() {
         <Skeleton className="h-6 w-64" />
         <div className="grid-responsive">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton className="h-48 w-full" key={i} />
+            <Skeleton className="h-32 w-full" key={i} />
           ))}
         </div>
       </div>

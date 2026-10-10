@@ -509,7 +509,7 @@
 
   /* ── Difficulty levels ──────────────────────────────────────────── */
   .difficulty-beginner     { @apply bg-success/10     text-success       border-success/20; }
-  .difficulty-intermediate { @apply bg-warning/10     text-warning-foreground border-warning/20; }
+  .difficulty-intermediate { @apply bg-warning/10     text-warning       border-warning/20; }
   .difficulty-advanced     { @apply bg-destructive/10 text-destructive   border-destructive/20; }
   .difficulty-expert       { @apply bg-primary/10     text-primary       border-primary/20; }
 

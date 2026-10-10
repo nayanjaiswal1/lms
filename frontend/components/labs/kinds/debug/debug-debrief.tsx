@@ -1,4 +1,4 @@
-import { DebugDiffView } from "@/components/labs/kinds/debug/debug-diff-view"
+import { DebugChangeViewer } from "@/components/labs/kinds/debug/debug-change-viewer"
 import { DebugWriteupReviewCard } from "@/components/labs/kinds/debug/debug-writeup-review-card"
 import { LabMarkdown } from "@/components/labs/kinds/debug/lab-markdown"
 import { apiGet } from "@/lib/server/api"
@@ -17,29 +17,20 @@ export async function DebugDebrief({ sessionId }: LabDebriefProps) {
 
   return (
     <>
-      <section aria-labelledby="debrief-root-cause" className="flex flex-col gap-2">
+      <section aria-labelledby="debrief-root-cause" className="flex flex-col gap-3">
         <h2 className="subsection-title" id="debrief-root-cause">
-          Root cause
+          What went wrong
         </h2>
-        <LabMarkdown>{debrief.root_cause}</LabMarkdown>
+        <div className="max-w-prose">
+          <LabMarkdown>{debrief.root_cause}</LabMarkdown>
+        </div>
       </section>
 
-      <section aria-labelledby="debrief-diff" className="flex flex-col gap-2">
+      <section aria-labelledby="debrief-diff" className="flex flex-col gap-3">
         <h2 className="subsection-title" id="debrief-diff">
-          Reference fix vs your changes
+          The change
         </h2>
-        <div className="flex flex-col gap-4">
-          <DebugDiffView
-            diff={debrief.fix_diff}
-            emptyMessage="No reference diff for this scenario."
-            title="Reference fix"
-          />
-          <DebugDiffView
-            diff={student_diff ?? ""}
-            emptyMessage="Your workspace changes are no longer available."
-            title="Your changes"
-          />
-        </div>
+        <DebugChangeViewer referenceDiff={debrief.fix_diff} studentDiff={student_diff ?? ""} />
       </section>
 
       {writeup_review && (
