@@ -4,7 +4,7 @@ id_key: git/cheat-sheet/lesson
 course: git
 section: cheat-sheet
 section_title: Cheat Sheet
-section_position: 9
+section_position: 11
 title: One-Page Git Cheat Sheet
 position: 0
 estimated_minutes: 10
@@ -12,6 +12,8 @@ source:
   - Pro Git book (git-scm.com/book)
   - git-scm.com/docs command reference
 ---
+
+> **Everything you used, on one page.** Keep it open until the commands are muscle memory.
 
 Safety legend: **safe** changes nothing you cannot recover, **rewrites** creates new commits and
 leaves the old ones only in the reflog, **destructive** can lose uncommitted work.

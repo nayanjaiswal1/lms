@@ -4,7 +4,7 @@ id_key: git/first-commits/lesson
 course: git
 section: first-commits
 section_title: Setup and First Commits
-section_position: 1
+section_position: 2
 title: Init, Stage, Commit, Amend, Ignore
 position: 0
 estimated_minutes: 40
@@ -129,6 +129,8 @@ lab:
         git add main.sh
         git commit --amend -m "Update README and script"
 ---
+
+> **Day 1 at Brightside.** Maya, your tech lead, hands you an empty folder: "Start the hello tool. Commit as you go - the whole team will read this history, so keep it clean." By the end of this section you will have a tidy three-commit history you are not embarrassed to show.
 
 ## The three areas
 
@@ -340,3 +342,5 @@ b94e2d1 (HEAD -> main) Update README and script
     "explanation": "The amended commit is a different object. Anyone who already has the old one now has diverging history." }
 ] }
 ```
+
+> **Next:** your history is only on your laptop. Maya needs it on the team server - time to connect.

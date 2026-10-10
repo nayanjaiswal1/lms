@@ -4,7 +4,7 @@ id_key: git/capstone/lesson
 course: git
 section: capstone
 section_title: Capstone - Team Workflow
-section_position: 8
+section_position: 10
 title: Feature Branch to Release, and Fixing a Bad Commit on main
 position: 0
 estimated_minutes: 60
@@ -219,6 +219,8 @@ lab:
         git revert --no-edit "$(git log --format=%h --grep='^Switch to experimental rounding$' -1)"
         git push
 ---
+
+> **Your first real release.** No hints about which command to use this time - just the situation, like on the job. Feature branch, review, release, and a bad commit on main to fix.
 
 ## The workflow we are about to run
 
@@ -455,3 +457,5 @@ OK
     "explanation": "Shared history is append-only; a revert is an ordinary, reviewable commit." }
 ] }
 ```
+
+> **You made it.** Keep the cheat sheet open next to your terminal for the first few weeks.

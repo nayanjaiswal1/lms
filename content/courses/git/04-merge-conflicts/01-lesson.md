@@ -4,7 +4,7 @@ id_key: git/merge-conflicts/lesson
 course: git
 section: merge-conflicts
 section_title: Merge Conflicts
-section_position: 4
+section_position: 6
 title: Reading, Resolving, Aborting and Remembering Conflicts
 position: 0
 estimated_minutes: 40
@@ -153,6 +153,8 @@ lab:
         git add logging.conf
         git commit --no-edit
 ---
+
+> **The scary moment.** Git stops and prints CONFLICT. Most beginners panic here. You will learn that a conflict is just Git asking a question it cannot answer alone - and you will answer it calmly.
 
 ## Why conflicts happen
 
@@ -369,3 +371,5 @@ postimage  preimage
     "explanation": "Each repeat of an identical conflict is resolved automatically from the recorded postimage." }
 ] }
 ```
+
+> **Next:** conflicts are easier when history is tidy. Maya wants your branch rebased before review.
