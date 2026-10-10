@@ -46,8 +46,8 @@ export function MissionRail({ lab, brief, sessionId, debug, className }: Mission
         label="Alert"
         tone="alert"
       >
-        <div className="max-h-56 overflow-y-auto">
-          <LabMarkdown>{body}</LabMarkdown>
+        <div className="max-h-48 overflow-y-auto">
+          <LabMarkdown dense>{body}</LabMarkdown>
         </div>
       </MissionCard>
 
@@ -63,8 +63,8 @@ export function MissionRail({ lab, brief, sessionId, debug, className }: Mission
           tasks={lab.tasks}
           onHint={hint.openDrawer}
         />
-        <p className="border-t border-border pt-2 text-xs text-muted-foreground">
-          {RESTART_NOTE} <code>{RESTART_COMMAND}</code>.
+        <p className="border-t border-border pt-2 text-xs leading-5 text-muted-foreground">
+          {RESTART_NOTE} <code className="text-xs">{RESTART_COMMAND}</code>.
         </p>
       </MissionCard>
 

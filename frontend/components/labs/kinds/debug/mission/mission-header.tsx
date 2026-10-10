@@ -18,8 +18,8 @@ export function MissionHeader({ title, secondsLeft, actions }: MissionHeaderProp
   const warning = known && secondsLeft <= MISSION_WARNING_SECONDS
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-card px-3">
-      <div className="min-w-0 flex-1 leading-tight">
+    <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border bg-card px-3 py-1">
+      <div className="min-w-0 flex-1 basis-40 leading-tight">
         <p className="font-mono text-xs uppercase tracking-wider text-primary">Mission · Debug</p>
         <h1 className="truncate text-sm font-semibold">{title}</h1>
       </div>

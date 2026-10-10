@@ -80,7 +80,9 @@ export function DebugTaskList({
                 </div>
                 {!isPassed && (
                   <>
-                    <p className="text-xs text-muted-foreground">{task.description}</p>
+                    <p className={cn("text-xs text-muted-foreground", dense && "leading-5")}>
+                      {task.description}
+                    </p>
                     <DebugFailureList failures={failures[task.task_id] ?? []} />
                   </>
                 )}

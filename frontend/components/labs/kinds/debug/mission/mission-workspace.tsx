@@ -97,38 +97,40 @@ function MissionWorkspaceBody(props: MissionWorkspaceBodyProps) {
 
       <MissionHeader
         actions={
-          <>
-            <DebugCheckBar
-              cooldownUntil={check.cooldownUntil}
-              isChecking={check.isChecking}
-              variant="outline"
-              onCheck={check.check}
-            />
-            <MissionShipButton
-              isBusy={check.isChecking || finish.isFinishing}
-              isGrading={finish.isFinishing || (autoSubmitting && check.isChecking)}
-              passed={debug.passedCount}
-              total={lab.tasks.length}
-              onShip={() => void submitFinal()}
-            />
-            {onReset && (
-              <LabResetButton
-                busy={finish.isFinishing}
-                isResetting={isResetting}
-                resetsLeft={resetsLeft}
-                onReset={onReset}
+          clock.started ? (
+            <>
+              <DebugCheckBar
+                cooldownUntil={check.cooldownUntil}
+                isChecking={check.isChecking}
+                variant="outline"
+                onCheck={check.check}
               />
-            )}
-            <Button
-              aria-label="Open mission panel"
-              className="touch-target-dense lg:hidden"
-              size="icon"
-              variant="ghost"
-              onClick={() => setRailOpen(true)}
-            >
-              <PanelRight aria-hidden />
-            </Button>
-          </>
+              <MissionShipButton
+                isBusy={check.isChecking || finish.isFinishing}
+                isGrading={finish.isFinishing || (autoSubmitting && check.isChecking)}
+                passed={debug.passedCount}
+                total={lab.tasks.length}
+                onShip={() => void submitFinal()}
+              />
+              {onReset && (
+                <LabResetButton
+                  busy={finish.isFinishing}
+                  isResetting={isResetting}
+                  resetsLeft={resetsLeft}
+                  onReset={onReset}
+                />
+              )}
+              <Button
+                aria-label="Open mission panel"
+                className="touch-target-dense lg:hidden"
+                size="icon"
+                variant="ghost"
+                onClick={() => setRailOpen(true)}
+              >
+                <PanelRight aria-hidden />
+              </Button>
+            </>
+          ) : null
         }
         secondsLeft={clock.started ? secondsLeft : null}
         title={lab.title}
@@ -157,7 +159,7 @@ function MissionWorkspaceBody(props: MissionWorkspaceBodyProps) {
         <SheetContent className="gap-0 p-0 lg:hidden">
           <SheetTitle className="sr-only">Mission panel</SheetTitle>
           <SheetDescription className="sr-only">Alert, checks, live status and write-up.</SheetDescription>
-          {rail()}
+          {rail("pt-10")}
         </SheetContent>
       </Sheet>
 
@@ -171,20 +173,22 @@ function MissionWorkspaceBody(props: MissionWorkspaceBodyProps) {
         />
       )}
 
-      <HintDrawer
-        error={hint.error}
-        hintPenaltyPct={lab.hint_penalty_pct}
-        hintsUsed={hint.openTaskId ? hint.hintsUsedFor(hint.openTaskId) : 0}
-        isRequesting={hint.isRequesting}
-        maxHints={hint.maxHints}
-        open={hint.openTaskId !== null}
-        revealedHints={hint.openTaskId ? (hint.hintsByTask[hint.openTaskId] ?? []) : []}
-        task={lab.tasks.find((t) => t.task_id === hint.openTaskId)}
-        onOpenChange={(open) => {
-          if (!open) hint.closeDrawer()
-        }}
-        onRequestHint={() => hint.openTaskId && hint.requestHint(hint.openTaskId)}
-      />
+      {clock.started && (
+        <HintDrawer
+          error={hint.error}
+          hintPenaltyPct={lab.hint_penalty_pct}
+          hintsUsed={hint.openTaskId ? hint.hintsUsedFor(hint.openTaskId) : 0}
+          isRequesting={hint.isRequesting}
+          maxHints={hint.maxHints}
+          open={hint.openTaskId !== null}
+          revealedHints={hint.openTaskId ? (hint.hintsByTask[hint.openTaskId] ?? []) : []}
+          task={lab.tasks.find((t) => t.task_id === hint.openTaskId)}
+          onOpenChange={(open) => {
+            if (!open) hint.closeDrawer()
+          }}
+          onRequestHint={() => hint.openTaskId && hint.requestHint(hint.openTaskId)}
+        />
+      )}
     </div>
   )
 }
