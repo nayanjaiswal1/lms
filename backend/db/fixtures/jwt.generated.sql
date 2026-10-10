@@ -2,7 +2,7 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-10-10T10:57:53Z
+-- Generated at: 2026-10-04T17:15:14Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: JWT: The Full Story ─────────────────────────────────────────────
