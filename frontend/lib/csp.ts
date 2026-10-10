@@ -11,7 +11,9 @@ function buildLabFrameSources(): string[] {
 }
 
 // The lab terminal opens a WebSocket straight to labproxy (hooks/use-lab-terminal.ts),
-// so connect-src needs that one origin rather than every ws:/wss: host.
+// so connect-src needs that one origin rather than every ws:/wss: host. The IDE's
+// reachability probe (hooks/use-ide-frame-load.ts) is a fetch to a preview URL that
+// redirects to the per-session subdomain, so connect-src also needs the frame origins.
 function buildLabConnectSource(): string {
   const { protocol, host } = new URL(LAB_PROXY_WS_URL)
   return `${protocol}//${host}`
@@ -37,7 +39,7 @@ export function buildCsp(nonce: string): string {
     ["img-src 'self' data: blob: https://avatars.githubusercontent.com https://lh3.googleusercontent.com https://graph.microsoft.com https://raw.githubusercontent.com https://user-images.githubusercontent.com", mediaUrl].filter(Boolean).join(" "),
     "font-src 'self'",
     // labproxy WebSocket for the lab terminal
-    ["connect-src 'self'", TURNSTILE_ORIGIN, apiUrl, buildLabConnectSource()].filter(Boolean).join(" "),
+    ["connect-src 'self'", TURNSTILE_ORIGIN, apiUrl, buildLabConnectSource(), ...buildLabFrameSources()].filter(Boolean).join(" "),
     // Worker required by Monaco Editor
     "worker-src 'self' blob:",
     // YouTube block embeds (course content + wizard preview) — youtube-nocookie only
