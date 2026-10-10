@@ -2,12 +2,12 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-10-10T10:04:09Z
+-- Generated at: 2026-10-10T11:35:18Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: The Engineering Playbook ─────────────────────────────────────────────
 INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, is_free, is_public, estimated_hours)
-VALUES ('42cbe755-2969-5b7b-a4d1-bd3063987435', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'The Engineering Playbook', 'engineering-playbook', 'Software engineering concepts explained from first principles, one topic at a time, and growing over time across backend and UI. Each lesson builds intuition first, then goes deep: how it works, where it breaks, and how to explain it clearly. Starts with backend API and auth (JSON Web Tokens end to end, with working FastAPI + PyJWT code and a Hinglish version of the main lesson, switchable on the lesson page).', '/course-covers/engineering-playbook.svg', 'intermediate', ARRAY['backend','frontend','api','security'], 'published', true, true, 1.2)
+VALUES ('42cbe755-2969-5b7b-a4d1-bd3063987435', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'The Engineering Playbook', 'engineering-playbook', 'Software engineering concepts explained from first principles, one topic at a time, and growing over time across backend and UI. Each lesson builds intuition first, then goes deep: how it works, where it breaks, and how to explain it clearly. Starts with backend API and auth (JSON Web Tokens end to end, with working FastAPI + PyJWT code and a Hinglish version of the main lesson, switchable on the lesson page).', '/course-covers/engineering-playbook.png', 'intermediate', ARRAY['backend','frontend','api','security'], 'published', true, true, 1.2)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, is_public=EXCLUDED.is_public, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();
 
 UPDATE course_sections SET position = position + 100000 WHERE course_id = '42cbe755-2969-5b7b-a4d1-bd3063987435';

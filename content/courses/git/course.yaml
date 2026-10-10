@@ -8,6 +8,7 @@ description: >-
   with blame, log -S/-G and bisect, and a capstone team workflow against a
   local origin.
 difficulty: beginner
+cover_url: "/course-covers/git.png"
 tags:
   - git
   - version-control

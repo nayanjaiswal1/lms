@@ -6,7 +6,7 @@ description: >-
   API and auth (JSON Web Tokens end to end, with working FastAPI + PyJWT code and a Hinglish
   version of the main lesson, switchable on the lesson page).
 difficulty: intermediate
-cover_url: "/course-covers/engineering-playbook.svg"
+cover_url: "/course-covers/engineering-playbook.png"
 is_free: true
 is_public: true
 tags:
