@@ -63,7 +63,8 @@ if [[ -n "${IMAGE_REGISTRY:-}" ]]; then
   info "Pushing images to ${IMAGE_REGISTRY}..."
   for img in "${IMAGES[@]}"; do
     docker tag "${img}:local" "${IMAGE_REGISTRY}/${img}:local"
-    docker push "${IMAGE_REGISTRY}/${img}:local"
+    # large layers over a slow link can hit Docker's response-header timeout; layers already uploaded are skipped on retry
+    for attempt in 1 2 3; do docker push "${IMAGE_REGISTRY}/${img}:local" && break; [[ $attempt == 3 ]] && error "push of ${img} failed after 3 attempts"; done
   done
 else
   info "Importing images into k3s's containerd..."
