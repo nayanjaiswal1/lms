@@ -28,7 +28,7 @@ error()   { echo -e "${RED}[ERROR]${NC} $*" >&2; exit 1; }
 command -v docker &>/dev/null || error "docker is not installed."
 command -v k3s &>/dev/null || error "k3s is not installed — run scripts/setup-k3s-local.sh first."
 
-DOMAIN="mindforge.127.0.0.1.nip.io"
+DOMAIN="${DOMAIN:-mindforge.127.0.0.1.nip.io}"
 
 info "Building backend..."
 docker build -t mindforge-backend:local -f backend/Dockerfile backend/

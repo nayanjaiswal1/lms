@@ -181,7 +181,7 @@ echo -e "${GREEN}═════════════════════
 echo -e "${GREEN}  Bootstrap complete and verified${NC}"
 echo -e "${GREEN}══════════════════════════════════════════════${NC}"
 echo ""
-echo "  App: https://mindforge.127.0.0.1.nip.io (accept the self-signed cert warning)"
+echo "  App: https://${DOMAIN:-mindforge.127.0.0.1.nip.io} (accept the self-signed cert warning)"
 [[ "$SYSBOX_READY" == true ]] && echo "  Nested-docker courses: verified working." || echo "  Nested-docker courses: NOT working yet (sysbox not installed)."
 echo "  Lab images pushed to: ${LABS_IMAGE_REGISTRY} — set LABS_IMAGE_REGISTRY=${LABS_IMAGE_REGISTRY}"
 echo "  in backend/.env (native hybrid dev) or k8s/overlays/local/configmap-domain.patch.yaml"
