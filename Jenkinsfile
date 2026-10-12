@@ -3,6 +3,24 @@
 // user@host deploys to another k3s box over SSH (scripts/deploy-remote-k3s.sh).
 // Setup: scripts/setup-jenkins.sh. Secrets file lives in the Jenkins credential
 // "mindforge-secrets-env" (never in git).
+// Runs cmd; when IMAGE_REGISTRY is ghcr.io/..., logged in first with a throwaway docker config
+def registrySh(String cmd) {
+  if (params.IMAGE_REGISTRY.startsWith('ghcr.io')) {
+    withCredentials([usernamePassword(credentialsId: 'ghcr-token', usernameVariable: 'GHCR_USER', passwordVariable: 'GHCR_TOKEN')]) {
+      withEnv(["CMD=${cmd}"]) {
+        sh '''
+          export DOCKER_CONFIG="$(mktemp -d)"
+          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          bash -c "$CMD"
+        '''
+      }
+    }
+  } else {
+    sh cmd
+  }
+}
+
 pipeline {
   agent { label 'built-in' } // must run on the k3s host (docker, kubectl, helm, rsync), not a container agent
   options { disableConcurrentBuilds(); timeout(time: 90, unit: 'MINUTES') }
@@ -11,7 +29,7 @@ pipeline {
   parameters {
     string(name: 'DEPLOY_TARGET', defaultValue: 'local', description: 'local, or user@host of another k3s machine')
     string(name: 'BUILD_AGENT', defaultValue: 'laptop', description: 'Node label that runs Test + app image builds (e.g. laptop). set to built-in to build on the k3s host')
-    string(name: 'IMAGE_REGISTRY', defaultValue: 'ideapad:5000', description: 'host:port registry the k3s host can pull from; blank = import images into local k3s (only when BUILD_AGENT is built-in)')
+    string(name: 'IMAGE_REGISTRY', defaultValue: 'ghcr.io/nayanjaiswal1', description: 'registry prefix the k3s host can pull from (ghcr.io/<user> logs in with credential ghcr-token); blank = import images into local k3s (only when BUILD_AGENT is built-in)')
     string(name: 'DOMAIN', defaultValue: '', description: 'Hostname to serve on; blank = mindforge.<hostname>.local')
   }
   stages {
@@ -23,10 +41,11 @@ pipeline {
         script {
           env.APP_DOMAIN = params.DOMAIN?.trim() ?: sh(script: 'echo "mindforge.$(hostname).local"', returnStdout: true).trim()
           env.DOMAIN = env.APP_DOMAIN
+          env.IMAGE_TAG = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim() // new tag per commit so k3s re-pulls
         }
         sh '''
           if [ -n "$IMAGE_REGISTRY" ]; then
-            awk -v r="$IMAGE_REGISTRY" '{print} /^  - name: mindforge-(backend|labproxy|frontend)$/ {print "    newName: " r "/" $3}' k8s/overlays/local/kustomization.yaml > kustomization.tmp
+            awk -v r="$IMAGE_REGISTRY" -v t="$IMAGE_TAG" '/^  - name: mindforge-(backend|labproxy|frontend)$/ {print; print "    newName: " r "/" $3; f=1; next} f && /newTag:/ {print "    newTag: " t; f=0; next} {print}' k8s/overlays/local/kustomization.yaml > kustomization.tmp
             mv kustomization.tmp k8s/overlays/local/kustomization.yaml
           fi
           sed -i "s/mindforge\\.127\\.0\\.0\\.1\\.nip\\.io/${APP_DOMAIN}/g" \
@@ -63,11 +82,11 @@ pipeline {
       parallel {
         stage('Backend image') {
           agent { label params.BUILD_AGENT }
-          steps { sh 'bash scripts/build-k3s-local-images.sh backend' }
+          steps { script { registrySh('bash scripts/build-k3s-local-images.sh backend') } }
         }
         stage('Frontend image') {
           agent { label params.BUILD_AGENT }
-          steps { sh 'bash scripts/build-k3s-local-images.sh frontend' }
+          steps { script { registrySh('bash scripts/build-k3s-local-images.sh frontend') } }
         }
         stage('Lab images') { steps { sh 'bash scripts/push-lab-images.sh' } }
       }
