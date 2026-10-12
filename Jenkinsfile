@@ -4,7 +4,7 @@
 // Setup: scripts/setup-jenkins.sh. Secrets file lives in the Jenkins credential
 // "mindforge-secrets-env" (never in git).
 pipeline {
-  agent any
+  agent { label 'built-in' } // must run on the k3s host (docker, kubectl, helm, rsync), not a container agent
   options { disableConcurrentBuilds(); timeout(time: 90, unit: 'MINUTES') }
   triggers { pollSCM('H/2 * * * *') } // LAN-only host: no GitHub webhook can reach it
   parameters {
