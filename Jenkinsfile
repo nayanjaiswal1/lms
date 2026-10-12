@@ -53,7 +53,11 @@ pipeline {
     }
     stage('Build images') {
       when { expression { params.DEPLOY_TARGET == 'local' } }
-      steps { sh 'bash scripts/build-k3s-local-images.sh && bash scripts/push-lab-images.sh' }
+      parallel {
+        stage('Backend image') { steps { sh 'bash scripts/build-k3s-local-images.sh backend' } }
+        stage('Frontend image') { steps { sh 'bash scripts/build-k3s-local-images.sh frontend' } }
+        stage('Lab images') { steps { sh 'bash scripts/push-lab-images.sh' } }
+      }
     }
     stage('Deploy') {
       steps {
