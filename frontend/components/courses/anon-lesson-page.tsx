@@ -39,12 +39,11 @@ const READABLE_TYPES = new Set(["notes", "system_design"]);
 // Reuses every purely-presentational piece of the authenticated page
 // (sidebar rail/drawer, progress bar/rail, TOC, nav footer) driven by a
 // ModuleProgress[] array computed from localStorage instead of the server —
-// only the interactive leaves (complete button, notes, reflection) have
+// only the interactive leaves (complete button, notes) have
 // anonymous counterparts, since those are the ones that write somewhere.
 export function AnonLessonPage({ course, currentModuleId, translations, activeLocale }: AnonLessonPageProps) {
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [reflections, setReflections] = useState<Record<string, string>>({});
 
   // localStorage only exists client-side — hydrate once after mount rather
   // than during render, so server and first client render match.
@@ -52,7 +51,6 @@ export function AnonLessonPage({ course, currentModuleId, translations, activeLo
     const stored = getAnonProgress(course.id);
     setCompletedIds(new Set(stored.completedModuleIds));
     setNotes(stored.notes);
-    setReflections(stored.reflections);
   }, [course.id]);
 
   const allModules = course.sections.flatMap((s) => s.modules);
@@ -87,13 +85,6 @@ export function AnonLessonPage({ course, currentModuleId, translations, activeLo
   const activeBody = translations.find((t) => t.locale === activeLocale)?.content_body ?? currentModule.content_body;
   const notesResult = isReadable && activeBody ? renderModuleMarkdown(activeBody) : null;
   const nextPath = ROUTES.courseLearnModule(course.slug, currentModule.id);
-
-  const reflectionRequired = isReadable && !course.disable_reflection;
-  const reflectionPending = reflectionRequired && !(reflections[currentModule.id]?.trim());
-
-  function onReflectionSaved(response: string) {
-    setReflections((prev) => ({ ...prev, [currentModule.id]: response }));
-  }
 
   return (
     <div className="flex flex-col items-start gap-6 lg:flex-row">
@@ -136,15 +127,7 @@ export function AnonLessonPage({ course, currentModuleId, translations, activeLo
             )}
 
             {isReadable && notesResult ? (
-              <AnonModuleNotes
-                courseId={course.id}
-                disableReflection={course.disable_reflection}
-                initialReflection={reflections[currentModule.id] ?? null}
-                isSystemDesign={currentModule.type === "system_design"}
-                moduleId={currentModule.id}
-                segments={notesResult.segments}
-                onReflectionSaved={onReflectionSaved}
-              />
+              <AnonModuleNotes isSystemDesign={currentModule.type === "system_design"} segments={notesResult.segments} />
             ) : (
               <div className="empty-state flex-col gap-2 py-16">
                 <Lock aria-hidden className="h-10 w-10 text-muted-foreground" />
@@ -160,11 +143,7 @@ export function AnonLessonPage({ course, currentModuleId, translations, activeLo
             <ModuleNavFooter
               completeButton={
                 isReadable ? (
-                  <AnonModuleCompleteButton
-                    completed={completedIds.has(currentModule.id)}
-                    locked={reflectionPending}
-                    onToggle={toggleComplete}
-                  />
+                  <AnonModuleCompleteButton completed={completedIds.has(currentModule.id)} onToggle={toggleComplete} />
                 ) : null
               }
               courseSlug={course.slug}

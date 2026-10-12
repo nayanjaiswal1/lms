@@ -4,17 +4,10 @@ import { LessonHtml } from "@/components/courses/lesson-html";
 import { LessonFigure } from "@/components/courses/lesson-figure";
 import { LessonCodeBlock } from "@/components/courses/lesson-code-block";
 import { LessonSqlRunner } from "@/components/courses/lesson-sql-runner";
-import { AnonLessonReflection } from "@/components/courses/anon-lesson-reflection";
 
 interface AnonModuleNotesProps {
-  courseId: string;
-  moduleId: string;
   segments: Segment[];
-  initialReflection: string | null;
   isSystemDesign?: boolean;
-  /** Course-level kill switch (courses.disable_reflection) — hides the Reflect box and lifts its Mark Complete gate. */
-  disableReflection?: boolean;
-  onReflectionSaved?: (response: string) => void;
 }
 
 // Placeholder for segment types that need a real account to be meaningful —
@@ -32,18 +25,8 @@ function SignInToTry({ what }: { what: string }) {
 // Read-only anonymous counterpart to module-notes.tsx (docs/anonymous.md):
 // same segment rendering, but interactive segments that need a real account
 // (knowledge checks, SQL challenges, lab tasks) become a sign-in prompt
-// instead, and code blocks never get the live in-page runner. Reflect is the
-// one interactive piece anonymous visitors keep, saved to localStorage via
-// AnonLessonReflection.
-export function AnonModuleNotes({
-  courseId,
-  moduleId,
-  segments,
-  initialReflection,
-  isSystemDesign,
-  disableReflection,
-  onReflectionSaved,
-}: AnonModuleNotesProps) {
+// instead, and code blocks never get the live in-page runner.
+export function AnonModuleNotes({ segments, isSystemDesign }: AnonModuleNotesProps) {
   return (
     <article className="flex flex-col gap-4">
       <div className="flex flex-col gap-8">
@@ -78,14 +61,6 @@ export function AnonModuleNotes({
               return <SignInToTry key={index} what="this lab task" />;
           }
         })}
-        {!disableReflection && (
-          <AnonLessonReflection
-            courseId={courseId}
-            initialResponse={initialReflection}
-            moduleId={moduleId}
-            onSaved={onReflectionSaved}
-          />
-        )}
       </div>
     </article>
   );
