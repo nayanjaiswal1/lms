@@ -10,8 +10,8 @@ pipeline {
   environment { KUBECONFIG = "${JENKINS_HOME}/.kube/config" }
   parameters {
     string(name: 'DEPLOY_TARGET', defaultValue: 'local', description: 'local, or user@host of another k3s machine')
-    string(name: 'BUILD_AGENT', defaultValue: 'built-in', description: 'Node label that runs Test + app image builds (e.g. laptop). Non-default needs IMAGE_REGISTRY')
-    string(name: 'IMAGE_REGISTRY', defaultValue: '', description: 'host:port registry the k3s host can pull from; blank = import images into local k3s')
+    string(name: 'BUILD_AGENT', defaultValue: 'laptop', description: 'Node label that runs Test + app image builds (e.g. laptop). set to built-in to build on the k3s host')
+    string(name: 'IMAGE_REGISTRY', defaultValue: 'ideapad:5000', description: 'host:port registry the k3s host can pull from; blank = import images into local k3s (only when BUILD_AGENT is built-in)')
     string(name: 'DOMAIN', defaultValue: '', description: 'Hostname to serve on; blank = mindforge.<hostname>.local')
   }
   stages {
