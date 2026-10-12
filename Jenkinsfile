@@ -10,6 +10,8 @@ pipeline {
   environment { KUBECONFIG = "${JENKINS_HOME}/.kube/config" }
   parameters {
     string(name: 'DEPLOY_TARGET', defaultValue: 'local', description: 'local, or user@host of another k3s machine')
+    string(name: 'BUILD_AGENT', defaultValue: 'built-in', description: 'Node label that runs Test + app image builds (e.g. laptop). Non-default needs IMAGE_REGISTRY')
+    string(name: 'IMAGE_REGISTRY', defaultValue: '', description: 'host:port registry the k3s host can pull from; blank = import images into local k3s')
     string(name: 'DOMAIN', defaultValue: '', description: 'Hostname to serve on; blank = mindforge.<hostname>.local')
   }
   stages {
@@ -23,12 +25,17 @@ pipeline {
           env.DOMAIN = env.APP_DOMAIN
         }
         sh '''
+          if [ -n "$IMAGE_REGISTRY" ]; then
+            awk -v r="$IMAGE_REGISTRY" '{print} /^  - name: mindforge-(backend|labproxy|frontend)$/ {print "    newName: " r "/" $3}' k8s/overlays/local/kustomization.yaml > kustomization.tmp
+            mv kustomization.tmp k8s/overlays/local/kustomization.yaml
+          fi
           sed -i "s/mindforge\\.127\\.0\\.0\\.1\\.nip\\.io/${APP_DOMAIN}/g" \
             k8s/overlays/local/configmap-domain.patch.yaml k8s/overlays/local/kustomization.yaml
         '''
       }
     }
     stage('Test') {
+      agent { label params.BUILD_AGENT }
       parallel {
         stage('Backend') {
           steps { sh 'cd backend && go vet ./... && go test ./...' } // host go: internal/testdb needs the host Docker daemon
@@ -54,8 +61,14 @@ pipeline {
     stage('Build images') {
       when { expression { params.DEPLOY_TARGET == 'local' } }
       parallel {
-        stage('Backend image') { steps { sh 'bash scripts/build-k3s-local-images.sh backend' } }
-        stage('Frontend image') { steps { sh 'bash scripts/build-k3s-local-images.sh frontend' } }
+        stage('Backend image') {
+          agent { label params.BUILD_AGENT }
+          steps { sh 'bash scripts/build-k3s-local-images.sh backend' }
+        }
+        stage('Frontend image') {
+          agent { label params.BUILD_AGENT }
+          steps { sh 'bash scripts/build-k3s-local-images.sh frontend' }
+        }
         stage('Lab images') { steps { sh 'bash scripts/push-lab-images.sh' } }
       }
     }
