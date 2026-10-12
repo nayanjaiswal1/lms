@@ -7,6 +7,7 @@ pipeline {
   agent { label 'built-in' } // must run on the k3s host (docker, kubectl, helm, rsync), not a container agent
   options { disableConcurrentBuilds(); timeout(time: 90, unit: 'MINUTES') }
   triggers { pollSCM('H/2 * * * *') } // LAN-only host: no GitHub webhook can reach it
+  environment { KUBECONFIG = "${JENKINS_HOME}/.kube/config" }
   parameters {
     string(name: 'DEPLOY_TARGET', defaultValue: 'local', description: 'local, or user@host of another k3s machine')
     string(name: 'DOMAIN', defaultValue: '', description: 'Hostname to serve on; blank = mindforge.<hostname>.local')
@@ -19,6 +20,7 @@ pipeline {
         }
         script {
           env.APP_DOMAIN = params.DOMAIN?.trim() ?: sh(script: 'echo "mindforge.$(hostname).local"', returnStdout: true).trim()
+          env.DOMAIN = env.APP_DOMAIN
         }
         sh '''
           sed -i "s/mindforge\\.127\\.0\\.0\\.1\\.nip\\.io/${APP_DOMAIN}/g" \
@@ -26,17 +28,47 @@ pipeline {
         '''
       }
     }
+    stage('Test') {
+      parallel {
+        stage('Backend') {
+          steps { sh 'cd backend && go vet ./... && go test ./...' } // host go: internal/testdb needs the host Docker daemon
+        }
+        stage('Frontend') {
+          steps {
+            sh '''
+              docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/frontend:/app" -w /app -e HOME=/tmp -e COREPACK_HOME=/tmp/corepack -e npm_config_store_dir=/tmp/pnpm-store node:22 sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm tsc --noEmit && pnpm lint"
+            '''
+          }
+        }
+      }
+    }
+    stage('Cluster setup') {
+      when { expression { params.DEPLOY_TARGET == 'local' } }
+      steps {
+        sh '''
+          bash scripts/setup-k3s-local.sh
+          if command -v sysbox-runc >/dev/null; then bash scripts/setup-sysbox-local.sh; fi
+        '''
+      }
+    }
+    stage('Build images') {
+      when { expression { params.DEPLOY_TARGET == 'local' } }
+      steps { sh 'bash scripts/build-k3s-local-images.sh && bash scripts/push-lab-images.sh' }
+    }
     stage('Deploy') {
       steps {
         sh '''
-          export DOMAIN="$APP_DOMAIN" KUBECONFIG="$HOME/.kube/config"
           if [ "$DEPLOY_TARGET" = "local" ]; then
-            bash scripts/bootstrap-k3s-local.sh
+            bash scripts/deploy-k8s.sh local
           else
             bash scripts/deploy-remote-k3s.sh "$DEPLOY_TARGET" "$APP_DOMAIN"
           fi
         '''
       }
+    }
+    stage('Verify') {
+      when { expression { params.DEPLOY_TARGET == 'local' } }
+      steps { sh 'bash scripts/verify-k3s-local.sh' }
     }
   }
   post {
