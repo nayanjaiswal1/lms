@@ -35,12 +35,12 @@ pipeline {
       }
     }
     stage('Test') {
-      agent { label params.BUILD_AGENT }
       parallel {
         stage('Backend') {
           steps { sh 'cd backend && go vet ./... && go test ./...' } // host go: internal/testdb needs the host Docker daemon
         }
         stage('Frontend') {
+          agent { label params.BUILD_AGENT }
           steps {
             sh '''
               docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/frontend:/app" -w /app -e HOME=/tmp -e COREPACK_HOME=/tmp/corepack -e npm_config_store_dir=/tmp/pnpm-store node:22 sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm tsc --noEmit && pnpm lint"
