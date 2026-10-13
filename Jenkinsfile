@@ -23,7 +23,7 @@ def registrySh(String cmd) {
 
 pipeline {
   agent { label 'built-in' } // must run on the k3s host (docker, kubectl, helm, rsync), not a container agent
-  options { disableConcurrentBuilds(); timeout(time: 90, unit: 'MINUTES') }
+  options { disableConcurrentBuilds(); timeout(time: 90, unit: 'MINUTES'); timestamps(); buildDiscarder(logRotator(numToKeepStr: '20')) }
   triggers { pollSCM('H/2 * * * *') } // LAN-only host: no GitHub webhook can reach it
   environment { KUBECONFIG = "${JENKINS_HOME}/.kube/config" }
   parameters {
@@ -55,7 +55,8 @@ pipeline {
         '''
       }
     }
-    stage('Test') {
+    // Tests, cluster setup and image builds are independent of each other; only Deploy needs all of them.
+    stage('Test & Build') {
       parallel {
         stage('Backend') {
           steps { sh 'cd backend && go vet ./... && go test ./...' } // host go: internal/testdb needs the host Docker daemon
@@ -63,34 +64,42 @@ pipeline {
         stage('Frontend') {
           agent { label params.BUILD_AGENT }
           steps {
+            // host dir (user-owned, unlike a named volume) keeps the pnpm store between runs (the container itself is throwaway)
             sh '''
-              docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/frontend:/app" -w /app -e HOME=/tmp -e COREPACK_HOME=/tmp/corepack -e npm_config_store_dir=/tmp/pnpm-store node:22 sh -c "corepack pnpm install --frozen-lockfile && corepack pnpm tsc --noEmit && corepack pnpm lint"
+              mkdir -p "$HOME/.cache/mindforge-pnpm-store"
+              docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/frontend:/app" -v "$HOME/.cache/mindforge-pnpm-store:/pnpm-store" -w /app -e HOME=/tmp -e COREPACK_HOME=/tmp/corepack -e npm_config_store_dir=/pnpm-store node:22 sh -c "corepack pnpm install --frozen-lockfile && corepack pnpm tsc --noEmit && corepack pnpm lint"
             '''
           }
         }
-      }
-    }
-    stage('Cluster setup') {
-      when { expression { params.DEPLOY_TARGET == 'local' } }
-      steps {
-        sh '''
-          bash scripts/setup-k3s-local.sh
-          if command -v sysbox-runc >/dev/null; then bash scripts/setup-sysbox-local.sh; fi
-        '''
-      }
-    }
-    stage('Build images') {
-      when { expression { params.DEPLOY_TARGET == 'local' } }
-      parallel {
+        stage('Cluster setup') {
+          when { expression { params.DEPLOY_TARGET == 'local' } }
+          steps {
+            sh '''
+              bash scripts/setup-k3s-local.sh
+              if command -v sysbox-runc >/dev/null; then bash scripts/setup-sysbox-local.sh; fi
+            '''
+          }
+        }
         stage('Backend image') {
+          when { expression { params.DEPLOY_TARGET == 'local' } }
           agent { label params.BUILD_AGENT }
           steps { script { registrySh('bash scripts/build-k3s-local-images.sh backend') } }
         }
         stage('Frontend image') {
+          when { expression { params.DEPLOY_TARGET == 'local' } }
           agent { label params.BUILD_AGENT }
           steps { script { registrySh('bash scripts/build-k3s-local-images.sh frontend') } }
         }
-        stage('Lab images') { steps { sh 'bash scripts/push-lab-images.sh' } }
+        stage('Lab images') {
+          when { expression { params.DEPLOY_TARGET == 'local' } }
+          steps {
+            script {
+              // images already in the registry are skipped; rebuild only when this build touched lab-images/
+              def labChanged = currentBuild.changeSets.any { cs -> cs.items.any { it.affectedPaths.any { p -> p.startsWith('lab-images/') } } }
+              withEnv(["FORCE_LAB_REBUILD=${labChanged ? 1 : 0}"]) { sh 'bash scripts/push-lab-images.sh' }
+            }
+          }
+        }
       }
     }
     stage('Deploy') {

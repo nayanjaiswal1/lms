@@ -56,12 +56,17 @@ success "Manifests applied."
 
 # ─── 4. Wait for rollouts ────────────────────────────────────────────────────────
 info "Waiting for rollouts..."
+# All rollouts are independent: wait on them concurrently, each with its own timeout.
+wait_rollout() { # <resource> <namespace> <warn-hint>
+  kubectl rollout status "$1" -n "$2" --timeout=180s || warn "$1 rollout did not complete in time${3:+ — $3}"
+}
 for deploy in backend labproxy frontend; do
-  kubectl rollout status "deployment/${deploy}" -n mindforge --timeout=180s || warn "${deploy} rollout did not complete in time — check: kubectl get pods -n mindforge"
+  wait_rollout "deployment/${deploy}" mindforge "check: kubectl get pods -n mindforge" &
 done
-kubectl rollout status statefulset/postgres -n mindforge --timeout=180s || warn "postgres rollout did not complete in time"
-kubectl rollout status statefulset/minio -n mindforge --timeout=180s || warn "minio rollout did not complete in time"
-kubectl rollout status deployment/piston -n mindforge-labs --timeout=180s || warn "piston rollout did not complete in time — if this cluster forbids privileged Pods, point PISTON_URL at an external instance instead (see README)"
+wait_rollout statefulset/postgres mindforge &
+wait_rollout statefulset/minio mindforge &
+wait_rollout deployment/piston mindforge-labs "if this cluster forbids privileged Pods, point PISTON_URL at an external instance instead (see README)" &
+wait
 
 # ─── 5. Summary ─────────────────────────────────────────────────────────────────
 DOMAIN_VALUE="$(grep -E '^\s*DOMAIN:' "${OVERLAY_DIR}/configmap-domain.patch.yaml" | head -1 | sed -E 's/^[^:]+:\s*"?([^"]*)"?\s*$/\1/')"

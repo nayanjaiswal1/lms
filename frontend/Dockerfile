@@ -51,7 +51,10 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
 # Next.js standalone output bundles only the files needed to run the server.
 # Set in next.config.ts: output: 'standalone'
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN pnpm run build
+# Cache mount persists Next's compile cache (.next/cache) so unchanged modules
+# aren't recompiled on every build; it stays out of the image layers.
+RUN --mount=type=cache,id=next-cache,target=/app/.next/cache \
+    pnpm run build
 
 # ─── Stage 3: Production runtime ─────────────────────────────────────────────
 FROM node:26-alpine AS runner
@@ -65,13 +68,12 @@ RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
 # Copy standalone server and static assets
-COPY --from=builder /app/.next/standalone ./
+# --chown on each COPY instead of a trailing `chown -R /app`, which would
+# duplicate the whole tree into another layer. Next.js writes its runtime
+# prerender cache under .next, so the non-root server user must own it.
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
-
-# Next.js stores its runtime prerender cache under .next; the non-root server
-# user must own that directory.
-RUN chown -R nextjs:nodejs /app
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 USER nextjs
 
