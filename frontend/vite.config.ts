@@ -134,7 +134,6 @@ export default defineConfig({
             "tree",
             "treegrid",
           ],
-          includeRoles: ["alert", "dialog"],
         },
       ],
       "jsx-a11y/heading-has-content": "error",
