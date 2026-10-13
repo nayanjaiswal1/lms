@@ -23,7 +23,6 @@ export interface Course {
   avg_rating: number | null;
   review_count: number;
   disable_code_run: boolean;
-  disable_reflection: boolean;
   disable_knowledge_check: boolean;
   created_at: string;
   updated_at: string;
@@ -227,11 +226,6 @@ export async function getCourseProgress(courseID: string): Promise<CourseProgres
 export async function getMyCheckProgress(moduleID: string): Promise<string[]> {
   const data = await apiGet<{ passed_question_ids: string[] }>(`/api/modules/${moduleID}/check-attempts/me`);
   return data.passed_question_ids ?? [];
-}
-
-export async function getMyReflection(moduleID: string): Promise<string | null> {
-  const data = await apiGet<{ response: string | null }>(`/api/modules/${moduleID}/reflection/me`);
-  return data.response;
 }
 
 export async function getMyLessonNote(moduleID: string): Promise<string | null> {

@@ -67,11 +67,6 @@ export function setAnonNote(courseId: string, moduleId: string, content: string)
   writeRaw(courseId, { ...current, notes: { ...current.notes, [moduleId]: content } });
 }
 
-export function setAnonReflection(courseId: string, moduleId: string, response: string): void {
-  const current = readRaw(courseId);
-  writeRaw(courseId, { ...current, reflections: { ...current.reflections, [moduleId]: response } });
-}
-
 export function clearAnonProgress(courseId: string): void {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(key(courseId));

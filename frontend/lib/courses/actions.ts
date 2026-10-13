@@ -20,7 +20,6 @@ export async function createCourseAction(input: {
   tags?:       string[];
   is_free?:    boolean;
   disable_code_run?: boolean;
-  disable_reflection?: boolean;
   disable_knowledge_check?: boolean;
 }): Promise<ActionResult<{ id: string; slug: string }>> {
   const result = await apiAction<{ id: string; slug: string }>("POST", "/api/courses", input);
@@ -94,17 +93,6 @@ export async function recordCheckAttemptAction(input: {
   });
 }
 
-// Saves the student's free-text "what did you understand from this lesson"
-// reflection — ungraded, one per (user, module), resubmitting overwrites the
-// previous answer. Raw input for a future revision-plan / concept-dependency
-// -graph feature; not part of the module-complete gate.
-export async function submitReflectionAction(input: {
-  moduleID: string;
-  response: string;
-}): Promise<ActionResult> {
-  return apiAction("POST", `/api/modules/${input.moduleID}/reflection`, { response: input.response });
-}
-
 export async function saveLessonNoteAction(input: {
   moduleID: string;
   content: string;
@@ -139,7 +127,6 @@ export async function updateCourseAction(
     tags: string[];
     is_free: boolean;
     disable_code_run: boolean;
-    disable_reflection: boolean;
     disable_knowledge_check: boolean;
   },
 ): Promise<ActionResult> {
@@ -149,7 +136,6 @@ export async function updateCourseAction(
     tags: input.tags,
     is_free: input.is_free,
     disable_code_run: input.disable_code_run,
-    disable_reflection: input.disable_reflection,
     disable_knowledge_check: input.disable_knowledge_check,
     price_cents: 0,
   };

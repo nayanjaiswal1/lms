@@ -202,7 +202,7 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
             </div>
           ) : (
             <div className="card-base flex flex-col divide-y divide-border p-0">
-              {groupSections(sections).map(({ section, isGroupStart, isGrouped }) => {
+              {groupSections(sections).map(({ section, isGroupStart }) => {
                 const sectionCompletion = computeCompletion(section.modules.map((m) => m.id), progress);
 
                 return (
@@ -212,7 +212,7 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
                         {section.group_title}
                       </p>
                     )}
-                    <details className={cn("group", isGrouped && "ml-6 border-l-2 border-border")}>
+                    <details className="group">
                       <summary className="flex cursor-pointer list-none items-center gap-3 px-6 py-4 transition-colors duration-fast hover:bg-muted">
                         <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-fast group-open:rotate-180" />
                         <span className="min-w-0 flex-1 truncate font-semibold">{section.title}</span>

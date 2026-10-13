@@ -106,7 +106,6 @@ export function CourseWizard({ course, finalTest, certificateRule }: Props) {
       tags:        wiz.draft.info.tags,
       is_free:     wiz.draft.info.is_free,
       disable_code_run: wiz.draft.info.disable_code_run,
-      disable_reflection: wiz.draft.info.disable_reflection,
       disable_knowledge_check: wiz.draft.info.disable_knowledge_check,
     });
     if (!courseRes.ok || !courseRes.data) throw new Error(courseRes.error ?? "Failed to create course");
@@ -151,7 +150,6 @@ export function CourseWizard({ course, finalTest, certificateRule }: Props) {
       tags:        wiz.draft.info.tags,
       is_free:     wiz.draft.info.is_free,
       disable_code_run: wiz.draft.info.disable_code_run,
-      disable_reflection: wiz.draft.info.disable_reflection,
       disable_knowledge_check: wiz.draft.info.disable_knowledge_check,
     });
     if (!updateRes.ok) throw new Error(updateRes.error ?? "Failed to save changes.");
@@ -315,12 +313,10 @@ export function CourseWizard({ course, finalTest, certificateRule }: Props) {
             disableCodeRun={wiz.draft.info.disable_code_run}
             disableDraft={course?.status === "published"}
             disableKnowledgeCheck={wiz.draft.info.disable_knowledge_check}
-            disableReflection={wiz.draft.info.disable_reflection}
             status={wiz.draft.status}
             onChange={wiz.setStatus}
             onDisableCodeRunChange={(v) => wiz.setInfo({ disable_code_run: v })}
             onDisableKnowledgeCheckChange={(v) => wiz.setInfo({ disable_knowledge_check: v })}
-            onDisableReflectionChange={(v) => wiz.setInfo({ disable_reflection: v })}
           />
         )}
         {wiz.activeTab === "final-test" && course && (

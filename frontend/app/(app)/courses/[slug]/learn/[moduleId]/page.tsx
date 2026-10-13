@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { Clock, CheckCircle2, Brain, Terminal } from "lucide-react";
 import { apiGet } from "@/lib/server/api";
 import { cn } from "@/lib/utils";
-import { getCourseDetailBySlug, getMyCheckProgress, getMyReflection, getMyLessonNote, getPublicCourseTree, getModuleTranslations, getPublicModuleTranslations } from "@/lib/server/courses";
+import { getCourseDetailBySlug, getMyCheckProgress,getMyLessonNote, getPublicCourseTree, getModuleTranslations, getPublicModuleTranslations } from "@/lib/server/courses";
 import { AnonLessonPage } from "@/components/courses/anon-lesson-page";
 import { LessonLanguageSwitcher, pickTranslation } from "@/components/courses/lesson-language-switcher";
 import { getMyFeedback } from "@/lib/server/feedback";
@@ -132,10 +132,9 @@ export default async function ModuleLearnPage({ params, searchParams }: Props) {
     : null;
   const isNotes = currentModule.type === "notes";
   // One parallel round instead of six serial cross-region hops.
-  const [myCourseFeedback, passedCheckIds, initialReflection, initialNote, initialHighlights, moduleLab] = await Promise.all([
+  const [myCourseFeedback, passedCheckIds, initialNote, initialHighlights, moduleLab] = await Promise.all([
     courseComplete ? getMyFeedback("course", tree.id).catch(() => null) : null,
     requiredCheckIds.length > 0 ? getMyCheckProgress(moduleId).catch(() => []) : [],
-    notes ? getMyReflection(moduleId).catch(() => null) : null,
     notes ? getMyLessonNote(moduleId).catch(() => null) : null,
     notes ? getHighlightsForSource("lesson", moduleId).catch(() => []) : [],
     isNotes ? getModuleLab(moduleId) : null,
@@ -229,10 +228,8 @@ export default async function ModuleLearnPage({ params, searchParams }: Props) {
   return (
     <ModuleGateProvider
       initialPassedIds={passedCheckIds}
-      initialReflectionCompleted={Boolean(initialReflection?.trim())}
       labCompleted={moduleLab?.initialSession?.session.status === "completed"}
       labRequired={Boolean(moduleLab?.lab)}
-      reflectionRequired={currentModule.type === "notes" && !tree.disable_reflection}
       requiredIds={requiredCheckIds}
     >
     <div className="flex flex-col items-start gap-6 lg:flex-row">
@@ -311,9 +308,7 @@ export default async function ModuleLearnPage({ params, searchParams }: Props) {
                 <ModuleNotes
                   disableCodeRun={tree.disable_code_run}
                   disableKnowledgeCheck={tree.disable_knowledge_check}
-                  disableReflection={tree.disable_reflection}
                   highlights={initialHighlights}
-                  initialReflection={initialReflection}
                   initialSession={moduleLab?.initialSession ?? null}
                   lab={moduleLab?.lab ?? null}
                   moduleId={moduleId}

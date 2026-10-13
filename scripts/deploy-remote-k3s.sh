@@ -199,6 +199,14 @@ docker build -t mindforge-frontend:local -f frontend/Dockerfile \
   frontend/
 success "App images built locally."
 
+# The local overlay maps minio/minio -> mindforge-minio:local (k8s/overlays/local),
+# so the upstream image must be pulled here, retagged, and imported like the rest.
+MINIO_UPSTREAM="$(grep -oE 'minio/minio:[^ ]+' k8s/base/minio.yaml | head -1)"
+[[ -n "$MINIO_UPSTREAM" ]] || error "Couldn't read the minio image from k8s/base/minio.yaml."
+info "Pulling ${MINIO_UPSTREAM} and tagging as mindforge-minio:local..."
+docker pull "$MINIO_UPSTREAM"
+docker tag "$MINIO_UPSTREAM" mindforge-minio:local
+
 import_image() {
   local image="$1" attempt ok=false
   for attempt in 1 2 3; do
@@ -216,6 +224,7 @@ info "Importing app images into ${TARGET}'s k3s containerd..."
 import_image mindforge-backend:local
 import_image mindforge-labproxy:local
 import_image mindforge-frontend:local
+import_image mindforge-minio:local
 success "App images imported."
 
 # ─── 9. Build + import lab sandbox images ────────────────────────────────────
