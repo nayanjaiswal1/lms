@@ -8,23 +8,24 @@ Deep rationale for non-obvious rules (z-index/Portal stacking, min-w-0 flex over
 
 ## Design Identity — Forge Palette
 
-| Role | Light | Dark | Use for |
-|---|---|---|---|
-| `--primary` | amber-700 `#B45309` | amber-400 `#F59E0B` | Buttons, progress, CTAs, streaks, focus rings |
-| `--ai` | cyan-700 `#0E7490` | cyan-400 `#22D3EE` | AI panels, hints, generated content, AI badges |
+| Role        | Light               | Dark                | Use for                                        |
+| ----------- | ------------------- | ------------------- | ---------------------------------------------- |
+| `--primary` | amber-700 `#B45309` | amber-400 `#F59E0B` | Buttons, progress, CTAs, streaks, focus rings  |
+| `--ai`      | cyan-700 `#0E7490`  | cyan-400 `#22D3EE`  | AI panels, hints, generated content, AI badges |
 
 Amber = human actions. Cyan = AI. Never mix.
 
 **Banned (ESLint `no-restricted-syntax` enforces):**
-| Banned | Use instead |
-|---|---|
-| `text-amber-*`, `bg-amber-*` | `text-primary`, `bg-primary` |
-| `text-cyan-*`, `bg-cyan-*` | `text-ai`, `bg-ai` |
-| `text-gray-*`, `bg-zinc-*`, raw shades | `text-foreground`, `text-muted-foreground`, `bg-muted` |
-| `bg-white`, `text-black` | `bg-background`, `text-foreground` |
-| `bg-[#fff]`, `text-[#...]` | Add a CSS var to `globals.css` |
-| `dark:*` | Never — `.dark` class + CSS vars handle it |
-| `style={{ color: '...' }}` | CSS variable; inline style only for dynamic `--var` values |
+
+| Banned                                 | Use instead                                                |
+| -------------------------------------- | ---------------------------------------------------------- |
+| `text-amber-*`, `bg-amber-*`           | `text-primary`, `bg-primary`                               |
+| `text-cyan-*`, `bg-cyan-*`             | `text-ai`, `bg-ai`                                         |
+| `text-gray-*`, `bg-zinc-*`, raw shades | `text-foreground`, `text-muted-foreground`, `bg-muted`     |
+| `bg-white`, `text-black`               | `bg-background`, `text-foreground`                         |
+| `bg-[#fff]`, `text-[#...]`             | Add a CSS var to `globals.css`                             |
+| `dark:*`                               | Never — `.dark` class + CSS vars handle it                 |
+| `style={{ color: '...' }}`             | CSS variable; inline style only for dynamic `--var` values |
 
 Disabling any of these needs a written inline reason.
 
@@ -43,17 +44,18 @@ Icons in `public/icons/`: `icon-192(-maskable).png`, `icon-512(-maskable).png`, 
 
 ## Responsiveness (Day 1, not a follow-up)
 
-| Prefix | Viewport | Unlocks |
-|---|---|---|
-| *(none)* | 0–639px | Mobile baseline |
-| `sm:` | ≥640px | 2-col grids |
-| `md:` | ≥768px | Side-by-side form rows |
-| `lg:` | ≥1024px | **Sidebar appears**, 3-col grids |
-| `xl:` | ≥1280px | Max-width containers |
+| Prefix   | Viewport | Unlocks                          |
+| -------- | -------- | -------------------------------- |
+| _(none)_ | 0–639px  | Mobile baseline                  |
+| `sm:`    | ≥640px   | 2-col grids                      |
+| `md:`    | ≥768px   | Side-by-side form rows           |
+| `lg:`    | ≥1024px  | **Sidebar appears**, 3-col grids |
+| `xl:`    | ≥1280px  | Max-width containers             |
 
 Mobile-first: write the unprefixed style first, layer `sm:`/`md:`/`lg:` on top. Mobile (`<lg`) = 1-col + bottom-nav, no sidebar. Desktop (`lg+`) = sidebar + 3-col grid, no bottom-nav. Shell utilities: `.app-shell` / `.app-sidebar` / `.app-main` / `.app-header` / `.app-content` / `.bottom-nav`.
 
 **Rules:**
+
 1. Mobile-first — `flex-col` before `sm:flex-row`, `hidden` before `lg:flex`
 2. Touch targets ≥44×44px (WCAG 2.5.5) — use `.touch-target` or `size="default"`, not shadcn's default `sm` button
 3. `h-dvh`/`min-h-dvh`, never `h-screen` (ESLint error) — `100vh` hides content behind mobile Safari chrome
@@ -102,12 +104,12 @@ Base element styles (`h1`–`h4`, `p`, `a`, `code`, `body`) are set globally in 
 
 ## Shared Components (`components/shared/`)
 
-| Component | File | Notes |
-|---|---|---|
-| `<CodeEditor>` | `code-editor.tsx` | Lazy Monaco (`next/dynamic`, ssr:false), `var(--font-jetbrains-mono)` |
-| `<AccessGate>` | `access-gate.tsx` | Permission/feature gate |
-| `<BrandMark>` | `brand-mark.tsx` | Logo |
-| `<WithFeature>` | `with-feature.tsx` | Feature-flag HOC |
+| Component       | File               | Notes                                                                 |
+| --------------- | ------------------ | --------------------------------------------------------------------- |
+| `<CodeEditor>`  | `code-editor.tsx`  | Lazy Monaco (`next/dynamic`, ssr:false), `var(--font-jetbrains-mono)` |
+| `<AccessGate>`  | `access-gate.tsx`  | Permission/feature gate                                               |
+| `<BrandMark>`   | `brand-mark.tsx`   | Logo                                                                  |
+| `<WithFeature>` | `with-feature.tsx` | Feature-flag HOC                                                      |
 
 ## Design System
 
@@ -140,6 +142,7 @@ Fetch in Server Components, pass down as props. Loading/error via `<Suspense>` +
 ## Server-Side API Calls (`lib/server/api.ts`)
 
 All server-side fetches go through these — never raw `fetch()` with manual auth headers:
+
 - `apiGet<T>(path)` — server component reads, throws to `error.tsx`
 - `apiPost<T>(path, payload)` — one-shot POSTs, throws
 - `apiAction<T>(method, path, payload?, extraHeaders?)` — server actions, returns `ActionResult<T>`, never throws (`extraHeaders` for one-off headers like `Idempotency-Key`, don't add new positional params instead)
@@ -153,7 +156,9 @@ A raw `fetch()` with a hand-built `Cookie` header is ESLint-flagged (`no-restric
 
 ```ts
 // "use server" actions file:
-export async function uploadAssetAction(formData: FormData): Promise<ActionResult<{ url: string; storage_key: string }>> {
+export async function uploadAssetAction(
+  formData: FormData,
+): Promise<ActionResult<{ url: string; storage_key: string }>> {
   return apiUpload<{ url: string; storage_key: string }>("/api/upload", formData);
 }
 ```
@@ -178,12 +183,12 @@ Sonner toast only — no `alert()`, no custom toast state.
 
 Every gated feature uses `<AccessGate>` from day 1. Two server-resolved axes: org toggle (admin on/off) and user entitlement (plan/add-on/seat) — exposed via `<FeatureFlagProvider>` and `useIsEntitled()` / `useIsOrgFeatureEnabled()` / `useLockedInfo()`.
 
-| Situation | Mode | Result |
-|---|---|---|
-| Org ON, not entitled (default, prefer for discoverability) | `lock` | Blurred + lock icon + CTA from `lockedInfo` |
-| Nav item user lacks | `badge` | Visible + "Add-on"/"Upgrade" badge |
-| Must stay unknown | `hide` | Nothing rendered (rare) |
-| Org OFF | N/A | Renders nothing automatically |
+| Situation                                                  | Mode    | Result                                      |
+| ---------------------------------------------------------- | ------- | ------------------------------------------- |
+| Org ON, not entitled (default, prefer for discoverability) | `lock`  | Blurred + lock icon + CTA from `lockedInfo` |
+| Nav item user lacks                                        | `badge` | Visible + "Add-on"/"Upgrade" badge          |
+| Must stay unknown                                          | `hide`  | Nothing rendered (rare)                     |
+| Org OFF                                                    | N/A     | Renders nothing automatically               |
 
 CTA text always from `lockedInfo.unlock_via` — never invented client-side.
 
@@ -210,3 +215,31 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+<!--VITE PLUS START-->
+
+# Using Vite+, the Unified Toolchain for the Web
+
+This project is using Vite+, a unified toolchain built on top of Vite, Rolldown, Vitest, tsdown, Oxlint, Oxfmt, and Vite Task. Vite+ wraps runtime management, package management, and frontend tooling in a single global CLI called `vp`. Vite+ is distinct from Vite, and it invokes Vite through `vp dev` and `vp build`. Run `vp help` to print a list of commands and `vp <command> --help` for information about a specific command.
+
+Docs are local at `node_modules/vite-plus/docs` or online at https://viteplus.dev/guide/.
+
+## Built-in Commands vs Scripts
+
+`vp <name>` runs a built-in command. `vp run <name>` runs a `package.json` script or a `vite.config.ts` task. Scripts cannot overwrite built-ins, so `vp dev` and `vp run dev` may do different things. Check `package.json` and `vite.config.ts` first, and run `vp run <name>` when the project defines a script or task with that name.
+
+## Tool Versions
+
+Run `vp toolchain` to show versions and relationships in the active Vite+
+release. Add a tool name to select part of the graph. For example, run
+`vp toolchain vite`. Use `--global` to ignore the local `vite-plus` package. Use
+`vp why <package>` to show the package-manager dependency graph.
+
+## Review Checklist
+
+- [ ] Run `vp install` after pulling remote changes and before getting started.
+- [ ] Run `vp check` and `vp test` to format, lint, type check and test changes.
+- [ ] Check if there are `vite.config.ts` tasks or `package.json` scripts necessary for validation, run via `vp run <script>`.
+- [ ] If setup, runtime, or package-manager behavior looks wrong, run `vp env doctor` and include its output when asking for help.
+
+<!--VITE PLUS END-->

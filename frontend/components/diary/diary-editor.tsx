@@ -54,7 +54,11 @@ function renderHighlighted(content: string, highlights: DiaryHighlight[]): React
     if (start >= end) continue;
     if (start > cursor) nodes.push(content.slice(cursor, start));
     nodes.push(
-      <mark className="diary-highlight" key={`${start}-${end}`} title={HIGHLIGHT_KIND_LABEL[h.kind]}>
+      <mark
+        className="diary-highlight"
+        key={`${start}-${end}`}
+        title={HIGHLIGHT_KIND_LABEL[h.kind]}
+      >
         {content.slice(start, end)}
       </mark>,
     );
@@ -79,7 +83,12 @@ interface DiaryEditorProps {
   historyContent: ReactNode;
 }
 
-export function DiaryEditor({ date, initialContent, highlights, historyContent }: DiaryEditorProps) {
+export function DiaryEditor({
+  date,
+  initialContent,
+  highlights,
+  historyContent,
+}: DiaryEditorProps) {
   const [content, setContent] = useState(initialContent);
   const [showHistory, setShowHistory] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -104,7 +113,7 @@ export function DiaryEditor({ date, initialContent, highlights, historyContent }
     }
     // Only ever run once per mounted date; initialContent is this effect's
     // baseline, not a dependency to react to.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
 
   function scheduleSave(value: string) {
@@ -143,7 +152,10 @@ export function DiaryEditor({ date, initialContent, highlights, historyContent }
   }
 
   function handleFixEnglishConfirm() {
-    const resolved = resolveFixEnglishText(fixEnglishReview.state.segments, fixEnglishReview.state.decisions);
+    const resolved = resolveFixEnglishText(
+      fixEnglishReview.state.segments,
+      fixEnglishReview.state.decisions,
+    );
     saveContent(resolved);
     fixEnglishReview.close();
   }

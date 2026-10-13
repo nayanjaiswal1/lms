@@ -61,7 +61,10 @@ function planReducer(state: PlanState, action: PlanAction): PlanState {
       // state.plan.date — that lags at the server-guessed day until the mount
       // refetch resolves, and a mismatch here silently wiped the task from
       // every list even though the PATCH persisted fine.
-      if (task.scheduled_start && isoDateParam(new Date(task.scheduled_start)) === action.viewDate) {
+      if (
+        task.scheduled_start &&
+        isoDateParam(new Date(task.scheduled_start)) === action.viewDate
+      ) {
         scheduled.push(task);
         scheduled.sort((a, b) => (a.scheduled_start ?? "").localeCompare(b.scheduled_start ?? ""));
       } else if (!task.scheduled_start) {
@@ -117,7 +120,7 @@ export function PlanDayApp({
       if (localToday !== initialDate) void setDate(localToday);
     }
     // Mount-only: correcting the server's guess must not re-run on later state.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [state, dispatch] = useReducer(planReducer, {
     plan: initialPlan,
@@ -201,7 +204,10 @@ export function PlanDayApp({
     try {
       const task = await whatnowApi.captureTask(title);
       await scheduleTask(task.id, {
-        scheduled_start: dateAtMinutes(startOfDay(new Date(`${date}T00:00:00`)), minutes).toISOString(),
+        scheduled_start: dateAtMinutes(
+          startOfDay(new Date(`${date}T00:00:00`)),
+          minutes,
+        ).toISOString(),
         status: "planned",
       });
     } catch (err) {

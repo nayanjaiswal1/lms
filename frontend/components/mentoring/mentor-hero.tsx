@@ -10,7 +10,13 @@ import ROUTES from "@/lib/routes";
 // components/auth/social-login-buttons.tsx's GithubIcon.
 function LinkedInIcon() {
   return (
-    <svg aria-hidden className="h-5 w-5 shrink-0" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <svg
+      aria-hidden
+      className="h-5 w-5 shrink-0"
+      fill="currentColor"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
       <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
     </svg>
   );
@@ -18,7 +24,13 @@ function LinkedInIcon() {
 
 function GitHubIcon() {
   return (
-    <svg aria-hidden className="h-5 w-5 shrink-0" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <svg
+      aria-hidden
+      className="h-5 w-5 shrink-0"
+      fill="currentColor"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
       <path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" />
     </svg>
   );
@@ -68,17 +80,33 @@ function RatingStars({ rating, count }: { rating: number; count: number }) {
 // verified badge, headline name, and the CTA row. Kept as its own component
 // since it's a materially different avatar/layout treatment than the shared
 // ProfileAvatar (circular) used everywhere else in the app.
-export function MentorHero({ mentor, isYourMentor, assignedCourse, canReport, ticketId, bookingAction }: Props) {
+export function MentorHero({
+  mentor,
+  isYourMentor,
+  assignedCourse,
+  canReport,
+  ticketId,
+  bookingAction,
+}: Props) {
   return (
     <section className="relative flex flex-col items-center gap-6 rounded-xl border border-border bg-card/60 p-6 backdrop-blur-xl sm:p-8 md:flex-row md:items-end">
       <div className="absolute right-4 top-4 sm:right-6 sm:top-6">
-        <MentorProfileActions canReport={canReport} mentorId={mentor.user_id} ticketId={ticketId} verified={mentor.verified} />
+        <MentorProfileActions
+          canReport={canReport}
+          mentorId={mentor.user_id}
+          ticketId={ticketId}
+          verified={mentor.verified}
+        />
       </div>
 
       <div className="h-40 w-40 shrink-0 overflow-hidden rounded-xl border-2 border-primary/20 sm:h-48 sm:w-48 md:h-56 md:w-56">
         {mentor.avatar_url ? (
-          // eslint-disable-next-line @next/next/no-img-element -- hero portrait needs the exact glass-card crop, not next/image's layout
-          <img alt={`${mentor.name} portrait`} className="h-full w-full object-cover" src={mentor.avatar_url} />
+          // oxlint-disable-next-line @next/next/no-img-element -- hero portrait needs the exact glass-card crop, not next/image's layout
+          <img
+            alt={`${mentor.name} portrait`}
+            className="h-full w-full object-cover"
+            src={mentor.avatar_url}
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-primary text-4xl font-semibold text-primary-foreground">
             {initials(mentor.name)}
@@ -107,12 +135,17 @@ export function MentorHero({ mentor, isYourMentor, assignedCourse, canReport, ti
           </p>
         )}
 
-        {mentor.avg_rating !== null && <RatingStars count={mentor.rating_count} rating={mentor.avg_rating} />}
+        {mentor.avg_rating !== null && (
+          <RatingStars count={mentor.rating_count} rating={mentor.avg_rating} />
+        )}
 
         {isYourMentor && assignedCourse && (
           <p className="text-sm text-muted-foreground">
             Mentoring you in{" "}
-            <Link className="text-primary hover:underline" href={ROUTES.course(assignedCourse.slug)}>
+            <Link
+              className="text-primary hover:underline"
+              href={ROUTES.course(assignedCourse.slug)}
+            >
               {assignedCourse.title}
             </Link>
           </p>

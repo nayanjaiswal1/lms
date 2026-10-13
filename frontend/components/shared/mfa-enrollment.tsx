@@ -37,7 +37,13 @@ interface MfaEnrollmentProps {
 // Settings card: start, add the key to an authenticator, confirm a code, save
 // recovery codes. Server actions are injected so each caller supplies its own
 // authentication (challenge cookie vs. session).
-export function MfaEnrollment({ begin, finish, onComplete, startLabel, continueLabel }: MfaEnrollmentProps) {
+export function MfaEnrollment({
+  begin,
+  finish,
+  onComplete,
+  startLabel,
+  continueLabel,
+}: MfaEnrollmentProps) {
   const [setup, setSetup] = useState<TotpSetup | null>(null);
   const [result, setResult] = useState<EnrollResult | null>(null);
   const [pending, startTransition] = useTransition();
@@ -100,14 +106,23 @@ export function MfaEnrollment({ begin, finish, onComplete, startLabel, continueL
     <Form {...form}>
       <form noValidate className="form-stack" onSubmit={handleConfirm}>
         <p className="text-sm text-muted-foreground">
-          In your authenticator app (Google Authenticator, 1Password, Authy), add an account
-          by scanning this QR code or using the key below, then enter the 6-digit code it shows.
+          In your authenticator app (Google Authenticator, 1Password, Authy), add an account by
+          scanning this QR code or using the key below, then enter the 6-digit code it shows.
         </p>
         {qr && (
-          // eslint-disable-next-line @next/next/no-img-element -- data URL, nothing to optimise
-          <img alt="QR code for your authenticator app" className="h-48 w-48 rounded-md border qr-surface p-1" height={192} src={qr} width={192} />
+          // oxlint-disable-next-line @next/next/no-img-element -- data URL, nothing to optimise
+          <img
+            alt="QR code for your authenticator app"
+            className="h-48 w-48 rounded-md border qr-surface p-1"
+            height={192}
+            src={qr}
+            width={192}
+          />
         )}
-        <p className="break-all rounded-md border bg-muted px-3 py-2.5 font-mono text-sm" translate="no">
+        <p
+          className="break-all rounded-md border bg-muted px-3 py-2.5 font-mono text-sm"
+          translate="no"
+        >
           {setup.secret}
         </p>
         <a className="text-sm font-medium" href={setup.uri}>
