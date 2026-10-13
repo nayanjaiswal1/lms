@@ -75,7 +75,7 @@ Images: always `next/image` with `sizes`, never raw `<img>`.
 
 ## Linter
 
-`pnpm lint:strict` for zero-warning CI (not `next lint`). Covers everything above plus: `fetch()` in `useEffect` banned, arbitrary Tailwind values flagged. Disabling a rule needs an inline `eslint-disable-next-line` comment with a reason.
+`bun run lint:strict` for zero-warning CI (not `next lint`). Covers everything above plus: `fetch()` in `useEffect` banned, arbitrary Tailwind values flagged. Disabling a rule needs an inline `eslint-disable-next-line` comment with a reason.
 
 ## Theming
 

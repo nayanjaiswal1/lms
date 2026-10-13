@@ -40,7 +40,7 @@ backend:
 	@cd backend && go run ./cmd/server
 
 frontend:
-	@cd frontend && pnpm dev
+	@cd frontend && bun run dev
 
 # ─── Testing & linting ───────────────────────────────────────────────────────
 
@@ -48,7 +48,7 @@ test-backend:
 	@cd backend && go test ./...
 
 lint-frontend:
-	@cd frontend && pnpm lint:strict
+	@cd frontend && bun run lint:strict
 
 # ─── Build ───────────────────────────────────────────────────────────────────
 
@@ -57,7 +57,7 @@ build-backend:
 	@cd backend && go build -o bin/server ./cmd/server
 
 build-frontend:
-	@cd frontend && pnpm build
+	@cd frontend && bun run build
 
 docker-build:
 	@docker build -t mindforge-backend:latest ./backend

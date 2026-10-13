@@ -87,7 +87,7 @@ FRONTEND_PID=$(netstat -ano 2>/dev/null | grep ":3000 " | grep LISTENING | awk '
 if [[ -n "$FRONTEND_PID" ]]; then
   taskkill //PID "$FRONTEND_PID" //F &>/dev/null || true
 fi
-( cd "${PROJECT_ROOT}/frontend" && nohup pnpm dev > /tmp/frontend.log 2>&1 & disown ) 2>/dev/null
+( cd "${PROJECT_ROOT}/frontend" && nohup bun run dev > /tmp/frontend.log 2>&1 & disown ) 2>/dev/null
 
 sleep 3
 success "Ready. MindForge (and the AI Connector) reachable at: $URL"

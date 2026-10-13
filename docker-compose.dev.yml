@@ -253,7 +253,7 @@ services:
   frontend:
     # Same production Dockerfile/image as docker-compose.prod.yml — Docker
     # Desktop's Windows bind mount doesn't forward inotify events, so a live
-    # dev server in the container never sees host edits anyway. Run `pnpm dev`
+    # dev server in the container never sees host edits anyway. Run `bun run dev`
     # natively on the host for frontend work; this container just gives the
     # rest of the stack (backend, labs, etc.) something to hit at frontend:3000.
     build:
