@@ -13,7 +13,10 @@ import { FormInputField } from "@/components/ui/form-input-field";
 import { FormTextareaField } from "@/components/ui/form-textarea-field";
 import ROUTES from "@/lib/routes";
 import { createJournalEntryAction, updateJournalEntryAction } from "@/app/(app)/journal/actions";
-import { MIN_STRUCTURE_LENGTH, useJournalStructure } from "@/components/journal/use-journal-structure";
+import {
+  MIN_STRUCTURE_LENGTH,
+  useJournalStructure,
+} from "@/components/journal/use-journal-structure";
 import type { JournalCategoryNode, JournalEntry } from "@/lib/server/journal";
 
 const Schema = z.object({
@@ -49,7 +52,13 @@ interface JournalEntryFormProps {
   contentAutoFocus?: boolean;
 }
 
-export function JournalEntryForm({ entry, categories, draft, onSaved, contentAutoFocus }: JournalEntryFormProps) {
+export function JournalEntryForm({
+  entry,
+  categories,
+  draft,
+  onSaved,
+  contentAutoFocus,
+}: JournalEntryFormProps) {
   const router = useRouter();
   const form = useForm<FormValues>({
     resolver: zodResolver(Schema),
@@ -63,7 +72,8 @@ export function JournalEntryForm({ entry, categories, draft, onSaved, contentAut
   });
   const selectedCategory = form.watch("category");
   const subcategoryOptions =
-    categories.find((c) => c.category.toLowerCase() === selectedCategory.trim().toLowerCase())?.subcategories ?? [];
+    categories.find((c) => c.category.toLowerCase() === selectedCategory.trim().toLowerCase())
+      ?.subcategories ?? [];
 
   const { isPending: isSuggesting, structure } = useJournalStructure();
 
@@ -103,7 +113,8 @@ export function JournalEntryForm({ entry, categories, draft, onSaved, contentAut
         return;
       }
       const similar = result.data?.similar_entries[0];
-      if (similar) toast.info(`You've written about this before: ${similar.entry_date} · ${similar.title}`);
+      if (similar)
+        toast.info(`You've written about this before: ${similar.entry_date} · ${similar.title}`);
       toast.success("Entry added.");
     }
     if (onSaved) onSaved();
@@ -116,10 +127,21 @@ export function JournalEntryForm({ entry, categories, draft, onSaved, contentAut
         className={contentAutoFocus ? "flex h-full flex-col gap-4" : "form-stack"}
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <FormInputField control={form.control} label="Title" name="title" placeholder="e.g. Modal Verbs (Can/Could)" />
+        <FormInputField
+          control={form.control}
+          label="Title"
+          name="title"
+          placeholder="e.g. Modal Verbs (Can/Could)"
+        />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <FormInputField control={form.control} label="Category" list="journal-categories" name="category" placeholder="e.g. Backend" />
+            <FormInputField
+              control={form.control}
+              label="Category"
+              list="journal-categories"
+              name="category"
+              placeholder="e.g. Backend"
+            />
             <datalist id="journal-categories">
               {categories.map((c) => (
                 <option key={c.category} value={c.category} />
@@ -142,16 +164,24 @@ export function JournalEntryForm({ entry, categories, draft, onSaved, contentAut
           </div>
         </div>
         <FormInputField control={form.control} label="Date" name="entry_date" type="date" />
-        <div className={contentAutoFocus ? "flex min-h-0 flex-1 flex-col" : undefined} onBlur={onContentBlur}>
+        <div
+          className={contentAutoFocus ? "flex min-h-0 flex-1 flex-col" : undefined}
+          onBlur={onContentBlur}
+        >
           <FormTextareaField
-            // eslint-disable-next-line jsx-a11y/no-autofocus -- opt-in only when opening from the quick-capture input, so writing continues in place instead of requiring an extra click
+            // oxlint-disable-next-line jsx-a11y/no-autofocus -- opt-in only when opening from the quick-capture input, so writing continues in place instead of requiring an extra click
             autoFocus={contentAutoFocus}
             className={contentAutoFocus ? "flex-1 resize-none text-base" : undefined}
             control={form.control}
             label={contentAutoFocus ? undefined : "What did you learn?"}
             name="content"
             rows={contentAutoFocus ? undefined : 8}
-            onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
+            onFocus={(e) =>
+              e.currentTarget.setSelectionRange(
+                e.currentTarget.value.length,
+                e.currentTarget.value.length,
+              )
+            }
           />
           {!entry && isSuggesting && (
             <p className="ai-badge mt-1.5 inline-flex w-fit items-center gap-1.5 text-xs">
@@ -162,7 +192,13 @@ export function JournalEntryForm({ entry, categories, draft, onSaved, contentAut
         </div>
         <div className="flex justify-end gap-2">
           <Button disabled={form.formState.isSubmitting || isSuggesting} type="submit">
-            {form.formState.isSubmitting ? "Saving…" : isSuggesting ? "Suggesting…" : entry ? "Save changes" : "Add Learning"}
+            {form.formState.isSubmitting
+              ? "Saving…"
+              : isSuggesting
+                ? "Suggesting…"
+                : entry
+                  ? "Save changes"
+                  : "Add Learning"}
           </Button>
         </div>
       </form>

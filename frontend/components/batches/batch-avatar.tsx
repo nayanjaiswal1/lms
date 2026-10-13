@@ -41,8 +41,13 @@ interface BatchAvatarProps {
   editable?: boolean;
 }
 
-export function BatchAvatar({ batchId, name, imageUrl = null, size = "sm", editable = false }: BatchAvatarProps) {
-
+export function BatchAvatar({
+  batchId,
+  name,
+  imageUrl = null,
+  size = "sm",
+  editable = false,
+}: BatchAvatarProps) {
   const {
     preview,
     loadFailed,
@@ -80,7 +85,7 @@ export function BatchAvatar({ batchId, name, imageUrl = null, size = "sm", edita
   return (
     <div className={cn("relative shrink-0", outer)}>
       {displaySrc && !loadFailed ? (
-        // eslint-disable-next-line @next/next/no-img-element
+        // oxlint-disable-next-line @next/next/no-img-element
         <img
           alt={`${name} cover`}
           className="h-full w-full rounded-full object-cover"
@@ -114,7 +119,8 @@ export function BatchAvatar({ batchId, name, imageUrl = null, size = "sm", edita
             type="file"
             onChange={handleFileChange}
           />
-          <Button aria-label="Change batch image"
+          <Button
+            aria-label="Change batch image"
             className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background hover:bg-muted transition-colors duration-fast touch-target disabled:opacity-50"
             disabled={isUploading}
             type="button"
@@ -124,7 +130,8 @@ export function BatchAvatar({ batchId, name, imageUrl = null, size = "sm", edita
             <Camera className="text-foreground" size={icon} />
           </Button>
           {displaySrc && (
-            <Button aria-label="Remove batch image"
+            <Button
+              aria-label="Remove batch image"
               className="absolute bottom-0 left-0 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background hover:bg-muted transition-colors duration-fast touch-target"
               type="button"
               variant="unstyled"
@@ -133,7 +140,11 @@ export function BatchAvatar({ batchId, name, imageUrl = null, size = "sm", edita
               <Trash2 className="text-destructive" size={icon} />
             </Button>
           )}
-          <AvatarCropDialog file={pendingFile} onCancel={handleCropCancel} onConfirm={handleCropConfirm} />
+          <AvatarCropDialog
+            file={pendingFile}
+            onCancel={handleCropCancel}
+            onConfirm={handleCropConfirm}
+          />
         </>
       )}
     </div>

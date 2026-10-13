@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
@@ -103,12 +104,12 @@ export function AuthConfigForm({ orgId, config }: AuthConfigFormProps) {
           <Label>Allowed Domains</Label>
           <p className="text-xs text-muted-foreground">
             Managed from the{" "}
-            <a
+            <Link
               className="text-primary underline-offset-2 hover:underline"
               href="/org/settings/domains"
             >
               Domains
-            </a>{" "}
+            </Link>{" "}
             settings page.
           </p>
           <div className="flex flex-wrap gap-1.5 mt-1">

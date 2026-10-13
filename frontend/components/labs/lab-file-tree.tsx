@@ -1,17 +1,17 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { ChevronRight, ChevronsDownUp, FilePlus, FolderPlus, Pencil, Trash2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { useState } from "react";
+import { ChevronRight, ChevronsDownUp, FilePlus, FolderPlus, Pencil, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
-} from "@/components/ui/context-menu"
+} from "@/components/ui/context-menu";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -21,21 +21,21 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
   AlertDialogAction,
-} from "@/components/ui/alert-dialog"
-import { cn } from "@/lib/utils"
-import { buildFileTree, LAB_FILE_DRAG_MIME } from "@/lib/labs/files"
-import { getFileIcon } from "@/lib/labs/file-icon"
-import type { LabFileEntry, FileTreeNode } from "@/lib/labs/files"
+} from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
+import { buildFileTree, LAB_FILE_DRAG_MIME } from "@/lib/labs/files";
+import { getFileIcon } from "@/lib/labs/file-icon";
+import type { LabFileEntry, FileTreeNode } from "@/lib/labs/files";
 
 interface LabFileTreeProps {
-  files: LabFileEntry[]
-  selectedPath: string | undefined
-  isBusy: boolean
-  onOpen: (path: string) => void
-  onCreate: (path: string) => void
-  onCreateFolder: (path: string) => void
-  onRename: (from: string, to: string) => void
-  onDelete: (path: string) => void
+  files: LabFileEntry[];
+  selectedPath: string | undefined;
+  isBusy: boolean;
+  onOpen: (path: string) => void;
+  onCreate: (path: string) => void;
+  onCreateFolder: (path: string) => void;
+  onRename: (from: string, to: string) => void;
+  onDelete: (path: string) => void;
 }
 
 // Inline create/rename input state, consolidated into one object so this
@@ -44,7 +44,7 @@ interface LabFileTreeProps {
 type Draft =
   | { mode: "new-file" | "new-folder"; parent: string; value: string }
   | { mode: "rename"; path: string; parent: string; value: string }
-  | null
+  | null;
 
 // All remaining explorer UI state in one object (second of the two allowed
 // useStates). VS Code semantics: `focusedPath` is the row keyboard focus /
@@ -53,28 +53,32 @@ type Draft =
 // file), `dropDir` is the folder currently highlighted as a drop target,
 // and `confirmDelete` drives the single root-level delete dialog.
 interface TreeUI {
-  expanded: Set<string>
-  focusedDir: string
-  focusedPath: string | null
-  dropDir: string | null
-  confirmDelete: { path: string; isDir: boolean } | null
+  expanded: Set<string>;
+  focusedDir: string;
+  focusedPath: string | null;
+  dropDir: string | null;
+  confirmDelete: { path: string; isDir: boolean } | null;
 }
 
 function parentOf(path: string): string {
-  const lastSlash = path.lastIndexOf("/")
-  return lastSlash === -1 ? "" : path.slice(0, lastSlash)
+  const lastSlash = path.lastIndexOf("/");
+  return lastSlash === -1 ? "" : path.slice(0, lastSlash);
 }
 
 // The visible rows in render order — what ArrowUp/ArrowDown walk over,
 // exactly like VS Code's list-backed tree.
-function flattenVisible(nodes: FileTreeNode[], expanded: Set<string>, out: FileTreeNode[] = []): FileTreeNode[] {
+function flattenVisible(
+  nodes: FileTreeNode[],
+  expanded: Set<string>,
+  out: FileTreeNode[] = [],
+): FileTreeNode[] {
   for (const node of nodes) {
-    out.push(node)
+    out.push(node);
     if (node.type === "dir" && expanded.has(node.path) && node.children) {
-      flattenVisible(node.children, expanded, out)
+      flattenVisible(node.children, expanded, out);
     }
   }
-  return out
+  return out;
 }
 
 // Autofocus the draft input and, for renames, pre-select the basename
@@ -82,11 +86,11 @@ function flattenVisible(nodes: FileTreeNode[], expanded: Set<string>, out: FileT
 // the extension — VS Code's rename behavior. Guarded by a data attribute
 // because ref callbacks re-run on every render.
 function focusDraftInput(el: HTMLInputElement | null) {
-  if (!el || el.dataset.autofocused) return
-  el.dataset.autofocused = "1"
-  el.focus()
-  const dot = el.value.lastIndexOf(".")
-  el.setSelectionRange(0, dot > 0 ? dot : el.value.length)
+  if (!el || el.dataset.autofocused) return;
+  el.dataset.autofocused = "1";
+  el.focus();
+  const dot = el.value.lastIndexOf(".");
+  el.setSelectionRange(0, dot > 0 ? dot : el.value.length);
 }
 
 export function LabFileTree({
@@ -99,170 +103,171 @@ export function LabFileTree({
   onRename,
   onDelete,
 }: LabFileTreeProps) {
-  const [draft, setDraft] = useState<Draft>(null)
+  const [draft, setDraft] = useState<Draft>(null);
   const [ui, setUi] = useState<TreeUI>(() => ({
     expanded: new Set<string>(),
     focusedDir: "",
     focusedPath: null,
     dropDir: null,
     confirmDelete: null,
-  }))
+  }));
 
-  const tree = buildFileTree(files)
+  const tree = buildFileTree(files);
 
   function toggleExpanded(path: string) {
     setUi((prev) => {
-      const expanded = new Set(prev.expanded)
-      if (expanded.has(path)) expanded.delete(path)
-      else expanded.add(path)
-      return { ...prev, expanded, focusedDir: path, focusedPath: path }
-    })
+      const expanded = new Set(prev.expanded);
+      if (expanded.has(path)) expanded.delete(path);
+      else expanded.add(path);
+      return { ...prev, expanded, focusedDir: path, focusedPath: path };
+    });
   }
 
   function openFile(path: string) {
-    setUi((prev) => ({ ...prev, focusedDir: parentOf(path), focusedPath: path }))
-    onOpen(path)
+    setUi((prev) => ({ ...prev, focusedDir: parentOf(path), focusedPath: path }));
+    onOpen(path);
   }
 
   function collapseAll() {
-    setUi((prev) => ({ ...prev, expanded: new Set<string>(), focusedDir: "", focusedPath: null }))
+    setUi((prev) => ({ ...prev, expanded: new Set<string>(), focusedDir: "", focusedPath: null }));
   }
 
   function startCreate(mode: "new-file" | "new-folder", parent: string) {
     if (parent) {
-      setUi((prev) => ({ ...prev, expanded: new Set(prev.expanded).add(parent) }))
+      setUi((prev) => ({ ...prev, expanded: new Set(prev.expanded).add(parent) }));
     }
-    setDraft({ mode, parent, value: "" })
+    setDraft({ mode, parent, value: "" });
   }
 
   function startRename(node: FileTreeNode) {
-    setDraft({ mode: "rename", path: node.path, parent: parentOf(node.path), value: node.name })
+    setDraft({ mode: "rename", path: node.path, parent: parentOf(node.path), value: node.name });
   }
 
   function requestDelete(node: FileTreeNode) {
-    setUi((prev) => ({ ...prev, confirmDelete: { path: node.path, isDir: node.type === "dir" } }))
+    setUi((prev) => ({ ...prev, confirmDelete: { path: node.path, isDir: node.type === "dir" } }));
   }
 
   function submitDraft() {
     if (!draft || draft.value.trim() === "") {
-      setDraft(null)
-      return
+      setDraft(null);
+      return;
     }
-    const name = draft.value.trim()
-    const fullPath = draft.parent ? `${draft.parent}/${name}` : name
-    if (draft.mode === "new-file") onCreate(fullPath)
-    else if (draft.mode === "new-folder") onCreateFolder(fullPath)
+    const name = draft.value.trim();
+    const fullPath = draft.parent ? `${draft.parent}/${name}` : name;
+    if (draft.mode === "new-file") onCreate(fullPath);
+    else if (draft.mode === "new-folder") onCreateFolder(fullPath);
     else if (draft.mode === "rename") {
-      const from = draft.path
-      onRename(from, fullPath)
+      const from = draft.path;
+      onRename(from, fullPath);
       // Keep expansion/focus pointing at the renamed folder (and anything
       // under it) so the tree doesn't collapse after a rename.
       setUi((prev) => {
         const remap = (p: string) =>
-          p === from ? fullPath : p.startsWith(`${from}/`) ? fullPath + p.slice(from.length) : p
+          p === from ? fullPath : p.startsWith(`${from}/`) ? fullPath + p.slice(from.length) : p;
         return {
           ...prev,
           expanded: new Set([...prev.expanded].map(remap)),
           focusedDir: remap(prev.focusedDir),
           focusedPath: prev.focusedPath === null ? null : remap(prev.focusedPath),
-        }
-      })
+        };
+      });
     }
-    setDraft(null)
+    setDraft(null);
   }
 
   // Moves a dragged file/folder into targetDir by reusing the rename/move
   // endpoint — the backend's `mv` already relocates directories with all
   // their contents in one call.
   function handleDrop(e: React.DragEvent, targetDir: string) {
-    e.preventDefault()
-    setUi((prev) => (prev.dropDir === null ? prev : { ...prev, dropDir: null }))
-    const from = e.dataTransfer.getData(LAB_FILE_DRAG_MIME)
-    if (!from) return
-    if (targetDir === from || targetDir.startsWith(`${from}/`)) return
-    if (parentOf(from) === targetDir) return
-    const name = from.includes("/") ? from.slice(from.lastIndexOf("/") + 1) : from
-    onRename(from, targetDir ? `${targetDir}/${name}` : name)
+    e.preventDefault();
+    setUi((prev) => (prev.dropDir === null ? prev : { ...prev, dropDir: null }));
+    const from = e.dataTransfer.getData(LAB_FILE_DRAG_MIME);
+    if (!from) return;
+    if (targetDir === from || targetDir.startsWith(`${from}/`)) return;
+    if (parentOf(from) === targetDir) return;
+    const name = from.includes("/") ? from.slice(from.lastIndexOf("/") + 1) : from;
+    onRename(from, targetDir ? `${targetDir}/${name}` : name);
   }
 
   function setDropDir(dir: string | null) {
-    setUi((prev) => (prev.dropDir === dir ? prev : { ...prev, dropDir: dir }))
+    setUi((prev) => (prev.dropDir === dir ? prev : { ...prev, dropDir: dir }));
   }
 
   // Single keydown handler on the tree container (VS Code's list keyboard
   // model): arrows move a focus cursor over the visible rows, Left/Right
   // collapse/expand, Enter/Space activates, F2 renames, Delete deletes.
   function onTreeKeyDown(e: React.KeyboardEvent) {
-    if (draft || isBusy) return
-    const rows = flattenVisible(tree, ui.expanded)
-    if (rows.length === 0) return
-    const idx = ui.focusedPath === null ? -1 : rows.findIndex((r) => r.path === ui.focusedPath)
-    const node = idx === -1 ? null : rows[idx]
+    if (draft || isBusy) return;
+    const rows = flattenVisible(tree, ui.expanded);
+    if (rows.length === 0) return;
+    const idx = ui.focusedPath === null ? -1 : rows.findIndex((r) => r.path === ui.focusedPath);
+    const node = idx === -1 ? null : rows[idx];
 
     const focusRow = (i: number) => {
-      const target = rows[Math.max(0, Math.min(rows.length - 1, i))]
+      const target = rows[Math.max(0, Math.min(rows.length - 1, i))];
       setUi((prev) => ({
         ...prev,
         focusedPath: target.path,
         focusedDir: target.type === "dir" ? target.path : parentOf(target.path),
-      }))
-    }
+      }));
+    };
 
     switch (e.key) {
       case "ArrowDown":
-        e.preventDefault()
-        focusRow(idx + 1)
-        break
+        e.preventDefault();
+        focusRow(idx + 1);
+        break;
       case "ArrowUp":
-        e.preventDefault()
-        focusRow(idx <= 0 ? 0 : idx - 1)
-        break
+        e.preventDefault();
+        focusRow(idx <= 0 ? 0 : idx - 1);
+        break;
       case "ArrowRight":
-        e.preventDefault()
-        if (!node) focusRow(0)
-        else if (node.type === "dir" && !ui.expanded.has(node.path)) toggleExpanded(node.path)
-        else if (node.type === "dir" && node.children && node.children.length > 0) focusRow(idx + 1)
-        break
+        e.preventDefault();
+        if (!node) focusRow(0);
+        else if (node.type === "dir" && !ui.expanded.has(node.path)) toggleExpanded(node.path);
+        else if (node.type === "dir" && node.children && node.children.length > 0)
+          focusRow(idx + 1);
+        break;
       case "ArrowLeft": {
-        e.preventDefault()
+        e.preventDefault();
         if (!node) {
-          focusRow(0)
-          break
+          focusRow(0);
+          break;
         }
         if (node.type === "dir" && ui.expanded.has(node.path)) {
-          toggleExpanded(node.path)
+          toggleExpanded(node.path);
         } else {
-          const parent = parentOf(node.path)
+          const parent = parentOf(node.path);
           if (parent !== "") {
-            const parentIdx = rows.findIndex((r) => r.path === parent)
-            if (parentIdx !== -1) focusRow(parentIdx)
+            const parentIdx = rows.findIndex((r) => r.path === parent);
+            if (parentIdx !== -1) focusRow(parentIdx);
           }
         }
-        break
+        break;
       }
       case "Home":
-        e.preventDefault()
-        focusRow(0)
-        break
+        e.preventDefault();
+        focusRow(0);
+        break;
       case "End":
-        e.preventDefault()
-        focusRow(rows.length - 1)
-        break
+        e.preventDefault();
+        focusRow(rows.length - 1);
+        break;
       case "Enter":
       case " ":
-        e.preventDefault()
-        if (!node) break
-        if (node.type === "dir") toggleExpanded(node.path)
-        else openFile(node.path)
-        break
+        e.preventDefault();
+        if (!node) break;
+        if (node.type === "dir") toggleExpanded(node.path);
+        else openFile(node.path);
+        break;
       case "F2":
-        e.preventDefault()
-        if (node) startRename(node)
-        break
+        e.preventDefault();
+        if (node) startRename(node);
+        break;
       case "Delete":
-        e.preventDefault()
-        if (node) requestDelete(node)
-        break
+        e.preventDefault();
+        if (node) requestDelete(node);
+        break;
     }
   }
 
@@ -272,14 +277,14 @@ export function LabFileTree({
   function renderGuides(depth: number) {
     return Array.from({ length: depth }, (_, i) => (
       <span aria-hidden className="w-2.5 shrink-0 self-stretch border-l border-border/60" key={i} />
-    ))
+    ));
   }
 
   function renderDraftRow(depth: number) {
-    if (!draft) return null
-    const isFolder = draft.mode === "new-folder"
+    if (!draft) return null;
+    const isFolder = draft.mode === "new-folder";
     // Live icon preview: the icon tracks the typed extension, like VS Code.
-    const Icon = getFileIcon(draft.value || "file", isFolder ? "dir" : "file")
+    const Icon = getFileIcon(draft.value || "file", isFolder ? "dir" : "file");
     return (
       <div className="flex items-center gap-1 py-0.5 pl-2 pr-2">
         {renderGuides(depth)}
@@ -293,41 +298,41 @@ export function LabFileTree({
           onBlur={(e) => {
             // Escape/Enter mark the input done before this fires; without
             // the guard a commit would run twice (or after a cancel).
-            if (e.currentTarget.dataset.done !== "1") submitDraft()
+            if (e.currentTarget.dataset.done !== "1") submitDraft();
           }}
           onChange={(e) => setDraft((prev) => (prev ? { ...prev, value: e.target.value } : prev))}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
-              e.currentTarget.dataset.done = "1"
-              setDraft(null)
+              e.currentTarget.dataset.done = "1";
+              setDraft(null);
             } else if (e.key === "Enter") {
-              e.preventDefault()
-              e.currentTarget.dataset.done = "1"
-              submitDraft()
+              e.preventDefault();
+              e.currentTarget.dataset.done = "1";
+              submitDraft();
             }
           }}
         />
       </div>
-    )
+    );
   }
 
   function renderNode(node: FileTreeNode, depth: number) {
-    const isDir = node.type === "dir"
-    const isOpenDir = isDir && ui.expanded.has(node.path)
-    const Icon = getFileIcon(node.name, node.type, isOpenDir)
+    const isDir = node.type === "dir";
+    const isOpenDir = isDir && ui.expanded.has(node.path);
+    const Icon = getFileIcon(node.name, node.type, isOpenDir);
     // Dropping onto a file targets its parent folder (VS Code behavior)
     // instead of falling through to the root drop zone.
-    const dropTargetDir = isDir ? node.path : parentOf(node.path)
-    const isSelected = !isDir && selectedPath === node.path
-    const isFocused = ui.focusedPath === node.path
-    const isDropTarget = ui.dropDir === node.path
+    const dropTargetDir = isDir ? node.path : parentOf(node.path);
+    const isSelected = !isDir && selectedPath === node.path;
+    const isFocused = ui.focusedPath === node.path;
+    const isDropTarget = ui.dropDir === node.path;
 
     if (draft?.mode === "rename" && draft.path === node.path) {
-      return <div key={node.path}>{renderDraftRow(depth)}</div>
+      return <div key={node.path}>{renderDraftRow(depth)}</div>;
     }
 
     const row = (
-      // eslint-disable-next-line jsx-a11y/click-events-have-key-events -- keyboard interaction (arrows/Enter/F2/Delete) is handled by the tree container's roving-focus keydown, per the WAI-ARIA tree pattern
+      // oxlint-disable-next-line jsx-a11y/click-events-have-key-events -- keyboard interaction (arrows/Enter/F2/Delete) is handled by the tree container's roving-focus keydown, per the WAI-ARIA tree pattern
       <div
         draggable
         aria-current={isSelected ? "true" : undefined}
@@ -348,22 +353,22 @@ export function LabFileTree({
         onContextMenu={() => setUi((prev) => ({ ...prev, focusedPath: node.path }))}
         onDragEnd={() => setDropDir(null)}
         onDragEnter={(e) => {
-          e.stopPropagation()
-          setDropDir(dropTargetDir)
+          e.stopPropagation();
+          setDropDir(dropTargetDir);
         }}
         onDragOver={(e) => {
-          e.preventDefault()
-          e.dataTransfer.dropEffect = "move"
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
         }}
         onDragStart={(e) => {
-          e.dataTransfer.setData(LAB_FILE_DRAG_MIME, node.path)
-          e.dataTransfer.effectAllowed = "move"
+          e.dataTransfer.setData(LAB_FILE_DRAG_MIME, node.path);
+          e.dataTransfer.effectAllowed = "move";
         }}
         onDrop={(e) => {
           // Stop the drop from also bubbling to the tree's root drop zone —
           // otherwise a single drop fires a second, now-stale move attempt.
-          e.stopPropagation()
-          handleDrop(e, dropTargetDir)
+          e.stopPropagation();
+          handleDrop(e, dropTargetDir);
         }}
       >
         {renderGuides(depth)}
@@ -382,7 +387,7 @@ export function LabFileTree({
         <Icon aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="flex-1 truncate">{node.name}</span>
       </div>
-    )
+    );
 
     return (
       <div key={node.path}>
@@ -425,7 +430,7 @@ export function LabFileTree({
           </>
         )}
       </div>
-    )
+    );
   }
 
   return (
@@ -468,7 +473,11 @@ export function LabFileTree({
         </div>
       </div>
 
-      <ScrollArea className="flex-1" onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleDrop(e, "")}>
+      <ScrollArea
+        className="flex-1"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => handleDrop(e, "")}
+      >
         {/* Clicking empty space below the rows re-targets New File/Folder at the root, like VS Code. */}
         <div
           className={cn(
@@ -478,15 +487,15 @@ export function LabFileTree({
           role="tree"
           tabIndex={0}
           onClick={(e) => {
-            if (e.target === e.currentTarget) setUi((prev) => ({ ...prev, focusedDir: "" }))
+            if (e.target === e.currentTarget) setUi((prev) => ({ ...prev, focusedDir: "" }));
           }}
           onDragEnter={(e) => {
             // Row drag-enters stop propagation, so reaching here means the
             // drag is over empty space — target the root.
-            if (e.target === e.currentTarget) setDropDir("")
+            if (e.target === e.currentTarget) setDropDir("");
           }}
           onDragLeave={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropDir(null)
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropDir(null);
           }}
           onKeyDown={onTreeKeyDown}
         >
@@ -507,7 +516,7 @@ export function LabFileTree({
       <AlertDialog
         open={ui.confirmDelete !== null}
         onOpenChange={(open) => {
-          if (!open) setUi((prev) => ({ ...prev, confirmDelete: null }))
+          if (!open) setUi((prev) => ({ ...prev, confirmDelete: null }));
         }}
       >
         <AlertDialogContent>
@@ -524,9 +533,9 @@ export function LabFileTree({
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
-                const target = ui.confirmDelete
-                setUi((prev) => ({ ...prev, confirmDelete: null }))
-                if (target) onDelete(target.path)
+                const target = ui.confirmDelete;
+                setUi((prev) => ({ ...prev, confirmDelete: null }));
+                if (target) onDelete(target.path);
               }}
             >
               Delete
@@ -535,5 +544,5 @@ export function LabFileTree({
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
+  );
 }

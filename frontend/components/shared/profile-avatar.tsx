@@ -1,25 +1,25 @@
-"use client"
+"use client";
 
 import { Button } from "@/components/ui/button";
 
-import { Camera } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { useAvatarUpload } from "@/lib/use-avatar-upload"
-import { AvatarCropDialog } from "@/components/shared/avatar-crop-dialog"
+import { Camera } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useAvatarUpload } from "@/lib/use-avatar-upload";
+import { AvatarCropDialog } from "@/components/shared/avatar-crop-dialog";
 
 interface Props {
-  avatarUrl: string | null
-  name: string
-  size?: "sm" | "md" | "lg"
-  editable?: boolean
-  uploadAction?: (formData: FormData) => Promise<void>
+  avatarUrl: string | null;
+  name: string;
+  size?: "sm" | "md" | "lg";
+  editable?: boolean;
+  uploadAction?: (formData: FormData) => Promise<void>;
 }
 
 const SIZE_MAP = {
-  sm: { outer: "w-10 h-10",  text: "text-sm",  icon: 14 },
-  md: { outer: "w-16 h-16",  text: "text-lg",  icon: 16 },
-  lg: { outer: "w-24 h-24",  text: "text-2xl", icon: 18 },
-} as const
+  sm: { outer: "w-10 h-10", text: "text-sm", icon: 14 },
+  md: { outer: "w-16 h-16", text: "text-lg", icon: 16 },
+  lg: { outer: "w-24 h-24", text: "text-2xl", icon: 18 },
+} as const;
 
 function getInitials(name: string): string {
   return name
@@ -27,7 +27,7 @@ function getInitials(name: string): string {
     .filter(Boolean)
     .slice(0, 2)
     .map((w) => w[0].toUpperCase())
-    .join("")
+    .join("");
 }
 
 export function ProfileAvatar({
@@ -46,15 +46,15 @@ export function ProfileAvatar({
     handleFileChange,
     handleCropCancel,
     handleCropConfirm,
-  } = useAvatarUpload({ uploadAction: uploadAction ?? (async () => {}) })
+  } = useAvatarUpload({ uploadAction: uploadAction ?? (async () => {}) });
 
-  const { outer, text, icon } = SIZE_MAP[size]
-  const displaySrc = preview ?? avatarUrl
+  const { outer, text, icon } = SIZE_MAP[size];
+  const displaySrc = preview ?? avatarUrl;
 
   return (
     <div className={cn("relative shrink-0", outer)}>
       {displaySrc && !loadFailed ? (
-        // eslint-disable-next-line @next/next/no-img-element
+        // oxlint-disable-next-line @next/next/no-img-element
         <img
           alt={`${name} avatar`}
           className={cn("rounded-full object-cover w-full h-full")}
@@ -67,7 +67,7 @@ export function ProfileAvatar({
           className={cn(
             "rounded-full w-full h-full flex items-center justify-center",
             "bg-primary text-primary-foreground font-semibold select-none",
-            text
+            text,
           )}
         >
           {getInitials(name)}
@@ -85,14 +85,15 @@ export function ProfileAvatar({
             type="file"
             onChange={handleFileChange}
           />
-          <Button aria-label="Change profile picture"
+          <Button
+            aria-label="Change profile picture"
             className={cn(
               "absolute bottom-0 right-0",
               "w-7 h-7 rounded-full",
               "bg-background border border-border",
               "flex items-center justify-center",
               "hover:bg-muted transition-colors duration-fast",
-              "touch-target"
+              "touch-target",
             )}
             type="button"
             variant="unstyled"
@@ -108,5 +109,5 @@ export function ProfileAvatar({
         </>
       )}
     </div>
-  )
+  );
 }

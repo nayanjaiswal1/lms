@@ -38,7 +38,7 @@ export function LessonHtml({ html, segmentIndex }: LessonHtmlProps) {
   }
 
   return (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- delegated handler for the native <a> links inside the html; Enter on a focused link fires click, so keyboard access is native
+    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- delegated handler for the native <a> links inside the html; Enter on a focused link fires click, so keyboard access is native
     <div
       className="prose-content"
       dangerouslySetInnerHTML={{ __html: html }}

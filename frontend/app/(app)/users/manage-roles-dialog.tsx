@@ -121,7 +121,7 @@ export function ManageRolesDialog({ userId, userName, orgId, memberId, orgRole }
   // no trigger of its own, only a controlled `open` prop.
   useEffect(() => {
     if (open) void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load() closes over userId, which is stable for this row's dialog instance; only `open` toggling should retrigger the fetch
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- load() closes over userId, which is stable for this row's dialog instance; only `open` toggling should retrigger the fetch
   }, [open]);
 
   function assignRole(roleId: string) {
@@ -196,10 +196,7 @@ export function ManageRolesDialog({ userId, userName, orgId, memberId, orgRole }
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => void setOpenId(next ? userId : null)}
-    >
+    <Dialog open={open} onOpenChange={(next) => void setOpenId(next ? userId : null)}>
       <DialogContent className="modal-responsive overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Manage roles — {userName}</DialogTitle>
@@ -221,7 +218,10 @@ export function ManageRolesDialog({ userId, userName, orgId, memberId, orgRole }
                     value={currentOrgRole}
                     onValueChange={(v) => updateOrgRole(v as OrgRole)}
                   >
-                    <SelectTrigger aria-label={`Change org role for ${userName}`} className="h-9 w-48">
+                    <SelectTrigger
+                      aria-label={`Change org role for ${userName}`}
+                      className="h-9 w-48"
+                    >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
