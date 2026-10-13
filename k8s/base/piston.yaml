@@ -50,6 +50,10 @@ spec:
         - name: piston
           image: ghcr.io/engineer-man/piston@sha256:2f66b7456189c4d713aa986d98eccd0b6ee16d26c7ec5f21b30e942756fd127a
           imagePullPolicy: IfNotPresent
+          # The image entrypoint does `mkdir /sys/fs/cgroup/isolate`; a privileged pod shares the
+          # host cgroup tree, so the dir survives a container restart and the next start dies with
+          # "File exists". Drop the (empty) leftover first.
+          command: ["bash", "-c", "rmdir /sys/fs/cgroup/isolate/init /sys/fs/cgroup/isolate 2>/dev/null; exec /piston_api/src/docker-entrypoint.sh"]
           securityContext:
             privileged: true
           ports:
