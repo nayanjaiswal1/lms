@@ -47,6 +47,8 @@ pipeline {
           if [ -n "$IMAGE_REGISTRY" ]; then
             awk -v r="$IMAGE_REGISTRY" -v t="$IMAGE_TAG" '/^  - name: mindforge-(backend|labproxy|frontend)$/ {print; print "    newName: " r "/" $3; f=1; next} f && /newTag:/ {print "    newTag: " t; f=0; next} {print}' k8s/overlays/local/kustomization.yaml > kustomization.tmp
             mv kustomization.tmp k8s/overlays/local/kustomization.yaml
+            # no stage builds mindforge-minio:local; use the pinned upstream image from base
+            sed -i '/^  - name: minio\\/minio$/,$d' k8s/overlays/local/kustomization.yaml
           fi
           sed -i "s/mindforge\\.127\\.0\\.0\\.1\\.nip\\.io/${APP_DOMAIN}/g" \
             k8s/overlays/local/configmap-domain.patch.yaml k8s/overlays/local/kustomization.yaml
