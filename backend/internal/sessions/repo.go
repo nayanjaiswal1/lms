@@ -46,10 +46,12 @@ var (
 )
 
 // exclusionViolation reports whether err is a Postgres exclusion-constraint
-// violation (SQLSTATE 23P01) — the double-booking guard firing.
+// violation (SQLSTATE 23P01) — the double-booking guard firing.  A deadlock (40P01) counts
+// too: concurrent inserts into the same range can deadlock on the exclusion
+// index and Postgres aborts the loser, i.e. someone else got the slot.
 func exclusionViolation(err error) bool {
 	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23P01"
+	return errors.As(err, &pgErr) && (pgErr.Code == "23P01" || pgErr.Code == "40P01")
 }
 
 // uniqueViolation reports whether err is a Postgres unique violation (23505).
