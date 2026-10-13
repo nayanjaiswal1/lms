@@ -64,10 +64,10 @@ pipeline {
         stage('Frontend') {
           agent { label params.BUILD_AGENT }
           steps {
-            // host dir (user-owned, unlike a named volume) keeps the pnpm store between runs (the container itself is throwaway)
+            // host dir (user-owned, unlike a named volume) keeps bun's package cache between runs (the container itself is throwaway)
             sh '''
-              mkdir -p "$HOME/.cache/mindforge-pnpm-store"
-              docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/frontend:/app" -v "$HOME/.cache/mindforge-pnpm-store:/pnpm-store" -w /app -e HOME=/tmp -e COREPACK_HOME=/tmp/corepack -e npm_config_store_dir=/pnpm-store node:22 sh -c "corepack pnpm install --frozen-lockfile && corepack pnpm tsc --noEmit && corepack pnpm lint"
+              mkdir -p "$HOME/.cache/mindforge-bun-cache"
+              docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/frontend:/app" -v "$HOME/.cache/mindforge-bun-cache:/bun-cache" -w /app -e HOME=/tmp -e BUN_INSTALL_CACHE_DIR=/bun-cache oven/bun:1.3.14 sh -c "bun install --frozen-lockfile && { bun run type-check & t=\\$!; bun run lint & l=\\$!; wait \\$t && wait \\$l; }"
             '''
           }
         }
