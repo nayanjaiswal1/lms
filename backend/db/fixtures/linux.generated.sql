@@ -2,12 +2,12 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-10-14T15:43:12Z
+-- Generated at: 2026-10-14T15:51:59Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: Linux: The Atlas Story ─────────────────────────────────────────────
 INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, is_free, is_public, estimated_hours)
-VALUES ('ff3181db-8006-56ba-8bf0-e2e2dfdacfbf', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'Linux: The Atlas Story', 'linux', 'Learn Linux by living it. You join Orbit Coffee as the new junior sysadmin and inherit "atlas", the server that runs the whole shop. Across ten story chapters you learn the filesystem, files and links, text tools and pipes, users and permissions, processes and signals, systemd, logs and cron, packages, disks and archives, networking and SSH, and Bash scripting. Every chapter has one hands-on terminal lab, and the last chapter is Incident Week: real outage scenarios you diagnose and fix yourself. One final exam closes the course.', NULL, 'beginner', ARRAY['linux','bash','sysadmin','devops','cli'], 'published', true, false, 8.8)
+VALUES ('ff3181db-8006-56ba-8bf0-e2e2dfdacfbf', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'Linux: The Atlas Story', 'linux', 'Learn Linux by living it. You join Orbit Coffee as the new junior sysadmin and inherit "atlas", the server that runs the whole shop. Across ten story chapters you learn the filesystem, files and links, text tools and pipes, users and permissions, processes and signals, systemd, logs and cron, packages, disks and archives, networking and SSH, and Bash scripting. Every chapter has one hands-on terminal lab, and the last chapter is Incident Week: real outage scenarios you diagnose and fix yourself. One final exam closes the course.', '/course-covers/linux.svg', 'beginner', ARRAY['linux','bash','sysadmin','devops','cli'], 'published', true, false, 8.8)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, is_public=EXCLUDED.is_public, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();
 
 UPDATE course_sections SET position = position + 100000 WHERE course_id = 'ff3181db-8006-56ba-8bf0-e2e2dfdacfbf';

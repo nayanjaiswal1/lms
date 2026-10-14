@@ -250,8 +250,12 @@ markdown file, never a new image. Pattern (working examples:
 
 - Ship the app source via `files:` plus a `.lab/start.sh` — each image's entrypoint runs an
   `app-runner` (as labuser) that waits for that script and supervises the app with restarts.
-  Do NOT start servers from `setup_script`: it runs as root (cap-drop ALL blocks setuid) and
-  must finish inside `ProvisionTimeoutSeconds`.
+  Do NOT start servers from `setup_script`: it must finish inside `ProvisionTimeoutSeconds`.
+- `setup_script` runs as the image's default user (labuser), NOT root, on both runtimes —
+  Docker `ExecSetup` passes no `--user`, and Kubernetes can't override the Pod's
+  `RunAsUser` (`backend/internal/labs/runtime.go` `ExecSetup`). Never `sudo`, `chown`,
+  `useradd`, or write outside `/home/labuser` and `/tmp` in a setup script. Test with
+  `LAB_SETUP_USER=labuser python scripts/test-k8s-labs.py ...` so the test runs it the same way.
 - Set `preview_port:` (8000 Django/FastAPI, 5173 Vite) in the lab frontmatter — it drives the
   CodeSandbox-style live app preview pane (iframe via labproxy's authenticated
   `/preview/{token}/` reverse proxy + cookie catch-all for absolute asset paths). 0/omitted =
@@ -262,8 +266,8 @@ markdown file, never a new image. Pattern (working examples:
   React: bundle the student's component with `node_modules/.bin/esbuild --bundle --format=cjs`
   (the esbuild bin is a native ELF — never `node .../bin/esbuild`; `--format=esm` breaks on
   react-dom/server's CJS requires) and assert on `renderToStaticMarkup` output.
-- Starter files are written by root heredocs; `buildSetupScript` chmods them 666 (and created
-  dirs 777) so students can edit them — root cannot chown (cap-drop ALL).
+- Starter files are written by heredocs that `buildSetupScript` prepends to `setup_script`; it
+  chmods them 666 (and created dirs 777) so they stay editable whichever user runs a script.
 - React workdir gets node_modules as a SYMLINK to the scaffold (real copy floods the file
   explorer's `find` listing); Vite's `cacheDir` must point somewhere writable (`/tmp`).
 
