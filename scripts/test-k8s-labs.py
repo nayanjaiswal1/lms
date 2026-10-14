@@ -9,6 +9,7 @@ usage: python scripts/test-k8s-labs.py content/courses/<course>/<section>/<file>
 env:   LAB_IMAGE (default mindforge/lab-k8s:1.31) — build it first from lab-images/.
        LAB_READY_CMD (default "test -f /tmp/lab-ready") — in-container readiness probe, e.g.
        "test -d /home/labuser/work" for images without a lab-ready marker (git course on lab-debug).
+       LAB_SETUP_USER (default root) - user that runs setup_script; labuser matches the backend.
 Works for any lab image, not just k8s.
 """
 import os, subprocess, sys, time, uuid
@@ -17,6 +18,9 @@ import yaml
 
 IMAGE = os.environ.get("LAB_IMAGE", "mindforge/lab-k8s:1.31")
 READY_CMD = os.environ.get("LAB_READY_CMD", "test -f /tmp/lab-ready")
+# The backend runs setup_script as the image's default USER (container.go ExecSetup passes no --user),
+# which is labuser for every lab image; set LAB_SETUP_USER=labuser to reproduce that exactly.
+SETUP_USER = os.environ.get("LAB_SETUP_USER", "root")
 
 
 def sh(name, script, user="labuser"):
@@ -46,7 +50,7 @@ def run(path):
         for f in lab.get("files") or []:
             p = "/home/labuser/work/" + f["path"]
             sh(name, f"mkdir -p \"$(dirname {p})\"; cat > {p} <<'__EOF__'\n{f['content']}\n__EOF__\n")
-        rc, out = sh(name, lab.get("setup_script") or "true", user="root")
+        rc, out = sh(name, lab.get("setup_script") or "true", user=SETUP_USER)
         if rc:
             print(f"  SETUP FAILED: {out}")
             return False
