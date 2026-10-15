@@ -113,7 +113,9 @@ export async function finishMfaEnrollAction(code: string): Promise<ActionResult<
       return { error: failure(response.status, body), status: response.status };
     }
     const codes = getField(getField(body, "data"), "recovery_codes");
-    await clearMfaChallenge();
+    // Keep the challenge cookie: deleting it re-renders /login/mfa, which then
+    // redirects to /login and unmounts the recovery-codes screen. It is single-use
+    // server-side and expires on its own (see TTL_SECONDS).
     return {
       ok: true,
       data: {
