@@ -63,7 +63,6 @@ wait_rollout() { # <resource> <namespace> <warn-hint>
 for deploy in backend labproxy frontend; do
   wait_rollout "deployment/${deploy}" mindforge "check: kubectl get pods -n mindforge" &
 done
-wait_rollout statefulset/postgres mindforge &
 wait_rollout statefulset/minio mindforge &
 wait_rollout deployment/piston mindforge-labs "if this cluster forbids privileged Pods, point PISTON_URL at an external instance instead (see README)" &
 wait

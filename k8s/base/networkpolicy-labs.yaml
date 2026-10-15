@@ -6,7 +6,7 @@
 #    mindforge.io/egress=internet (set by internal/labs/runtime_kubernetes.go
 #    for profiles with K8sInternetEgress) additionally get the public internet,
 #    minus RFC1918 and link-local (cloud metadata 169.254.169.254, cluster
-#    Pod/Service CIDRs, postgres/redis/minio).
+#    Pod/Service CIDRs, redis/minio).
 #  - Ingress to Piston: only from the mindforge namespace (backend).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
