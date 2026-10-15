@@ -4,9 +4,11 @@
 # whose pull request was MERGED, which `git branch --merged` misses because the
 # repo squash-merges.
 #
+# It also brings the default branch up to date (fast-forward only, never a merge).
+#
 # Usage: scripts/cleanup-dead-branches.sh [--apply] [--remote]
-#   (default)  dry run: print what would be removed
-#   --apply    actually delete
+#   (default)  dry run: print what would be removed / pulled
+#   --apply    actually delete and pull
 #   --remote   also delete the matching origin branch (off in the cron job: turn on
 #              "Automatically delete head branches" in the GitHub repo settings instead)
 #
@@ -31,11 +33,28 @@ done
 
 cd "$(git rev-parse --show-toplevel)"
 command -v gh >/dev/null || { echo "cleanup: gh is required" >&2; exit 1; }
-default="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' || true)"
-default="${default:-master}"
+default="$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)"
+[[ -n "$default" ]] || { echo "cleanup: cannot read the default branch from GitHub" >&2; exit 1; }
 current="$(git branch --show-current)"
 
-act() { if [[ -n "$apply" ]]; then echo "removing: $*"; "$@"; else echo "would remove: $*"; fi; }
+# Fast-forward the default branch to origin. Checked out and clean: `git pull --ff-only`. Checked out with
+# local changes: skipped (never touches the work). Not checked out: `git fetch origin default:default`, which
+# refuses anything but a fast-forward.
+pull_default() {
+  git fetch -q --prune origin || { echo "pull: fetch failed, skipping" >&2; return 0; }
+  local ahead; ahead="$(git rev-list --count "refs/heads/$default..refs/remotes/origin/$default" 2>/dev/null || echo 0)"
+  [[ "$ahead" == "0" ]] && { echo "pull: $default is up to date"; return 0; }
+  if [[ "$current" == "$default" ]]; then
+    if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then echo "pull: $default has uncommitted changes, not pulling"; return 0; fi
+    act git pull -q --ff-only origin "$default"
+  else
+    act git fetch -q origin "$default:$default"
+  fi
+}
+
+act() { if [[ -n "$apply" ]]; then echo "running: $*"; "$@"; else echo "would run: $*"; fi; }
+
+pull_default
 
 # worktree path per branch
 declare -A wt
@@ -77,4 +96,5 @@ done < <(git for-each-ref --format='%(refname:short)' refs/heads)
 
 # worktrees whose branch is already gone, and anything git no longer tracks
 [[ -n "$apply" ]] && git worktree prune
-echo "cleanup: $removed dead branch(es) ${apply:+removed}${apply:-found}, $kept kept"
+if [[ -n "$apply" ]]; then verb=removed; else verb=found; fi
+echo "cleanup: $removed dead branch(es) $verb, $kept kept"
