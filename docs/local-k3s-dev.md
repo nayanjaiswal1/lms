@@ -206,3 +206,5 @@ ssh -L 3000:localhost:3000 nayan@ideapad
 One-shot box setup: `bash scripts/setup-dev-box.sh`.
 
 Keep `.env` / `backend/.env` at mode `600`. Dev shares the Neon DB with prod — use a Neon branch for `DATABASE_URL` and IP-allow-list Neon, so a dev mistake can't touch prod data.
+
+If live reload stops after the page loads, Next is blocking the HMR websocket for your host. Set `NEXT_ALLOWED_DEV_ORIGINS=<your-box>.<tailnet>.ts.net` (comma-separated for more) in `frontend/.env.local` and restart `make dev-k3s`.

@@ -42,8 +42,8 @@ const nextConfig: NextConfig = {
   // Next dev blocks the HMR websocket (`/_next/webpack-hmr`) for any request
   // whose origin isn't localhost — silently breaks live-reload (page loads,
   // edits never appear) when testing from a phone or another LAN device.
-  // ponytail: hardcoded to this dev box's current LAN IP, add yours if it changes.
-  allowedDevOrigins: ["192.168.1.5"],
+  // Comma-separated hosts in NEXT_ALLOWED_DEV_ORIGINS (LAN IP, Tailscale name).
+  allowedDevOrigins: process.env.NEXT_ALLOWED_DEV_ORIGINS?.split(",").map((h) => h.trim()).filter(Boolean),
 
   // Pins the workspace root explicitly. Without this, Turbopack's own root-inference
   // (walking up from this directory looking for a lockfile) can pick the wrong
