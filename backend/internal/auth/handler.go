@@ -905,6 +905,19 @@ func (h *Handler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 		tokenHash,
 	).Scan(&evID, &userID)
 	if err != nil {
+		// A reused link (refresh, double click) for an already-verified account is
+		// success, not an error. The token hash is secret, so this leaks nothing.
+		var alreadyVerified bool
+		if h.pool.QueryRow(r.Context(),
+			`SELECT u.email_verified FROM auth_tokens t JOIN users u ON u.id = t.user_id
+			 WHERE t.purpose = 'email_verify' AND t.token_hash = $1 AND t.consumed_at IS NOT NULL`,
+			tokenHash,
+		).Scan(&alreadyVerified) == nil && alreadyVerified {
+			httputil.WriteJSON(w, http.StatusOK, map[string]string{
+				"message": "Email already verified. You can sign in.",
+			})
+			return
+		}
 		httputil.WriteError(w, http.StatusBadRequest, "Invalid or expired token.")
 		return
 	}
