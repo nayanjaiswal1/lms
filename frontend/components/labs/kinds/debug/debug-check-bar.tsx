@@ -1,10 +1,13 @@
 "use client"
 
+import type { ComponentProps } from "react"
 import { Loader2, ShieldCheck, TimerReset } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCountdown } from "@/hooks/use-countdown"
 
 interface DebugCheckBarProps {
+  /** Button variant; the primary default when omitted. */
+  variant?: ComponentProps<typeof Button>["variant"]
   isChecking: boolean
   /** Epoch ms until which the server refuses another Check. */
   cooldownUntil: number
@@ -12,7 +15,7 @@ interface DebugCheckBarProps {
 }
 
 /** The single batch Check: grades the whole workspace in a clean room. */
-export function DebugCheckBar({ isChecking, cooldownUntil, onCheck }: DebugCheckBarProps) {
+export function DebugCheckBar({ variant, isChecking, cooldownUntil, onCheck }: DebugCheckBarProps) {
   const secondsLeft = useCountdown(cooldownUntil)
   const coolingDown = secondsLeft > 0
 
@@ -21,6 +24,7 @@ export function DebugCheckBar({ isChecking, cooldownUntil, onCheck }: DebugCheck
       className="touch-target-dense gap-1.5"
       disabled={isChecking || coolingDown}
       size="sm"
+      variant={variant}
       onClick={onCheck}
     >
       {isChecking ? (

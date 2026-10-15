@@ -3,6 +3,8 @@ import remarkGfm from "remark-gfm"
 
 interface LabMarkdownProps {
   children: string
+  /** Mission rail: 12px body on 20px lines instead of 14px on 24px. */
+  dense?: boolean
 }
 
 // Compact reading scale for a narrow panel: 14px body on 24px lines, a 16px
@@ -20,10 +22,13 @@ const LAB_PROSE = [
   "[&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:text-xs [&_pre]:leading-5 [&_pre_code]:border-0 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-xs",
 ].join(" ")
 
+// The same prose at the dense scale: every leading-6 / text-sm of LAB_PROSE tightened one step.
+const LAB_PROSE_DENSE = LAB_PROSE.replaceAll("leading-6", "leading-5").replace("text-sm", "text-xs")
+
 /** Lab-authored markdown (ticket, root cause). Raw HTML stays escaped by react-markdown. */
-export function LabMarkdown({ children }: LabMarkdownProps) {
+export function LabMarkdown({ children, dense = false }: LabMarkdownProps) {
   return (
-    <div className={LAB_PROSE}>
+    <div className={dense ? LAB_PROSE_DENSE : LAB_PROSE}>
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
     </div>
   )

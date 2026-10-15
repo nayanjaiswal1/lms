@@ -1,3 +1,5 @@
+import type { DebugUiMode } from '@/lib/constants'
+
 export type LabType = 'terminal' | 'code' | 'playground' | 'guided' | 'sandbox' | 'debug'
 
 type LabWorkspaceLayout = 'split' | 'console'
@@ -127,6 +129,8 @@ export const MAX_HINTS_PER_TASK = 3
 export interface LabSession {
   id: string
   lab_id: string
+  // The task version this session is pinned to (a later republish does not change it).
+  task_version_id: string
   status: SessionStatus
   score: number
   reset_count: number
@@ -140,6 +144,9 @@ export interface LabSession {
   // Set once every required task passed but the session awaits Finish
   // (kinds with the 'finish' completion policy).
   required_passed_at?: string | null
+  // When the student pressed Start on the mission briefing; null while the
+  // briefing is still showing. Always set outside mission mode.
+  mission_started_at?: string | null
 }
 
 // Student-safe workspace block of a "debug" lab (GET /sessions/:id) — never
@@ -161,6 +168,8 @@ export type LabKindBlock = NonNullable<LabKindBlocks[keyof LabKindBlocks]>
 export type GetSessionResponse = {
   session: LabSession
   task_completions: TaskCompletion[]
+  // The org's debug workspace mode, resolved server-side; only on kind labs.
+  lab_ui?: DebugUiMode
 } & LabKindBlocks
 
 // One catalog row (GET /api/labs/catalog) — the caller's best status included.
@@ -229,6 +238,8 @@ export const LAB_ERROR_CODES = {
   kindLabNotBuilt: 'lab_not_built',
   bundleStoreUnavailable: 'bundle_store_unavailable',
   noDebrief: 'debrief_unavailable',
+  missionOff: 'lab_mission_off',
+  missionNotStarted: 'lab_mission_not_started',
 } as const
 
 // The session already reached a terminal state (e.g. an auto-expiry job won

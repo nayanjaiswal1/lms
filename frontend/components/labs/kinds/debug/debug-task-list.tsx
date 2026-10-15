@@ -13,6 +13,8 @@ interface DebugTaskListProps {
   failures: Record<string, CheckFailure[]>
   hintsUsedByTask: Record<string, number>
   maxHints: number
+  /** Mission rail: no progress header, tighter rows. */
+  dense?: boolean
   onHint: (taskId: string) => void
 }
 
@@ -23,14 +25,15 @@ export function DebugTaskList({
   failures,
   hintsUsedByTask,
   maxHints,
+  dense = false,
   onHint,
 }: DebugTaskListProps) {
   const passed = new Set(completions.filter((c) => c.status === "passed").map((c) => c.task_id))
   const percent = tasks.length === 0 ? 0 : Math.round((passed.size / tasks.length) * 100)
 
   return (
-    <section aria-label="Checks" className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
+    <section aria-label="Checks" className={cn("flex flex-col", dense ? "gap-2" : "gap-4")}>
+      <div className={cn("flex flex-col gap-1.5", dense && "sr-only")}>
         <div className="flex-between text-xs text-muted-foreground">
           <span>
             {passed.size} of {tasks.length} checks passed
@@ -47,7 +50,13 @@ export function DebugTaskList({
           const isPassed = passed.has(task.task_id)
           const used = hintsUsedByTask[task.task_id] ?? 0
           return (
-            <li className="flex items-start gap-3 py-3 first:pt-0 last:pb-0" key={task.task_id}>
+            <li
+              className={cn(
+                "flex items-start first:pt-0 last:pb-0",
+                dense ? "gap-2 py-2" : "gap-3 py-3",
+              )}
+              key={task.task_id}
+            >
               {isPassed ? (
                 <CheckCircle2 aria-label="Passed" className="mt-0.5 h-4 w-4 shrink-0 text-success" />
               ) : (
@@ -55,7 +64,9 @@ export function DebugTaskList({
               )}
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className={cn("text-sm font-medium", isPassed && "text-muted-foreground")}>
+                  <span
+                    className={cn(dense ? "text-xs" : "text-sm", "font-medium", isPassed && "text-muted-foreground")}
+                  >
                     {task.title}
                   </span>
                   {task.is_optional && (
@@ -69,7 +80,9 @@ export function DebugTaskList({
                 </div>
                 {!isPassed && (
                   <>
-                    <p className="text-xs text-muted-foreground">{task.description}</p>
+                    <p className={cn("text-xs text-muted-foreground", dense && "leading-5")}>
+                      {task.description}
+                    </p>
                     <DebugFailureList failures={failures[task.task_id] ?? []} />
                   </>
                 )}

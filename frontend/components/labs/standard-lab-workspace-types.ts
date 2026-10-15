@@ -1,3 +1,4 @@
+import type { DebugUiMode } from "@/lib/constants"
 import type { Lab, LabKindBlock, LabSession, TaskCompletion } from "@/lib/labs"
 
 /**
@@ -49,4 +50,10 @@ export interface LabWorkspaceContentProps {
   onLogin: () => void
   /** Kind-specific block from GET /sessions/:id; only lab kinds read it. */
   kindBlock?: LabKindBlock
+  /** The org's debug workspace mode (GET /sessions/:id -> lab_ui); only lab kinds read it. */
+  labUi?: DebugUiMode
+  /** Reset affordance for kind workspaces that replace the host's top bar. */
+  onReset?: () => void
+  resetsLeft?: number
+  isResetting?: boolean
 }

@@ -32,7 +32,10 @@ JS_TEST_RE = re.compile(r"\.test\.(js|jsx|ts|tsx)$")
 FAULT_GRADER_DIR = "grader"  # a fault block's grader/** is copied to the bundle root (hidden tests, snapshot SQL)
 CORE_TESTS = "core"
 READINESS_TIMEOUT = 40
-MANDATORY_PROTECTED = [".mf/*", ".lab/services/*"]
+# evidence/ holds read-only incident material (logs, captures, changelogs); the IDE
+# locks it (labs.missionIDESettings) and a student edit never reaches the grader.
+EVIDENCE_DIR = "evidence"
+MANDATORY_PROTECTED = [".mf/*", ".lab/services/*", f"{EVIDENCE_DIR}/*"]
 
 SETUP_MESSAGE = "The application could not be set up (migrations or data load failed)."
 START_MESSAGE = "The application did not start. Check its log and fix the error."

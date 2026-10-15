@@ -2,10 +2,13 @@
 
 import { Loader2 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { MissionBuildScreen } from "@/components/labs/mission-build-screen"
 import { useLabReadiness } from "@/lib/labs/use-lab-readiness"
 
 interface LabReadinessWaitProps {
   sessionId: string
+  /** Title of a mission-mode lab: shows the "Building your mission" screen instead of the spinner. */
+  missionTitle?: string
   onReady: () => void
   onFailed: () => void
 }
@@ -17,10 +20,19 @@ interface LabReadinessWaitProps {
 // scoped to the lab card's own footprint.
 export function LabReadinessWait({
   sessionId,
+  missionTitle,
   onReady,
   onFailed,
 }: LabReadinessWaitProps) {
   useLabReadiness(sessionId, { onReady, onFailed })
+
+  if (missionTitle !== undefined) {
+    return (
+      <div className="fixed inset-0 bg-background z-modal safe-inset">
+        <MissionBuildScreen title={missionTitle} />
+      </div>
+    )
+  }
 
   return (
     <div className="fixed inset-0 bg-background z-modal flex flex-col safe-inset">

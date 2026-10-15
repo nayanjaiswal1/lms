@@ -181,5 +181,15 @@ func (s *Service) seedKindWorkspace(ctx context.Context, containerID string, lab
 	if exitCode != 0 {
 		return fmt.Errorf("labs.Service.seedKindWorkspace: tar exited %d: %s", exitCode, strings.TrimSpace(stderr))
 	}
+	cfg, err := s.repo.GetOrgConfig(ctx, session.OrgID)
+	if err != nil {
+		return fmt.Errorf("labs.Service.seedKindWorkspace: %w", err)
+	}
+	if !missionOn(true, cfg.DebugUI) {
+		return nil
+	}
+	if err := s.applyMissionIDESettings(ctx, containerID); err != nil {
+		return fmt.Errorf("labs.Service.seedKindWorkspace: %w", err)
+	}
 	return nil
 }

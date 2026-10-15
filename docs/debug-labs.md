@@ -438,6 +438,43 @@ Bundles live in the DB rather than MinIO so publish/pin stays transactional with
 - labproxy: `GET /__mf/preview-auth` reused for silent refresh; preview passthrough updates debounced `last_active_at`; IDE-port requests get the HMAC `vscode-tkn` cookie.
 - Instructor/admin: "Preview as student" starts an `is_test` session (flag exists in `repo.go`), gated by the course-editing RBAC permission (`authz.RequirePermission`). Authoring stays in the markdown pipeline (no instructor lab CRUD routes today).
 
+## Mission UI (per-org switch, 2026-10-10)
+
+An org picks the workspace its debug labs render: `org_settings.labs.debug_ui` = `"old"` (default; an absent, empty or unknown value
+is `"old"`, so no existing org changes) or `"new"`. JSONB key, no DDL. Admin control: **Org settings > Labs**
+(`/org/settings/labs`, RBAC `admin.manage_org`), backed by `GET/PATCH /api/admin/labs/settings`; options live in `lib/constants.ts`
+(`DEBUG_UI_OPTIONS`). The mode is resolved **server-side** per request: `GET /api/labs/sessions/{id}` returns `lab_ui` next to the kind
+block, and `LAB_KIND_WORKSPACES` / `pickKindWorkspace` (`components/labs/kinds/workspace-registry.ts`) mount `DebugWorkspace` (old,
+untouched side-panel workspace) or `MissionWorkspace` (new). `labs.missionOn(hasKind, debugUI)` is the single backend gate; everything
+below applies only when it is true.
+
+- **Briefing + Start gate.** `lab_sessions.mission_started_at` (migration 005). A mission session is created un-started; the blocking
+  `MissionBriefing` dialog shows the incident, objective and required checks. `POST /api/labs/sessions/{id}/mission/start` sets
+  `mission_started_at = now()` and moves `expires_at` to `now() + (expires_at - started_at)`: the full budget counts from Start, not from
+  provisioning (at most 2x the budget of wall clock, because an un-started session still hits its original `expires_at`). Idempotent.
+  Sessions of old-UI orgs and labs without a kind get `mission_started_at = started_at` at creation; migration 005 backfills existing rows.
+- **Mission header.** Server-deadline countdown (`useMissionClock`), **Check** (the existing batch Check) and **Ship**. Ship and the deadline
+  do the same: one final Check, then `POST /end`. The auto-submit fires `MISSION_AUTO_SUBMIT_LEAD_SECONDS` (20 s) before `expires_at`
+  because the server only accepts a Check that starts before the deadline; the banner reads "Mission time expired — auto-submitting…" and
+  the buttons show "Grading…".
+- **Rail** (replaces the Ticket/Checks/Write-up tabs): Alert (ticket), Mission (objective + checks + hints), Live status (real numbers from
+  the last Check: checks passed, score, check runs, hints used; nothing is estimated) and the collapsed write-up. Below `lg` the rail is a sheet.
+- **Evidence files.** Authoring convention: files under `evidence/` in a scenario workspace (logs, HAR, Sentry export, changelog) are
+  read-only for the student and protected from grading tampering: `mf-build` `MANDATORY_PROTECTED` includes `evidence/*`, and
+  `labs.missionIDESettings` (merged into the IDE user settings at seed time, mission sessions only) sets `files.readonlyInclude`
+  (`**/evidence/**`, `**/TICKET.md`), which shows the lock icon. The same settings hide the activity bar, minimap, breadcrumbs, status bar
+  and layout chrome for a dense editor.
+- **Build screen.** While a mission session provisions, `LabReadinessWait` shows "Building your mission" (`MissionBuildScreen`); steps and
+  bar advance with elapsed time (an estimate), the screen ends on the real SSE ready event.
+- **Activity tracking** (`lab_activity_events`: `tab_away` ms, `paste` chars, `file_open` path; <= 2000 events per session). The page reports
+  tab-away time and pastes into the page (`useMissionActivity` -> `POST /api/labs/sessions/{id}/activity`, batched <= 50, 2 s cooldown per
+  session, only for a started mission session). File opens and large inserts (>= 30 chars in one edit, a paste heuristic) inside the IDE
+  iframe cannot be seen from the page, so the built-in IDE extension `lab-images/lab-debug/ide-extensions/mindforge-activity` appends them to
+  `/var/log/mindforge-lab/activity.jsonl` and `SandboxCloser.Snapshot` reads, validates (`normalizeActivity`) and stores them when the session
+  closes. The log is student-writable: these signals are advisory. Visibility: the student's result page (`ResultActivity`,
+  `GET /api/labs/sessions/{id}/activity`) shows the same numbers, the briefing discloses what is recorded, and org admins read any
+  session of their org via `GET /api/admin/labs/sessions/{id}/activity` (`admin.manage_org`; no admin UI yet).
+
 ## 9. Frontend
 
 **Student** (`/labs/sessions/[sessionId]`, branch in `components/labs/lab-workspace-content.tsx` on `lab_type==='debug'`) → new `components/labs/debug-workspace.tsx`:

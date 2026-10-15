@@ -14,6 +14,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog"
 import { LabEnvironmentTopBar } from "@/components/labs/lab-environment-top-bar"
+import { usesMissionWorkspace } from "@/components/labs/kinds/workspace-registry"
 import {
   LabWorkspaceContent,
   isLabAuthError,
@@ -21,6 +22,7 @@ import {
 import { endLabSessionAction, resetLabSessionAction } from "@/app/(app)/labs/[labId]/actions"
 import { useLabNavigationGuard } from "@/hooks/use-lab-navigation-guard"
 import ROUTES from "@/lib/routes"
+import type { DebugUiMode } from "@/lib/constants"
 import {
   isLabSessionAlreadyEnded,
   type Lab,
@@ -34,9 +36,11 @@ interface LabEnvironmentProps {
   lab: Lab
   initialCompletions: TaskCompletion[]
   kindBlock?: LabKindBlock
+  /** The org's debug workspace mode, resolved server-side. */
+  labUi?: DebugUiMode
 }
 
-export function LabEnvironment({ session, lab, initialCompletions, kindBlock }: LabEnvironmentProps) {
+export function LabEnvironment({ session, lab, initialCompletions, kindBlock, labUi }: LabEnvironmentProps) {
   const [score, setScore] = useState(session.score)
   const [isAuthExpired, setIsAuthExpired] = useState(false)
   const [resetCount, setResetCount] = useState(session.reset_count)
@@ -49,6 +53,8 @@ export function LabEnvironment({ session, lab, initialCompletions, kindBlock }: 
   const router = useRouter()
 
   const maxScore = lab.tasks.reduce((s, t) => s + t.points, 0)
+  // The mission workspace brings its own header (timer, Ship, Reset).
+  const hasOwnTopBar = usesMissionWorkspace(lab.lab_type, labUi)
 
   // Clearing LabProvisioningContext happens on the result page itself
   // (ClearActiveLabSession), not here — that page is the one guaranteed
@@ -126,34 +132,40 @@ export function LabEnvironment({ session, lab, initialCompletions, kindBlock }: 
         </AlertDialogContent>
       </AlertDialog>
 
-      <LabEnvironmentTopBar
-        expiresAt={session.expires_at}
-        isPending={isPending}
-        isResetting={isResetting}
-        labTitle={lab.title}
-        labType={lab.lab_type}
-        layoutOrientation={layoutOrientation}
-        maxResets={lab.max_resets}
-        maxScore={maxScore}
-        resetCount={resetCount}
-        score={score}
-        onEnd={handleEnd}
-        onExpired={handleExpired}
-        onReset={handleReset}
-        onToggleLayout={() =>
-          setLayoutOrientation((o) => (o === "horizontal" ? "vertical" : "horizontal"))
-        }
-      />
+      {!hasOwnTopBar && (
+        <LabEnvironmentTopBar
+          expiresAt={session.expires_at}
+          isPending={isPending}
+          isResetting={isResetting}
+          labTitle={lab.title}
+          labType={lab.lab_type}
+          layoutOrientation={layoutOrientation}
+          maxResets={lab.max_resets}
+          maxScore={maxScore}
+          resetCount={resetCount}
+          score={score}
+          onEnd={handleEnd}
+          onExpired={handleExpired}
+          onReset={handleReset}
+          onToggleLayout={() =>
+            setLayoutOrientation((o) => (o === "horizontal" ? "vertical" : "horizontal"))
+          }
+        />
+      )}
 
       <LabWorkspaceContent
         initialCompletions={initialCompletions}
+        isResetting={isResetting}
         kindBlock={kindBlock}
         lab={lab}
+        labUi={labUi}
         orientation={layoutOrientation}
         resetNonce={resetNonce}
+        resetsLeft={lab.max_resets - resetCount}
         session={session}
         onAuthExpiredChange={setIsAuthExpired}
         onLogin={handleLogin}
+        onReset={handleReset}
         onScoreChange={setScore}
       />
     </div>

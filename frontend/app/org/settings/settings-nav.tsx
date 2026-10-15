@@ -9,6 +9,7 @@ import {
   ScrollText,
   Cpu,
   GitBranch,
+  FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ROUTES from "@/lib/routes";
@@ -25,6 +26,7 @@ const ORG_SETTINGS_NAV: OrgNavItem[] = [
   { label: "Domains",        href: ROUTES.ORG_SETTINGS_DOMAINS,  icon: Globe },
   { label: "Authentication", href: ROUTES.ORG_SETTINGS_AUTH,     icon: Shield },
   { label: "Integrations",   href: ROUTES.ORG_SETTINGS_INTEGRATIONS, icon: GitBranch },
+  { label: "Labs",           href: ROUTES.ORG_SETTINGS_LABS,     icon: FlaskConical },
   { label: "Audit Log",      href: ROUTES.ORG_SETTINGS_AUDIT,    icon: ScrollText },
   { label: "Jobs",           href: ROUTES.ORG_SETTINGS_JOBS,     icon: Cpu },
 ];

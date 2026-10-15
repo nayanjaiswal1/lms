@@ -187,6 +187,7 @@ const ROUTES = {
   ORG_SETTINGS_JOBS:       "/org/settings/jobs",
   ORG_SETTINGS_INVITES:    "/org/settings/invites",
   ORG_SETTINGS_INTEGRATIONS: "/org/settings/integrations",
+  ORG_SETTINGS_LABS:       "/org/settings/labs",
   orgSettingsJobs:      (orgId: string) => `/org/settings/jobs/${orgId}`,
   orgSettingsJob:       (orgId: string, jobId: string) => `/org/settings/jobs/${orgId}/${jobId}`,
 

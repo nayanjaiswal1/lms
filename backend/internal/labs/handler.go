@@ -83,6 +83,10 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrMaxWriteupReviewsReached: {Status: http.StatusTooManyRequests, Code: CodeWriteupReviewLimit, Message: "Maximum write-up reviews reached for this session."},
 	ErrHintNotSupported: {Status: http.StatusUnprocessableEntity, Code: CodeHintNotSupported, Message: "Hints are not available for this task."},
 	ErrNoDebrief: {Status: http.StatusConflict, Code: CodeNoDebrief, Message: "The debrief is available once the lab is completed."},
+	ErrMissionUIDisabled: {Status: http.StatusConflict, Code: CodeMissionOff, Message: "This lab does not run in mission mode."},
+	ErrMissionNotStarted: {Status: http.StatusConflict, Code: CodeMissionNotStarted, Message: "Start the mission first."},
+	ErrInvalidActivity: {Status: http.StatusBadRequest, Code: CodeInvalidActivity, Message: "Invalid activity report."},
+	ErrInvalidDebugUI: {Status: http.StatusBadRequest, Code: CodeInvalidDebugUI, Message: "Invalid lab interface mode."},
 }
 
 var writeDomainError = httputil.DomainErrorWriter(domainErrors, "Something went wrong. Please try again.",

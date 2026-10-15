@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
@@ -129,8 +130,30 @@ func (h *Handler) HandleGetLab(w http.ResponseWriter, r *http.Request) {
 
 	resp := newLabStudentResponse(lab)
 
-	if lab.IsPublished && lab.PublishedVersionID != nil {
-		tasks, err := h.repo.GetPublishedVersion(r.Context(), *lab.PublishedVersionID)
+	// A session is pinned to the task version it started on; its pages ask for that
+	// version so a later republish does not orphan the session's completions.
+	versionID := lab.PublishedVersionID
+	if !lab.IsPublished {
+		versionID = nil
+	}
+	if pinned := r.URL.Query().Get("task_version_id"); pinned != "" {
+		if _, err := uuid.Parse(pinned); err != nil {
+			httputil.WriteError(w, http.StatusBadRequest, "task_version_id must be a UUID")
+			return
+		}
+		ok, err := h.repo.TaskVersionBelongsToLab(r.Context(), pinned, labID)
+		if err != nil {
+			writeDomainError(w, err)
+			return
+		}
+		if !ok {
+			writeDomainError(w, ErrNotFound)
+			return
+		}
+		versionID = &pinned
+	}
+	if versionID != nil {
+		tasks, err := h.repo.GetPublishedVersion(r.Context(), *versionID)
 		if err != nil {
 			writeDomainError(w, err)
 			return
@@ -283,6 +306,14 @@ func (h *Handler) HandleGetSession(w http.ResponseWriter, r *http.Request) {
 		}
 		if ok {
 			resp[key] = payload
+			// The org's workspace mode is resolved here, server-side, so the
+			// client never has to guess which debug workspace to mount.
+			mode, err := h.service.DebugUIFor(r.Context(), session.OrgID)
+			if err != nil {
+				writeDomainError(w, err)
+				return
+			}
+			resp["lab_ui"] = mode
 		}
 	}
 	httputil.WriteJSON(w, http.StatusOK, resp)

@@ -118,6 +118,11 @@ RUN set -eux; \
 
 COPY lab-debug/bin/mf-patch-product.py /tmp/mf-patch-product.py
 
+# Built-in extension (every folder under the server's extensions/ loads without registration):
+# logs file opens and large inserts to /var/log/mindforge-lab/activity.jsonl for the
+# mission result page. Read-only for students at runtime; see mindforge-activity/.
+COPY lab-debug/ide-extensions/mindforge-activity/ /opt/openvscode-server/extensions/mindforge-activity/
+
 # IDE extensions from Open VSX, then the marketplace is switched off: the
 # runtime has no egress, and an installed-extension-only IDE is the intent.
 RUN set -eux; \

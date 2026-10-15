@@ -1,8 +1,5 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { toast } from "sonner"
 import { DebugCheckNotice } from "@/components/labs/kinds/debug/debug-check-notice"
 import { DebugFinishBar } from "@/components/labs/kinds/debug/debug-finish-bar"
 import { DebugCheckBar } from "@/components/labs/kinds/debug/debug-check-bar"
@@ -15,10 +12,7 @@ import { DebugWriteupPanel } from "@/components/labs/kinds/debug/debug-writeup-p
 import type { LabKindWorkspaceProps } from "@/components/labs/kinds/workspace-registry"
 import { HintDrawer } from "@/components/labs/hint-drawer"
 import { SessionExpiredOverlay } from "@/components/labs/session-expired-overlay"
-import { useDebugCheck } from "@/hooks/use-debug-check"
-import { useLabHint } from "@/hooks/use-lab-hint"
-import { useWriteupReview } from "@/hooks/use-writeup-review"
-import ROUTES from "@/lib/routes"
+import { useDebugSession } from "@/hooks/use-debug-session"
 
 /**
  * Workspace of the "debug" lab kind: ticket + checks + write-up in a collapsible
@@ -29,55 +23,10 @@ export function DebugWorkspace(props: LabKindWorkspaceProps) {
   return <DebugWorkspaceBody key={props.resetNonce} {...props} />
 }
 
-function DebugWorkspaceBody({
-  session,
-  lab,
-  initialCompletions,
-  kindBlock,
-  resetNonce,
-  onScoreChange,
-  onAuthExpiredChange,
-  onLogin,
-}: LabKindWorkspaceProps) {
-  const router = useRouter()
-  const [isAuthExpired, setIsAuthExpired] = useState(false)
-  const isFresh = resetNonce > 0
-
-  const expireAuth = () => {
-    setIsAuthExpired(true)
-    onAuthExpiredChange?.(true)
-  }
-  const goToResult = () => router.push(ROUTES.labSessionResult(session.id))
-  // The deadline hit while a request was in flight: a completed lab is a
-  // success (debrief), an expired one still lands on its result page.
-  const onDeadline = (outcome: "completed" | "expired") => {
-    toast(
-      outcome === "completed"
-        ? "Time's up — your lab was completed."
-        : "Time's up — this lab session expired.",
-    )
-    goToResult()
-  }
-  const check = useDebugCheck({
-    sessionId: session.id,
-    tasks: lab.tasks,
-    initialCompletions: isFresh ? [] : initialCompletions,
-    initialScore: isFresh ? 0 : session.score,
-    onScoreChange,
-    onAuthExpired: expireAuth,
-    onSessionCompleted: goToResult,
-    onDeadline,
-  })
-  const writeup = useWriteupReview((result) => {
-    if (result.passed) check.applyWriteupPass(result.score_added)
-    if (result.session_completed) goToResult()
-  }, onDeadline)
-  const hint = useLabHint(session.id, check.completions, onDeadline)
-
-  const passedCount = check.completions.filter((c) => c.status === "passed").length
-  const hintsUsedByTask = Object.fromEntries(
-    lab.tasks.map((t) => [t.task_id, hint.hintsUsedFor(t.task_id)]),
-  )
+function DebugWorkspaceBody(props: LabKindWorkspaceProps) {
+  const { session, lab, kindBlock, onLogin } = props
+  const { isAuthExpired, expireAuth, check, writeup, hint, passedCount, hintsUsedByTask } =
+    useDebugSession(props)
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">

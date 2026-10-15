@@ -7,6 +7,7 @@ import { LabEnvironment } from "@/components/labs/lab-environment"
 import { LabSessionRouter } from "@/app/(app)/labs/sessions/[sessionId]/lab-session-router"
 import { apiGet } from "@/lib/server/api"
 import ROUTES from "@/lib/routes"
+import { DEBUG_UI_MODE } from "@/lib/constants"
 import type { Lab, GetSessionResponse, LabKindBlocks } from "@/lib/labs"
 
 export const metadata: Metadata = {
@@ -31,10 +32,15 @@ export default async function LabSessionPage({ params }: PageProps) {
     redirect(ROUTES.labSessionResult(sessionId))
   }
 
-  const lab = await apiGet<Lab>(`/api/labs/${session.lab_id}`)
+  const lab = await apiGet<Lab>(`/api/labs/${session.lab_id}?task_version_id=${session.task_version_id}`)
 
   if (session.status === "provisioning") {
-    return <LabSessionRouter sessionId={sessionId} />
+    return (
+      <LabSessionRouter
+        missionTitle={sessionResponse.lab_ui === DEBUG_UI_MODE.NEW ? lab.title : undefined}
+        sessionId={sessionId}
+      />
+    )
   }
 
   if (session.status === "failed") {
@@ -65,6 +71,7 @@ export default async function LabSessionPage({ params }: PageProps) {
       initialCompletions={task_completions}
       kindBlock={kindBlock}
       lab={lab}
+      labUi={sessionResponse.lab_ui}
       session={session}
     />
   )

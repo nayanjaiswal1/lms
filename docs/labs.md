@@ -533,6 +533,12 @@ authored/static-hint branch to implement.
 - **Task grader on the API.** Lab task views (`GET /api/labs/{id}`, library preview) carry `grader` (`script`/`writeup_review`); the hint endpoint answers 422 for a `writeup_review` task and the UI hides Hint for it.
 - **Hints (all labs):** `Idempotency-Key` header replays the original result for 10 min (a double-submit cannot burn two levels); the terminal history ring buffer (labproxy `termhistory.go` writes output frames to Redis list `lab:term:<session_id>`, newest first, <=100 chunks x 2 KB, 2 h TTL) feeds the last ~4 KB (ANSI-stripped, delimited as untrusted) into hint prompts. For lab kinds, level 1 is the authored ladder (no AI), levels 2-3 add ground truth, the ladder, the student's git diff vs baseline (<=8 KB), the last grader output, and a leak filter (regenerate once, then authored fallback) against lines the reference fix adds. There is still no failure-diagnosis path (`InteractionTypeDiagnose` is unused), so nothing feeds terminal history there yet.
 
+- **Mission UI (per-org).** `org_settings.labs.debug_ui` (`old` default / `new`) switches debug labs between the side-panel workspace and
+  the mission workspace (briefing + Start gate, deadline auto-submit, rail, activity tracking). Endpoints: `POST /sessions/{id}/mission/start`,
+  `POST|GET /sessions/{id}/activity`, admin `GET|PATCH /api/admin/labs/settings`, `GET /api/admin/labs/sessions/{id}/activity`;
+  `GET /sessions/{id}` returns `lab_ui`. Tables/columns: `lab_sessions.mission_started_at`, `lab_activity_events` (migration 005). Design:
+  `docs/debug-labs.md` "Mission UI".
+
 ### Post-Completion Explanation (auto-triggered on task pass)
 
 Queued as a background job after verification passes. Stored in `lab_ai_interactions` with `type='explain'`. Shown in the task panel when student clicks "Why did this work?".

@@ -162,6 +162,21 @@ var (
 
 	// ErrNoDebrief is returned when a debrief is requested before completion.
 	ErrNoDebrief = errors.New("labs: debrief is only available once the session is completed")
+
+	// ErrMissionUIDisabled is returned by the mission endpoints (start,
+	// activity) for a session that does not run in mission mode: a lab without
+	// a kind, or an org on the old debug UI.
+	ErrMissionUIDisabled = errors.New("labs: mission mode is not enabled for this session")
+
+	// ErrMissionNotStarted is returned when activity is reported before the
+	// student pressed Start on the briefing.
+	ErrMissionNotStarted = errors.New("labs: mission has not started")
+
+	// ErrInvalidActivity is returned for a malformed activity batch.
+	ErrInvalidActivity = errors.New("labs: invalid activity batch")
+
+	// ErrInvalidDebugUI is returned for a debug_ui value other than DebugUIModes.
+	ErrInvalidDebugUI = errors.New("labs: invalid debug ui mode")
 )
 
 // RateLimitedError is ErrRateLimited plus how long until the caller may
