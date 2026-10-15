@@ -192,7 +192,7 @@ Jenkins runs at `http://<host>:8080` (user `admin`, password in `/var/lib/jenkin
 
 ## Hot-reload dev on a remote box (`make dev-k3s`)
 
-`scripts/dev-k3s.sh` port-forwards redis/minio/piston/labproxy from k3s and runs Air + `next dev`, all bound to `127.0.0.1` (`kubectl port-forward` also binds to localhost). Nothing is exposed to the LAN.
+`scripts/dev-k3s.sh` port-forwards minio/labproxy/piston from k3s and runs Air + `next dev`, all bound to `127.0.0.1` (`kubectl port-forward` also binds to localhost). Nothing is exposed to the LAN.
 
 Remote access from your own devices only:
 

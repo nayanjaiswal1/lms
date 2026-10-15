@@ -15,6 +15,7 @@ chmod 600 .env backend/.env
 sudo apt-get update -y
 sudo apt-get install -y make git curl unzip golang-go
 have bun       || curl -fsSL https://bun.sh/install | bash
+grep -q ".bun/bin" ~/.bashrc || echo 'export PATH="$HOME/.bun/bin:$PATH"' >> ~/.bashrc
 have kubectl   || { curl -fsSLo /tmp/kubectl "https://dl.k8s.io/release/$(curl -fsSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
                     && sudo install /tmp/kubectl /usr/local/bin/kubectl; }
 have tailscale || curl -fsSL https://tailscale.com/install.sh | sh
