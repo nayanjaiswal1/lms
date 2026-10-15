@@ -247,3 +247,26 @@ func TestBlocksImport_FromTarOnStdin(t *testing.T) {
 	require.True(t, published)
 	require.Equal(t, 1, catalog)
 }
+
+func TestPruneCacheKeepsOnlyCurrentEntries(t *testing.T) {
+	cache := t.TempDir()
+	hash := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	stale := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	for _, name := range []string{hash + "-rt-current-1", hash + "-rt-old-0001", stale + "-rt-current-1", stale + "-rt-current-1.tmp-42", "notes"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(cache, name), 0o700))
+	}
+	inputs := []recipeInput{{analysis: &labauthor.Analysis{RecipeHash: hash}}, {}}
+
+	n, err := pruneCache(cache, inputs, "rt-current-1")
+	require.NoError(t, err)
+	require.Equal(t, 2, n, "old runtime and stale hash go")
+
+	var left []string
+	ents, err := os.ReadDir(cache)
+	require.NoError(t, err)
+	for _, e := range ents {
+		left = append(left, e.Name())
+	}
+	require.ElementsMatch(t, []string{hash + "-rt-current-1", stale + "-rt-current-1.tmp-42", "notes"}, left,
+		"current entry kept; in-flight .tmp- write and unrelated dirs untouched")
+}

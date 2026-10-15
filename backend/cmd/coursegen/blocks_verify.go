@@ -63,6 +63,7 @@ func runBlocksVerify(args []string) error {
 	artifact := fs.String("artifact", "", "write a labset (manifest.json + bundles/) to this new or empty directory")
 	cacheDir := fs.String("cache", "", "verified-recipe cache: entries <recipe_hash>-<runtime_id> are reused, not re-verified")
 	cachedOnly := fs.Bool("cached-only", false, "with --artifact: assemble from --cache only (no Docker); fail if a recipe is not cached")
+	prune := fs.Bool("prune", false, "with --artifact and --cache and no recipe arguments: after success, delete cache entries not used by the current recipes and runtime")
 	runtimeID := fs.String("runtime-id", "", "lab runtime stamp the labset is for (default: read from the local lab image)")
 	coursesDir := fs.String("courses", defaultCoursesDir, "canonical course tree mapping recipe files to platform recipe ids")
 	gitSHA := fs.String("git-sha", os.Getenv("GIT_COMMIT"), "source commit recorded in the labset")
@@ -73,6 +74,9 @@ func runBlocksVerify(args []string) error {
 	labset := *artifact != ""
 	if *cachedOnly && (!labset || *cacheDir == "") {
 		return fmt.Errorf("blocks verify: --cached-only needs --artifact and --cache")
+	}
+	if *prune && (!labset || *cacheDir == "" || fs.NArg() > 0) {
+		return fmt.Errorf("blocks verify: --prune needs --artifact and --cache and verifies every platform recipe (no recipe arguments), otherwise it would delete entries other recipes still need")
 	}
 	if (*cacheDir != "" || *runtimeID != "") && !labset {
 		return fmt.Errorf("blocks verify: --cache and --runtime-id only apply with --artifact")
@@ -194,6 +198,13 @@ func runBlocksVerify(args []string) error {
 	}
 	fmt.Printf("coursegen blocks verify: labset %s: %d recipe(s), %d verified now, %d from cache (runtime %.12s)\n",
 		*artifact, len(inputs), res.verified, res.cached, *runtimeID)
+	if *prune {
+		n, err := pruneCache(cache, inputs, *runtimeID)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("coursegen blocks verify: pruned %d unused cache entr%s\n", n, map[bool]string{true: "y", false: "ies"}[n == 1])
+	}
 	return nil
 }
 
@@ -330,6 +341,37 @@ func writeCacheEntry(entry string, r labbuild.LabsetRecipe, arts []labbuild.Vari
 		return fmt.Errorf("blocks verify: cache: %w", err)
 	}
 	return nil
+}
+
+// cacheEntryRe matches verify-cache entry names (<recipe_hash>-<runtime_id>); anything else in the
+// cache directory, including in-flight ".tmp-" writes, is left alone.
+var cacheEntryRe = regexp.MustCompile(`^[0-9a-f]{16,}-[A-Za-z0-9_-][A-Za-z0-9._-]{7,127}$`)
+
+// pruneCache removes cache entries that no current recipe uses for runtimeID: a cache hit never
+// changes an entry, so age says nothing about whether it is still needed. Only call it after a run
+// that covered every platform recipe (an entry for a recipe that was not in inputs would be lost).
+func pruneCache(cacheDir string, inputs []recipeInput, runtimeID string) (int, error) {
+	keep := map[string]bool{}
+	for _, ri := range inputs {
+		if ri.analysis != nil {
+			keep[ri.analysis.RecipeHash+"-"+runtimeID] = true
+		}
+	}
+	ents, err := os.ReadDir(cacheDir)
+	if err != nil {
+		return 0, fmt.Errorf("blocks verify: prune: %w", err)
+	}
+	pruned := 0
+	for _, e := range ents {
+		if !e.IsDir() || strings.Contains(e.Name(), ".tmp-") || !cacheEntryRe.MatchString(e.Name()) || keep[e.Name()] {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(cacheDir, e.Name())); err != nil {
+			return pruned, fmt.Errorf("blocks verify: prune: %w", err)
+		}
+		pruned++
+	}
+	return pruned, nil
 }
 
 func requireEmptyDir(dir string) error {

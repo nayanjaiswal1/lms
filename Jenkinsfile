@@ -97,12 +97,15 @@ pipeline {
         // any failure fails the pipeline. The labset/cache hold graders and fix/cheat overlays:
         // only the new cache entries are stashed (Jenkins-internal) and only reports are archived.
         stage('Lab artifacts') {
-          when { expression { params.DEPLOY_TARGET == 'local' } }
           agent { label params.BUILD_AGENT } // needs docker + go; BUILD_AGENT=built-in verifies one sandbox at a time
           environment { LAB_VERIFY_PARALLEL = "${params.BUILD_AGENT == 'built-in' ? '1' : '2'}" }
           steps {
             sh '''
               set -eu
+              for tool in docker go; do
+                command -v "$tool" >/dev/null || { echo "Lab artifacts: '$tool' is not installed on agent $NODE_NAME (BUILD_AGENT=${BUILD_AGENT}); install it or set BUILD_AGENT=built-in" >&2; exit 1; }
+              done
+              docker info >/dev/null 2>&1 || { echo "Lab artifacts: the docker daemon is not reachable by the jenkins user on $NODE_NAME" >&2; exit 1; }
               docker network inspect mindforge-labs >/dev/null 2>&1 || docker network create mindforge-labs >/dev/null
               docker build -t mindforge/lab-debug:1 -f lab-images/lab-debug/Dockerfile lab-images
               rid="$(docker run --rm --entrypoint cat mindforge/lab-debug:1 /opt/mindforge/RUNTIME_ID | tr -d '[:space:]')"
@@ -111,7 +114,7 @@ pipeline {
               ls "$cache" | sort > lab-cache-before.txt
               rm -rf labset lab-cache-new lab-reports && mkdir -p lab-cache-new lab-reports
               (cd backend && go run ./cmd/coursegen blocks verify --parallel "$LAB_VERIFY_PARALLEL" --artifact ../labset \
-                --cache "$cache" --runtime-id "$rid" --report ../lab-reports/verify.json --git-sha "$GIT_COMMIT" --ci-build "$BUILD_NUMBER")
+                --cache "$cache" --prune --runtime-id "$rid" --report ../lab-reports/verify.json --git-sha "$GIT_COMMIT" --ci-build "$BUILD_NUMBER")
               ls "$cache" | sort | comm -13 lab-cache-before.txt - | grep -v '[.]tmp-' | while read -r e; do cp -a "$cache/$e" lab-cache-new/; done
               echo "$rid" > lab-reports/runtime-id
               rm -rf labset lab-cache-before.txt
@@ -133,7 +136,7 @@ pipeline {
         }
       }
     }
-    // Gate BEFORE Deploy: merge the new verify-cache entries into the built-in agent's cache and prove every
+    // Gate BEFORE Deploy (local target only): merge the new verify-cache entries into the built-in agent's cache and prove every
     // platform recipe has a verified artifact for this environment's lab runtime. A missing or stale artifact
     // fails here, so a backend is never rolled out while its labs cannot be published (no in-app fallback).
     stage('Check labs') {
@@ -162,16 +165,24 @@ pipeline {
         '''
       }
     }
-    // Publish the CI-verified platform labs into the deployed backend (assembled again from the cache that
-    // 'Check labs' already proved complete, so this only fails on a runtime problem such as the pod not being ready).
+    // Publish the CI-verified platform labs into the deployed backend, local or over SSH (DEPLOY_TARGET=user@host).
+    // For a local target the cache was already proved complete by 'Check labs'; a remote target has no pre-deploy gate
+    // (its lab image is only built inside deploy-remote-k3s.sh), so a missing artifact fails here, after the rollout.
     stage('Import labs') {
-      when { expression { params.DEPLOY_TARGET == 'local' } }
       steps {
+        unstash 'lab-cache-new'
         sh '''
           set -eu
-          rm -rf labset
+          cache="$JENKINS_HOME/mindforge-lab-verify-cache"
+          mkdir -p "$cache"
+          if [ -d lab-cache-new ]; then cp -a lab-cache-new/. "$cache/"; fi
+          rm -rf labset lab-cache-new
           trap 'rm -rf labset' EXIT
-          bash scripts/import-lab-artifacts.sh --target k8s --from-cache "$JENKINS_HOME/mindforge-lab-verify-cache" labset
+          if [ "$DEPLOY_TARGET" = "local" ]; then
+            bash scripts/import-lab-artifacts.sh --target k8s --from-cache "$cache" labset
+          else
+            bash scripts/import-lab-artifacts.sh --target k8s --ssh "$DEPLOY_TARGET" --from-cache "$cache" labset
+          fi
         '''
       }
     }
