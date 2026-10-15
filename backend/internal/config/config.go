@@ -109,6 +109,11 @@ type Config struct {
 	// the original all-or-nothing behavior.
 	DevEmailAllowlist []string
 
+	// SeedRemoteDevDB: explicit opt-in (DEV_SEED_REMOTE_DB) to load dev fixtures
+	// into a non-local database such as a dedicated Neon dev branch. Never
+	// takes effect outside ENV=development (see ShouldSeedDev).
+	SeedRemoteDevDB bool
+
 	// Outbound email resilience (see docs/email-job-resilience-checklist.md).
 	// Breaker: pause all sends for EmailBreakerCooldown after
 	// EmailBreakerThreshold consecutive transient/throttle failures.
@@ -428,6 +433,7 @@ func Load() *Config {
 		EmailFromName:      getEnvDefault("EMAIL_FROM_NAME", "MindForge"),
 		BrevoAPIKey:        os.Getenv("BREVO_API_KEY"),
 		DevEmailAllowlist:  getEnvList("DEV_EMAIL_ALLOWLIST"),
+		SeedRemoteDevDB:    getEnvBool("DEV_SEED_REMOTE_DB", false),
 		CORSExtraOrigins:   getEnvList("CORS_EXTRA_ORIGINS"),
 	}
 
@@ -661,6 +667,14 @@ func (c *Config) IsLocalDev() bool {
 // loopback, or the compose Postgres service. Local dev can point at the shared
 // Neon database, and ENV=development alone must not seed fixtures into it.
 var localDBHosts = map[string]bool{"localhost": true, "127.0.0.1": true, "::1": true, "postgres": true}
+
+// ShouldSeedDev reports whether dev fixtures load at startup: development only,
+// into a local database, or into a remote one only when DEV_SEED_REMOTE_DB is
+// set. The fixtures create accounts with a published password, so a deployed
+// environment must never match.
+func (c *Config) ShouldSeedDev() bool {
+	return !c.IsProd() && (c.IsLocalDB() || c.SeedRemoteDevDB)
+}
 
 // IsLocalDB reports whether DATABASE_URL points at a local Postgres. Fails
 // closed: an unparseable URL counts as remote.
