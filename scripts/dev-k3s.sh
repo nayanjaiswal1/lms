@@ -9,10 +9,13 @@ export PATH="$HOME/.bun/bin:$PATH"
 
 command -v bun >/dev/null || { echo "bun not found â€” run scripts/setup-dev-box.sh" >&2; exit 1; }
 
+# port-forward exits when its pod restarts or the connection resets — keep it alive.
+fwd() { while true; do kubectl port-forward "$@" || true; sleep 2; done; }
+
 trap 'kill 0' EXIT
-kubectl port-forward -n mindforge svc/minio 9000:9000 &
-kubectl port-forward -n mindforge svc/labproxy 18081:8081 &
-kubectl port-forward -n mindforge-piston svc/piston 2000:2000 &
+fwd -n mindforge svc/minio 9000:9000 &
+fwd -n mindforge svc/labproxy 18081:8081 &
+fwd -n mindforge-piston svc/piston 2000:2000 &
 (cd "$root/backend" && go run github.com/air-verse/air@latest -c .air.toml) &
 (cd "$root/frontend" && bun install --frozen-lockfile && bun run dev -H 127.0.0.1) &
 wait
