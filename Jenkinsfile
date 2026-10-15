@@ -104,14 +104,14 @@ pipeline {
         // any failure fails the pipeline. The labset/cache hold graders and fix/cheat overlays:
         // only the new cache entries are stashed (Jenkins-internal) and only reports are archived.
         stage('Lab artifacts') {
-          agent { label params.BUILD_AGENT } // needs docker + go; BUILD_AGENT=built-in verifies one sandbox at a time
+          agent { label params.BUILD_AGENT } // needs docker (Go is fetched on demand); BUILD_AGENT=built-in verifies one sandbox at a time
           environment { LAB_VERIFY_PARALLEL = "${params.BUILD_AGENT == 'built-in' ? '1' : '2'}" }
           steps {
             sh '''
               set -eu
-              for tool in docker go; do
-                command -v "$tool" >/dev/null || { echo "Lab artifacts: '$tool' is not installed on agent $NODE_NAME (BUILD_AGENT=${BUILD_AGENT}); install it or set BUILD_AGENT=built-in" >&2; exit 1; }
-              done
+              command -v docker >/dev/null || { echo "Lab artifacts: 'docker' is not installed on agent $NODE_NAME (BUILD_AGENT=${BUILD_AGENT}); install it or set BUILD_AGENT=built-in" >&2; exit 1; }
+              # the agent only needs Docker: Go is fetched (sha256-checked) into ~/.cache/mindforge-go when the one on PATH is older than backend/go.mod
+              export PATH="$(bash scripts/ensure-go.sh):$PATH"
               docker info >/dev/null 2>&1 || { echo "Lab artifacts: the docker daemon is not reachable by the jenkins user on $NODE_NAME" >&2; exit 1; }
               docker network inspect mindforge-labs >/dev/null 2>&1 || docker network create mindforge-labs >/dev/null
               docker build -t mindforge/lab-debug:1 -f lab-images/lab-debug/Dockerfile lab-images
