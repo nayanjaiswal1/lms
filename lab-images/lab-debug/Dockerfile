@@ -32,7 +32,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      bash curl ca-certificates jq nano vim-tiny less procps git xz-utils tar gzip \
+      bash curl ca-certificates jq nano vim-tiny less procps iproute2 git xz-utils tar gzip \
       ttyd \
       python3 python3-pip python3-venv python3-dev build-essential libpq-dev \
       postgresql-16 postgresql-client-16 postgresql-contrib \

@@ -56,7 +56,19 @@ lab:
         if [ "${1:-}" = status ]; then echo "brewbot: OK"; else echo "usage: brewctl status" >&2; exit 1; fi
         EOF
         chmod 755 $w/bin/brewbot-check $w/bin/brewctl $w/bin/brewbot-worker
+        mkdir -p $w/www
+        echo "brewbot storefront" > $w/www/index.html
+        printf 'name = brewbot-web\nbind = 127.0.0.1\nport = 8088\n' > $w/etc/brewbot-web.conf
+        cat > $w/bin/brewbot-web <<'EOF'
+        #!/bin/bash
+        w=/home/labuser/work/incident
+        bind=$(awk -F' = ' '$1 == "bind" {print $2}' $w/etc/brewbot-web.conf)
+        port=$(awk -F' = ' '$1 == "port" {print $2}' $w/etc/brewbot-web.conf)
+        cd $w/www && exec python3 -m http.server "$port" --bind "$bind"
+        EOF
+        chmod 755 $w/bin/brewbot-web
         nohup bash $w/bin/brewbot-worker >/dev/null 2>&1 &
+        nohup $w/bin/brewbot-web >/dev/null 2>&1 &
         touch $w/.incident-started
         echo "PAGER: atlas disk 99% full, brewbot errors, deploy failing. Good luck."
   setup_script: |
@@ -71,7 +83,7 @@ lab:
         [ -f /home/labuser/work/incident/.incident-started ] &&
         pgrep -u labuser -f '^bash /home/labuser/work/incident/bin/brewbot-worker$' >/dev/null
       hint_context: Type exactly bash /home/labuser/work/start-incident.sh and press Enter.
-      explanation_context: The script creates a full disk, a hung worker, a broken deploy, a bad config and a missing command under ~/work/incident - one for each scenario that follows.
+      explanation_context: The script creates a full disk, a hung worker, a broken deploy, a bad config, a missing command and an unreachable web listener under ~/work/incident - one for each scenario that follows.
       solution_script: |
         bash /home/labuser/work/start-incident.sh
     - id_key: disk-full
@@ -135,6 +147,26 @@ lab:
       explanation_context: command not found means no directory in PATH contains that name. Check with echo $PATH and which; the fix is either the full path, a PATH change, or installing the missing package.
       solution_script: |
         echo 'export PATH="$PATH:/home/labuser/work/incident/bin"' >> ~/.bashrc
+    - id_key: unreachable-port
+      title: "Scenario 6 - the app runs but nobody can reach it"
+      points: 20
+      is_stateful: true
+      description: Customers report the brewbot storefront (port 8088) is unreachable from outside, yet the process is running. Find out why and fix it so the site listens on every interface. The config is incident/etc/brewbot-web.conf and the launcher is incident/bin/brewbot-web. Leave a working listener running.
+      verification_script: |
+        w=/home/labuser/work/incident
+        grep -qx 'bind = 0.0.0.0' $w/etc/brewbot-web.conf &&
+        grep -qx 'port = 8088' $w/etc/brewbot-web.conf &&
+        ss -tln | awk '{print $4}' | grep -qx '0.0.0.0:8088' &&
+        [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8088/)" = 200 ]
+      hint_context: ss -tulpn | grep 8088 shows the address it is bound to. 127.0.0.1 means local only. Change bind in the config to 0.0.0.0, stop the old listener (pkill -f "http.server 8088"), then start brewbot-web again in the background with &.
+      explanation_context: A service bound to 127.0.0.1 answers only on the same machine, so curl localhost works while everyone else gets connection refused. Editing the config does nothing until the process restarts. This is the classic "works on the server, unreachable from outside" bug, and the same cause behind a container app that is not reachable through a published port.
+      solution_script: |
+        w=/home/labuser/work/incident
+        sed -i 's/^bind = .*/bind = 0.0.0.0/' $w/etc/brewbot-web.conf
+        pkill -u labuser -f 'http.server 8088' || true
+        sleep 1
+        nohup $w/bin/brewbot-web >/dev/null 2>&1 &
+        sleep 1
 ---
 
 > **Black Friday.** 9:02am. The sale went live two minutes ago and your pager is screaming: *disk 99% full, brewbot erroring, deploy failing.* Rhea is on a plane. Tom's last note is taped to the rack: **"When it breaks, stay calm and follow the method."** Everything you learned in chapters 1-9 now gets used at once.
@@ -316,6 +348,18 @@ Work from the bottom up:
 - **Connection refused** - nothing is listening there (service down, wrong port, or bound to 127.0.0.1).
 - **Connection timed out** - packets are dropped: firewall, security group, or routing.
 - **502 Bad Gateway** from nginx - nginx is fine, the app behind it is not.
+
+Time the request to separate "slow" from "down":
+
+```bash
+curl -o /dev/null -s -w "%{http_code} %{time_total}\n" http://localhost:8080/
+```
+
+Reading `ss -tulpn`: `t` TCP, `u` UDP, `l` listening only, `p` owning process, `n` numeric (no DNS lookups). And inside `top`: `P` sorts by CPU, `M` by memory, `k` kills a process.
+
+An app inside a Docker container behaves the same way: if it binds `127.0.0.1` *inside* the container, the published port cannot reach it. Bind `0.0.0.0` in the container, then check `docker ps` for the port mapping.
+
+[[lab-task:7]]
 
 ## Scenario 12: name resolution fails
 
