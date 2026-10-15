@@ -192,7 +192,7 @@ Jenkins runs at `http://<host>:8080` (user `admin`, password in `/var/lib/jenkin
 
 ## Hot-reload dev on a remote box (`make dev-k3s`)
 
-`scripts/dev-k3s.sh` port-forwards labproxy/piston from k3s (object storage is external, via MINIO_* in backend/.env) and runs Air + `next dev`, all bound to `127.0.0.1` (`kubectl port-forward` also binds to localhost). Nothing is exposed to the LAN.
+`scripts/dev-k3s.sh` port-forwards labproxy, piston and MinIO from k3s (object storage is the k3s MinIO on `127.0.0.1:19000`: in `backend/.env` set `MINIO_ENDPOINT` and `MINIO_PUBLIC_ENDPOINT` to `127.0.0.1:19000`, `MINIO_USE_SSL` and `MINIO_PUBLIC_USE_SSL` to `false`, and `MINIO_ACCESS_KEY`/`MINIO_SECRET_KEY` to the `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` of the `mindforge-secrets` Secret; the backend creates the bucket on boot) and runs Air + `next dev`, all bound to `127.0.0.1` (`kubectl port-forward` also binds to localhost). Nothing is exposed to the LAN.
 
 Remote access from your own devices only:
 
