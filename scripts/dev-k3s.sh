@@ -11,6 +11,14 @@ export PATH="$HOME/.bun/bin:$PATH"
 
 command -v bun >/dev/null || { echo "bun not found â€” run scripts/setup-dev-box.sh" >&2; exit 1; }
 
+# Shell vars exported earlier (e.g. `set -a; source backend/.env`) would override the
+# file — godotenv never overrides the environment — so drop whatever the file defines.
+unset $(grep -E '^[A-Z_][A-Z0-9_]*=' "$root/backend/.env" | cut -d= -f1)
+
+# Free the forward ports from stale kubectl processes left by earlier runs.
+pkill -f "kubectl port-forward" || true
+sleep 1
+
 # port-forward exits when its pod restarts or the connection resets — keep it alive.
 fwd() { while true; do kubectl port-forward "$@" || true; sleep 2; done; }
 
