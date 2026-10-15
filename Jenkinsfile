@@ -21,6 +21,13 @@ def registrySh(String cmd) {
   }
 }
 
+// Iterating change sets must not run as CPS code: a closure holding GitChangeSetList (not Serializable)
+// breaks the pipeline's state save at the next step ("NotSerializableException: GitChangeSetList").
+@NonCPS
+def touchedPath(String prefix) {
+  currentBuild.changeSets.any { cs -> cs.items.any { it.affectedPaths.any { p -> p.startsWith(prefix) } } }
+}
+
 pipeline {
   agent { label 'built-in' } // must run on the k3s host (docker, kubectl, helm, rsync), not a container agent
   // 180 min: the first run after the lab-debug image changes verifies every platform recipe in 'Lab artifacts';
@@ -129,7 +136,7 @@ pipeline {
           steps {
             script {
               // images already in the registry are skipped; rebuild only when this build touched lab-images/
-              def labChanged = currentBuild.changeSets.any { cs -> cs.items.any { it.affectedPaths.any { p -> p.startsWith('lab-images/') } } }
+              def labChanged = touchedPath('lab-images/')
               withEnv(["FORCE_LAB_REBUILD=${labChanged ? 1 : 0}"]) { sh 'bash scripts/push-lab-images.sh' }
             }
           }
