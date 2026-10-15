@@ -2,47 +2,17 @@ package session
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/mindforge/backend/internal/testdb"
+	"github.com/mindforge/backend/internal/testredis"
 )
 
-// newRedis starts a throwaway Redis container for one test and returns a
-// client to it; both are torn down when the test ends.
-func newRedis(t *testing.T) *redis.Client {
-	t.Helper()
-	ctx := context.Background()
-	ctr, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        "redis:7-alpine",
-			ExposedPorts: []string{"6379/tcp"},
-			WaitingFor:   wait.ForListeningPort("6379/tcp"),
-		},
-		Started: true,
-	})
-	if err != nil {
-		t.Fatalf("start redis container: %v", err)
-	}
-	t.Cleanup(func() { _ = ctr.Terminate(context.Background()) })
-
-	host, err := ctr.Host(ctx)
-	if err != nil {
-		t.Fatalf("redis host: %v", err)
-	}
-	port, err := ctr.MappedPort(ctx, "6379/tcp")
-	if err != nil {
-		t.Fatalf("redis port: %v", err)
-	}
-	rdb := redis.NewClient(&redis.Options{Addr: fmt.Sprintf("%s:%s", host, port.Port())})
-	t.Cleanup(func() { _ = rdb.Close() })
-	return rdb
-}
+// newRedis starts a throwaway Redis container for one test.
+func newRedis(t *testing.T) *redis.Client { return testredis.New(t) }
 
 // Regression (2026-09-25): CheckSession pipelines the JTI-blocklist and
 // session-version lookups into one Redis round trip. The pipelined replies

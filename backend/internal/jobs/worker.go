@@ -98,7 +98,7 @@ func (p *WorkerPool) runWorker(ctx context.Context, workerID int) {
 			return
 		}
 
-		claimed, err := ClaimOne(ctx, p.pool, p.instanceID)
+		claimed, err := ClaimOneCapped(ctx, p.pool, p.instanceID, p.registry)
 		if err != nil {
 			// Context cancelled during claim — exit cleanly.
 			if ctx.Err() != nil {
@@ -174,9 +174,25 @@ func (p *WorkerPool) executeJob(ctx context.Context, workerID int, claimed *Clai
 		}
 		p.logJobDone(job, StatusSuccess, durationMS)
 
+	case ctx.Err() == context.Canceled && p.registry.isResumable(job.Handler):
+		// Shutdown (SIGTERM / dev reload) interrupted an idempotent handler:
+		// requeue it now without consuming a retry. ctx is already cancelled,
+		// so the update uses its own short-lived context.
+		rctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		if err := Requeue(rctx, p.pool, job.ID, runID, "interrupted by worker shutdown"); err != nil {
+			slog.Error("worker: requeue interrupted job failed; orphan reaper will reclaim",
+				"job_id", job.ID, "handler", job.Handler, "error", err, "worker", workerID)
+		} else {
+			slog.Info("worker: job interrupted by shutdown, requeued without consuming a retry",
+				"job_id", job.ID, "handler", job.Handler, "worker", workerID)
+		}
+		cancel()
+
 	case ctx.Err() == context.Canceled:
 		// Parent context cancelled (SIGTERM). Do NOT call Fail — the orphan
-		// reaper will reclaim the job once the heartbeat stops being refreshed.
+		// reaper will reclaim the job once the heartbeat stops being refreshed
+		// (consuming a retry: see Registry.SetResumable for why that is the
+		// safe default for handlers not known to be idempotent).
 		slog.Info("worker: job interrupted by shutdown, orphan reaper will reclaim",
 			"job_id", job.ID, "handler", job.Handler, "worker", workerID)
 

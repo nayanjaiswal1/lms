@@ -447,8 +447,11 @@ type Recipe struct {
 	Revision        int             `json:"revision"`
 	LabID           *string         `json:"lab_id"`
 	TargetPlacement json.RawMessage `json:"target_placement"`
-	CreatedAt       time.Time       `json:"created_at"`
-	UpdatedAt       time.Time       `json:"updated_at"`
+	// IsPlatform marks a recipe shipped as course content: CI verifies it and
+	// deploys import it (labbuild.ImportLabset); it is never built in the app.
+	IsPlatform bool      `json:"is_platform"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 	// LatestBuild is the recipe's newest build (any hash); set by the list and
 	// detail reads only.
 	LatestBuild *BuildRef `json:"latest_build,omitempty"`
@@ -468,12 +471,12 @@ type BuildRef struct {
 	FinishedAt *time.Time `json:"finished_at"`
 }
 
-const recipeCols = `id, org_id, owner_id, lab_kind, title, spec, revision, lab_id, target_placement, created_at, updated_at`
+const recipeCols = `id, org_id, owner_id, lab_kind, title, spec, revision, lab_id, target_placement, created_at, updated_at, is_platform`
 
 func scanRecipe(row pgx.Row) (*Recipe, error) {
 	var rc Recipe
 	var spec, placement []byte
-	if err := row.Scan(&rc.ID, &rc.OrgID, &rc.OwnerID, &rc.LabKind, &rc.Title, &spec, &rc.Revision, &rc.LabID, &placement, &rc.CreatedAt, &rc.UpdatedAt); err != nil {
+	if err := row.Scan(&rc.ID, &rc.OrgID, &rc.OwnerID, &rc.LabKind, &rc.Title, &spec, &rc.Revision, &rc.LabID, &placement, &rc.CreatedAt, &rc.UpdatedAt, &rc.IsPlatform); err != nil {
 		return nil, fmt.Errorf("labauthor.scanRecipe: %w", err)
 	}
 	if err := json.Unmarshal(spec, &rc.Spec); err != nil {

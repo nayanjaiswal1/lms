@@ -472,13 +472,18 @@ func (h *LabCleanupHandler) Handle(ctx context.Context, job jobs.Job) error {
 		}
 	}
 
-	// --- validate sandboxes (older than 15 minutes are always orphaned) ---
-	validateSandboxes, vErr := h.runtime.List(ctx, "mindforge-validate-")
+	// --- validate sandboxes ---
+	// Every validation sandbox's work is bounded well under 15 minutes of
+	// RUNNING time (a render is capped by its 15-min job deadline, a grade by
+	// its budget), so one running longer is orphaned. Age counts from when the
+	// container started, not from creation: time a Pod spent Pending waiting
+	// for capacity must not eat into a live build's budget.
+	validateSandboxes, vErr := h.runtime.List(ctx, labs.ValidationContainerNamePrefix)
 	if vErr != nil {
 		slog.Warn("lab.cleanup_containers: list (validate)", "error", vErr)
 	} else {
 		for _, sb := range validateSandboxes {
-			if time.Since(sb.CreatedAt) < 15*time.Minute {
+			if validateSandboxLive(sb, time.Now()) {
 				continue
 			}
 			if rmErr := h.runtime.Kill(ctx, sb.ID); rmErr != nil {
@@ -532,6 +537,21 @@ func (h *LabCleanupHandler) Handle(ctx context.Context, job jobs.Job) error {
 
 	slog.Info("lab.cleanup_containers: removed orphaned containers", "count", removed)
 	return nil
+}
+
+// validateSandboxMaxAge is how long a validation sandbox may run before the
+// cleanup job treats it as orphaned.
+const validateSandboxMaxAge = 15 * time.Minute
+
+// validateSandboxLive reports whether a validation sandbox is still within its
+// running budget, measured from StartedAt (falling back to CreatedAt when the
+// runtime does not report a start, e.g. Docker, whose containers start at once).
+func validateSandboxLive(sb labs.ContainerInfo, now time.Time) bool {
+	ref := sb.StartedAt
+	if ref.IsZero() {
+		ref = sb.CreatedAt
+	}
+	return now.Sub(ref) < validateSandboxMaxAge
 }
 
 // ─── Warm pool reconciler ────────────────────────────────────────────────────

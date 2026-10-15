@@ -174,6 +174,16 @@ type Config struct {
 	// verification sandboxes one org may run at once across ALL workers (Redis semaphore).
 	LabBuildsPerUserDay     int
 	LabVerifyParallelPerOrg int
+	// LabBuildValidatePodsMax caps validation sandboxes (render, verify runs
+	// and runtime probes together) across ALL workers and orgs (Redis
+	// semaphore). Size it to the lab node pool's spare CPU / 1 CPU per pod.
+	LabBuildValidatePodsMax int
+	// LabBuildDeadline: a build still waiting for validation capacity this
+	// long after it was queued fails as an infrastructure failure.
+	LabBuildDeadline time.Duration
+	// LabsPodUnschedulableGrace: how long a validation Pod may stay
+	// Unschedulable before the Kubernetes runtime gives up on it.
+	LabsPodUnschedulableGrace time.Duration
 
 	// Code execution (coding-question auto-grading).
 	// Piston takes priority when both are set; Judge0 is the fallback.
@@ -267,6 +277,19 @@ type Config struct {
 	LabsImageRegistry string
 	// LabsPidsLimit caps processes per lab container (LABS_PIDS_LIMIT).
 	LabsPidsLimit int
+	// LabsCleanRoomMaxConcurrent caps simultaneous clean-room grader sandboxes
+	// per backend process (LABS_CLEANROOM_MAX_CONCURRENT, default 4; 2 on a
+	// 4-CPU node). LAB_VERIFY_PARALLEL_PER_ORG must stay below it.
+	LabsCleanRoomMaxConcurrent int
+	// LabsValidationCPURequestPct / LabsValidationMemoryRequestPct set a
+	// Kubernetes validation/clean-room pod's resource REQUESTS as a percentage
+	// of its limits (LABS_VALIDATION_CPU_REQUEST_PCT, default 25;
+	// LABS_VALIDATION_MEMORY_REQUEST_PCT, default 50). Below 100 the pod is
+	// Burstable instead of Guaranteed: it schedules on a small node but is
+	// among the first evicted under node memory pressure. Student session pods
+	// keep requests == limits.
+	LabsValidationCPURequestPct    int
+	LabsValidationMemoryRequestPct int
 	// LabsGradeTimeout bounds one whole clean-room Check (sandbox start, seed,
 	// every grade.sh mode) (LABS_GRADE_TIMEOUT). Must cover the slowest real
 	// grader run on a loaded host, not the typical one.
@@ -522,7 +545,10 @@ func Load() *Config {
 	cfg.LabAuthorDraftRateMax = getEnvInt("LABAUTHOR_DRAFT_RATE_MAX", 10)
 	cfg.LabAuthorDraftRateWindow = parseDuration("LABAUTHOR_DRAFT_RATE_WINDOW", "1h")
 	cfg.LabBuildsPerUserDay = getEnvInt("LAB_BUILDS_PER_USER_DAY", 10)
-	cfg.LabVerifyParallelPerOrg = getEnvInt("LAB_VERIFY_PARALLEL_PER_ORG", 2) // must stay below labs.CleanRoomMaxConcurrent or builds starve student Checks
+	cfg.LabVerifyParallelPerOrg = getEnvInt("LAB_VERIFY_PARALLEL_PER_ORG", 2) // must stay below LABS_CLEANROOM_MAX_CONCURRENT or builds starve student Checks
+	cfg.LabBuildValidatePodsMax = getEnvInt("LAB_BUILD_VALIDATE_PODS_MAX", 2)
+	cfg.LabBuildDeadline = parseDuration("LAB_BUILD_DEADLINE", "6h")
+	cfg.LabsPodUnschedulableGrace = parseDuration("LABS_POD_UNSCHEDULABLE_GRACE", "60s")
 
 	// Defaults to the RFC 1918 / loopback ranges, which covers the normal
 	// deployment where the Next.js server and an ingress proxy share a private
@@ -547,6 +573,20 @@ func Load() *Config {
 	cfg.LabsNestedDockerRuntimeClass = os.Getenv("LABS_NESTED_DOCKER_RUNTIME_CLASS")
 	cfg.LabsImageRegistry = os.Getenv("LABS_IMAGE_REGISTRY")
 	cfg.LabsPidsLimit = getEnvInt("LABS_PIDS_LIMIT", 512)
+	cfg.LabsCleanRoomMaxConcurrent = getEnvInt("LABS_CLEANROOM_MAX_CONCURRENT", 4)
+	cfg.LabsValidationCPURequestPct = getEnvInt("LABS_VALIDATION_CPU_REQUEST_PCT", 25)
+	cfg.LabsValidationMemoryRequestPct = getEnvInt("LABS_VALIDATION_MEMORY_REQUEST_PCT", 50)
+	if cfg.LabsCleanRoomMaxConcurrent < 1 {
+		slog.Error("LABS_CLEANROOM_MAX_CONCURRENT must be at least 1", "value", cfg.LabsCleanRoomMaxConcurrent)
+		os.Exit(1)
+	}
+	for key, pct := range map[string]int{"LABS_VALIDATION_CPU_REQUEST_PCT": cfg.LabsValidationCPURequestPct,
+		"LABS_VALIDATION_MEMORY_REQUEST_PCT": cfg.LabsValidationMemoryRequestPct} {
+		if pct < 1 || pct > 100 {
+			slog.Error(key+" must be between 1 and 100", "value", pct)
+			os.Exit(1)
+		}
+	}
 	cfg.LabsGradeTimeout = parseDuration("LABS_GRADE_TIMEOUT", "4m")
 	cfg.HTTPReadHeaderTimeout = parseDuration("HTTP_READ_HEADER_TIMEOUT", "15s")
 	cfg.MaxBodyBytes = int64(getEnvInt("MAX_BODY_BYTES", 8<<20))

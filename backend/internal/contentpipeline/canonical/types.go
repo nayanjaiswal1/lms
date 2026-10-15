@@ -141,7 +141,7 @@ type LabSpec struct {
 	// pipeline (docs/debug-labs.md Part 2): its lab type, environment, setup and
 	// tasks come from the lab kind, so lab_type/environment/tasks/files/setup_script
 	// must be omitted. The generator emits the lab unpublished plus a platform
-	// recipe row; lab.platform_recipes_sync builds and publishes it.
+	// recipe row; CI verifies it and `coursegen blocks import` publishes it.
 	Recipe     string      `yaml:"recipe"`
 	RecipeSpec *RecipeSpec `yaml:"-"` // loaded by ParseFile
 }

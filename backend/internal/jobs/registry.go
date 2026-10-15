@@ -20,13 +20,70 @@ type Registry struct {
 	handlers  map[string]Handler
 	deadHooks map[string]DeadLetterHook
 	anyDead   []DeadLetterHook
+	// maxRunning caps concurrently running jobs per handler across all
+	// workers (see SetMaxConcurrent).
+	maxRunning map[string]int
+	// resumable handlers are requeued without consuming a retry when a
+	// shutdown interrupts them (see SetResumable).
+	resumable map[string]bool
 }
 
 func NewRegistry() *Registry {
 	return &Registry{
-		handlers:  make(map[string]Handler),
-		deadHooks: make(map[string]DeadLetterHook),
+		handlers:   make(map[string]Handler),
+		deadHooks:  make(map[string]DeadLetterHook),
+		maxRunning: make(map[string]int),
+		resumable:  make(map[string]bool),
 	}
+}
+
+// SetMaxConcurrent caps how many jobs of handler key may be running at once
+// across every worker replica (counted in the jobs table at claim time). Use
+// it for handlers that hold a worker slot for minutes, so a burst of them
+// cannot occupy the whole pool and starve every other handler. n < 1 is
+// treated as 1.
+//
+// ponytail: the count and the claim are not one atomic step, so concurrent
+// claimers can overshoot the cap by at most the number of claiming workers
+// for an instant (same as the per-org max_concurrent rule); an advisory lock
+// per handler is the upgrade if an exact cap ever matters.
+func (r *Registry) SetMaxConcurrent(key string, n int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.maxRunning[key] = max(n, 1)
+}
+
+// concurrencyCaps returns the per-handler caps as parallel slices (SQL arrays).
+func (r *Registry) concurrencyCaps() ([]string, []int32) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	keys := make([]string, 0, len(r.maxRunning))
+	caps := make([]int32, 0, len(r.maxRunning))
+	for k, n := range r.maxRunning {
+		keys = append(keys, k)
+		caps = append(caps, int32(n))
+	}
+	return keys, caps
+}
+
+// SetResumable marks handler key as safe to re-run from the start after a
+// shutdown interrupted it (idempotent: status-guarded, no external side
+// effect that a second run would duplicate). Such a job is put straight back
+// on the queue WITHOUT consuming a retry, so deploys and dev reloads do not
+// burn its retry budget. Handlers not marked keep the conservative path: the
+// orphan reaper fails the run, which consumes a retry and can send the job
+// dead — the right outcome for a non-idempotent handler (an email that may
+// already have been sent) where an unbounded re-run is the bigger risk.
+func (r *Registry) SetResumable(key string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.resumable[key] = true
+}
+
+func (r *Registry) isResumable(key string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.resumable[key]
 }
 
 // Register panics if the key is already registered.

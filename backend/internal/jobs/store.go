@@ -162,8 +162,21 @@ func ActivateDue(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
 }
 
 // ClaimOne atomically claims the highest-priority available job for a worker.
-// Returns nil, nil when no job is available.
+// Returns nil, nil when no job is available. It applies no per-handler caps;
+// the worker pool uses ClaimOneCapped.
 func ClaimOne(ctx context.Context, pool *pgxpool.Pool, workerID string) (*ClaimedJob, error) {
+	return ClaimOneCapped(ctx, pool, workerID, nil)
+}
+
+// ClaimOneCapped is ClaimOne honouring the registry's per-handler concurrency
+// caps (Registry.SetMaxConcurrent): a job whose handler already has its cap of
+// running jobs is skipped, so other handlers' jobs are claimed instead.
+// registry may be nil (no caps).
+func ClaimOneCapped(ctx context.Context, pool *pgxpool.Pool, workerID string, registry *Registry) (*ClaimedJob, error) {
+	capKeys, capVals := []string{}, []int32{}
+	if registry != nil {
+		capKeys, capVals = registry.concurrencyCaps()
+	}
 	row := pool.QueryRow(ctx, `
 		UPDATE jobs SET status = 'running', worker_id = $1, claimed_at = NOW(), updated_at = NOW()
 		WHERE id = (
@@ -180,12 +193,19 @@ func ClaimOne(ctx context.Context, pool *pgxpool.Pool, workerID string) (*Claime
 		        (SELECT (os.jobs->>'max_concurrent')::int FROM org_settings os WHERE os.org_id = jobs.org_id), 5
 		      )
 		    )
+		    AND (
+		      NOT (handler = ANY($2::text[]))
+		      OR (
+		        SELECT COUNT(*) FROM jobs j3
+		        WHERE j3.handler = jobs.handler AND j3.status = 'running' AND j3.deleted_at IS NULL
+		      ) < (SELECT t.c FROM unnest($2::text[], $3::int[]) AS t(h, c) WHERE t.h = jobs.handler)
+		    )
 		  ORDER BY priority ASC, run_at ASC
 		  LIMIT 1
 		  FOR UPDATE SKIP LOCKED
 		)
 		RETURNING `+jobColumns,
-		workerID,
+		workerID, capKeys, capVals,
 	)
 
 	job, err := scanJob(row)
@@ -357,6 +377,37 @@ func Fail(ctx context.Context, pool *pgxpool.Pool, registry *Registry, jobID str
 		for _, hook := range registry.deadHooksFor(handler) {
 			go runDeadHook(hook, job)
 		}
+	}
+	return nil
+}
+
+// Requeue puts a running job that was interrupted by a worker shutdown back
+// on the queue immediately, WITHOUT incrementing retry_count, and closes its
+// run as failed. Only for handlers marked Registry.SetResumable (the worker
+// decides); the status guard makes it a no-op if the job already moved on.
+func Requeue(ctx context.Context, pool *pgxpool.Pool, jobID string, runID int64, reason string) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("jobs.Requeue: begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE jobs
+		 SET status = 'queued', run_at = NOW(), worker_id = NULL, claimed_at = NULL, updated_at = NOW()
+		 WHERE id = $1 AND status = 'running'`,
+		jobID,
+	); err != nil {
+		return fmt.Errorf("jobs.Requeue: update job: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE job_runs SET status = 'failed', finished_at = NOW(), error = $2 WHERE id = $1`,
+		runID, reason,
+	); err != nil {
+		return fmt.Errorf("jobs.Requeue: update job_run: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("jobs.Requeue: commit: %w", err)
 	}
 	return nil
 }

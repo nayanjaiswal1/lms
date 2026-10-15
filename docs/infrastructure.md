@@ -91,6 +91,14 @@ LABPROXY_UPSTREAM=                   # Caddy only — labproxy host:port on the 
 LABS_NETWORK_PER_SESSION=true        # default true: one Docker network per session (no sibling reachability)
 LABS_NETWORK_INTERNAL=false          # true = per-session networks with no egress at all (breaks pip/npm installs)
 LABS_STORAGE_QUOTA_ENABLED=false     # direct-Docker path default false; the agent defaults TRUE and refuses to start if the host cannot enforce it (XFS pquota)
+LABS_POD_UNSCHEDULABLE_GRACE=60s     # kubernetes only: a validation Pod Unschedulable this long fails fast (job defers, no retry spent)
+# Lab-authoring build pipeline (docs/debug-labs.md "Capacity, retries and stuck builds")
+LAB_BUILDS_PER_USER_DAY=10           # builds an instructor may start per rolling day
+LAB_VERIFY_PARALLEL_PER_ORG=2        # verification sandboxes per org across all workers (keep < LABS_CLEANROOM_MAX_CONCURRENT)
+LAB_BUILD_VALIDATE_PODS_MAX=2        # validation sandboxes (render + verify runs + runtime probes) across ALL workers/orgs;
+                                     # size to the lab node pool's spare CPU (each pod is limited to 1 CPU / 512Mi; requests: LABS_VALIDATION_*_REQUEST_PCT).
+                                     # Also the max running lab.recipe_build / lab.recipe_verify jobs per handler.
+LAB_BUILD_DEADLINE=6h                # a build still waiting for sandbox capacity this long after queueing fails as infra (the author can build again)
 # Lab agent process (backend/cmd/labagent, lab host only). It also reads
 # LABS_IMAGE_PROFILES, LABS_NESTED_DOCKER_RUNTIME, LABS_PIDS_LIMIT,
 # LABS_NETWORK_PER_SESSION, LABS_NETWORK_INTERNAL, LABS_PROXY_CONTAINER and
@@ -106,6 +114,20 @@ LABAGENT_ALLOWED_IMAGES=             # comma-separated exact image names the age
 # images pulled bare, must already be present wherever the runtime pulls from.
 # See ENV_VARS.md and docs/local-k3s-dev.md.
 LABS_IMAGE_REGISTRY=
+# Clean-room grader sandboxes one backend process runs at once (student Checks
+# + build verification). Default 4; use 2 on a 4-CPU node. Keep
+# LAB_VERIFY_PARALLEL_PER_ORG below it or builds starve student Checks.
+LABS_CLEANROOM_MAX_CONCURRENT=4
+# Kubernetes only: validation/clean-room Pods REQUEST this % of their limits
+# (limits unchanged: 1 CPU / 512Mi standard, 2 CPU / 2Gi debug-ide). Below 100
+# the Pod is Burstable, not Guaranteed: it schedules on a small node, may burst
+# to its limit when the node has room, and is evicted before Guaranteed Pods
+# under node memory pressure (a grade or verify run then fails as an infra
+# error and is retried). Student session and warm Pods always request == limit.
+# Nothing else in the code or manifests (no LimitRange/ResourceQuota on
+# mindforge-labs) assumes requests == limits.
+LABS_VALIDATION_CPU_REQUEST_PCT=25
+LABS_VALIDATION_MEMORY_REQUEST_PCT=50
 
 # labproxy live preview — preview subdomains are p<port>-<sessionID>.<this>
 # (see backend/cmd/labproxy/host.go), one origin per port+session instead of
@@ -134,6 +156,15 @@ labproxy runs on the lab network and must not be able to forge login tokens or r
 - Per-user terminal cap (5) is global across labproxy replicas via the Redis semaphore (`labproxy:conns:<user>` leases, 30s TTL, auto-renewed).
 
 ---
+
+### Platform lab artifacts (CI labsets)
+
+Platform debug labs are verified in CI and imported on deploy, never built in the app (docs/debug-labs.md "Platform labs: CI artifacts").
+
+- **Binary:** the backend image ships `/app/coursegen` next to `/app/server`; `kubectl exec -i deploy/backend -- /app/coursegen blocks import --expect-runtime-id ID -` imports with the pod's own `DATABASE_URL` / `MINIO_*`.
+- **Jenkins:** `BUILD_AGENT` (existing param) also runs stage `Lab artifacts` (needs Docker + Go; `built-in` = `--parallel 1`). Verify cache: `~/.cache/mindforge-lab-verify` on that agent, `$JENKINS_HOME/mindforge-lab-verify-cache` on the built-in. Only `lab-reports/` is archived.
+- **Script:** `scripts/import-lab-artifacts.sh --target k8s|local [--partial] [--from-cache CACHE] DIR`; env `LAB_IMAGE` (override the image the runtime stamp is read from), `NAMESPACE` (default `mindforge`).
+- **Secret:** a labset holds graders and fix/cheat overlays. Never archive, publish or upload it anywhere but the private bucket (the importer does that).
 
 ## AI Usage Rules
 

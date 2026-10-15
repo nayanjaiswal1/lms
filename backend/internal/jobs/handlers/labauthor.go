@@ -9,8 +9,6 @@ const (
 	HandlerLabRecipeBuild = labbuild.HandlerRecipeBuild
 	// HandlerLabRecipeVerify runs the verification matrix for a rendered build.
 	HandlerLabRecipeVerify = labbuild.HandlerRecipeVerify
-	// HandlerLabPlatformRecipes builds and auto-publishes platform recipes.
-	HandlerLabPlatformRecipes = labbuild.HandlerPlatformRecipes
 	// HandlerLabBuildGC deletes failed/superseded unpublished builds after 30 days.
 	HandlerLabBuildGC = labbuild.HandlerBuildGC
 )

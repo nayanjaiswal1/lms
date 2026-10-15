@@ -28,12 +28,14 @@ import (
 // cannot influence grading.
 
 const (
-	// CleanRoomMaxConcurrent bounds simultaneous clean-room grader sandboxes
-	// per API replica (each is a full 2 CPU / 2 GB sandbox). It is per-PROCESS
-	// on purpose: it protects this node's CPU/memory, which only this process
-	// can account for. It is NOT the org-wide verification cap: that one is
-	// global, a Redis semaphore in labbuild (LAB_VERIFY_PARALLEL_PER_ORG).
-	CleanRoomMaxConcurrent = 4
+	// DefaultCleanRoomMaxConcurrent bounds simultaneous clean-room grader
+	// sandboxes per API replica (each is a full 2 CPU / 2 GB sandbox) unless
+	// LABS_CLEANROOM_MAX_CONCURRENT says otherwise (SetCleanRoomMaxConcurrent).
+	// It is per-PROCESS on purpose: it protects this node's CPU/memory, which
+	// only this process can account for. It is NOT the org-wide verification
+	// cap: that one is global, a Redis semaphore in labbuild
+	// (LAB_VERIFY_PARALLEL_PER_ORG).
+	DefaultCleanRoomMaxConcurrent = 4
 	// MaxCapturedWorkspaceBytes caps the student-workspace tar pulled out via
 	// ExecCapture (16 MB — the same cap builder jobs use).
 	MaxCapturedWorkspaceBytes = 16 * 1024 * 1024
@@ -45,8 +47,14 @@ const (
 
 // cleanRoomSem is deliberately per-replica, not a Redis semaphore: it protects
 // THIS node's container runtime/CPU from concurrent clean-room sandboxes, so
-// N replicas each running CleanRoomMaxConcurrent is the intended capacity.
-var cleanRoomSem = make(chan struct{}, CleanRoomMaxConcurrent)
+// N replicas each running the per-process cap is the intended capacity.
+var cleanRoomSem = make(chan struct{}, DefaultCleanRoomMaxConcurrent)
+
+// SetCleanRoomMaxConcurrent sizes the per-process clean-room cap from
+// LABS_CLEANROOM_MAX_CONCURRENT. Call once at startup, before anything grades.
+func SetCleanRoomMaxConcurrent(n int) {
+	cleanRoomSem = make(chan struct{}, max(n, 1))
+}
 
 // GradeCheck is one named check in grade.sh's JSON output. Message is
 // author-written text only — never test source or expected values.

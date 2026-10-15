@@ -7,6 +7,10 @@
 // lab.recipe_build (render: queued -> rendering -> verifying) -> job
 // lab.recipe_verify (verifying -> verified | failed) -> publish (one
 // transaction, only for a verified build whose recipe hash still matches).
+//
+// Platform recipes (lab_recipes.is_platform, from course content) are NOT
+// built here: CI verifies them offline into a labset and each environment
+// imports it (labset.go, import.go). There is no in-app fallback.
 package labbuild
 
 import (
@@ -28,20 +32,17 @@ const (
 
 // Job handler names.
 const (
-	HandlerRecipeBuild     = "lab.recipe_build"
-	HandlerRecipeVerify    = "lab.recipe_verify"
-	HandlerPlatformRecipes = "lab.platform_recipes_sync"
-	HandlerBuildGC         = "lab.build_gc"
+	HandlerRecipeBuild  = "lab.recipe_build"
+	HandlerRecipeVerify = "lab.recipe_verify"
+	HandlerBuildGC      = "lab.build_gc"
 )
 
 // Snapshot is lab_builds.spec_snapshot: the recipe as it was when the build was
-// requested (a build freezes its inputs), plus what to do once verified.
+// requested (a build freezes its inputs).
 type Snapshot struct {
 	LabKind string        `json:"lab_kind"`
 	OrgID   string        `json:"org_id"`
 	Spec    labblock.Spec `json:"spec"`
-	// AutoPublish (platform recipes) publishes the build as soon as it verifies.
-	AutoPublish bool `json:"auto_publish,omitempty"`
 }
 
 // Build is a lab_builds row.
@@ -65,6 +66,11 @@ type Build struct {
 type Report struct {
 	// Error is set when the build failed before/outside verification.
 	Error string `json:"error,omitempty"`
+	// Infra marks a failure caused by the platform (no sandbox capacity, a
+	// job that died or vanished, the pipeline deadline), not by the recipe.
+	// Shown to the author: building again can succeed, while a content
+	// failure needs the recipe or its blocks to change.
+	Infra bool `json:"infra,omitempty"`
 	// Issues are the composition validator's findings if validation failed.
 	Issues []labblock.Issue `json:"issues,omitempty"`
 	// Analysis summary.
@@ -86,10 +92,10 @@ type VariantReport struct {
 	BriefFilled bool        `json:"brief_filled"`
 	CaptureNote string      `json:"capture_note,omitempty"`
 	// Pending lists matrix runs not yet executed because no verification slot
-	// was free; the verify job re-enqueues itself to finish them.
+	// was free; the verify job defers itself (same job row) to finish them.
 	Pending []string `json:"pending_runs,omitempty"`
 	// Captured is the real app output captured from the broken run, kept so a
-	// re-enqueued verify job can still fill the ticket.
+	// deferred verify job can still fill the ticket.
 	Captured map[string]string `json:"captured,omitempty"`
 }
 

@@ -12,7 +12,9 @@ RUN go mod download
 # Copy source and compile
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -trimpath -ldflags="-s -w" -o /bin/server ./cmd/server
+    go build -trimpath -ldflags="-s -w" -o /bin/server ./cmd/server \
+    && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -trimpath -ldflags="-s -w" -o /bin/coursegen ./cmd/coursegen
 
 # ─── Stage 2: Minimal runtime ────────────────────────────────────────────────
 FROM alpine:3.19
@@ -28,6 +30,10 @@ RUN apk add --no-cache ca-certificates tzdata docker-cli poppler-utils
 WORKDIR /app
 
 COPY --from=builder /bin/server /app/server
+# Imports CI-verified platform labs with the pod's own DB/MinIO credentials:
+# `kubectl exec -i deploy/backend -- /app/coursegen blocks import ... -`
+# (scripts/import-lab-artifacts.sh).
+COPY --from=builder /bin/coursegen /app/coursegen
 
 # Run unprivileged (audit H-10). The docker CLI reaches the daemon over TCP
 # via DOCKER_HOST (socket proxy), so no docker group membership is needed.

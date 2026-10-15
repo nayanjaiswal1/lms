@@ -13,7 +13,7 @@ import (
 // "Platform course content"): the lab_definitions row UNPUBLISHED (lab type,
 // image and setup script come from the lab kind) and a platform lab_recipes row
 // pinned to the recipe's blocks. It emits no tasks, task version or publish:
-// lab.platform_recipes_sync builds and verifies the recipe and publishes the lab
+// CI verifies the recipe (a labset) and `coursegen blocks import` publishes the lab
 // through the same publish path instructors use, which creates the tasks and
 // the task version from the kind. The recipe row is an idempotent upsert; its
 // revision only moves when the spec actually changes.

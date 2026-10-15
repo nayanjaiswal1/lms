@@ -269,6 +269,14 @@ same value. See `docs/local-k3s-dev.md` for the local-dev default (a
 `registry:2` container at `localhost:5000`, with k3s's containerd configured
 to trust it as plain HTTP).
 
+### Clean-room and validation sandbox sizing (backend)
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `LABS_CLEANROOM_MAX_CONCURRENT` | `4` | Clean-room grader sandboxes per backend process (student Checks + build verification). Use `2` on a 4-CPU node. Keep `LAB_VERIFY_PARALLEL_PER_ORG` below it. |
+| `LABS_VALIDATION_CPU_REQUEST_PCT` | `25` | Kubernetes only: validation/clean-room Pod CPU request as % of its limit (1 CPU -> 250m). |
+| `LABS_VALIDATION_MEMORY_REQUEST_PCT` | `50` | Kubernetes only: same for memory (512Mi -> 256Mi). Below 100 these Pods are Burstable QoS and are evicted first under node memory pressure; session Pods keep requests == limits. |
+
 ## LLM Provider
 
 Optional — leave `LLM_PROVIDER=disabled` to skip AI features entirely (course

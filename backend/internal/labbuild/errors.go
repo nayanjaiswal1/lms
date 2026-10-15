@@ -19,6 +19,9 @@ var (
 	ErrBadPlacement   = errors.New("labbuild: invalid course placement")
 	ErrVariantUnknown = errors.New("labbuild: unknown variant")
 	ErrNoWorker       = errors.New("labbuild: could not queue the build")
+	// ErrPlatformRecipe: platform recipes are verified in CI and imported on
+	// deploy (ImportLabset), never built in the app.
+	ErrPlatformRecipe = errors.New("labbuild: platform labs are built and verified in CI, not in the app")
 )
 
 // Machine-readable codes in the API error envelope.
@@ -31,6 +34,7 @@ const (
 	CodeBadPlacement   = "invalid_placement"
 	CodeVariantUnknown = "variant_unknown"
 	CodeQueueFailed    = "build_queue_failed"
+	CodePlatformRecipe = "platform_recipe"
 )
 
 var errSpecs = map[error]httputil.ErrSpec{
@@ -42,4 +46,5 @@ var errSpecs = map[error]httputil.ErrSpec{
 	ErrBadPlacement:   {Status: http.StatusUnprocessableEntity, Code: CodeBadPlacement},
 	ErrVariantUnknown: {Status: http.StatusUnprocessableEntity, Code: CodeVariantUnknown},
 	ErrNoWorker:       {Status: http.StatusServiceUnavailable, Code: CodeQueueFailed},
+	ErrPlatformRecipe: {Status: http.StatusConflict, Code: CodePlatformRecipe},
 }
