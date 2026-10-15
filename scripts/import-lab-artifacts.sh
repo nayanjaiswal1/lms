@@ -7,6 +7,8 @@
 # Usage:
 #   bash scripts/import-lab-artifacts.sh --target k8s   DIR   # Jenkins deploy: kubectl exec into deploy/backend
 #   bash scripts/import-lab-artifacts.sh --target local DIR   # dev box: go run with backend/.env
+#   ... [--assemble-only]   with --from-cache: assemble + validate DIR, then stop before importing
+#                     (Jenkins "Check labs" gate, runs before Deploy)
 #   ... [--partial]   import only DIR's recipes (authoring one recipe; never on a deploy)
 #   ... [--from-cache CACHE]   first assemble DIR (new/empty) from a verify cache
 #                     with `coursegen blocks verify --artifact DIR --cached-only`
@@ -37,11 +39,12 @@ NAMESPACE="${NAMESPACE:-mindforge}"
 die() { echo "import-lab-artifacts: $*" >&2; exit 1; }
 usage() { die "usage: $0 --target k8s|local [--partial] [--from-cache CACHE] LABSET_DIR"; }
 
-target="" partial="" dir="" from_cache=""
+target="" partial="" dir="" from_cache="" assemble_only=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --target) target="${2:-}"; shift 2 ;;
     --partial) partial="--partial"; shift ;;
+    --assemble-only) assemble_only=1; shift ;;
     --from-cache) from_cache="${2:-}"; shift 2 ;;
     -*) usage ;;
     *) [[ -z "$dir" ]] || usage; dir="$1"; shift ;;
@@ -49,6 +52,7 @@ while [[ $# -gt 0 ]]; do
 done
 [[ "$target" == "k8s" || "$target" == "local" ]] || usage
 [[ -n "$dir" ]] || usage
+[[ -z "$assemble_only" || -n "$from_cache" ]] || die "--assemble-only needs --from-cache"
 [[ -z "$from_cache" || -d "$from_cache" ]] || die "--from-cache $from_cache is not a directory"
 command -v docker >/dev/null || die "docker is required to read the lab image's runtime stamp"
 
@@ -74,6 +78,10 @@ if [[ -n "$from_cache" ]]; then
 fi
 [[ -f "$dir/manifest.json" ]] || die "$dir is not a labset (no manifest.json)"
 dir="$(cd "$dir" && pwd)"
+if [[ -n "$assemble_only" ]]; then
+  echo "import-lab-artifacts: $dir complete for lab runtime ${runtime_id:0:12} (assemble-only, nothing imported)"
+  exit 0
+fi
 echo "import-lab-artifacts: $dir -> $target (lab runtime ${runtime_id:0:12} from $LAB_IMAGE)"
 
 if [[ "$target" == "k8s" ]]; then

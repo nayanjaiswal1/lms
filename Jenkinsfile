@@ -23,7 +23,9 @@ def registrySh(String cmd) {
 
 pipeline {
   agent { label 'built-in' } // must run on the k3s host (docker, kubectl, helm, rsync), not a container agent
-  options { disableConcurrentBuilds(); timeout(time: 90, unit: 'MINUTES'); timestamps(); buildDiscarder(logRotator(numToKeepStr: '20')) }
+  // 180 min: the first run after the lab-debug image changes verifies every platform recipe in 'Lab artifacts';
+  // later runs only verify recipes whose hash changed (cache hits are free).
+  options { disableConcurrentBuilds(); timeout(time: 180, unit: 'MINUTES'); timestamps(); buildDiscarder(logRotator(numToKeepStr: '20')) }
   triggers { pollSCM('H/2 * * * *') } // LAN-only host: no GitHub webhook can reach it
   environment { KUBECONFIG = "${JENKINS_HOME}/.kube/config" }
   parameters {
@@ -131,6 +133,24 @@ pipeline {
         }
       }
     }
+    // Gate BEFORE Deploy: merge the new verify-cache entries into the built-in agent's cache and prove every
+    // platform recipe has a verified artifact for this environment's lab runtime. A missing or stale artifact
+    // fails here, so a backend is never rolled out while its labs cannot be published (no in-app fallback).
+    stage('Check labs') {
+      when { expression { params.DEPLOY_TARGET == 'local' } }
+      steps {
+        unstash 'lab-cache-new'
+        sh '''
+          set -eu
+          cache="$JENKINS_HOME/mindforge-lab-verify-cache"
+          mkdir -p "$cache"
+          if [ -d lab-cache-new ]; then cp -a lab-cache-new/. "$cache/"; fi
+          rm -rf labset lab-cache-new
+          trap 'rm -rf labset' EXIT
+          bash scripts/import-lab-artifacts.sh --target k8s --from-cache "$cache" --assemble-only labset
+        '''
+      }
+    }
     stage('Deploy') {
       steps {
         sh '''
@@ -142,21 +162,16 @@ pipeline {
         '''
       }
     }
-    // Publish the CI-verified platform labs into the deployed backend. The built-in agent keeps
-    // its own cache; the import assembles from it for the environment's lab runtime and fails
-    // loudly if any platform recipe has no verified artifact (there is no in-app fallback).
+    // Publish the CI-verified platform labs into the deployed backend (assembled again from the cache that
+    // 'Check labs' already proved complete, so this only fails on a runtime problem such as the pod not being ready).
     stage('Import labs') {
       when { expression { params.DEPLOY_TARGET == 'local' } }
       steps {
-        unstash 'lab-cache-new'
         sh '''
           set -eu
-          cache="$JENKINS_HOME/mindforge-lab-verify-cache"
-          mkdir -p "$cache"
-          if [ -d lab-cache-new ]; then cp -a lab-cache-new/. "$cache/"; fi
-          rm -rf labset lab-cache-new
+          rm -rf labset
           trap 'rm -rf labset' EXIT
-          bash scripts/import-lab-artifacts.sh --target k8s --from-cache "$cache" labset
+          bash scripts/import-lab-artifacts.sh --target k8s --from-cache "$JENKINS_HOME/mindforge-lab-verify-cache" labset
         '''
       }
     }

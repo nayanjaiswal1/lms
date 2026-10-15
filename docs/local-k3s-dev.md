@@ -188,7 +188,7 @@ On the k3s machine (Debian/Ubuntu, k3s already installed via `scripts/setup-k3s-
 sudo SECRETS_FILE=~/secrets.env [GIT_TOKEN=<pat if repo is private>] bash scripts/setup-jenkins.sh
 ```
 
-Jenkins runs at `http://<host>:8080` (user `admin`, password in `/var/lib/jenkins/admin-password.txt`). The first build starts automatically. Stage `Lab artifacts` verifies platform debug labs on `BUILD_AGENT` and stage `Import labs` imports them into the deployed backend after `Deploy`; a failure in either fails the build (no in-app fallback; docs/debug-labs.md "Platform labs: CI artifacts"). To deploy to a different machine, run the job with `DEPLOY_TARGET=user@host`; to make another machine its own deploy host, run the command above there.
+Jenkins runs at `http://<host>:8080` (user `admin`, password in `/var/lib/jenkins/admin-password.txt`). The first build starts automatically. Stage `Lab artifacts` verifies platform debug labs on `BUILD_AGENT` and stage `Check labs` proves every platform recipe has a verified artifact before `Deploy`, and stage `Import labs` imports them into the deployed backend after it; a failure in any of them fails the build (no in-app fallback; docs/debug-labs.md "Platform labs: CI artifacts"). To deploy to a different machine, run the job with `DEPLOY_TARGET=user@host`; to make another machine its own deploy host, run the command above there.
 
 ## Hot-reload dev on a remote box (`make dev-k3s`)
 
