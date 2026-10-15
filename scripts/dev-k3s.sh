@@ -6,6 +6,8 @@
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export PATH="$HOME/.bun/bin:$PATH"
+# k3s kubectl defaults to /etc/rancher/k3s/k3s.yaml (root-only), then falls back to localhost:8080.
+[[ -z "${KUBECONFIG:-}" && -f "$HOME/.kube/config" ]] && export KUBECONFIG="$HOME/.kube/config"
 
 command -v bun >/dev/null || { echo "bun not found — run scripts/setup-dev-box.sh" >&2; exit 1; }
 

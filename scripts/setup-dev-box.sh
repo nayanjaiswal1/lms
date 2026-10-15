@@ -26,6 +26,8 @@ if ! kubectl get ns mindforge >/dev/null 2>&1; then
   sudo chown "$USER" ~/.kube/config
   chmod 600 ~/.kube/config
 fi
+export KUBECONFIG="$HOME/.kube/config"
+grep -q KUBECONFIG ~/.bashrc || echo 'export KUBECONFIG="$HOME/.kube/config"' >> ~/.bashrc
 kubectl get pods -n mindforge >/dev/null
 
 tailscale status >/dev/null 2>&1 || sudo tailscale up
