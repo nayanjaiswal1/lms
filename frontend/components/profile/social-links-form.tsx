@@ -1,7 +1,8 @@
-import { ExternalLink, Globe, Link2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Code2, Globe, Link2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { SettingsSection } from "@/components/profile/settings-section"
+import { FormSaveFooter } from "@/components/profile/form-save-footer"
 import type { SocialLinks } from "@/lib/profile/types"
 
 interface Props {
@@ -32,14 +33,16 @@ function SocialField({
       <div className="relative flex items-center">
         <span
           aria-hidden="true"
-          className="absolute left-3 flex items-center text-muted-foreground pointer-events-none"
+          className="pointer-events-none absolute left-3 flex items-center text-muted-foreground"
         >
           {icon}
         </span>
         <Input
-          className="pl-9 pr-3 py-2.5"
+          autoComplete="url"
+          className="pl-9"
           defaultValue={defaultValue ?? ""}
           id={id}
+          inputMode="url"
           name={name}
           placeholder={placeholder}
           type="url"
@@ -51,27 +54,31 @@ function SocialField({
 
 export function SocialLinksForm({ socialLinks, updateAction }: Props) {
   return (
-    <section aria-label="Social links" className="card-base p-6">
-      <h2 className="section-title mb-6">Social Links</h2>
-
+    <SettingsSection
+      description="Shown on your public profile. Paste full URLs, starting with https://."
+      id="social-links"
+      title="Social links"
+    >
       <form action={updateAction} className="form-stack">
-        <SocialField
-          defaultValue={socialLinks?.linkedin}
-          icon={<Link2 size={16} />}
-          id="linkedin-url"
-          label="LinkedIn"
-          name="linkedin"
-          placeholder="https://linkedin.com/in/username"
-        />
+        <div className="form-row">
+          <SocialField
+            defaultValue={socialLinks?.linkedin}
+            icon={<Link2 size={16} />}
+            id="linkedin-url"
+            label="LinkedIn"
+            name="linkedin"
+            placeholder="https://linkedin.com/in/username"
+          />
 
-        <SocialField
-          defaultValue={socialLinks?.github}
-          icon={<ExternalLink size={16} />}
-          id="github-url"
-          label="GitHub"
-          name="github"
-          placeholder="https://github.com/username"
-        />
+          <SocialField
+            defaultValue={socialLinks?.github}
+            icon={<Code2 size={16} />}
+            id="github-url"
+            label="GitHub"
+            name="github"
+            placeholder="https://github.com/username"
+          />
+        </div>
 
         <SocialField
           defaultValue={socialLinks?.portfolio}
@@ -82,12 +89,8 @@ export function SocialLinksForm({ socialLinks, updateAction }: Props) {
           placeholder="https://yourwebsite.com"
         />
 
-        <div className="pt-2">
-          <Button className="px-5 py-2.5" type="submit">
-            Save Social Links
-          </Button>
-        </div>
+        <FormSaveFooter hint="Clear a field to remove that link." label="Save links" />
       </form>
-    </section>
+    </SettingsSection>
   )
 }

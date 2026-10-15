@@ -1,9 +1,9 @@
 "use client"
 
-import { useActionState } from "react"
+import { useActionState, useState } from "react"
 import { FileText, Sparkles, Upload, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
+import { SettingsSection } from "@/components/profile/settings-section"
 import type { ResumeExtract } from "@/lib/profile/types"
 
 interface ParseState {
@@ -24,60 +24,56 @@ interface Props {
 export function ResumeUpload({ parseAction, applyAction }: Props) {
   const [parseState, parseDispatch, parsePending] = useActionState(parseAction, {})
   const [applyState, applyDispatch, applyPending] = useActionState(applyAction, {})
+  const [fileName, setFileName] = useState<string | null>(null)
 
   const extracted = parseState.data
 
   return (
-    <section aria-labelledby="resume-heading" className="card-base p-6 space-y-5">
-      <div className="flex items-center gap-2">
-        <h2 className="subsection-title text-foreground" id="resume-heading">
-          Resume Import
-        </h2>
-        <span className="ai-badge">AI</span>
-      </div>
-
-      <p className="text-sm text-muted-foreground">
-        Upload your PDF resume and Claude will extract your name, bio, role, skills, and social
-        links automatically.
-      </p>
-
+    <SettingsSection
+      description="Upload a PDF resume and AI fills in your name, bio, role, skills and links. You review everything before it's applied."
+      id="resume"
+      title={<>Import from resume <span className="ai-badge">AI</span></>}
+    >
       <form action={parseDispatch} className="space-y-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="resume-file">Resume (PDF, max 5 MB)</Label>
-          <label
-            className="upload-dropzone w-full min-h-[120px] cursor-pointer hover:border-primary"
-            htmlFor="resume-file"
-          >
+        <label
+          className="upload-dropzone w-full cursor-pointer has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
+          htmlFor="resume-file"
+        >
+          {fileName ? (
+            <FileText aria-hidden className="h-6 w-6 text-foreground" />
+          ) : (
             <Upload aria-hidden className="h-6 w-6 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Click to choose a PDF file</span>
-            <input
-              accept="application/pdf"
-              className="sr-only"
-              id="resume-file"
-              name="resume"
-              type="file"
-            />
-          </label>
-        </div>
+          )}
+          <span className="max-w-full break-all text-sm font-medium text-foreground">
+            {fileName ?? "Choose a PDF file"}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {fileName ? "Click to pick a different file" : "PDF only, up to 5 MB"}
+          </span>
+          <input
+            accept="application/pdf"
+            className="sr-only"
+            id="resume-file"
+            name="resume"
+            type="file"
+            onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
+          />
+        </label>
 
         {parseState.error && (
-          <p className="text-sm text-destructive">{parseState.error}</p>
+          <p className="text-sm text-destructive" role="alert">{parseState.error}</p>
         )}
 
-        <Button className="px-5 py-2.5" disabled={parsePending} type="submit">
-          {parsePending ? (
-            "Parsing…"
-          ) : (
-            <>
-              <Sparkles aria-hidden className="h-4 w-4 mr-2" />
-              Parse Resume
-            </>
-          )}
-        </Button>
+        <div className="flex justify-end">
+          <Button aria-busy={parsePending} className="w-full sm:w-auto" disabled={parsePending} size="lg" type="submit" variant="outline">
+            <Sparkles aria-hidden className="h-4 w-4 text-ai" />
+            {parsePending ? "Reading resume…" : "Extract details"}
+          </Button>
+        </div>
       </form>
 
       {extracted && (
-        <div className="ai-surface rounded-lg p-4 space-y-4">
+        <div className="ai-surface mt-6 space-y-4 rounded-lg p-4" aria-live="polite">
           <div className="flex items-center gap-2">
             <FileText aria-hidden className="h-4 w-4 text-ai" />
             <p className="text-sm font-medium text-foreground">Extracted from your resume</p>
@@ -121,35 +117,36 @@ export function ResumeUpload({ parseAction, applyAction }: Props) {
               value={JSON.stringify(extracted)}
             />
             {applyState.error && (
-              <p className="text-sm text-destructive mb-2">{applyState.error}</p>
+              <p className="mb-2 text-sm text-destructive" role="alert">{applyState.error}</p>
             )}
             {applyState.success ? (
-              <div className="flex items-center gap-1.5 text-sm text-foreground">
+              <output className="flex items-center gap-1.5 text-sm text-foreground">
                 <CheckCircle2 aria-hidden className="h-4 w-4 text-primary" />
                 Applied to your profile.
-              </div>
+              </output>
             ) : (
               <Button
-                className="px-5 py-2.5"
+                aria-busy={applyPending}
+                className="w-full sm:w-auto"
                 disabled={applyPending}
+                size="lg"
                 type="submit"
-                variant="outline"
               >
-                {applyPending ? "Applying…" : "Apply to Profile"}
+                {applyPending ? "Applying…" : "Apply to profile"}
               </Button>
             )}
           </form>
         </div>
       )}
-    </section>
+    </SettingsSection>
   )
 }
 
 function ExtractRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex gap-2">
-      <dt className="w-24 shrink-0 text-muted-foreground">{label}</dt>
-      <dd className="text-foreground">{value}</dd>
+    <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-2">
+      <dt className="shrink-0 text-muted-foreground sm:w-24">{label}</dt>
+      <dd className="min-w-0 text-foreground">{value}</dd>
     </div>
   )
 }

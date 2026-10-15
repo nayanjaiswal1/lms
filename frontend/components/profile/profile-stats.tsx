@@ -10,6 +10,7 @@ import {
   Map,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { SettingsSection } from "@/components/profile/settings-section"
 import { cn } from "@/lib/utils"
 import type { Stats } from "@/lib/profile/types"
 
@@ -89,7 +90,7 @@ const STAT_CONFIGS: StatConfig[] = [
   },
 ]
 
-function StatCard({
+function StatCell({
   config,
   stats,
 }: {
@@ -98,59 +99,51 @@ function StatCard({
 }) {
   const Icon      = config.icon
   const soon      = config.comingSoon(stats)
-  const displayed = config.value(stats)
   const isStreak  = config.label === "Current Streak"
 
   return (
-    <div
-      className={cn(
-        "card-base p-4 flex flex-col gap-2",
-        soon && "opacity-50"
-      )}
-    >
-      <div className="flex-between">
+    <div className="flex flex-col gap-1 bg-card p-4">
+      <dt className="flex items-center gap-2 text-xs text-muted-foreground">
         <Icon
           aria-hidden="true"
-          className={cn(isStreak ? "text-primary" : "text-muted-foreground")}
-          size={18}
+          className={cn("shrink-0", isStreak && "text-primary")}
+          size={14}
         />
+        <span className="min-w-0 truncate">{config.label}</span>
+      </dt>
+      <dd
+        className={cn(
+          "flex flex-wrap items-center gap-x-2 gap-y-1 text-2xl font-bold tabular-nums",
+          isStreak ? "text-primary" : soon ? "text-muted-foreground" : "text-foreground"
+        )}
+      >
+        {config.value(stats)}
         {soon && (
-          <Badge className="text-xs" variant="secondary">
+          <Badge className="text-xs font-medium" variant="secondary">
             Coming soon
           </Badge>
         )}
-      </div>
-      <p
-        className={cn(
-          "text-2xl font-bold",
-          isStreak && "text-primary"
-        )}
-      >
-        {displayed}
-      </p>
-      <p className="text-xs text-muted-foreground">{config.label}</p>
+      </dd>
     </div>
   )
 }
 
 export function ProfileStats({ stats }: Props) {
-  if (!stats) {
-    return (
-      <section aria-label="Learning stats" className="card-base p-6">
-        <h2 className="section-title mb-4">Stats</h2>
-        <p className="text-sm text-muted-foreground">No stats available yet.</p>
-      </section>
-    )
-  }
-
   return (
-    <section aria-label="Learning stats" className="card-base p-6">
-      <h2 className="section-title text-lg mb-4">Stats</h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {STAT_CONFIGS.map((cfg) => (
-          <StatCard config={cfg} key={cfg.label} stats={stats} />
-        ))}
-      </div>
-    </section>
+    <SettingsSection
+      description="Lifetime totals across courses, tests and practice."
+      id="profile-stats"
+      title="Stats"
+    >
+      {stats ? (
+        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
+          {STAT_CONFIGS.map((cfg) => (
+            <StatCell config={cfg} key={cfg.label} stats={stats} />
+          ))}
+        </dl>
+      ) : (
+        <p className="text-sm text-muted-foreground">No stats yet — they appear after your first lesson or test.</p>
+      )}
+    </SettingsSection>
   )
 }

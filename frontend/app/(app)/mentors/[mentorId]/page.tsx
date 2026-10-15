@@ -1,11 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { MentorHero } from "@/components/mentoring/mentor-hero";
 import { ReportMentorDialog } from "@/components/mentoring/report-mentor-dialog";
 import { RequestMentorChangeDialog } from "@/components/mentoring/request-mentor-change-dialog";
-import { MessageMentorButton } from "@/components/mentoring/message-mentor-button";
 import { MentorInsightsPanel } from "@/components/mentoring/mentor-insights-panel";
 import { MentorMetadataCard } from "@/components/mentoring/mentor-metadata-card";
 import { MentorFeedbackSection } from "@/components/mentoring/mentor-feedback-section";
@@ -67,89 +64,69 @@ export default async function MentorProfilePage({ params }: Props) {
     <main className="page-container">
       <Breadcrumb items={[{ label: "Mentors", href: ROUTES.MENTORS }, { label: mentor.name }]} />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        <div className="flex flex-col gap-6 lg:col-span-8">
-          <MentorHero
-            assignedCourse={assignedCourse}
-            bookingAction={
-              <AccessGate feature={FEATURES.SESSION_BOOKING} mode="hide">
-                <BookSessionDialog
-                  balance={bookingConfig?.balance ?? 0}
-                  defaultDurationMinutes={bookingConfig?.config.default_duration_minutes ?? 30}
-                  mentorId={mentor.user_id}
-                  mentorName={mentor.name}
-                  requireCredits={bookingConfig?.config.require_credits ?? false}
-                  triggerLabel="Book a session"
-                />
-              </AccessGate>
-            }
-            canReport={hasMentorshipHistory}
-            isYourMentor={Boolean(assignedTicket)}
-            mentor={mentor}
-            ticketId={assignedTicket?.id}
-          />
+      <div className="flex flex-col gap-6">
+        {/* Hero owns every primary action (book, message, ticket chat) so
+            they're the first thing on screen at every width. */}
+        <MentorHero
+          assignedCourse={assignedCourse}
+          bookingAction={
+            <AccessGate feature={FEATURES.SESSION_BOOKING} mode="hide">
+              <BookSessionDialog
+                balance={bookingConfig?.balance ?? 0}
+                className="min-h-11"
+                defaultDurationMinutes={bookingConfig?.config.default_duration_minutes ?? 30}
+                mentorId={mentor.user_id}
+                mentorName={mentor.name}
+                requireCredits={bookingConfig?.config.require_credits ?? false}
+                triggerLabel="Book a session"
+              />
+            </AccessGate>
+          }
+          canReport={hasMentorshipHistory}
+          isYourMentor={Boolean(assignedTicket)}
+          mentor={mentor}
+          ticketId={assignedTicket?.id}
+        />
 
-          {mentor.bio && (
-            <section className="card-raised">
-              <h2 className="section-title mb-3">Professional biography</h2>
-              <p className="prose-content whitespace-pre-line">{mentor.bio}</p>
-            </section>
-          )}
+        {/* Aside comes first in the DOM so stats follow the hero on mobile;
+            on lg it's placed into the right column and pinned while scrolling. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          <aside className="flex flex-col gap-6 lg:sticky lg:top-20 lg:col-span-4 lg:col-start-9 lg:row-start-1 lg:self-start">
+            <MentorInsightsPanel
+              avgRating={mentor.avg_rating}
+              avgResponseMinutes={mentor.avg_response_minutes}
+              menteeCount={mentor.mentee_count}
+              percentileRank={mentor.percentile_rank}
+              ratingCount={mentor.rating_count}
+            />
 
-          {mentor.skills.length > 0 && (
-            <section className="card-raised">
-              <h2 className="section-title mb-4">Core competencies</h2>
-              <div className="flex flex-wrap gap-2">
-                {mentor.skills.map((skill) => (
-                  <Badge className="badge-info rounded-pill px-3 py-1 text-sm" key={skill} variant="outline">
-                    {skill}
-                  </Badge>
-                ))}
-              </div>
-            </section>
-          )}
+            <MentorMetadataCard
+              joinedAt={mentor.joined_at}
+              lastActiveAt={mentor.last_active_at}
+              totalMentorshipHours={mentor.total_mentorship_hours}
+            />
+          </aside>
 
-          <MentorFeedbackSection
-            avgRating={mentor.avg_rating}
-            canReview={hasMentorshipHistory}
-            initialComment={myFeedback?.comment ?? null}
-            initialRating={myFeedback?.rating ?? null}
-            mentorId={mentor.user_id}
-            ratingCount={mentor.rating_count}
-          />
-
-          <MentorReviewsList reviews={reviews} />
-        </div>
-
-        <aside className="flex flex-col gap-6 lg:col-span-4">
-          <MentorInsightsPanel
-            avgRating={mentor.avg_rating}
-            avgResponseMinutes={mentor.avg_response_minutes}
-            menteeCount={mentor.mentee_count}
-            percentileRank={mentor.percentile_rank}
-            ratingCount={mentor.rating_count}
-          />
-
-          <MentorMetadataCard
-            joinedAt={mentor.joined_at}
-            lastActiveAt={mentor.last_active_at}
-            totalMentorshipHours={mentor.total_mentorship_hours}
-          />
-
-          {/* Booking lives in the hero's primary CTA row — a second copy here
-              was two entry points to the same dialog on one page. */}
-          <div className="flex flex-col gap-2">
-            <MessageMentorButton className="w-full" mentorId={mentor.user_id} />
-            {assignedTicket && (
-              <Link
-                className="text-center text-sm text-primary hover:underline"
-                href={ROUTES.mentoringTicketChat(assignedTicket.id)}
-              >
-                Or continue your ticket chat
-              </Link>
+          <div className="flex min-w-0 flex-col gap-6 lg:col-span-8 lg:col-start-1 lg:row-start-1">
+            {mentor.bio && (
+              <section className="card-raised">
+                <h2 className="subsection-title mb-3">About</h2>
+                <p className="prose-content whitespace-pre-line">{mentor.bio}</p>
+              </section>
             )}
+
+            <MentorFeedbackSection
+              avgRating={mentor.avg_rating}
+              canReview={hasMentorshipHistory}
+              initialComment={myFeedback?.comment ?? null}
+              initialRating={myFeedback?.rating ?? null}
+              mentorId={mentor.user_id}
+              ratingCount={mentor.rating_count}
+            />
+
+            <MentorReviewsList reviews={reviews} />
           </div>
-        </aside>
+        </div>
       </div>
 
       {hasMentorshipHistory && (

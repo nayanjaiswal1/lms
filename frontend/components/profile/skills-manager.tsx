@@ -1,11 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { X } from "lucide-react"
+import { Plus, Sparkles, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
 import {
   Select,
   SelectContent,
@@ -13,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { SettingsSection } from "@/components/profile/settings-section"
 import { cn } from "@/lib/utils"
 import { SUGGESTED_SKILLS } from "@/lib/constants"
 import type { Skill } from "@/lib/profile/types"
@@ -36,13 +36,7 @@ const LEVEL_LABELS: Record<Skill["skill_level"], string> = {
   advanced:     "Advanced",
 }
 
-function AddSkillButton() {
-  return (
-    <Button size="default" type="submit">
-      Add Skill
-    </Button>
-  )
-}
+const LEVELS = Object.keys(LEVEL_LABELS) as Skill["skill_level"][]
 
 export function SkillsManager({ skills, addAction, removeAction, readonly = false }: Props) {
   const [skillName,  setSkillName]  = useState("")
@@ -57,11 +51,18 @@ export function SkillsManager({ skills, addAction, removeAction, readonly = fals
   }
 
   return (
-    <section aria-label="Skills manager" className="card-base p-6">
-      <h2 className="section-title mb-4">Skills</h2>
-
+    <SettingsSection
+      action={
+        <span className="text-sm text-muted-foreground">
+          {skills.length} {skills.length === 1 ? "skill" : "skills"}
+        </span>
+      }
+      description="Add at least three to complete your profile. The dot shows your level."
+      id="skills"
+      title="Skills"
+    >
       {!readonly && (
-        <form action={handleAdd} className="mb-6">
+        <form action={handleAdd} className="mb-6 rounded-lg bg-muted p-4">
           <datalist id="skill-suggestions">
             {SUGGESTED_SKILLS.map((s) => (
               <option key={s} value={s} />
@@ -69,12 +70,12 @@ export function SkillsManager({ skills, addAction, removeAction, readonly = fals
           </datalist>
 
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
-            <div className="flex-1 space-y-1">
+            <div className="min-w-0 flex-1 space-y-1.5">
               <Label htmlFor="skill-name-input">Skill name</Label>
               <Input
                 required
                 autoComplete="off"
-                className="px-3 py-2.5"
+                className="bg-background"
                 id="skill-name-input"
                 list="skill-suggestions"
                 name="skill_name"
@@ -84,67 +85,86 @@ export function SkillsManager({ skills, addAction, removeAction, readonly = fals
               />
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <Label htmlFor="skill-level-trigger">Level</Label>
               <input name="skill_level" type="hidden" value={skillLevel} />
               <Select
                 value={skillLevel}
                 onValueChange={(v) => setSkillLevel(v as Skill["skill_level"])}
               >
-                <SelectTrigger className="w-full md:w-44" id="skill-level-trigger">
+                <SelectTrigger className="w-full bg-background md:w-44" id="skill-level-trigger">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="beginner">Beginner</SelectItem>
-                  <SelectItem value="intermediate">Intermediate</SelectItem>
-                  <SelectItem value="advanced">Advanced</SelectItem>
+                  {LEVELS.map((level) => (
+                    <SelectItem key={level} value={level}>
+                      {LEVEL_LABELS[level]}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
-            <AddSkillButton />
+            <Button className="w-full md:w-auto" size="lg" type="submit">
+              <Plus aria-hidden="true" className="h-4 w-4" />
+              Add skill
+            </Button>
           </div>
         </form>
       )}
 
       {skills.length === 0 ? (
-        <p className="text-sm text-muted-foreground empty-state py-6">
-          No skills added yet. Add your first skill above.
-        </p>
+        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border px-4 py-8 text-center">
+          <Sparkles aria-hidden="true" className="h-6 w-6 text-muted-foreground" />
+          <p className="text-sm font-medium text-foreground">No skills yet</p>
+          <p className="max-w-xs text-sm text-muted-foreground">
+            {readonly ? "Nothing listed here yet." : "Start typing above — suggestions appear as you go."}
+          </p>
+        </div>
       ) : (
-        <div className="flex flex-wrap gap-2">
-          {skills.map((skill) => (
-            <div className="flex items-center gap-1" key={skill.id}>
-              <Badge className="gap-1.5 pr-1 pl-2.5" variant="secondary">
+        <>
+          <ul className="flex flex-wrap gap-2">
+            {skills.map((skill) => (
+              <li
+                className={cn(
+                  "inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-card pl-3 text-sm text-foreground lg:min-h-9",
+                  readonly && "pr-3"
+                )}
+                key={skill.id}
+              >
                 <span
-                  aria-label={LEVEL_LABELS[skill.skill_level]}
-                  className={cn(
-                    "w-2 h-2 rounded-full shrink-0",
-                    LEVEL_DOT[skill.skill_level]
-                  )}
+                  aria-hidden="true"
+                  className={cn("h-2 w-2 shrink-0 rounded-full", LEVEL_DOT[skill.skill_level])}
                 />
-                <span>{skill.skill_name}</span>
+                <span className="min-w-0 break-all">{skill.skill_name}</span>
+                <span className="sr-only">({LEVEL_LABELS[skill.skill_level]})</span>
 
                 {!readonly && (
                   <form action={() => { void removeAction(skill.id) }} className="contents">
-                    <Button aria-label={`Remove ${skill.skill_name}`}
-                      className={cn(
-                        "ml-0.5 rounded-sm p-0.5",
-                        "hover:bg-muted transition-colors duration-fast",
-                        "touch-target"
-                      )}
+                    <Button
+                      aria-label={`Remove ${skill.skill_name}`}
+                      className="touch-target-dense rounded-md text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-foreground lg:h-9 lg:w-9"
                       type="submit"
                       variant="unstyled"
                     >
-                      <X size={12} />
+                      <X aria-hidden="true" size={14} />
                     </Button>
                   </form>
                 )}
-              </Badge>
-            </div>
-          ))}
-        </div>
+              </li>
+            ))}
+          </ul>
+
+          <ul aria-label="Skill level legend" className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            {LEVELS.map((level) => (
+              <li className="inline-flex items-center gap-1.5" key={level}>
+                <span aria-hidden="true" className={cn("h-2 w-2 rounded-full", LEVEL_DOT[level])} />
+                {LEVEL_LABELS[level]}
+              </li>
+            ))}
+          </ul>
+        </>
       )}
-    </section>
+    </SettingsSection>
   )
 }

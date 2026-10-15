@@ -552,17 +552,19 @@
 
   /* ── Prose — rich text read views (lesson content, wiki) ─────────── */
   .prose-content {
-    @apply leading-7 text-foreground
+    @apply leading-7 text-foreground break-words
            [&>*+*]:mt-4
            [&>h2]:mt-8 [&>h2]:mb-3 [&>h2]:border-b [&>h2]:border-border [&>h2]:pb-2 [&>h2]:text-xl [&>h2]:font-semibold [&>h2]:leading-snug
            [&>h3]:mt-6 [&>h3]:mb-2 [&>h3]:text-lg [&>h3]:font-semibold [&>h3]:leading-snug
-           [&>pre]:my-5 [&>pre]:block [&>pre]:overflow-x-auto
+           [&>pre]:my-5 [&>pre]:block
            [&>blockquote]:my-5
            [&>ul]:my-3 [&>ol]:my-3
            [&_ul]:list-disc [&_ul]:list-outside [&_ul]:pl-5 [&_ul]:space-y-1
            [&_ol]:list-decimal [&_ol]:list-outside [&_ol]:pl-5 [&_ol]:space-y-1
            [&_li]:leading-7
-           [&>table]:my-6 [&>table]:block [&>table]:overflow-x-auto
+           [&>table]:my-6 [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto
+           [&_pre]:max-w-full [&_pre]:overflow-x-auto
+           [&_img]:h-auto [&_img]:max-w-full [&_svg]:max-w-full [&_iframe]:max-w-full
            [&_a]:underline-offset-4 [&_a:hover]:underline
            [&>*:first-child]:mt-0;
   }
@@ -697,6 +699,13 @@
   }
   @media (min-width: 1024px) {
     .app-content { padding-bottom: 2rem; }     /* lg: no bottom-nav */
+  }
+  /* Edge reserved by a docked LabFixedConsole (md+ only, like the panel). */
+  @media (min-width: 768px) {
+    body {
+      padding-bottom: var(--lab-console-bottom, 0px);
+      padding-right: var(--lab-console-right, 0px);
+    }
   }
 
   /* ── Mobile drawer sidebar ──────────────────────────────────────── */

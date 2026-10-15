@@ -1,4 +1,4 @@
-import { Check, Circle } from "lucide-react"
+import { Check, ChevronDown, PartyPopper } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface Breakdown {
@@ -15,86 +15,70 @@ interface Props {
   breakdown: Breakdown
 }
 
-const CIRCUMFERENCE = 2 * Math.PI * 36 // ≈ 226.2
-
-const CHECKLIST: { key: keyof Breakdown; label: string }[] = [
-  { key: "avatar",       label: "Avatar" },
-  { key: "bio",          label: "Bio" },
-  { key: "skills",       label: "3+ Skills" },
-  { key: "learningGoal", label: "Learning Goal" },
-  { key: "domains",      label: "Domains" },
-  { key: "socialLinks",  label: "Social Link" },
+const CHECKLIST: { key: keyof Breakdown; label: string; hint: string }[] = [
+  { key: "avatar",       label: "Add a photo",         hint: "Profile tab, header" },
+  { key: "bio",          label: "Write a short bio",   hint: "Basic information" },
+  { key: "skills",       label: "List 3+ skills",      hint: "Skills" },
+  { key: "learningGoal", label: "Set a learning goal", hint: "Preferences tab" },
+  { key: "domains",      label: "Pick a domain",       hint: "Preferences tab" },
+  { key: "socialLinks",  label: "Link a profile",      hint: "Social links" },
 ]
 
 export function ProfileCompletion({ score, breakdown }: Props) {
-  const pct    = Math.min(100, Math.max(0, score))
-  const offset = CIRCUMFERENCE * (1 - pct / 100)
+  const pct = Math.min(100, Math.max(0, score))
+  const remaining = CHECKLIST.filter(({ key }) => !breakdown[key]).length
 
+  if (remaining === 0) {
+    return (
+      <section aria-label="Profile completion" className="card-base flex items-center gap-3 p-6">
+        <PartyPopper aria-hidden="true" className="h-5 w-5 shrink-0 text-primary" />
+        <p className="text-sm text-foreground">Your profile is complete — nice work.</p>
+      </section>
+    )
+  }
+
+  // Native <details>: the checklist stays one tap away without pushing the
+  // forms below the fold on mobile.
   return (
-    <section aria-label="Profile completion" className="card-base p-6">
-      <div className="flex-between mb-4">
-        <h2 className="section-title">Profile Completion</h2>
-        <span className="text-2xl font-bold text-primary">{pct}%</span>
-      </div>
+    <details className="card-base group p-0">
+      <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg p-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+        <span className="subsection-title text-foreground">Finish your profile</span>
+        <span className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="font-semibold text-primary">{pct}%</span>
+          <span aria-hidden="true">·</span>
+          {remaining} {remaining === 1 ? "step" : "steps"} left
+          <ChevronDown
+            aria-hidden="true"
+            className="h-4 w-4 shrink-0 transition-transform duration-fast group-open:rotate-180"
+          />
+        </span>
+      </summary>
 
-      <div className="flex flex-col items-center sm:flex-row sm:items-start gap-6">
-        <div aria-hidden="true" className="shrink-0">
-          <svg height="88" role="img" viewBox="0 0 88 88" width="88">
-            <title>Profile completion: {pct}%</title>
-            <circle
-              className="stroke-muted"
-              cx="44"
-              cy="44"
-              fill="none"
-              r="36"
-              strokeWidth="8"
-            />
-            <circle
-              className="stroke-primary transition-all duration-slow"
-              cx="44"
-              cy="44"
-              fill="none"
-              r="36"
-              strokeDasharray={CIRCUMFERENCE}
-              strokeDashoffset={offset}
-              strokeLinecap="round"
-              strokeWidth="8"
-              transform="rotate(-90 44 44)"
-            />
-          </svg>
-        </div>
-
-        <ul className="flex-1 grid grid-cols-1 gap-2 w-full">
-          {CHECKLIST.map(({ key, label }) => {
-            const done = breakdown[key]
-            return (
-              <li className="flex items-center gap-2" key={key}>
-                {done ? (
-                  <Check
-                    aria-hidden="true"
-                    className="text-primary shrink-0"
-                    size={16}
-                  />
-                ) : (
-                  <Circle
-                    aria-hidden="true"
-                    className="text-muted-foreground shrink-0"
-                    size={16}
-                  />
+      <ul className="grid gap-x-6 gap-y-1 px-6 pb-6 sm:grid-cols-2 lg:grid-cols-3">
+        {CHECKLIST.map(({ key, label, hint }) => {
+          const done = breakdown[key]
+          return (
+            <li className="flex items-start gap-3 py-1.5" key={key}>
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
+                  done ? "border-primary bg-primary text-primary-foreground" : "border-border"
                 )}
-                <span
-                  className={cn(
-                    "text-sm",
-                    done ? "text-foreground" : "text-muted-foreground"
-                  )}
-                >
+              >
+                {done && <Check className="h-3 w-3" strokeWidth={3} />}
+              </span>
+              <span className="min-w-0">
+                <span className={cn("block text-sm", done ? "text-muted-foreground line-through" : "font-medium text-foreground")}>
                   {label}
+                  <span className="sr-only">{done ? " (done)" : " (to do)"}</span>
                 </span>
-              </li>
-            )
-          })}
-        </ul>
-      </div>
-    </section>
+                {!done && <span className="block text-xs text-muted-foreground">{hint}</span>}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </details>
   )
 }

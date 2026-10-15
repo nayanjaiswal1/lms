@@ -39,7 +39,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
     <main className="page-container">
       <div className="mb-6 flex flex-col gap-1">
         <h1 className="page-title">Calendar</h1>
-        <p className="text-muted-foreground">Time-block your tasks, schedule events, and manage your time effectively.</p>
+        <p className="hidden text-muted-foreground sm:block">Time-block your tasks, schedule events, and manage your time effectively.</p>
       </div>
       <CalendarGrid
         currentUserId={currentUser?.id ?? ""}

@@ -2,7 +2,8 @@
 
 import { CalendarX2 } from "lucide-react";
 import { isSameDay } from "@/app/(app)/calendar/calendar-math";
-import { EventBlock, primaryLayerFor } from "@/app/(app)/calendar/event-block";
+import { AgendaDayGroup } from "@/app/(app)/calendar/agenda-day-group";
+import { useNow } from "@/app/(app)/calendar/use-now";
 import { CALENDAR_PRIORITY_RANK, CALENDAR_PRIORITY_UNSET_RANK } from "@/lib/calendar/types";
 import type { CalendarEvent } from "@/lib/calendar/types";
 
@@ -25,6 +26,7 @@ function taskSort(a: CalendarEvent, b: CalendarEvent): number {
 }
 
 export function AgendaView({ anchor, events, currentUserId, tasksOnly = false, onEventClick, onToggleComplete }: AgendaViewProps) {
+  const now = useNow();
   const days = Array.from({ length: 30 }, (_, i) => {
     const d = new Date(anchor);
     d.setDate(d.getDate() + i);
@@ -44,37 +46,28 @@ export function AgendaView({ anchor, events, currentUserId, tasksOnly = false, o
 
   if (groups.length === 0) {
     return (
-      <div className="empty-state py-16">
-        <CalendarX2 aria-hidden className="h-10 w-10 text-muted-foreground" />
-        <p className="mt-3 text-sm text-muted-foreground">
-          {tasksOnly ? "No tasks in the next 30 days." : "No events in the next 30 days."}
-        </p>
+      <div className="empty-state rounded-lg border border-dashed border-border">
+        <CalendarX2 aria-hidden className="empty-state-icon" />
+        <div className="flex flex-col gap-1">
+          <p className="font-medium text-foreground">{tasksOnly ? "No tasks in the next 30 days" : "Nothing scheduled in the next 30 days"}</p>
+          <p className="text-sm">Use New event to block out time, or step forward to look further ahead.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {groups.map(({ day, dayEvents }) => (
-        <div className="flex flex-col gap-2" key={day.toISOString()}>
-          <h3 className="text-sm font-semibold text-muted-foreground">
-            {day.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
-          </h3>
-          <div className="flex flex-col gap-1.5 rounded-lg border border-border p-2">
-            {dayEvents.map((ev) => (
-              <EventBlock
-                event={ev}
-                key={ev.id}
-                layer={primaryLayerFor(ev, currentUserId)}
-                variant="agenda"
-                onClick={() => onEventClick(ev.id)}
-                onToggleComplete={
-                  ev.event_type === "task" ? (completed) => onToggleComplete(ev.id, completed) : undefined
-                }
-              />
-            ))}
-          </div>
-        </div>
+        <AgendaDayGroup
+          currentUserId={currentUserId}
+          day={day}
+          events={dayEvents}
+          isToday={Boolean(now && isSameDay(day, now))}
+          key={day.toISOString()}
+          onEventClick={onEventClick}
+          onToggleComplete={onToggleComplete}
+        />
       ))}
     </div>
   );

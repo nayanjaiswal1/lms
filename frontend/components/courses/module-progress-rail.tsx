@@ -2,17 +2,17 @@ interface ModuleProgressRailProps {
   children?: React.ReactNode;
 }
 
-// Desktop-only rail (xl+) — holds the module's type/duration/completion
-// badges plus the on-page TOC for reading modules, so the wide right gutter
-// isn't left empty on narrower (lg) layouts where those badges stay inline
-// in the article header instead.
+// Right rail at xl+ (sticky, beside the article). Below xl it stacks under
+// the article at the article's width, so its actions (Launch Lab, My notes,
+// compiler) stay reachable; callers hide xl-only children (TOC, progress)
+// themselves.
 export function ModuleProgressRail({ children }: ModuleProgressRailProps) {
   if (!children) return null;
 
   return (
     <aside
       aria-label="On this page"
-      className="hidden w-80 shrink-0 flex-col gap-6 px-6 pb-8 xl:flex xl:sticky-rail xl:top-8 xl:max-h-[calc(100dvh-9rem)]"
+      className="mx-auto flex w-full max-w-3xl flex-col gap-6 xl:mx-0 xl:w-80 xl:max-w-none xl:shrink-0 xl:px-6 xl:pb-8 xl:sticky-rail xl:top-8 xl:max-h-[calc(100dvh-9rem)]"
     >
       {children}
     </aside>

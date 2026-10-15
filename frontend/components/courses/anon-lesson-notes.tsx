@@ -36,7 +36,7 @@ export function AnonLessonNotes({ courseId, moduleId, initialContent }: AnonLess
 
   return (
     <>
-      <Button className="w-full" size="sm" variant="secondary" onClick={() => setLessonPanel("notes")}>
+      <Button className="touch-target w-full" size="sm" variant="secondary" onClick={() => setLessonPanel("notes")}>
         <NotebookPen aria-hidden className="mr-2 h-4 w-4" />
         My notes
       </Button>

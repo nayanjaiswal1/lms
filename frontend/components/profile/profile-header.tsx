@@ -1,7 +1,8 @@
 import Link from "next/link"
-import { Copy } from "lucide-react"
+import { ExternalLink } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { ProfileAvatar } from "@/components/shared/profile-avatar"
+import ROUTES from "@/lib/routes"
 import type { Profile } from "@/lib/profile/types"
 
 interface Props {
@@ -18,6 +19,10 @@ interface Props {
   uploadAction?: (formData: FormData) => Promise<void>
 }
 
+// Ring sits 8px outside the 96px avatar: 112px box, 4px stroke.
+const RING_RADIUS = 54
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS
+
 export function ProfileHeader({ profile, uploadAction }: Props) {
   const {
     name,
@@ -32,59 +37,64 @@ export function ProfileHeader({ profile, uploadAction }: Props) {
   const pct = Math.min(100, Math.max(0, completion_score))
 
   return (
-    <div className="card-base p-6 flex flex-col items-center gap-4 sm:flex-row sm:items-start sm:gap-6">
-      <ProfileAvatar
-        avatarUrl={avatar_url}
-        editable={Boolean(uploadAction)}
-        name={name}
-        size="lg"
-        uploadAction={uploadAction}
-      />
-
-      <div className="flex flex-col items-center sm:items-start gap-1 min-w-0 flex-1">
-        <h1 className="text-xl font-bold truncate max-w-full">{name}</h1>
-
-        {display_name && (
-          <p className="text-sm text-muted-foreground">@{display_name}</p>
-        )}
-
-        <div className="flex flex-wrap gap-2 mt-1">
-          {current_role && (
-            <Badge variant="secondary">{current_role}</Badge>
-          )}
-          {experience_level && (
-            <Badge className="capitalize" variant="outline">
-              {experience_level}
-            </Badge>
-          )}
-        </div>
-
-        {profile_slug && (
-          <div className="flex items-center gap-1.5 mt-1">
-            <span className="text-xs text-muted-foreground">
-              /u/{profile_slug}
-            </span>
-            <Link
-              aria-label="Copy profile link"
-              className="text-muted-foreground hover:text-foreground transition-colors duration-fast"
-              href={`/u/${profile_slug}`}
-            >
-              <Copy size={12} />
-            </Link>
-          </div>
-        )}
-
-        <div className="w-full mt-3 space-y-1">
-          <div className="flex-between">
-            <span className="text-xs text-muted-foreground">Profile {pct}% complete</span>
-          </div>
-          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-            { }
-            {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width requires inline style; no Tailwind utility exists for runtime percentage values */}
-            <div className="h-full bg-primary rounded-full transition-all duration-slow" style={{ width: `${pct}%` }} />
-          </div>
-        </div>
+    <header className="card-raised flex flex-col items-center gap-5 text-center sm:flex-row sm:items-center sm:gap-6 sm:text-left">
+      <div className="relative flex h-28 w-28 shrink-0 items-center justify-center">
+        <svg aria-hidden="true" className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 112 112">
+          <circle className="stroke-muted" cx="56" cy="56" fill="none" r={RING_RADIUS} strokeWidth="4" />
+          <circle
+            className="stroke-primary transition-all duration-slow ease-smooth"
+            cx="56"
+            cy="56"
+            fill="none"
+            r={RING_RADIUS}
+            strokeDasharray={RING_CIRCUMFERENCE}
+            strokeDashoffset={RING_CIRCUMFERENCE * (1 - pct / 100)}
+            strokeLinecap="round"
+            strokeWidth="4"
+          />
+        </svg>
+        <ProfileAvatar
+          avatarUrl={avatar_url}
+          editable={Boolean(uploadAction)}
+          name={name}
+          size="lg"
+          uploadAction={uploadAction}
+        />
       </div>
-    </div>
+
+      <div className="flex min-w-0 flex-1 flex-col items-center gap-2 sm:items-start">
+        <div className="min-w-0 max-w-full">
+          <h2 className="section-title truncate text-foreground">{name}</h2>
+          {display_name && (
+            <p className="truncate text-sm text-muted-foreground">@{display_name}</p>
+          )}
+        </div>
+
+        {(current_role || experience_level) && (
+          <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
+            {current_role && <Badge variant="secondary">{current_role}</Badge>}
+            {experience_level && (
+              <Badge className="capitalize" variant="outline">
+                {experience_level}
+              </Badge>
+            )}
+          </div>
+        )}
+
+        <p className="text-sm text-muted-foreground">
+          <span className="font-semibold text-primary">{pct}%</span> profile complete
+        </p>
+      </div>
+
+      {profile_slug && (
+        <Link
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border px-4 text-sm font-medium text-foreground transition-colors duration-fast ease-smooth hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-auto sm:self-start"
+          href={ROUTES.publicProfile(profile_slug)}
+        >
+          <ExternalLink aria-hidden="true" className="h-4 w-4" />
+          View public profile
+        </Link>
+      )}
+    </header>
   )
 }

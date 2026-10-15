@@ -1,9 +1,10 @@
 "use client"
 
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react"
+import { useSyncExternalStore } from "react"
 import { Monitor, Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
+import { SettingsSection } from "@/components/profile/settings-section"
 import { cn } from "@/lib/utils"
 
 const THEME_OPTIONS = [
@@ -12,46 +13,46 @@ const THEME_OPTIONS = [
   { value: "system", label: "System", Icon: Monitor },
 ] as const
 
+const noopSubscribe = () => () => {}
+
 export function AppearanceSection() {
   const { theme, setTheme } = useTheme()
   // theme is undefined on the server and on the client's first render, so
   // deriving `active` from it before mount causes a hydration mismatch that
   // makes React discard this subtree (and its click handlers) on mount.
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
+  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false)
 
   return (
-    <section aria-label="Appearance" className="card-base p-6 space-y-4">
-      <h2 className="section-title">Appearance</h2>
-
-      <div className="space-y-1.5">
-        <p className="text-sm font-medium text-foreground">Theme</p>
-        <div className="flex gap-2">
-          {THEME_OPTIONS.map(({ value, label, Icon }) => {
-            const active = mounted && theme === value
-            return (
-              <Button aria-pressed={active}
-                className={cn(
-                  "flex flex-1 flex-col items-center justify-center gap-1.5 h-16 rounded-lg border text-xs font-medium transition-colors",
-                  active
-                    ? "border-primary text-primary"
-                    : "border-border text-muted-foreground hover:text-foreground hover:border-border"
-                )}
-                key={value}
-                type="button"
-                variant="unstyled"
-                onClick={() => setTheme(value)}
-              >
-                <Icon aria-hidden className="h-4 w-4 shrink-0" />
-                {label}
-              </Button>
-            )
-          })}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          System follows your OS colour preference.
-        </p>
-      </div>
-    </section>
+    <SettingsSection
+      description="Applies instantly on this device. System follows your OS setting."
+      id="appearance"
+      title="Appearance"
+    >
+      <fieldset className="grid grid-cols-3 gap-2">
+        <legend className="sr-only">Theme</legend>
+        {THEME_OPTIONS.map(({ value, label, Icon }) => {
+          const active = mounted && theme === value
+          return (
+            <Button
+              aria-pressed={active}
+              className={cn(
+                "flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-lg border p-4 text-sm font-medium",
+                "transition-colors duration-fast ease-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                active
+                  ? "border-primary bg-primary/5 text-primary"
+                  : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+              key={value}
+              type="button"
+              variant="unstyled"
+              onClick={() => setTheme(value)}
+            >
+              <Icon aria-hidden className="h-5 w-5 shrink-0" />
+              {label}
+            </Button>
+          )
+        })}
+      </fieldset>
+    </SettingsSection>
   )
 }

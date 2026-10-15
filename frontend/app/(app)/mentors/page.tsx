@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { Star, UserCheck, Users } from "lucide-react";
+import { Inbox, MessageCircle, UserCheck, UserPlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ProfileAvatar } from "@/components/shared/profile-avatar";
+import { MentorDirectory } from "@/components/mentoring/mentor-directory";
 import { RequestMentorChangeDialog } from "@/components/mentoring/request-mentor-change-dialog";
 import { RequestMentorDialog } from "@/components/mentoring/request-mentor-dialog";
-import { MessageMentorButton } from "@/components/mentoring/message-mentor-button";
 import { getMentors, type MentorDirectoryEntry } from "@/lib/server/mentoring";
 import { getMyTickets, type Ticket } from "@/lib/server/tickets";
 import { getEnrollments } from "@/lib/server/courses";
@@ -26,6 +26,10 @@ const TICKET_STATUS_COPY: Record<string, string> = {
   assigned: "You have an assigned mentor.",
 };
 
+// Personal mentor rows carry an amber rail so "your people" read apart from
+// the directory grid below them at a glance.
+const PERSONAL_ROW = "card-base flex flex-col gap-4 border-l-4 border-l-primary sm:flex-row sm:items-center";
+
 // A mentor only has a chat thread once they're the *assigned* mentor on one
 // of the student's tickets — batch/directory listings have no ticket of
 // their own, so this is the only way to know whether "Chat" is offered.
@@ -34,6 +38,17 @@ function ticketIdByMentor(tickets: Ticket[]): Map<string, string> {
     tickets
       .filter((t) => t.status === "assigned" && t.assigned_to)
       .map((t) => [t.assigned_to as string, t.id]),
+  );
+}
+
+function ChatLink({ ticketId, label }: { ticketId: string; label: string }) {
+  return (
+    <Button asChild className="min-h-11">
+      <Link href={ROUTES.mentoringTicketChat(ticketId)}>
+        <MessageCircle aria-hidden />
+        {label}
+      </Link>
+    </Button>
   );
 }
 
@@ -46,36 +61,33 @@ function MentorTicketCard({
   courseTitle: string | undefined;
   mentor: MentorDirectoryEntry | undefined;
 }) {
+  const assignedTo = ticket.status === "assigned" ? ticket.assigned_to : null;
+
   return (
-    <div className="card-base flex flex-col gap-3 p-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="font-semibold text-foreground">{courseTitle ?? "Your course"}</h3>
-        <Badge variant={TICKET_STATUS_VARIANT[ticket.status] ?? "outline"}>{ticket.status}</Badge>
+    <li className={PERSONAL_ROW}>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <ProfileAvatar avatarUrl={mentor?.avatar_url ?? null} name={mentor?.name ?? "Mentor"} size="md" />
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="truncate text-base font-semibold text-foreground">
+              {assignedTo ? (mentor?.name ?? "Your mentor") : "Matching in progress"}
+            </h3>
+            <Badge variant={TICKET_STATUS_VARIANT[ticket.status] ?? "outline"}>{ticket.status}</Badge>
+          </div>
+          <p className="truncate text-sm text-muted-foreground">{courseTitle ?? "Your course"}</p>
+          {!assignedTo && <p className="text-sm text-foreground">{TICKET_STATUS_COPY[ticket.status]}</p>}
+        </div>
       </div>
-      <p className="text-sm text-foreground">{TICKET_STATUS_COPY[ticket.status]}</p>
-      {ticket.status === "assigned" && ticket.assigned_to && (
-        <>
-          <div className="flex items-center gap-2.5">
-            <ProfileAvatar avatarUrl={mentor?.avatar_url ?? null} name={mentor?.name ?? "Mentor"} size="sm" />
-            <p className="text-sm">
-              Your mentor: <span className="font-medium text-foreground">{mentor?.name ?? "—"}</span>
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link href={ROUTES.mentoringTicketChat(ticket.id)}>
-              <Button size="sm">Chat with your mentor</Button>
-            </Link>
-            <Link
-              className="text-sm text-primary hover:underline"
-              href={ROUTES.mentor(ticket.assigned_to)}
-            >
-              View profile &amp; rate
-            </Link>
-            <RequestMentorChangeDialog ticketId={ticket.id} />
-          </div>
-        </>
+      {assignedTo && (
+        <div className="flex flex-wrap items-center gap-2">
+          <ChatLink label="Chat with your mentor" ticketId={ticket.id} />
+          <Button asChild className="min-h-11" variant="outline">
+            <Link href={ROUTES.mentor(assignedTo)}>View profile &amp; rate</Link>
+          </Button>
+          <RequestMentorChangeDialog ticketId={ticket.id} />
+        </div>
       )}
-    </div>
+    </li>
   );
 }
 
@@ -91,90 +103,39 @@ function BatchMentorCard({
   ticketId: string | undefined;
 }) {
   return (
-    <div className="card-base flex flex-col gap-4 p-6">
-      <div className="flex min-w-0 items-center gap-3">
-        <ProfileAvatar avatarUrl={mentor?.avatar_url ?? null} name={mentor?.name ?? "Mentor"} size="sm" />
+    <li className={PERSONAL_ROW}>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <ProfileAvatar avatarUrl={mentor?.avatar_url ?? null} name={mentor?.name ?? "Mentor"} size="md" />
         <div className="min-w-0">
-          <h3 className="truncate font-semibold text-foreground">{batchName}</h3>
-          <p className="truncate text-sm text-muted-foreground">Cohort mentor: {mentor?.name ?? "—"}</p>
+          <h3 className="truncate text-base font-semibold text-foreground">{mentor?.name ?? "Cohort mentor"}</h3>
+          <p className="truncate text-sm text-muted-foreground">Cohort mentor · {batchName}</p>
         </div>
       </div>
-      <div className="flex items-center gap-3">
-        {ticketId && (
-          <Link href={ROUTES.mentoringTicketChat(ticketId)}>
-            <Button size="sm">Chat</Button>
-          </Link>
-        )}
-        <Link className="text-sm text-primary hover:underline" href={ROUTES.mentor(mentorId)}>
-          View profile
-        </Link>
+      <div className="flex flex-wrap items-center gap-2">
+        {ticketId && <ChatLink label="Chat" ticketId={ticketId} />}
+        <Button asChild className="min-h-11" variant="outline">
+          <Link href={ROUTES.mentor(mentorId)}>View profile</Link>
+        </Button>
       </div>
-    </div>
-  );
-}
-
-function MentorDirectoryCard({ mentor, ticketId }: { mentor: MentorDirectoryEntry; ticketId: string | undefined }) {
-  return (
-    <div className="card-base flex flex-col gap-4 p-6">
-      <div className="flex items-center gap-3">
-        <ProfileAvatar avatarUrl={mentor.avatar_url} name={mentor.name} size="md" />
-        <div className="min-w-0">
-          <p className="truncate font-semibold text-foreground">{mentor.name}</p>
-          <p className="truncate text-sm text-muted-foreground">{mentor.email}</p>
-        </div>
-      </div>
-      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-        {mentor.avg_rating !== null ? (
-          <span className="flex items-center gap-1">
-            <Star aria-hidden className="h-3.5 w-3.5 fill-primary text-primary" />
-            <span className="font-semibold text-foreground">{mentor.avg_rating.toFixed(1)}</span>
-            <span>({mentor.rating_count})</span>
-          </span>
-        ) : (
-          <span className="flex items-center gap-1">
-            <Star aria-hidden className="h-3.5 w-3.5" />
-            No ratings yet
-          </span>
-        )}
-        <span className="flex items-center gap-1">
-          <Users aria-hidden className="h-3.5 w-3.5" />
-          {mentor.mentee_count} mentee{mentor.mentee_count === 1 ? "" : "s"}
-        </span>
-      </div>
-      <div className="flex items-center gap-3">
-        {ticketId ? (
-          <Link href={ROUTES.mentoringTicketChat(ticketId)}>
-            <Button size="sm">Chat</Button>
-          </Link>
-        ) : (
-          <MessageMentorButton mentorId={mentor.user_id} size="sm" />
-        )}
-        <Link className="text-sm text-primary hover:underline" href={ROUTES.mentor(mentor.user_id)}>
-          View profile
-        </Link>
-      </div>
-    </div>
+    </li>
   );
 }
 
 async function MentorDirectorySection({ mentors }: { mentors: MentorDirectoryEntry[] }) {
   const tickets = await getMyTickets(TICKET_KIND.MENTORSHIP).catch(() => []);
-  const ticketByMentor = ticketIdByMentor(tickets);
 
   return (
-    <section className="flex flex-col gap-4">
-      <h2 className="section-title">All mentors</h2>
+    <section aria-labelledby="mentor-directory-title" className="flex flex-col gap-4">
+      <h2 className="section-title" id="mentor-directory-title">
+        Find a mentor
+      </h2>
       {mentors.length === 0 ? (
-        <div className="empty-state py-16">
-          <UserCheck aria-hidden className="h-12 w-12 text-muted-foreground" />
-          <p className="mt-3 text-sm text-muted-foreground">No mentors in your organization yet.</p>
+        <div className="empty-state rounded-xl border border-dashed border-border">
+          <UserCheck aria-hidden className="empty-state-icon" />
+          <p className="text-sm">No mentors in your organization yet.</p>
         </div>
       ) : (
-        <div className="card-grid">
-          {mentors.map((mentor) => (
-            <MentorDirectoryCard key={mentor.user_id} mentor={mentor} ticketId={ticketByMentor.get(mentor.user_id)} />
-          ))}
-        </div>
+        <MentorDirectory chatTicketByMentor={Object.fromEntries(ticketIdByMentor(tickets))} mentors={mentors} />
       )}
     </section>
   );
@@ -195,9 +156,9 @@ async function YourBatchMentorsSection() {
   const ticketByMentor = ticketIdByMentor(tickets);
 
   return (
-    <section className="flex flex-col gap-4">
-      <h2 className="section-title">{mentored.length > 1 ? "Your cohort mentors" : "Your cohort mentor"}</h2>
-      <div className="card-grid">
+    <section className="flex flex-col gap-3">
+      <h2 className="subsection-title">{mentored.length > 1 ? "Your cohort mentors" : "Your cohort mentor"}</h2>
+      <ul className="flex flex-col gap-3">
         {mentored.map((b) => (
           <BatchMentorCard
             batchName={b.name}
@@ -207,7 +168,7 @@ async function YourBatchMentorsSection() {
             ticketId={ticketByMentor.get(b.mentor_id)}
           />
         ))}
-      </div>
+      </ul>
     </section>
   );
 }
@@ -223,9 +184,12 @@ async function YourMentorsSection() {
 
   if (active.length === 0) {
     return (
-      <section className="card-base flex flex-wrap items-center justify-between gap-4 p-6">
-        <div>
-          <h2 className="section-title">No mentor yet</h2>
+      <section className="card-raised flex flex-col gap-4 sm:flex-row sm:items-center">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <UserPlus aria-hidden className="h-6 w-6" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="subsection-title">No mentor yet</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {enrollments.length > 0
               ? "Request a mentor for one of your courses and we'll match you with one."
@@ -237,9 +201,9 @@ async function YourMentorsSection() {
             enrollments={enrollments.map((e) => ({ id: e.course_id, title: e.course.title }))}
           />
         ) : (
-          <Link href={ROUTES.COURSES}>
-            <Button size="sm">Browse courses</Button>
-          </Link>
+          <Button asChild className="min-h-11">
+            <Link href={ROUTES.COURSES}>Browse courses</Link>
+          </Button>
         )}
       </section>
     );
@@ -248,9 +212,9 @@ async function YourMentorsSection() {
   const mentorFor = (mentorId: string | null) => mentors.find((m) => m.user_id === mentorId);
 
   return (
-    <section className="flex flex-col gap-4">
-      <h2 className="section-title">{active.length > 1 ? "Your mentors" : "Your mentor"}</h2>
-      <div className="card-grid">
+    <section className="flex flex-col gap-3">
+      <h2 className="subsection-title">{active.length > 1 ? "Your mentors" : "Your mentor"}</h2>
+      <ul className="flex flex-col gap-3">
         {active.map((ticket) => (
           <MentorTicketCard
             courseTitle={courseTitle(ticket.course_id)}
@@ -259,7 +223,7 @@ async function YourMentorsSection() {
             ticket={ticket}
           />
         ))}
-      </div>
+      </ul>
     </section>
   );
 }
@@ -270,20 +234,25 @@ export default async function MentorsDirectoryPage() {
   return (
     <main className="page-container">
       <div className="page-header">
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
           <h1 className="page-title">Mentors</h1>
           <p className="text-muted-foreground">
             Your assigned mentor, and everyone else available in your organization.
           </p>
         </div>
-        <Link className="text-sm text-primary hover:underline" href={ROUTES.MENTORING_CONVERSATIONS}>
-          Your conversations
-        </Link>
+        <Button asChild className="min-h-11" variant="outline">
+          <Link href={ROUTES.MENTORING_CONVERSATIONS}>
+            <Inbox aria-hidden />
+            Your conversations
+          </Link>
+        </Button>
       </div>
 
-      <div className="flex flex-col gap-8">
-        <YourBatchMentorsSection />
-        <YourMentorsSection />
+      <div className="flex flex-col gap-10">
+        <div className="flex flex-col gap-6">
+          <YourBatchMentorsSection />
+          <YourMentorsSection />
+        </div>
         <MentorDirectorySection mentors={mentors} />
       </div>
     </main>

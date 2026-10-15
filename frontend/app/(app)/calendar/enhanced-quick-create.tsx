@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { TimeBlockPresets } from "@/app/(app)/calendar/time-block-presets";
+import { SegmentedControl } from "@/app/(app)/calendar/segmented-control";
+import { toTimeInputValue, withTimeOfDay } from "@/app/(app)/calendar/calendar-math";
 import { Clock, AlertCircle, CheckCircle2, Zap } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CALENDAR_PRIORITY_OPTIONS } from "@/lib/calendar/types";
@@ -24,21 +26,15 @@ interface EnhancedQuickCreateProps {
   onCancel: () => void;
 }
 
-function toTimeInputValue(date: Date): string {
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-}
+const ENTRY_TYPE_OPTIONS = [
+  { label: "Event", value: "event", icon: Zap },
+  { label: "Task", value: "task", icon: CheckCircle2 },
+] as const;
 
 function addMinutesToDate(date: Date, minutes: number): Date {
   const result = new Date(date);
   result.setMinutes(result.getMinutes() + minutes);
   return result;
-}
-
-function withTimeOfDay(base: Date, timeValue: string): Date {
-  const [hours, minutes] = timeValue.split(":").map(Number);
-  const next = new Date(base);
-  next.setHours(hours, minutes, 0, 0);
-  return next;
 }
 
 function calculateDurationMinutes(start: Date, end: Date): number {
@@ -91,30 +87,12 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
     <div className="flex flex-col gap-4">
       <div className="space-y-2">
         <div className="text-xs font-medium text-muted-foreground">Type</div>
-        <div aria-label="Event or task" className="flex gap-2" role="radiogroup">
-          <Button
-            aria-pressed={!isTask}
-            className="flex-1"
-            size="sm"
-            type="button"
-            variant={isTask ? "outline" : "default"}
-            onClick={() => setIsTask(false)}
-          >
-            <Zap className="mr-1.5 h-3.5 w-3.5" />
-            Event
-          </Button>
-          <Button
-            aria-pressed={isTask}
-            className="flex-1"
-            size="sm"
-            type="button"
-            variant={isTask ? "default" : "outline"}
-            onClick={() => setIsTask(true)}
-          >
-            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-            Task
-          </Button>
-        </div>
+        <SegmentedControl
+          label="Event or task"
+          options={ENTRY_TYPE_OPTIONS}
+          value={isTask ? "task" : "event"}
+          onChange={(v) => setIsTask(v === "task")}
+        />
       </div>
 
       <div className="space-y-2">
@@ -163,12 +141,12 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
 
           <div className="flex-between rounded-md bg-muted/50 px-3 py-2">
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground" />
+              <Clock aria-hidden className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">{durationText}</span>
             </div>
             {!isValidDuration && (
               <div className="flex items-center gap-1 text-xs text-destructive">
-                <AlertCircle className="h-3.5 w-3.5" />
+                <AlertCircle aria-hidden className="h-3.5 w-3.5" />
                 Invalid
               </div>
             )}
@@ -220,10 +198,10 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
-        <Button size="sm" type="button" variant="ghost" onClick={onCancel}>
+        <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
-        <Button disabled={!title.trim() || !isValidDuration} size="sm" type="button" onClick={submit}>
+        <Button disabled={!title.trim() || !isValidDuration} type="button" onClick={submit}>
           Create {isTask ? "Task" : "Event"}
         </Button>
       </div>

@@ -4,8 +4,11 @@ import * as React from "react";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EventBlock, primaryLayerFor } from "@/app/(app)/calendar/event-block";
-import { startOfWeek, addDays, isSameDay } from "@/app/(app)/calendar/calendar-math";
+import { formatRangeLabel, getWeekDays, isSameDay } from "@/app/(app)/calendar/calendar-math";
+import { useNow } from "@/app/(app)/calendar/use-now";
+import { CALENDAR_LAYER_OPTIONS } from "@/lib/calendar/types";
 import type { CalendarEvent } from "@/lib/calendar/types";
+import { cn } from "@/lib/utils";
 
 interface WeekViewProps {
   anchor: Date;
@@ -18,31 +21,6 @@ interface WeekViewProps {
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-function formatDateRange(start: Date, end: Date): string {
-  const startMonth = MONTH_LABELS[start.getMonth()];
-  const endMonth = MONTH_LABELS[end.getMonth()];
-  const startDay = start.getDate();
-  const endDay = end.getDate();
-  const year = end.getFullYear();
-
-  if (start.getMonth() === end.getMonth()) {
-    return `${startMonth} ${startDay} – ${endDay}, ${year}`;
-  }
-  return `${startMonth} ${startDay} – ${endMonth} ${endDay}, ${year}`;
-}
-
-function getEventsForDay(events: CalendarEvent[], day: Date): CalendarEvent[] {
-  return events.filter((e) => {
-    const eventDay = new Date(e.starts_at);
-    return (
-      eventDay.getFullYear() === day.getFullYear() &&
-      eventDay.getMonth() === day.getMonth() &&
-      eventDay.getDate() === day.getDate()
-    );
-  });
-}
 
 export function WeekView({
   anchor,
@@ -52,63 +30,60 @@ export function WeekView({
   onEventClick,
   onNavigate,
 }: WeekViewProps) {
-  const weekStart = startOfWeek(anchor);
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const now = useNow();
+  const days = getWeekDays(anchor);
 
   return (
     <div className="space-y-4">
-      <div className="flex-between">
-        <div>
-          <h2 className="text-lg font-semibold">
-            {formatDateRange(weekStart, addDays(weekStart, 6))}
-          </h2>
-        </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => onNavigate("prev")}>
-            <ChevronLeft className="h-4 w-4" />
+      <div className="flex-between gap-2">
+        <h2 aria-live="polite" className="subsection-title min-w-0 truncate">{formatRangeLabel("week", anchor)}</h2>
+        <div className="flex shrink-0 gap-2">
+          <Button aria-label="Previous week" className="touch-target-dense" size="sm" variant="outline" onClick={() => onNavigate("prev")}>
+            <ChevronLeft aria-hidden />
           </Button>
-          <Button size="sm" variant="outline" onClick={() => onNavigate("next")}>
-            <ChevronRight className="h-4 w-4" />
+          <Button aria-label="Next week" className="touch-target-dense" size="sm" variant="outline" onClick={() => onNavigate("next")}>
+            <ChevronRight aria-hidden />
           </Button>
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-card overflow-x-auto">
-        {/* eslint-disable-next-line no-restricted-syntax -- 7-day grid needs a fixed time-gutter column plus 7 equal day columns, not expressible as a static token */}
-        <div className="grid" style={{ gridTemplateColumns: "60px repeat(7, 1fr)" }}>
-          <div className="sticky left-0 z-raised bg-muted/50 border-r border-border" />
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        {/* eslint-disable-next-line no-restricted-syntax -- 7-day grid needs a fixed time-gutter column plus 7 shrinkable day columns, not expressible as a static token */}
+        <div className="grid" style={{ gridTemplateColumns: "3rem repeat(7, minmax(0, 1fr))" }}>
+          <div className="border-r border-border bg-muted/50" />
 
           {days.map((day, i) => {
-            const today = new Date();
-            const isToday = isSameDay(day, today);
+            const isToday = Boolean(now && isSameDay(day, now));
             return (
               <div
-                className={`border-r border-border p-3 text-center ${isToday ? "bg-primary/10" : "bg-muted/30"}`}
+                aria-current={isToday ? "date" : undefined}
+                className="flex min-w-0 flex-col items-center gap-0.5 border-r border-border bg-muted/30 px-0.5 py-2 last:border-r-0"
                 key={i}
               >
-                <div className="text-xs font-medium text-muted-foreground">{DAY_LABELS[i]}</div>
-                <div className={`text-sm font-semibold ${isToday ? "text-primary" : ""}`}>{day.getDate()}</div>
+                <span className={cn("text-xs font-medium uppercase", isToday ? "text-primary" : "text-muted-foreground")}>{DAY_LABELS[i]}</span>
+                <span className={cn("flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold tabular-nums", isToday && "bg-primary text-primary-foreground")}>
+                  {day.getDate()}
+                </span>
               </div>
             );
           })}
 
           {HOURS.map((hour) => (
             <React.Fragment key={hour}>
-              <div className="sticky left-0 z-raised border-r border-b border-border bg-muted/50 px-2 py-2 text-right text-xs text-muted-foreground">
+              <div className="border-b border-r border-border bg-muted/50 py-1 pr-1.5 text-right text-xs tabular-nums text-muted-foreground">
                 {String(hour).padStart(2, "0")}:00
               </div>
 
               {days.map((day, dayIdx) => {
-                const dayEvents = getEventsForDay(events, day);
-                const slotEvents = dayEvents.filter((e) => {
-                  const eHour = new Date(e.starts_at).getHours();
-                  return eHour === hour;
+                const slotEvents = events.filter((e) => {
+                  const start = new Date(e.starts_at);
+                  return isSameDay(start, day) && start.getHours() === hour;
                 });
 
                 return (
                   <div
                     aria-label={`Create an event on ${day.toDateString()} at ${hour}:00`}
-                    className="relative border-r border-b border-border/50 bg-background hover:bg-muted/50 transition-colors h-12 cursor-pointer group"
+                    className="group relative flex h-12 min-w-0 cursor-pointer flex-col gap-0.5 overflow-hidden border-b border-r border-border/50 bg-background p-0.5 transition-colors duration-fast ease-smooth hover:bg-muted/50"
                     key={`${dayIdx}-${hour}`}
                     role="button"
                     tabIndex={0}
@@ -126,40 +101,19 @@ export function WeekView({
                       }
                     }}
                   >
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-fast group-hover:opacity-100">
                       <Plus className="h-4 w-4 text-muted-foreground" />
                     </div>
 
-                    {slotEvents.map((event) => {
-                      const layer = primaryLayerFor(event, currentUserId);
-                      return (
-                        <div
-                          aria-label={`Open event ${event.title}`}
-                          className="absolute inset-x-0.5 text-xs overflow-hidden"
-                          key={event.id}
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEventClick(event.id);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              onEventClick(event.id);
-                            }
-                          }}
-                        >
-                          <EventBlock
-                            event={event}
-                            layer={layer}
-                            variant="time"
-                            onClick={() => onEventClick(event.id)}
-                          />
-                        </div>
-                      );
-                    })}
+                    {slotEvents.map((event) => (
+                      <EventBlock
+                        event={event}
+                        key={event.id}
+                        layer={primaryLayerFor(event, currentUserId)}
+                        variant="month"
+                        onClick={() => onEventClick(event.id)}
+                      />
+                    ))}
                   </div>
                 );
               })}
@@ -168,20 +122,14 @@ export function WeekView({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-4 text-xs">
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded bg-primary" />
-          <span className="text-muted-foreground">My events</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded bg-destructive" />
-          <span className="text-muted-foreground">Meetings</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded bg-warning" />
-          <span className="text-muted-foreground">Assessments</span>
-        </div>
-      </div>
+      <ul aria-label="Legend" className="flex flex-wrap gap-x-4 gap-y-2 text-xs">
+        {CALENDAR_LAYER_OPTIONS.map((layer) => (
+          <li className="flex items-center gap-2" key={layer.value}>
+            <span aria-hidden className={cn("h-2.5 w-2.5 rounded-full", layer.swatchClassName)} />
+            <span className="text-muted-foreground">{layer.label}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

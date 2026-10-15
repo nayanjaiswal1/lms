@@ -8,7 +8,7 @@ interface Props {
   joinedAt: string;
 }
 
-// Sidebar "Metadata" card — last-active is the one field here with no other
+// Sidebar "Details" card — last-active is the one field here with no other
 // home on the page; grouping all three under one heading matches the mockup's split
 // between "live stats" (insights card above) and "static facts" (this one).
 export function MentorMetadataCard({ lastActiveAt, totalMentorshipHours, joinedAt }: Props) {
@@ -17,7 +17,7 @@ export function MentorMetadataCard({ lastActiveAt, totalMentorshipHours, joinedA
 
   return (
     <section className="card-raised">
-      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Metadata</h2>
+      <h2 className="subsection-title mb-4">Details</h2>
       <div className="flex flex-col gap-3">
         {lastActiveLabel && (
           <p className="flex items-center gap-2 text-sm text-foreground">
