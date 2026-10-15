@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - configmap.yaml
+  - postgres.yaml
   - redis.yaml
   - minio.yaml
   - piston.yaml

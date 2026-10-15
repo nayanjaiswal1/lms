@@ -50,30 +50,6 @@ patches:
       - op: replace
         path: /spec/listeners/1/port
         value: 8443
-      # No DNS-01 ClusterIssuer or wildcard DNS exists locally, so the
-      # wildcard preview listener and its Certificate can never be issued.
-      - op: remove
-        path: /spec/listeners/2
-  - target:
-      kind: Certificate
-      name: mindforge-preview-tls
-    patch: |-
-      $patch: delete
-      apiVersion: cert-manager.io/v1
-      kind: Certificate
-      metadata:
-        name: mindforge-preview-tls
-        namespace: mindforge
-  - target:
-      kind: HTTPRoute
-      name: mindforge-preview
-    patch: |-
-      $patch: delete
-      apiVersion: gateway.networking.k8s.io/v1
-      kind: HTTPRoute
-      metadata:
-        name: mindforge-preview
-        namespace: mindforge
   - target:
       kind: HTTPRoute
       name: mindforge-redirect

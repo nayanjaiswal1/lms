@@ -204,15 +204,8 @@ success "App images built locally."
 MINIO_UPSTREAM="$(grep -oE 'minio/minio:[^ ]+' k8s/base/minio.yaml | head -1)"
 [[ -n "$MINIO_UPSTREAM" ]] || error "Couldn't read the minio image from k8s/base/minio.yaml."
 info "Pulling ${MINIO_UPSTREAM} and tagging as mindforge-minio:local..."
-MINIO_IMPORT=true
-if docker pull "$MINIO_UPSTREAM"; then
-  docker tag "$MINIO_UPSTREAM" mindforge-minio:local
-else
-  # Upstream tag can vanish from Docker Hub; retag the copy already in the target's containerd.
-  warn "Pull failed — retagging ${MINIO_UPSTREAM} already present on ${TARGET}."
-  ssh_target "sudo k3s ctr images tag --force docker.io/${MINIO_UPSTREAM} docker.io/library/mindforge-minio:local"     || error "Cannot pull ${MINIO_UPSTREAM} and ${TARGET} has no copy of it."
-  MINIO_IMPORT=false
-fi
+docker pull "$MINIO_UPSTREAM"
+docker tag "$MINIO_UPSTREAM" mindforge-minio:local
 
 import_image() {
   local image="$1" attempt ok=false
@@ -231,7 +224,7 @@ info "Importing app images into ${TARGET}'s k3s containerd..."
 import_image mindforge-backend:local
 import_image mindforge-labproxy:local
 import_image mindforge-frontend:local
-[[ "$MINIO_IMPORT" == true ]] && import_image mindforge-minio:local
+import_image mindforge-minio:local
 success "App images imported."
 
 # ─── 9. Build + import lab sandbox images ────────────────────────────────────
@@ -265,9 +258,6 @@ success "Lab images built and imported."
 
 # ─── 10. Deploy ───────────────────────────────────────────────────────────────
 info "Applying manifests..."
-# apply -k never prunes: drop preview objects older deploys created before the
-# local overlay stopped rendering them (no DNS-01 issuer exists on this box).
-ssh_target "KUBECONFIG=\$HOME/.kube/config kubectl -n mindforge delete certificate/mindforge-preview-tls httproute/mindforge-preview --ignore-not-found"
 ssh_target "cd ~/mindforge && KUBECONFIG=\$HOME/.kube/config kubectl apply -k k8s/overlays/local"
 success "Manifests applied."
 
@@ -276,6 +266,7 @@ for deploy in backend labproxy frontend; do
   ssh_target "KUBECONFIG=\$HOME/.kube/config kubectl rollout status deployment/${deploy} -n mindforge --timeout=180s" \
     || warn "${deploy} rollout did not complete in time — check: kubectl get pods -n mindforge"
 done
+ssh_target "KUBECONFIG=\$HOME/.kube/config kubectl rollout status statefulset/postgres -n mindforge --timeout=180s" || warn "postgres rollout did not complete in time"
 ssh_target "KUBECONFIG=\$HOME/.kube/config kubectl rollout status statefulset/minio -n mindforge --timeout=180s" || warn "minio rollout did not complete in time"
 ssh_target "KUBECONFIG=\$HOME/.kube/config kubectl rollout status deployment/piston -n mindforge-labs --timeout=180s" || warn "piston rollout did not complete in time"
 

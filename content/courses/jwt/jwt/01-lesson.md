@@ -14,8 +14,6 @@ source:
 
 # JWT, the full story
 
-![JWT complete mindmap](/course-images/jwt/jwt-mindmap.png)
-
 > How to read this: every section builds intuition first, then depth. Lines marked "Interview line" are ready to say word for word in an interview.
 
 ---

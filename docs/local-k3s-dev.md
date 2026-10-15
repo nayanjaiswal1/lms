@@ -189,22 +189,3 @@ sudo SECRETS_FILE=~/secrets.env [GIT_TOKEN=<pat if repo is private>] bash script
 ```
 
 Jenkins runs at `http://<host>:8080` (user `admin`, password in `/var/lib/jenkins/admin-password.txt`). The first build starts automatically. To deploy to a different machine, run the job with `DEPLOY_TARGET=user@host`; to make another machine its own deploy host, run the command above there.
-
-## Hot-reload dev on a remote box (`make dev-k3s`)
-
-`scripts/dev-k3s.sh` port-forwards labproxy/piston from k3s (object storage is external, via MINIO_* in backend/.env) and runs Air + `next dev`, all bound to `127.0.0.1` (`kubectl port-forward` also binds to localhost). Nothing is exposed to the LAN.
-
-Remote access from your own devices only:
-
-```bash
-# on the box (Tailscale installed on both machines)
-tailscale serve --bg 3000      # tailnet-only; never use `tailscale funnel`
-# or, without Tailscale, from your PC:
-ssh -L 3000:localhost:3000 nayan@ideapad
-```
-
-One-shot box setup: `bash scripts/setup-dev-box.sh`.
-
-Keep `.env` / `backend/.env` at mode `600`. Dev shares the Neon DB with prod — use a Neon branch for `DATABASE_URL` and IP-allow-list Neon, so a dev mistake can't touch prod data.
-
-If live reload stops after the page loads, Next is blocking the HMR websocket for your host. Set `NEXT_ALLOWED_DEV_ORIGINS=<your-box>.<tailnet>.ts.net` (comma-separated for more) in `frontend/.env.local` and restart `make dev-k3s`.

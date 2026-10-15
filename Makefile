@@ -1,4 +1,4 @@
-.PHONY: dev dev-k3s dev-up dev-down dev-reset migrate migrate-create seed seed-courses backend frontend \
+.PHONY: dev dev-up dev-down dev-reset migrate migrate-create seed seed-courses backend frontend \
         test-backend lint-frontend build-backend build-frontend docker-build logs psql redis-cli \
         prod-deploy prod-down prod-logs flowmap-drift \
         prod-update prod-backup prod-backup-full prod-restore prod-migrate
@@ -7,10 +7,6 @@
 
 dev:
 	@docker compose -f docker-compose.dev.yml up
-
-# Hot-reload backend + UI natively, infra (redis/minio/piston/labproxy) from k3s.
-dev-k3s:
-	@bash scripts/dev-k3s.sh
 
 dev-up:
 	@docker compose -f docker-compose.dev.yml up -d
