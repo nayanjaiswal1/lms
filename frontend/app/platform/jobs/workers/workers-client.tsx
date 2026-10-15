@@ -40,15 +40,14 @@ export function WorkersClient({ initialData }: Props) {
           so that text sat flush inside the table's own border with no
           padding of its own instead of living outside it as a caption. */}
       <ResponsiveTable>
-        {/* table-layout: fixed + explicit column widths — with `auto` layout
-            and few rows, the browser spread leftover width arbitrarily
-            (huge gap after the instance ID, an oversized progress bar). */}
-        <table className="w-full table-fixed text-sm">
+        {/* Auto layout: Instance ID takes all leftover width (w-full + max-w-0 on
+            its cells lets it truncate); other columns size to their content. */}
+        <table className="w-full text-sm">
           <thead>
             <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
-              <th className="w-56 pt-3 pb-2 pl-4 pr-6 font-medium">Instance ID</th>
-              <th className="w-48 pt-3 pb-2 pr-6 font-medium">Slots</th>
-              <th className="w-28 pt-3 pb-2 pr-6 font-medium">Last Seen</th>
+              <th className="w-full pt-3 pb-2 pl-4 pr-6 font-medium">Instance ID</th>
+              <th className="pt-3 pb-2 pr-6 font-medium">Slots</th>
+              <th className="pt-3 pb-2 pr-6 font-medium">Last Seen</th>
               <th className="pt-3 pb-2 pr-4 font-medium">Role</th>
             </tr>
           </thead>
@@ -62,8 +61,10 @@ export function WorkersClient({ initialData }: Props) {
 
               return (
                 <tr className="whitespace-nowrap border-b border-border last:border-0" key={worker.instance_id}>
-                  <td className="py-3 pl-4 pr-6">
-                    <span className="font-mono text-xs">{worker.instance_id}</span>
+                  <td className="max-w-0 py-3 pl-4 pr-6">
+                    <span className="block min-w-0 truncate font-mono text-xs" title={worker.instance_id}>
+                      {worker.instance_id}
+                    </span>
                   </td>
                   <td className="py-3 pr-6">
                     {/* eslint-disable-next-line no-restricted-syntax -- table column minimum width constraint is intentional */}
