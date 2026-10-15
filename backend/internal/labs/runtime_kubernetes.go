@@ -39,7 +39,7 @@ const podPollInterval = 500 * time.Millisecond
 // and is unaffected; any future lab image whose setup_script assumes root
 // needs that logic moved into the image's own entrypoint instead.
 type KubernetesContainerService struct {
-	clientset  *kubernetes.Clientset
+	clientset  kubernetes.Interface
 	restConfig *rest.Config
 	namespace  string
 	// profiles mirrors DockerContainerService's field (see container.go) —
@@ -53,7 +53,26 @@ type KubernetesContainerService struct {
 	// registry is config.LabsImageRegistry — see its doc comment. Empty
 	// means Pod specs use the bare image name unchanged.
 	registry string
+	// validationRequests sizes validation/clean-room Pods' requests against
+	// their limits (LABS_VALIDATION_*_REQUEST_PCT).
+	validationRequests RequestPct
+	// unschedulableGrace is how long a VALIDATION Pod may sit
+	// PodScheduled=False/Unschedulable before StartValidation gives up with
+	// ErrUnschedulable (config.LabsPodUnschedulableGrace). Student session and
+	// warm Pods keep waiting for their caller's ctx: a cluster autoscaler may
+	// legitimately need minutes to add a node for them.
+	unschedulableGrace time.Duration
 }
+
+// RequestPct is a Pod's resource requests as a percentage of its limits.
+// {100, 100} (FullRequests) is Guaranteed QoS: the scheduler reserves the whole
+// limit. Lower values make the Pod Burstable: it fits on a small node, may use
+// up to its limit when the node has room, and is evicted before Guaranteed
+// Pods under node memory pressure.
+type RequestPct struct{ CPU, Memory int }
+
+// FullRequests reserves the whole limit (student sessions and warm Pods).
+var FullRequests = RequestPct{CPU: 100, Memory: 100}
 
 // NewKubernetesContainerService returns a KubernetesContainerService using
 // the Pod's own in-cluster service account credentials. namespace is where
@@ -62,7 +81,11 @@ type KubernetesContainerService struct {
 // (create) in that namespace. profiles maps an environment image to the
 // ImageProfile deciding its Pod config — see profile.go and docs/labs.md
 // "Nested Docker labs". registry is config.LabsImageRegistry (may be empty).
-func NewKubernetesContainerService(namespace string, profiles map[string]ImageProfile, registry string) (*KubernetesContainerService, error) {
+// validationRequests sizes the requests of validation/clean-room Pods (short-
+// lived build-verification and grading sandboxes); session Pods always
+// request their full limits. unschedulableGrace bounds how long a validation
+// Pod may stay unschedulable.
+func NewKubernetesContainerService(namespace string, profiles map[string]ImageProfile, registry string, validationRequests RequestPct, unschedulableGrace time.Duration) (*KubernetesContainerService, error) {
 	restConfig, err := loadRestConfig()
 	if err != nil {
 		return nil, fmt.Errorf("labs.NewKubernetesContainerService: %w", err)
@@ -76,7 +99,7 @@ func NewKubernetesContainerService(namespace string, profiles map[string]ImagePr
 	}
 	return &KubernetesContainerService{
 		clientset: clientset, restConfig: restConfig, namespace: namespace,
-		profiles: profiles, registry: registry,
+		profiles: profiles, registry: registry, validationRequests: validationRequests, unschedulableGrace: unschedulableGrace,
 	}, nil
 }
 
@@ -109,17 +132,18 @@ func (k *KubernetesContainerService) Classify(image string) ImageProfile {
 // readiness waiting and lab setup are the caller's, not this method's.
 func (k *KubernetesContainerService) Start(ctx context.Context, sessionID string, resetCount int, image string) (containerID, containerHost string, err error) {
 	name := fmt.Sprintf("mindforge-lab-%s-%d", sessionID, resetCount)
-	return k.startPod(ctx, name, map[string]string{"app": "mindforge-lab", "session-id": sessionID}, image)
+	return k.startPod(ctx, name, map[string]string{"app": "mindforge-lab", "session-id": sessionID}, image, FullRequests, 0)
 }
 
 // StartWarm creates an unbound warm-pool Pod. See ContainerRuntime.
 func (k *KubernetesContainerService) StartWarm(ctx context.Context, warmID string, image string) (containerID, containerHost string, err error) {
-	return k.startPod(ctx, WarmContainerNamePrefix+warmID, map[string]string{"app": "mindforge-lab-warm", "warm-id": warmID}, image)
+	return k.startPod(ctx, WarmContainerNamePrefix+warmID, map[string]string{"app": "mindforge-lab-warm", "warm-id": warmID}, image, FullRequests, 0)
 }
 
 // StartValidation creates a validation/clean-room Pod. See ContainerRuntime.
+// It fails fast with ErrUnschedulable when the cluster has no room for it.
 func (k *KubernetesContainerService) StartValidation(ctx context.Context, id string, image string) (containerID, containerHost string, err error) {
-	return k.startPod(ctx, ValidationContainerNamePrefix+id, map[string]string{"app": "mindforge-lab-validate", "validate-id": id}, image)
+	return k.startPod(ctx, ValidationContainerNamePrefix+id, map[string]string{"app": "mindforge-lab-validate", "validate-id": id}, image, k.validationRequests, k.unschedulableGrace)
 }
 
 // ExecSetup runs a lab's setup_script. Kubernetes Pod exec cannot override the
@@ -139,7 +163,10 @@ func (k *KubernetesContainerService) qualifyImage(image string) string {
 	return k.registry + "/" + image
 }
 
-func (k *KubernetesContainerService) startPod(ctx context.Context, name string, labels map[string]string, image string) (containerID, containerHost string, err error) {
+// startPod creates the Pod and waits for it to run. requests sizes its resource
+// requests against its limits; unschedulableGrace > 0 makes the wait give up
+// with ErrUnschedulable (see waitForRunning).
+func (k *KubernetesContainerService) startPod(ctx context.Context, name string, labels map[string]string, image string, requests RequestPct, unschedulableGrace time.Duration) (containerID, containerHost string, err error) {
 	profile := k.Classify(image)
 	// ImageProfile.Elevated (not a non-empty Name — a resource-only profile
 	// like the future debug-ide can be named without needing any of this)
@@ -185,18 +212,9 @@ func (k *KubernetesContainerService) startPod(ctx context.Context, name string, 
 			RestartPolicy:                corev1.RestartPolicyNever,
 			AutomountServiceAccountToken: boolPtr(false),
 			Containers: []corev1.Container{{
-				Name:  "sandbox",
-				Image: k.qualifyImage(image),
-				Resources: corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceCPU:    cpuQty,
-						corev1.ResourceMemory: memQty,
-					},
-					Limits: corev1.ResourceList{
-						corev1.ResourceCPU:    cpuQty,
-						corev1.ResourceMemory: memQty,
-					},
-				},
+				Name:      "sandbox",
+				Image:     k.qualifyImage(image),
+				Resources: podResources(cpuQty, memQty, requests),
 				SecurityContext: &corev1.SecurityContext{
 					Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 					AllowPrivilegeEscalation: boolPtr(false),
@@ -257,13 +275,13 @@ func (k *KubernetesContainerService) startPod(ctx context.Context, name string, 
 		pod.Spec.Containers[0].Resources.Limits[corev1.ResourceEphemeralStorage] = diskQty
 	}
 
-	created, err := k.clientset.CoreV1().Pods(k.namespace).Create(ctx, pod, metav1.CreateOptions{})
+	created, err := k.createPod(ctx, pod)
 	if err != nil {
-		return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: create pod: %w", err)
+		return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: %w", err)
 	}
 	containerID = created.Name
 
-	podIP, err := k.waitForRunning(ctx, containerID)
+	podIP, err := k.waitForRunning(ctx, containerID, unschedulableGrace)
 	if err != nil {
 		_ = k.Kill(context.Background(), containerID)
 		return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: wait for running: %w", err)
@@ -273,11 +291,49 @@ func (k *KubernetesContainerService) startPod(ctx context.Context, name string, 
 	return containerID, containerHost, nil
 }
 
-// waitForRunning polls until the Pod reaches phase Running with an assigned
-// IP, or ctx is done.
-func (k *KubernetesContainerService) waitForRunning(ctx context.Context, podName string) (podIP string, err error) {
+// createPod creates pod. Every caller names its Pod deterministically per
+// attempt owner (session+reset, warm id, build id), so an existing Pod of the
+// same name is a leftover of an earlier, dead attempt of the same owner (its
+// worker crashed or was reaped before Kill ran): it is deleted and the create
+// retried once it is gone, instead of failing every retry with AlreadyExists.
+func (k *KubernetesContainerService) createPod(ctx context.Context, pod *corev1.Pod) (*corev1.Pod, error) {
+	pods := k.clientset.CoreV1().Pods(k.namespace)
+	created, err := pods.Create(ctx, pod, metav1.CreateOptions{})
+	if !apierrors.IsAlreadyExists(err) {
+		if err != nil {
+			return nil, fmt.Errorf("create pod: %w", err)
+		}
+		return created, nil
+	}
+	if err := k.Kill(ctx, pod.Name); err != nil {
+		return nil, fmt.Errorf("delete stale pod %s: %w", pod.Name, err)
+	}
 	ticker := time.NewTicker(podPollInterval)
 	defer ticker.Stop()
+	for {
+		created, err = pods.Create(ctx, pod, metav1.CreateOptions{})
+		if !apierrors.IsAlreadyExists(err) {
+			if err != nil {
+				return nil, fmt.Errorf("recreate pod: %w", err)
+			}
+			return created, nil
+		}
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("recreate pod %s: stale pod still terminating: %w", pod.Name, ctx.Err())
+		case <-ticker.C:
+		}
+	}
+}
+
+// waitForRunning polls until the Pod reaches phase Running with an assigned
+// IP, or ctx is done. With unschedulableGrace > 0 it returns ErrUnschedulable
+// once the scheduler has reported the Pod Unschedulable for that long, rather
+// than holding the caller (and its worker slot) until ctx's deadline.
+func (k *KubernetesContainerService) waitForRunning(ctx context.Context, podName string, unschedulableGrace time.Duration) (podIP string, err error) {
+	ticker := time.NewTicker(podPollInterval)
+	defer ticker.Stop()
+	var unschedulableSince time.Time
 	for {
 		pod, getErr := k.clientset.CoreV1().Pods(k.namespace).Get(ctx, podName, metav1.GetOptions{})
 		if getErr == nil && pod.Status.Phase == corev1.PodRunning && pod.Status.PodIP != "" {
@@ -286,12 +342,32 @@ func (k *KubernetesContainerService) waitForRunning(ctx context.Context, podName
 		if getErr == nil && pod.Status.Phase == corev1.PodFailed {
 			return "", fmt.Errorf("pod %s failed to schedule: %s", podName, pod.Status.Reason)
 		}
+		if getErr == nil && unschedulableGrace > 0 {
+			if msg, ok := unschedulable(pod); !ok {
+				unschedulableSince = time.Time{}
+			} else if unschedulableSince.IsZero() {
+				unschedulableSince = time.Now()
+			} else if time.Since(unschedulableSince) >= unschedulableGrace {
+				return "", fmt.Errorf("pod %s: %w: %s", podName, ErrUnschedulable, msg)
+			}
+		}
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
 		case <-ticker.C:
 		}
 	}
+}
+
+// unschedulable reports whether the scheduler marked pod Unschedulable, with
+// its message (e.g. "0/1 nodes are available: 1 Insufficient cpu").
+func unschedulable(pod *corev1.Pod) (string, bool) {
+	for _, c := range pod.Status.Conditions {
+		if c.Type == corev1.PodScheduled && c.Status == corev1.ConditionFalse && c.Reason == corev1.PodReasonUnschedulable {
+			return c.Message, true
+		}
+	}
+	return "", false
 }
 
 // Kill force-deletes a Pod by name.
@@ -417,11 +493,17 @@ func (k *KubernetesContainerService) List(ctx context.Context, namePrefix string
 		if !strings.HasPrefix(pod.Name, namePrefix) {
 			continue
 		}
-		infos = append(infos, ContainerInfo{
+		info := ContainerInfo{
 			ID:        pod.Name,
 			Name:      pod.Name,
 			CreatedAt: pod.CreationTimestamp.Time,
-		})
+		}
+		for _, cs := range pod.Status.ContainerStatuses {
+			if cs.State.Running != nil {
+				info.StartedAt = cs.State.Running.StartedAt.Time
+			}
+		}
+		infos = append(infos, info)
 	}
 	return infos, nil
 }
@@ -446,3 +528,18 @@ const (
 )
 
 func int64Ptr(v int64) *int64 { return &v }
+
+// podResources is a sandbox container's limits (cpu, mem) with requests at
+// pct of them.
+func podResources(cpu, mem resource.Quantity, pct RequestPct) corev1.ResourceRequirements {
+	return corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    *resource.NewMilliQuantity(max(cpu.MilliValue()*int64(pct.CPU)/100, 1), resource.DecimalSI),
+			corev1.ResourceMemory: *resource.NewQuantity(max(mem.Value()*int64(pct.Memory)/100, 1), resource.BinarySI),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    cpu,
+			corev1.ResourceMemory: mem,
+		},
+	}
+}

@@ -21,6 +21,12 @@ var (
 	// has been reached and no new session can be provisioned.
 	ErrCapacityReached = errors.New("labs: org concurrent session capacity reached")
 
+	// ErrUnschedulable is returned by a runtime when the cluster has no room
+	// for a validation sandbox (Kubernetes PodScheduled=False/Unschedulable for
+	// longer than the configured grace). It is a capacity condition, not a
+	// fault of the work being validated: callers defer and retry later.
+	ErrUnschedulable = errors.New("labs: sandbox is unschedulable (no cluster capacity)")
+
 	// ErrUserHasActiveSession is returned when a user tries to start a session
 	// for a lab while a session for a *different* lab is still active. A user
 	// may only have one lab running at a time; starting the same lab again

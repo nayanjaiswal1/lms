@@ -640,7 +640,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// verify jobs themselves run in the worker (cmd/server/main.go).
 		labBuildSvc := labbuild.New(pool, rdb, labsRuntime, labsPrivateStore, labsHandler.Service(), libraryRouter.Service(),
 			labAuthorHandler.Service(), jobsRegistry,
-			labbuild.Config{BuildsPerUserDay: cfg.LabBuildsPerUserDay, VerifyParallelPerOrg: cfg.LabVerifyParallelPerOrg})
+			labbuild.NewConfig(cfg))
 		labbuild.NewHandler(labBuildSvc).RegisterRoutes(r, authzHandler.Service())
 
 		// Calendar — events, RSVPs, recurring series, external invites, personal ICS feed.

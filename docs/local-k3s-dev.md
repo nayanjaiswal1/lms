@@ -188,7 +188,7 @@ On the k3s machine (Debian/Ubuntu, k3s already installed via `scripts/setup-k3s-
 sudo SECRETS_FILE=~/secrets.env [GIT_TOKEN=<pat if repo is private>] bash scripts/setup-jenkins.sh
 ```
 
-Jenkins runs at `http://<host>:8080` (user `admin`, password in `/var/lib/jenkins/admin-password.txt`). The first build starts automatically. To deploy to a different machine, run the job with `DEPLOY_TARGET=user@host`; to make another machine its own deploy host, run the command above there.
+Jenkins runs at `http://<host>:8080` (user `admin`, password in `/var/lib/jenkins/admin-password.txt`). The first build starts automatically. Stage `Lab artifacts` verifies platform debug labs on `BUILD_AGENT` and stage `Import labs` imports them into the deployed backend after `Deploy`; a failure in either fails the build (no in-app fallback; docs/debug-labs.md "Platform labs: CI artifacts"). To deploy to a different machine, run the job with `DEPLOY_TARGET=user@host`; to make another machine its own deploy host, run the command above there.
 
 ## Hot-reload dev on a remote box (`make dev-k3s`)
 
@@ -206,5 +206,19 @@ ssh -L 3000:localhost:3000 nayan@ideapad
 One-shot box setup: `bash scripts/setup-dev-box.sh`.
 
 Keep `.env` / `backend/.env` at mode `600`. Dev shares the Neon DB with prod — use a Neon branch for `DATABASE_URL` and IP-allow-list Neon, so a dev mistake can't touch prod data.
+
+### Platform debug labs on the dev box
+
+Platform labs are never built by the app; they are verified offline and imported (docs/debug-labs.md "Platform labs: CI artifacts"). `setup-dev-box.sh` offers to do the whole set. After editing a block or one recipe:
+
+```bash
+cd backend && go run ./cmd/coursegen blocks verify --parallel 1 --artifact /tmp/labset-dev \
+  --cache ~/.cache/mindforge-lab-verify ../content/courses/<course>/recipes/<recipe>.yaml
+cd .. && bash scripts/import-lab-artifacts.sh --target local --partial /tmp/labset-dev && rm -rf /tmp/labset-dev
+```
+
+Verification uses the locally built `mindforge/lab-debug:1` (`docker build -t mindforge/lab-debug:1 -f lab-images/lab-debug/Dockerfile lab-images`); the import compares its runtime stamp with the image the cluster pulls (`$LABS_IMAGE_REGISTRY/mindforge/lab-debug:1`), so push the lab image (`scripts/push-lab-images.sh`, `FORCE_LAB_REBUILD=1` after a grader change) before importing. The labset contains graders and fix/cheat overlays: delete it after the import.
+
+**Resources on a 4-CPU box:** set `LABS_CLEANROOM_MAX_CONCURRENT=2` in `backend/.env` (keep `LAB_VERIFY_PARALLEL_PER_ORG` at 1) and verify with `--parallel 1`. Validation pods request 25% CPU / 50% memory of their limits by default (`LABS_VALIDATION_*_REQUEST_PCT`, docs/infrastructure.md). `make dev-k3s` needs labproxy and piston from the cluster (it port-forwards both), so leave them running. It serves the app from Air + `next dev`, not from the in-cluster `backend`/`frontend` Deployments; if those run against the same database they also run job workers, and scaling them to 0 (`kubectl scale deploy/backend deploy/frontend -n mindforge --replicas=0`) frees CPU, but a Jenkins deploy's `Import labs` stage execs into `deploy/backend`, so scale it back first. Nothing here scales anything for you.
 
 If live reload stops after the page loads, Next is blocking the HMR websocket for your host. Set `NEXT_ALLOWED_DEV_ORIGINS=<your-box>.<tailnet>.ts.net` (comma-separated for more) in `frontend/.env.local` and restart `make dev-k3s`.

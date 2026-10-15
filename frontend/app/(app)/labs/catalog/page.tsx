@@ -3,7 +3,11 @@ import { createLoader, type SearchParams } from "nuqs/server"
 import { CatalogCard } from "@/app/(app)/labs/catalog/catalog-card"
 import { CatalogFilters } from "@/app/(app)/labs/catalog/catalog-filters"
 import { apiGet } from "@/lib/server/api"
-import { catalogQuery, labCatalogParsers } from "@/lib/labs/catalog-params"
+import {
+  catalogQuery,
+  hasActiveCatalogFilters,
+  labCatalogParsers,
+} from "@/lib/labs/catalog-params"
 import { groupCatalog } from "@/lib/labs/kinds/catalog"
 import type { LabCatalogEntry } from "@/lib/labs"
 
@@ -36,7 +40,11 @@ export default async function LabCatalogPage({ searchParams }: PageProps) {
 
       {groups.length === 0 ? (
         <div className="empty-state">
-          <p className="text-sm text-muted-foreground">No labs match these filters.</p>
+          <p className="text-sm text-muted-foreground">
+            {hasActiveCatalogFilters(filters)
+              ? "No labs match these filters."
+              : "No labs are available yet. New labs appear here once they finish building and verification."}
+          </p>
         </div>
       ) : (
         groups.map(({ group, entries: groupEntries }) => (

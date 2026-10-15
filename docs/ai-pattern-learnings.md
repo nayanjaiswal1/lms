@@ -353,6 +353,14 @@ AI features shipped sending user text to a third party with no opt-in, security 
 
 **Rule:** a new feature that sends user content to a model, or stores identifying data, names its consent check and its retention window in the same change.
 
+## Unbounded fan-out into a scarce resource
+
+**Found in:** `labbuild.SyncPlatformRecipes` (2026-10-15; that sync was later removed outright: platform recipes are now verified in CI and imported, docs/debug-labs.md "Platform labs: CI artifacts"). The sync queued one build per platform recipe in a single pass (47 at once). Each render held a worker slot while its 1-CPU validation Pod sat Pending on a 1-node cluster with ~1 free CPU, starving every other job handler; the capacity failures then burned both retries and marked the builds permanently failed. The only cap (a Redis semaphore) guarded the second stage (verify), not the first.
+
+**Fix:** one shared Redis semaphore over every stage that starts a Pod, with a full semaphore returning `jobs.RetryAfter` (frees the slot, keeps the retry budget); the producer starts new work only while in-flight < N; a per-handler running-job cap in the jobs claim; unschedulable Pods fail fast; capacity failures are recorded as `infra` and retried with backoff instead of being treated like content failures.
+
+**Rule:** a loop that creates work items (jobs, Pods, API calls) per row must name its in-flight bound in the same change, and the bound must sit in front of the FIRST stage that consumes the scarce resource. "Wait for capacity" must never hold a shared worker slot or spend a retry.
+
 ## Whole-repo audit (2026-10-08)
 
 Patterns found across the backend and frontend during the audit pass. Each entry names the shape to look for and the rule that prevents it.

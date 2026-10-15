@@ -16,6 +16,11 @@ type LabCatalogFilters = {
   [K in keyof typeof labCatalogParsers]: string
 }
 
+/** True when any filter narrows the catalog (empty state wording depends on it). */
+export function hasActiveCatalogFilters(filters: LabCatalogFilters): boolean {
+  return Object.values(filters).some((value) => value !== CATALOG_ALL)
+}
+
 /** GET /api/labs/catalog query string; "all" filters are omitted. */
 export function catalogQuery(filters: LabCatalogFilters): string {
   const params = new URLSearchParams()

@@ -56,27 +56,48 @@ func (s *Service) RunBuild(ctx context.Context, buildID string) error {
 	if b.Status != StatusQueued && b.Status != StatusRendering {
 		return nil
 	}
-	if _, err := s.repo.Advance(ctx, b.ID, []string{StatusQueued}, StatusRendering); err != nil {
-		return fmt.Errorf("labbuild.RunBuild: %w", err)
-	}
 
 	existing, err := s.repo.ListVariants(ctx, b.ID)
 	if err != nil {
 		return fmt.Errorf("labbuild.RunBuild: %w", err)
 	}
 	if len(existing) == 0 {
-		if err := s.render(ctx, b); err != nil {
-			var ce *contentError
-			if errors.As(err, &ce) {
-				return s.failBuild(ctx, b, Report{Error: ce.msg, Issues: ce.issues})
-			}
-			return fmt.Errorf("labbuild.RunBuild: %w", err)
+		if err := s.renderWithLease(ctx, b); err != nil {
+			return err
 		}
 	}
 	if _, err := s.enqueue(ctx, HandlerRecipeVerify, b.ID, b.CreatedBy, verifyJobTimeoutMS); err != nil {
 		return fmt.Errorf("labbuild.RunBuild: %w", err)
 	}
 	return nil
+}
+
+// renderWithLease renders b holding a validation-pod slot. No free slot, or a
+// cluster with no room for the sandbox, defers the job (deferBuild) instead of
+// holding a worker slot while a Pod sits Pending.
+func (s *Service) renderWithLease(ctx context.Context, b *Build) error {
+	lease, err := s.acquirePod(ctx, "")
+	if err != nil {
+		return fmt.Errorf("labbuild.RunBuild: %w", err)
+	}
+	if lease == nil {
+		return s.deferBuild(ctx, b, Report{}, errNoCapacity)
+	}
+	defer lease.Release()
+	if _, err := s.repo.Advance(ctx, b.ID, []string{StatusQueued}, StatusRendering); err != nil {
+		return fmt.Errorf("labbuild.RunBuild: %w", err)
+	}
+	err = s.render(lease.Ctx, b)
+	var ce *contentError
+	switch {
+	case err == nil:
+		return nil
+	case errors.As(err, &ce):
+		return s.failBuild(ctx, b, Report{Error: ce.msg, Issues: ce.issues})
+	case errors.Is(err, labs.ErrUnschedulable):
+		return s.deferBuild(ctx, b, Report{}, fmt.Errorf("%w: %w", errNoCapacity, err))
+	}
+	return fmt.Errorf("labbuild.RunBuild: %w", err)
 }
 
 func (s *Service) failBuild(ctx context.Context, b *Build, rep Report) error {
@@ -311,34 +332,47 @@ type meta struct {
 	Payload map[string]any `json:"payload"`
 }
 
-// storeVariant checks bundle budgets, uploads the three bundles, and builds the
+// storeVariant uploads a rendered variant's three bundles and returns its
 // lab_build_variants row.
 func (s *Service) storeVariant(ctx context.Context, b *Build, a renderedVariant) (*VariantRow, error) {
+	art, err := variantRowFrom(b.ID, a)
+	if err != nil {
+		return nil, fmt.Errorf("labbuild.storeVariant: %w", err)
+	}
+	for _, data := range [][]byte{art.Workspace, art.Grader, art.Verify} {
+		if _, _, err := storage.PutBundle(ctx, s.store, data); err != nil {
+			return nil, fmt.Errorf("labbuild.storeVariant: %w", err)
+		}
+	}
+	return &art.Row, nil
+}
+
+// VariantArtifact is a rendered variant: its lab_build_variants row and the
+// three bundles the row references by content address.
+type VariantArtifact struct {
+	Row                       VariantRow
+	Workspace, Grader, Verify []byte
+}
+
+// variantRowFrom checks a rendered variant's bundle budgets and shapes its
+// lab_build_variants row (bundle keys are content addresses, so they are known
+// before any upload). The one place a variant row is built: the build job
+// uploads the bundles (storeVariant), the offline path writes them to a labset.
+func variantRowFrom(buildID string, a renderedVariant) (*VariantArtifact, error) {
+	if err := a.checkBudgets(); err != nil {
+		return nil, fmt.Errorf("labbuild.variantRowFrom: %w", err)
+	}
 	var m meta
 	if err := json.Unmarshal(a.Files["meta.json"], &m); err != nil {
-		return nil, fmt.Errorf("labbuild.Service.storeVariant: meta: %w", err)
+		return nil, fmt.Errorf("labbuild.variantRowFrom: meta: %w", err)
 	}
-	ws, gr, vf := a.Files["workspace.tar.gz"], a.Files["grader.tar.gz"], a.Files["verify.tar.gz"]
-	if err := a.checkBudgets(); err != nil {
-		return nil, fmt.Errorf("labbuild.storeVariant: %w", err)
-	}
-	wsKey, wsSHA, err := storage.PutBundle(ctx, s.store, ws)
-	if err != nil {
-		return nil, fmt.Errorf("labbuild.storeVariant: %w", err)
-	}
-	grKey, grSHA, err := storage.PutBundle(ctx, s.store, gr)
-	if err != nil {
-		return nil, fmt.Errorf("labbuild.storeVariant: %w", err)
-	}
-	vfKey, vfSHA, err := storage.PutBundle(ctx, s.store, vf)
-	if err != nil {
-		return nil, fmt.Errorf("labbuild.storeVariant: %w", err)
-	}
+	art := &VariantArtifact{Workspace: a.Files["workspace.tar.gz"], Grader: a.Files["grader.tar.gz"], Verify: a.Files["verify.tar.gz"]}
+	vfSHA := sha256Hex(art.Verify)
 	payload := m.Payload
 	if payload == nil {
 		payload = map[string]any{}
 	}
-	payload["verify_bundle_key"], payload["verify_bundle_sha256"] = vfKey, vfSHA
+	payload["verify_bundle_key"], payload["verify_bundle_sha256"] = storage.BundleKey(vfSHA), vfSHA
 	payload["captures"] = m.Captures
 	diffs := map[string]string{}
 	for _, c := range m.Cheats {
@@ -347,15 +381,31 @@ func (s *Service) storeVariant(ctx context.Context, b *Build, a renderedVariant)
 	payload["cheat_diffs"] = diffs
 	rawPayload, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("labbuild.Service.storeVariant: payload: %w", err)
+		return nil, fmt.Errorf("labbuild.variantRowFrom: payload: %w", err)
 	}
 	if len(m.AppPorts) == 0 {
 		m.AppPorts = []int{}
 	}
-	return &VariantRow{
-		BuildID: b.ID, Key: a.Key, WorkspaceKey: wsKey, WorkspaceSHA: wsSHA, GraderKey: grKey, GraderSHA: grSHA,
-		BriefMD: m.BriefMD, ProtectedManifest: m.ProtectedManifest, AppPorts: m.AppPorts, Payload: rawPayload,
-	}, nil
+	grSHA := sha256Hex(art.Grader)
+	art.Row = VariantRow{
+		BuildID: buildID, Key: a.Key, GraderKey: storage.BundleKey(grSHA), GraderSHA: grSHA,
+		ProtectedManifest: m.ProtectedManifest, AppPorts: m.AppPorts, Payload: rawPayload,
+	}
+	art.setBrief(m.BriefMD, art.Workspace)
+	return art, nil
+}
+
+// setBrief sets the variant's brief and workspace bundle (the captured output
+// filled in after verification) and re-addresses the workspace key.
+func (a *VariantArtifact) setBrief(brief string, workspace []byte) {
+	sha := sha256Hex(workspace)
+	a.Workspace = workspace
+	a.Row.BriefMD, a.Row.WorkspaceKey, a.Row.WorkspaceSHA = brief, storage.BundleKey(sha), sha
+}
+
+func sha256Hex(b []byte) string {
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:])
 }
 
 // checkBudgets enforces the workspace and grader bundle size limits.

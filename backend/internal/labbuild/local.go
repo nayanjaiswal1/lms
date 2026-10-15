@@ -31,18 +31,21 @@ type LocalOptions struct {
 // the CI/authoring check behind `coursegen blocks verify`.
 //
 // payloads maps a block version id to its payload tar.gz (labauthor.LoadedBlock.Payload).
-func VerifyLocal(ctx context.Context, rt labs.ContainerRuntime, recipe *labblock.Recipe, an *labauthor.Analysis, payloads map[string][]byte, opts LocalOptions) (*Report, error) {
+//
+// It also returns every verified variant's artifact (row + bundles), shaped by
+// the same variantRowFrom/finalizeBrief the jobs use: the content of a CI labset.
+func VerifyLocal(ctx context.Context, rt labs.ContainerRuntime, recipe *labblock.Recipe, an *labauthor.Analysis, payloads map[string][]byte, opts LocalOptions) (*Report, []VariantArtifact, error) {
 	kind, ok := labkinds.Get(recipe.LabKind)
 	if !ok {
-		return nil, fmt.Errorf("labbuild.VerifyLocal: unknown lab kind %q", recipe.LabKind)
+		return nil, nil, fmt.Errorf("labbuild.VerifyLocal: unknown lab kind %q", recipe.LabKind)
 	}
 	if !an.Valid || an.RecipeHash == "" {
-		return &Report{Error: "the recipe does not validate", Issues: an.Issues}, nil
+		return &Report{Error: "the recipe does not validate", Issues: an.Issues}, nil, nil
 	}
 	rep := &Report{RecipeHash: an.RecipeHash, Difficulty: an.Difficulty}
 	variants, _, err := labauthor.EnumerateVariants(recipe)
 	if err != nil {
-		return nil, fmt.Errorf("labbuild.VerifyLocal: %w", err)
+		return nil, nil, fmt.Errorf("labbuild.VerifyLocal: %w", err)
 	}
 	bp := map[string]*blockPayload{}
 	for i, blk := range recipe.Blocks {
@@ -70,55 +73,58 @@ func VerifyLocal(ctx context.Context, rt labs.ContainerRuntime, recipe *labblock
 	grade := func(ctx context.Context, target labs.GradeTarget, v *labkinds.VariantView, overlay []byte, modes []string, seed string) (map[string]*labs.GradeResult, error) {
 		return labs.GradeModesInSandbox(ctx, rt, target, v, overlay, modes, seed)
 	}
+	arts := make([]VariantArtifact, 0, len(rendered))
 	for _, a := range rendered {
 		if opts.OnRendered != nil {
 			if err := opts.OnRendered(a.Key, a.Files); err != nil {
-				return nil, fmt.Errorf("labbuild.VerifyLocal: %w", err)
+				return nil, nil, fmt.Errorf("labbuild.VerifyLocal: %w", err)
 			}
 		}
-		vr, err := verifyRenderedLocal(ctx, rt, grade, kind, an.RecipeHash, a, opts)
+		vr, art, err := verifyRenderedLocal(ctx, rt, grade, kind, an.RecipeHash, a, opts)
 		if err != nil {
 			return contentReport(rep, err)
 		}
 		rep.Variants = append(rep.Variants, *vr)
+		arts = append(arts, *art)
 	}
-	return rep, nil
+	return rep, arts, nil
 }
 
 // contentReport turns a content error into a failed report; anything else is returned.
-func contentReport(rep *Report, err error) (*Report, error) {
+func contentReport(rep *Report, err error) (*Report, []VariantArtifact, error) {
 	var ce *contentError
 	if errors.As(err, &ce) {
 		rep.Error, rep.Issues = ce.msg, ce.issues
-		return rep, nil
+		return rep, nil, nil
 	}
-	return nil, err
+	return nil, nil, err
 }
 
-// verifyRenderedLocal runs one rendered variant's whole matrix.
-func verifyRenderedLocal(ctx context.Context, rt labs.ContainerRuntime, grade gradeFunc, kind labkinds.Kind, recipeHash string, a renderedVariant, opts LocalOptions) (*VariantReport, error) {
-	if err := a.checkBudgets(); err != nil {
-		return nil, fmt.Errorf("labbuild.verifyRenderedLocal: %w", err)
-	}
-	var m meta
-	if err := json.Unmarshal(a.Files["meta.json"], &m); err != nil {
-		return nil, fmt.Errorf("labbuild.verifyRenderedLocal: meta: %w", err)
-	}
-	payload, err := json.Marshal(m.Payload)
+// verifyRenderedLocal runs one rendered variant's whole matrix and returns its
+// artifact, with the captured output filled into the brief when it passed.
+func verifyRenderedLocal(ctx context.Context, rt labs.ContainerRuntime, grade gradeFunc, kind labkinds.Kind, recipeHash string, a renderedVariant, opts LocalOptions) (*VariantReport, *VariantArtifact, error) {
+	art, err := variantRowFrom("", a)
 	if err != nil {
-		return nil, fmt.Errorf("labbuild.verifyRenderedLocal: payload: %w", err)
+		return nil, nil, fmt.Errorf("labbuild.verifyRenderedLocal: %w", err)
 	}
-	overlays, err := overlaysFromVerifyTar(a.Files["verify.tar.gz"])
+	row := art.Row
+	overlays, err := overlaysFromVerifyTar(art.Verify)
 	if err != nil {
-		return nil, fmt.Errorf("labbuild.verifyRenderedLocal: %w", err)
+		return nil, nil, fmt.Errorf("labbuild.verifyRenderedLocal: %w", err)
 	}
 	bundles := &variantBundles{
-		view: &labkinds.VariantView{VariantKey: a.Key, WorkspaceBundle: a.Files["workspace.tar.gz"], GraderBundle: a.Files["grader.tar.gz"],
-			BriefMD: m.BriefMD, ProtectedManifest: m.ProtectedManifest, AppPorts: m.AppPorts, Payload: payload},
+		view: &labkinds.VariantView{VariantKey: row.Key, WorkspaceBundle: art.Workspace, GraderBundle: art.Grader,
+			BriefMD: row.BriefMD, ProtectedManifest: row.ProtectedManifest, AppPorts: row.AppPorts, Payload: row.Payload},
 		overlays: overlays,
 	}
-	matrix := kind.VerifyMatrix(kind.VerifyInput(payload))
-	box := newCaptureBox(m.Captures)
+	matrix := kind.VerifyMatrix(kind.VerifyInput(row.Payload))
+	var p struct {
+		Captures []string `json:"captures"`
+	}
+	if err := json.Unmarshal(row.Payload, &p); err != nil {
+		return nil, nil, fmt.Errorf("labbuild.verifyRenderedLocal: payload: %w", err)
+	}
+	box := newCaptureBox(p.Captures)
 
 	runs := make([]RunReport, len(matrix))
 	errs := make([]error, len(matrix))
@@ -132,7 +138,7 @@ func verifyRenderedLocal(ctx context.Context, rt labs.ContainerRuntime, grade gr
 			slots <- struct{}{}
 			defer func() { <-slots }()
 			var runBox *captureBox
-			if run.Capture && len(m.Captures) > 0 {
+			if run.Capture && len(p.Captures) > 0 {
 				runBox = box
 			}
 			runs[i], errs[i] = executeRun(ctx, rt, grade, "local-"+recipeHash, "", kind, bundles, run, runBox)
@@ -145,19 +151,25 @@ func verifyRenderedLocal(ctx context.Context, rt labs.ContainerRuntime, grade gr
 	}
 	wg.Wait()
 	if err := errors.Join(errs...); err != nil {
-		return nil, fmt.Errorf("labbuild.verifyRenderedLocal: %w", err)
+		return nil, nil, fmt.Errorf("labbuild.verifyRenderedLocal: %w", err)
 	}
 
 	vr := &VariantReport{Key: a.Key, Passed: true, Runs: runs, Captured: box.snapshot()}
 	for _, r := range runs {
 		vr.Passed = vr.Passed && r.Passed
 	}
-	if vr.Passed && len(m.Captures) > 0 {
-		if _, missing := substituteCaptures(m.BriefMD, vr.Captured); len(missing) > 0 {
-			vr.Passed, vr.CaptureNote = false, fmt.Sprintf("could not capture %v from the broken run: %v", missing, box.errs)
-		} else {
+	if vr.Passed && len(p.Captures) > 0 {
+		brief, ws, err := finalizeBrief(row.BriefMD, art.Workspace, box)
+		var ce *contentError
+		switch {
+		case errors.As(err, &ce):
+			vr.Passed, vr.CaptureNote = false, ce.msg
+		case err != nil:
+			return nil, nil, fmt.Errorf("labbuild.verifyRenderedLocal: %w", err)
+		default:
+			art.setBrief(brief, ws)
 			vr.BriefFilled = true
 		}
 	}
-	return vr, nil
+	return vr, art, nil
 }

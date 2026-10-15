@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/labauthor"
 	"github.com/mindforge/backend/internal/labblock"
@@ -28,10 +29,14 @@ const (
 	renderJobTimeoutMS       = 15 * 60 * 1000
 	verifyJobTimeoutMS       = 40 * 60 * 1000
 	jobMaxRetries            = 2
-	buildRateWindow          = 24 * time.Hour
-	outputDir                = "/tmp/mf-out"
-	rendererCmd              = "python3 -I /opt/mindforge/mf-build --out " + outputDir
-	permCoursesPublish       = "courses.publish"
+	// stuckBuildGrace: an in-flight build older than this with no live
+	// render/verify job is failed (as infra) by lab.build_gc; the grace
+	// covers the instant between CreateBuild and its job being enqueued.
+	stuckBuildGrace    = 10 * time.Minute
+	buildRateWindow    = 24 * time.Hour
+	outputDir          = "/tmp/mf-out"
+	rendererCmd        = "python3 -I /opt/mindforge/mf-build --out " + outputDir
+	permCoursesPublish = "courses.publish"
 )
 
 // Config carries the operator-tunable limits.
@@ -40,6 +45,41 @@ type Config struct {
 	BuildsPerUserDay int
 	// VerifyParallelPerOrg bounds concurrent verification sandboxes per org.
 	VerifyParallelPerOrg int
+	// ValidatePodsMax bounds validation sandboxes (render, verify runs and
+	// runtime probes together) across every worker and org.
+	ValidatePodsMax int
+	// BuildDeadline: a build still waiting for validation capacity this long
+	// after it was queued fails as an infra failure.
+	BuildDeadline time.Duration
+}
+
+// NewConfig maps the operator settings (config.Config) to the pipeline's limits.
+func NewConfig(cfg *config.Config) Config {
+	return Config{
+		BuildsPerUserDay: cfg.LabBuildsPerUserDay, VerifyParallelPerOrg: cfg.LabVerifyParallelPerOrg,
+		ValidatePodsMax: cfg.LabBuildValidatePodsMax,
+		BuildDeadline:   cfg.LabBuildDeadline,
+	}
+}
+
+// RegisterJobs registers the pipeline's job handlers, dead hooks and their
+// scheduling limits on reg. Render and verify jobs each hold a worker slot
+// while a sandbox runs, so they are capped at ValidatePodsMax running jobs per
+// handler (more could only wait for a pod slot) and can never starve the
+// pool. All three handlers are idempotent (status guards, content-addressed
+// uploads), so a shutdown requeues them without consuming a retry.
+func (s *Service) RegisterJobs(reg *jobs.Registry) {
+	reg.Register(HandlerRecipeBuild, s.BuildJob())
+	reg.Register(HandlerRecipeVerify, s.VerifyJob())
+	reg.Register(HandlerBuildGC, s.BuildGCJob())
+	reg.OnDead(HandlerRecipeBuild, s.DeadHook())
+	reg.OnDead(HandlerRecipeVerify, s.DeadHook())
+	for _, h := range []string{HandlerRecipeBuild, HandlerRecipeVerify} {
+		reg.SetMaxConcurrent(h, max(s.cfg.ValidatePodsMax, 1))
+	}
+	for _, h := range []string{HandlerRecipeBuild, HandlerRecipeVerify, HandlerBuildGC} {
+		reg.SetResumable(h)
+	}
 }
 
 // Service is the build pipeline: API operations plus the job bodies.
@@ -61,7 +101,7 @@ type Service struct {
 
 // New wires the pipeline. labsSvc supplies clean-room grading (and, on the API
 // side, preview session starts); lib may be nil in the worker process (publish
-// through the API only; auto-publish of platform recipes never places a lab).
+// through the API only; the labset import never places a lab).
 func New(pool *pgxpool.Pool, rdb *redis.Client, runtime labs.ContainerRuntime, store storage.PrivateStore,
 	labsSvc *labs.Service, lib *library.Service, authoring *labauthor.Service, reg *jobs.Registry, cfg Config) *Service {
 	return &Service{
@@ -114,19 +154,15 @@ func runSeed(buildID, variantKey, run string, i int) string {
 
 func ptr[T any](v T) *T { return &v }
 
-// enqueue puts a pipeline job on the queue. A duplicate idempotency key means
-// it is already queued, which is fine.
+// enqueue puts a pipeline job on the queue, one job row per (handler, build):
+// a busy pipeline defers that same row (jobs.RetryAfter) instead of enqueueing
+// another, so a duplicate idempotency key means it is already queued, which is
+// fine.
 func (s *Service) enqueue(ctx context.Context, handler, buildID, createdBy string, timeoutMS int) (string, error) {
-	return s.enqueueAt(ctx, handler, buildID, createdBy, timeoutMS, nil, "")
-}
-
-// enqueueAt is enqueue with an optional run time (a delayed re-enqueue) and an
-// idempotency-key suffix, so a deferred job does not collide with its predecessor.
-func (s *Service) enqueueAt(ctx context.Context, handler, buildID, createdBy string, timeoutMS int, runAt *time.Time, keySuffix string) (string, error) {
 	job, err := jobs.Enqueue(ctx, s.pool, s.jobs, jobs.EnqueueParams{
 		Handler: handler, Priority: jobs.PriorityNormal, Payload: map[string]string{"build_id": buildID},
-		MaxRetries: ptr(jobMaxRetries), TimeoutMS: ptr(timeoutMS), RunAt: runAt,
-		IdempotencyKey: ptr(handler + ":" + buildID + keySuffix), CreatedBy: ptr(createdBy),
+		MaxRetries: ptr(jobMaxRetries), TimeoutMS: ptr(timeoutMS),
+		IdempotencyKey: ptr(handler + ":" + buildID), CreatedBy: ptr(createdBy),
 	})
 	if err != nil && !errors.Is(err, jobs.ErrDuplicateKey) {
 		return "", fmt.Errorf("labbuild.Service.enqueue %s: %w", handler, err)

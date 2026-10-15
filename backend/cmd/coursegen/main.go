@@ -73,6 +73,25 @@ Usage:
       verification matrix, clean-room grader). Needs the lab image built locally
       (scripts/push-lab-images.sh) and the mindforge-labs network. Exits non-zero
       if any recipe fails. --report writes the JSON reports.
+
+  coursegen blocks verify --artifact DIR [--cache DIR] [--cached-only] [--runtime-id ID]
+                          [--courses DIR] [--git-sha SHA] [--ci-build N] [RECIPE.yaml...]
+      Same verification, then write a labset to DIR (manifest.json + bundles/):
+      the platform-lab release artifact. With no RECIPE args, every recipe a lab
+      document under --courses uses. --cache reuses entries
+      <recipe_hash>-<runtime_id> instead of verifying again; --cached-only
+      assembles from the cache without Docker. The runtime id defaults to the
+      stamp in the local lab image. The labset holds graders, fixes and cheat
+      overlays: treat it as a secret.
+      Defaults: --courses ../content/courses
+
+  coursegen blocks import --expect-runtime-id ID [--partial] DIR|-
+      Import a labset ("-" = a tar on stdin) into DATABASE_URL and the private
+      bundle store (MINIO_*): checks every sha256 and the runtime id, refuses a
+      stale/invalid recipe or a missing platform recipe (--partial lifts only
+      the last check, for authoring), uploads the bundles, then records and
+      publishes every lab in one transaction. Re-running is a no-op; importing
+      an older labset rolls back.
 `)
 }
 

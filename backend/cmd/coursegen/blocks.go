@@ -20,7 +20,9 @@ const (
 )
 
 const blocksUsage = "usage: coursegen blocks sync [--in DIR] [--out FILE] [--dry-run] [--no-upload]\n" +
-	"       coursegen blocks verify [--in DIR] [--parallel N] [--report FILE] RECIPE.yaml..."
+	"       coursegen blocks verify [--in DIR] [--parallel N] [--report FILE] RECIPE.yaml...\n" +
+	"       coursegen blocks verify --artifact DIR [--cache DIR] [--cached-only] [--runtime-id ID] [RECIPE.yaml...]\n" +
+	"       coursegen blocks import --expect-runtime-id ID [--partial] DIR|-"
 
 // runBlocks dispatches `coursegen blocks <action>`.
 func runBlocks(args []string) error {
@@ -32,6 +34,8 @@ func runBlocks(args []string) error {
 		return runBlocksSync(args[1:])
 	case "verify":
 		return runBlocksVerify(args[1:])
+	case "import":
+		return runBlocksImport(args[1:], os.Stdin)
 	}
 	return fmt.Errorf("%s", blocksUsage)
 }

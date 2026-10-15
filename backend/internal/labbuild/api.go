@@ -31,6 +31,9 @@ func (s *Service) StartBuild(ctx context.Context, orgID, userID, recipeID string
 	if err != nil {
 		return nil, fmt.Errorf("labbuild.StartBuild: %w", err)
 	}
+	if rc.IsPlatform {
+		return nil, ErrPlatformRecipe
+	}
 	snap := Snapshot{LabKind: rc.LabKind, OrgID: orgID, Spec: rc.Spec}
 	res, err := s.resolveSnapshot(ctx, snap)
 	if err != nil {
@@ -39,12 +42,11 @@ func (s *Service) StartBuild(ctx context.Context, orgID, userID, recipeID string
 	if !res.Analysis.Valid || res.Analysis.RecipeHash == "" {
 		return nil, &labauthor.InvalidRecipeError{Analysis: res.Analysis}
 	}
-	return s.startBuild(ctx, rc.ID, userID, snap, res.Analysis, true)
+	return s.startBuild(ctx, rc.ID, userID, snap, res.Analysis)
 }
 
-// startBuild is the shared queue path (API and platform sync). limited applies
-// the per-user daily limit.
-func (s *Service) startBuild(ctx context.Context, recipeID, userID string, snap Snapshot, a *labauthor.Analysis, limited bool) (*StartResult, error) {
+// startBuild queues a build of a validated recipe, subject to the per-user daily limit.
+func (s *Service) startBuild(ctx context.Context, recipeID, userID string, snap Snapshot, a *labauthor.Analysis) (*StartResult, error) {
 	runtimeID, err := s.runtimeID(ctx, snap.LabKind)
 	if err != nil {
 		return nil, fmt.Errorf("labbuild.startBuild: %w", err)
@@ -59,11 +61,8 @@ func (s *Service) startBuild(ctx context.Context, recipeID, userID string, snap 
 			return &StartResult{Build: prev}, nil
 		}
 	}
-	if limited {
-		key := buildRateKeyPrefix + userID
-		if allowed, _ := s.limiter.Allow(ctx, key, s.cfg.BuildsPerUserDay, buildRateWindow); !allowed {
-			return nil, ErrBuildRateLimit
-		}
+	if allowed, _ := s.limiter.Allow(ctx, buildRateKeyPrefix+userID, s.cfg.BuildsPerUserDay, buildRateWindow); !allowed {
+		return nil, ErrBuildRateLimit
 	}
 	b, err := s.repo.CreateBuild(ctx, recipeID, a.RecipeHash, runtimeID, snap, a.Difficulty, userID)
 	if errors.Is(err, ErrBuildInFlight) {
@@ -74,7 +73,7 @@ func (s *Service) startBuild(ctx context.Context, recipeID, userID string, snap 
 	}
 	jobID, err := s.enqueue(ctx, HandlerRecipeBuild, b.ID, userID, renderJobTimeoutMS)
 	if err != nil {
-		_, _ = s.repo.Finish(context.Background(), b.ID, StatusFailed, Report{Error: "could not queue the build job"})
+		_, _ = s.repo.Finish(context.Background(), b.ID, StatusFailed, Report{Error: "could not queue the build job", Infra: true})
 		slog.Error("labbuild: enqueue build", "build_id", b.ID, "error", err)
 		return nil, ErrNoWorker
 	}

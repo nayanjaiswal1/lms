@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"sort"
 
 	"github.com/jackc/pgx/v5"
@@ -79,7 +78,7 @@ type publishOut struct {
 // In-flight sessions are pinned to their task version and that version's build,
 // so nothing here can change a running session.
 func (s *Service) publishLab(ctx context.Context, tx pgx.Tx, in publishIn) (*publishOut, error) {
-	variants, err := s.repo.ListVariants(ctx, in.Build.ID)
+	variants, err := listVariants(ctx, tx, in.Build.ID)
 	if err != nil {
 		return nil, fmt.Errorf("labbuild.publishLab: %w", err)
 	}
@@ -363,45 +362,6 @@ func placementFromRecipe(raw json.RawMessage, req PublishReq) PublishReq {
 	}
 	req.CourseID, req.SectionID, req.Position = tp.CourseID, tp.SectionID, tp.Position
 	return req
-}
-
-// autoPublish publishes a verified platform-recipe build into its existing lab
-// (the generated, unpublished lab_definitions row); it never places a lab.
-func (s *Service) autoPublish(ctx context.Context, b *Build) error {
-	rc, err := s.authoring.Repo().GetRecipe(ctx, b.Snapshot.OrgID, b.RecipeID)
-	if err != nil {
-		return fmt.Errorf("labbuild.autoPublish: %w", err)
-	}
-	res, err := s.resolveSnapshot(ctx, Snapshot{LabKind: rc.LabKind, OrgID: rc.OrgID, Spec: rc.Spec})
-	if err != nil {
-		return fmt.Errorf("labbuild.autoPublish: %w", err)
-	}
-	if !res.Analysis.Valid || res.Analysis.RecipeHash != b.RecipeHash {
-		return ErrBuildStale
-	}
-	labID := ""
-	if rc.LabID != nil {
-		labID = *rc.LabID
-	}
-	if labID == "" {
-		return fmt.Errorf("labbuild.Service.autoPublish: platform recipe %s has no lab", rc.ID)
-	}
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("labbuild.Service.autoPublish: begin: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := s.publishLab(ctx, tx, publishIn{
-		OrgID: rc.OrgID, UserID: rc.OwnerID, Build: b, Kind: res.Kind, LabID: labID, Title: rc.Title,
-		RecipeID: rc.ID, Catalog: catalogOf(res.Recipe, res.Analysis.Difficulty),
-	}); err != nil {
-		return err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("labbuild.Service.autoPublish: commit: %w", err)
-	}
-	slog.Info("labbuild: platform lab published", "recipe_id", rc.ID, "lab_id", labID, "build_id", b.ID)
-	return nil
 }
 
 // Preview starts an instructor is_test session on a chosen variant of a

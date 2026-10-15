@@ -90,6 +90,35 @@ pipeline {
           agent { label params.BUILD_AGENT }
           steps { script { registrySh('bash scripts/build-k3s-local-images.sh frontend') } }
         }
+        // Platform labs are rendered + verified HERE, not in the app (docs/debug-labs.md B5).
+        // Only recipes not already in the agent's verify cache (<recipe_hash>-<runtime_id>) run;
+        // any failure fails the pipeline. The labset/cache hold graders and fix/cheat overlays:
+        // only the new cache entries are stashed (Jenkins-internal) and only reports are archived.
+        stage('Lab artifacts') {
+          when { expression { params.DEPLOY_TARGET == 'local' } }
+          agent { label params.BUILD_AGENT } // needs docker + go; BUILD_AGENT=built-in verifies one sandbox at a time
+          environment { LAB_VERIFY_PARALLEL = "${params.BUILD_AGENT == 'built-in' ? '1' : '2'}" }
+          steps {
+            sh '''
+              set -eu
+              docker network inspect mindforge-labs >/dev/null 2>&1 || docker network create mindforge-labs >/dev/null
+              docker build -t mindforge/lab-debug:1 -f lab-images/lab-debug/Dockerfile lab-images
+              rid="$(docker run --rm --entrypoint cat mindforge/lab-debug:1 /opt/mindforge/RUNTIME_ID | tr -d '[:space:]')"
+              cache="$HOME/.cache/mindforge-lab-verify"
+              mkdir -p "$cache"
+              ls "$cache" | sort > lab-cache-before.txt
+              rm -rf labset lab-cache-new lab-reports && mkdir -p lab-cache-new lab-reports
+              (cd backend && go run ./cmd/coursegen blocks verify --parallel "$LAB_VERIFY_PARALLEL" --artifact ../labset \
+                --cache "$cache" --runtime-id "$rid" --report ../lab-reports/verify.json --git-sha "$GIT_COMMIT" --ci-build "$BUILD_NUMBER")
+              ls "$cache" | sort | comm -13 lab-cache-before.txt - | grep -v '[.]tmp-' | while read -r e; do cp -a "$cache/$e" lab-cache-new/; done
+              echo "$rid" > lab-reports/runtime-id
+              rm -rf labset lab-cache-before.txt
+            '''
+            stash name: 'lab-cache-new', includes: 'lab-cache-new/**', allowEmpty: true
+            archiveArtifacts artifacts: 'lab-reports/**', allowEmptyArchive: true // reports only; NEVER labset/ or the cache
+            sh 'rm -rf lab-cache-new'
+          }
+        }
         stage('Lab images') {
           when { expression { params.DEPLOY_TARGET == 'local' } }
           steps {
@@ -110,6 +139,24 @@ pipeline {
           else
             bash scripts/deploy-remote-k3s.sh "$DEPLOY_TARGET" "$APP_DOMAIN"
           fi
+        '''
+      }
+    }
+    // Publish the CI-verified platform labs into the deployed backend. The built-in agent keeps
+    // its own cache; the import assembles from it for the environment's lab runtime and fails
+    // loudly if any platform recipe has no verified artifact (there is no in-app fallback).
+    stage('Import labs') {
+      when { expression { params.DEPLOY_TARGET == 'local' } }
+      steps {
+        unstash 'lab-cache-new'
+        sh '''
+          set -eu
+          cache="$JENKINS_HOME/mindforge-lab-verify-cache"
+          mkdir -p "$cache"
+          if [ -d lab-cache-new ]; then cp -a lab-cache-new/. "$cache/"; fi
+          rm -rf labset lab-cache-new
+          trap 'rm -rf labset' EXIT
+          bash scripts/import-lab-artifacts.sh --target k8s --from-cache "$cache" labset
         '''
       }
     }

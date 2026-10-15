@@ -10,42 +10,24 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/mindforge/backend/internal/labkinds"
 	"github.com/mindforge/backend/internal/labs"
 	"github.com/mindforge/backend/internal/storage"
 )
 
-const ()
-
 // infraChecks are grader checks that mean "the app never got far enough to be
 // graded"; an expected failure must come from a real probe/test, not from these.
 var infraChecks = map[string]bool{"setup": true, "application starts": true, "integrity": true}
 
-// Verification sandboxes are capped per organization GLOBALLY (all worker
-// replicas together, docs/debug-labs.md B3: "the org validation cap") by a
-// Redis-backed counting semaphore (ratelimit.Semaphore). This is deliberately
-// different from labs.CleanRoomMaxConcurrent, which is a per-process cap
-// protecting the local node's CPU/memory and stays in-process on purpose.
-//
-// A full semaphore never blocks: runs that cannot get a lease stay pending, the
-// completed runs are saved in the report, and the verify job re-enqueues itself
-// (delayed) through the jobs system.
-const (
-	verifySemKeyPrefix = "labbuild:verify:org:"
-	// verifyLeaseTTL bounds how long a crashed worker can hold a slot; live
-	// holders renew every ttl/3.
-	verifyLeaseTTL = 2 * time.Minute
-	// verifyBusyBackoff is the delay before a deferred verify job runs again.
-	verifyBusyBackoff = 30 * time.Second
-)
+// Verification runs take a validation-pod lease (capacity.go). Runs that
+// cannot get one stay pending, the completed runs are saved in the report, and
+// the verify job defers itself (deferBuild) to finish them later.
 
-// errRunBusy means this replica's clean-room slots are full (labs.ErrGradeBusy):
-// the run is deferred like a full semaphore.
+// errRunBusy means a run could not get a sandbox: this replica's clean-room
+// slots are full (labs.ErrGradeBusy) or the cluster had no room for the Pod
+// (labs.ErrUnschedulable). The run is deferred like a full semaphore.
 var errRunBusy = errors.New("labbuild: clean-room capacity busy")
-
-func verifySemKey(org string) string { return verifySemKeyPrefix + org }
 
 // RunVerify is the lab.recipe_verify job body: run the kind's verification
 // matrix for every variant through the clean-room grader, fill the ticket's
@@ -101,25 +83,17 @@ func (s *Service) RunVerify(ctx context.Context, buildID string) error {
 		return fmt.Errorf("labbuild.Service.RunVerify: %w", infraErr)
 	}
 	if deferred {
-		// Some runs could not get a slot: come back later with the finished runs kept.
-		at := time.Now().Add(verifyBusyBackoff)
-		_, err := s.enqueueAt(ctx, HandlerRecipeVerify, b.ID, b.CreatedBy, verifyJobTimeoutMS, &at, fmt.Sprintf(":%d", at.Unix()))
-		return err
+		// Some runs could not get a slot: come back later (same job row) with
+		// the finished runs kept, or give up once the build deadline passed.
+		return s.deferBuild(ctx, b, rep, errNoCapacity)
 	}
 
 	status := StatusFailed
 	if allPassed {
 		status = StatusVerified
 	}
-	moved, err := s.repo.Finish(ctx, b.ID, status, rep)
-	if err != nil {
+	if _, err := s.repo.Finish(ctx, b.ID, status, rep); err != nil {
 		return fmt.Errorf("labbuild.RunVerify: %w", err)
-	}
-	if moved && allPassed && b.Snapshot.AutoPublish {
-		if err := s.autoPublish(ctx, b); err != nil {
-			// The build stays verified; the next platform sync retries the publish.
-			slog.Error("labbuild: auto-publish", "build_id", b.ID, "error", err)
-		}
 	}
 	return nil
 }
@@ -222,8 +196,6 @@ func (s *Service) verifyVariant(ctx context.Context, b *Build, kind labkinds.Kin
 		}
 	}
 
-	limit := max(s.cfg.VerifyParallelPerOrg, 1)
-	key := verifySemKey(b.Snapshot.OrgID)
 	var mu sync.Mutex
 	var runErr error
 	for len(pending) > 0 && runErr == nil {
@@ -231,7 +203,7 @@ func (s *Service) verifyVariant(ctx context.Context, b *Build, kind labkinds.Kin
 		var next []int
 		progressed := 0
 		for _, i := range pending {
-			lease, err := s.sem.TryAcquire(ctx, key, limit, verifyLeaseTTL)
+			lease, err := s.acquirePod(ctx, b.Snapshot.OrgID)
 			if err != nil {
 				runErr = err
 				break
@@ -317,22 +289,33 @@ func priorVariantReports(raw json.RawMessage) map[string]*VariantReport {
 // fillCaptures substitutes the captured text into the brief and the workspace's
 // TICKET.md and re-uploads the workspace bundle.
 func (s *Service) fillCaptures(ctx context.Context, b *Build, v VariantRow, bundles *variantBundles, box *captureBox) error {
-	box.mu.Lock()
-	got, errs := box.got, append([]string(nil), box.errs...)
-	box.mu.Unlock()
-	brief, missing := substituteCaptures(v.BriefMD, got)
-	if len(missing) > 0 {
-		return contentErrf("could not capture %s from the broken run: %s", strings.Join(missing, ", "), strings.Join(errs, "; "))
-	}
-	ws, err := replaceTarEntry(bundles.view.WorkspaceBundle, "TICKET.md", []byte(brief))
+	brief, ws, err := finalizeBrief(v.BriefMD, bundles.view.WorkspaceBundle, box)
 	if err != nil {
-		return fmt.Errorf("labbuild.Service.fillCaptures: %w", err)
+		return err
 	}
 	key, sha, err := storage.PutBundle(ctx, s.store, ws)
 	if err != nil {
 		return fmt.Errorf("labbuild.fillCaptures: %w", err)
 	}
 	return s.repo.UpdateVariantBrief(ctx, b.ID, v.Key, key, sha, brief)
+}
+
+// finalizeBrief substitutes the captured broken-run output into a variant's
+// brief and its workspace's TICKET.md. Shared by the verify job and the offline
+// path. A placeholder that was not captured is a content error.
+func finalizeBrief(brief string, workspace []byte, box *captureBox) (string, []byte, error) {
+	box.mu.Lock()
+	got, errs := box.got, append([]string(nil), box.errs...)
+	box.mu.Unlock()
+	filled, missing := substituteCaptures(brief, got)
+	if len(missing) > 0 {
+		return "", nil, contentErrf("could not capture %s from the broken run: %s", strings.Join(missing, ", "), strings.Join(errs, "; "))
+	}
+	ws, err := replaceTarEntry(workspace, "TICKET.md", []byte(filled))
+	if err != nil {
+		return "", nil, fmt.Errorf("labbuild.finalizeBrief: %w", err)
+	}
+	return filled, ws, nil
 }
 
 // gradeFunc grades modes in a clean room: labs.Service.GradeModesInCleanRoom
@@ -360,7 +343,7 @@ func executeRun(ctx context.Context, rt labs.ContainerRuntime, grade gradeFunc, 
 		}
 		results, err := grade(ctx, labs.GradeTarget{Image: image, OrgID: orgID, AfterGrade: hook},
 			bundles.view, overlay, run.Modes, seed)
-		if errors.Is(err, labs.ErrGradeBusy) {
+		if errors.Is(err, labs.ErrGradeBusy) || errors.Is(err, labs.ErrUnschedulable) {
 			return rr, errRunBusy
 		}
 		if err != nil {

@@ -82,4 +82,19 @@ if ! grep -q '^DEV_SEED_REMOTE_DB=true' backend/.env; then
   [[ "$ans" =~ ^[Yy]$ ]] && set_env backend/.env DEV_SEED_REMOTE_DB true
 fi
 
+# ── Platform debug labs: verified offline (CI labset), never built in the app ─
+# Without an import every platform lab stays unpublished. Verifying all recipes
+# runs every one through the full matrix in local Docker (slow on first run;
+# later runs reuse ~/.cache/mindforge-lab-verify). docs/debug-labs.md
+# "Platform labs: CI artifacts".
+read -r -p "Verify and import the platform debug labs now (slow first run, needs Docker)? [y/N] " ans
+if [[ "$ans" =~ ^[Yy]$ ]]; then
+  docker network inspect mindforge-labs >/dev/null 2>&1 || docker network create mindforge-labs >/dev/null
+  docker build -t mindforge/lab-debug:1 -f lab-images/lab-debug/Dockerfile lab-images
+  labset="$(mktemp -d)/labset"
+  trap 'rm -rf "$(dirname "$labset")"' EXIT   # the labset holds graders/fixes: never keep it around
+  (cd backend && go run ./cmd/coursegen blocks verify --parallel 1 --artifact "$labset" --cache "$HOME/.cache/mindforge-lab-verify")
+  bash scripts/import-lab-artifacts.sh --target local "$labset"
+fi
+
 echo "Ready: make dev-k3s  →  https://${ts_host}"

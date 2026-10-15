@@ -13,8 +13,8 @@ import (
 // RecipeSpec is a platform lab's recipe (the `recipe:` file a `kind: lab`
 // document points at): a composition of pinned lab blocks
 // (docs/debug-labs.md Part 2 B5 "Platform course content"). The generator
-// emits it as an unpublished lab_recipes row; lab.platform_recipes_sync builds,
-// verifies and publishes it.
+// emits it as an unpublished lab_recipes row; CI (`coursegen blocks verify --artifact`)
+// verifies it and `coursegen blocks import` publishes it on deploy.
 type RecipeSpec struct {
 	LabKind            string        `yaml:"lab_kind"`
 	AppRange           string        `yaml:"app_range"`

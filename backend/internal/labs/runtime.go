@@ -13,6 +13,10 @@ type ContainerInfo struct {
 	ID        string
 	Name      string
 	CreatedAt time.Time
+	// StartedAt is when the sandbox's container started running; zero when
+	// the runtime does not report it or the sandbox is not running yet. Age
+	// checks of live work use it so time spent Pending/pulling does not count.
+	StartedAt time.Time
 }
 
 // ContainerRuntime provisions and controls lab sandboxes. DockerContainerService

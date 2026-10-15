@@ -155,23 +155,8 @@ func (r *Repo) InsertVariants(ctx context.Context, buildID string, rows []Varian
 		return fmt.Errorf("labbuild.Repo.InsertVariants: begin: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	for _, v := range rows {
-		if _, err := tx.Exec(ctx, `
-			INSERT INTO public.lab_build_variants (build_id, variant_key, workspace_bundle_key, workspace_bundle_sha256,
-				grader_bundle_key, grader_bundle_sha256, brief_md, protected_manifest, app_ports, payload)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10::jsonb)
-			ON CONFLICT (build_id, variant_key) DO NOTHING`,
-			buildID, v.Key, v.WorkspaceKey, v.WorkspaceSHA, v.GraderKey, v.GraderSHA, v.BriefMD, []byte(v.ProtectedManifest), v.AppPorts, []byte(v.Payload)); err != nil {
-			return fmt.Errorf("labbuild.Repo.InsertVariants: variant %s: %w", v.Key, err)
-		}
-	}
-	for _, id := range usageVersionIDs {
-		if _, err := tx.Exec(ctx, `INSERT INTO public.lab_block_usages (build_id, block_version_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, buildID, id); err != nil {
-			return fmt.Errorf("labbuild.Repo.InsertVariants: usage: %w", err)
-		}
-	}
-	if _, err := tx.Exec(ctx, `UPDATE public.lab_builds SET status = 'verifying' WHERE id = $1 AND status IN ('queued','rendering')`, buildID); err != nil {
-		return fmt.Errorf("labbuild.Repo.InsertVariants: advance: %w", err)
+	if err := insertVariants(ctx, tx, buildID, rows, usageVersionIDs); err != nil {
+		return fmt.Errorf("labbuild.Repo.InsertVariants: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("labbuild.Repo.InsertVariants: commit: %w", err)
@@ -179,9 +164,44 @@ func (r *Repo) InsertVariants(ctx context.Context, buildID string, rows []Varian
 	return nil
 }
 
+// insertVariants is InsertVariants inside the caller's transaction (the
+// labset importer writes a whole release in one).
+func insertVariants(ctx context.Context, tx pgx.Tx, buildID string, rows []VariantRow, usageVersionIDs []string) error {
+	for _, v := range rows {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO public.lab_build_variants (build_id, variant_key, workspace_bundle_key, workspace_bundle_sha256,
+				grader_bundle_key, grader_bundle_sha256, brief_md, protected_manifest, app_ports, payload)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10::jsonb)
+			ON CONFLICT (build_id, variant_key) DO NOTHING`,
+			buildID, v.Key, v.WorkspaceKey, v.WorkspaceSHA, v.GraderKey, v.GraderSHA, v.BriefMD, []byte(v.ProtectedManifest), v.AppPorts, []byte(v.Payload)); err != nil {
+			return fmt.Errorf("labbuild.insertVariants: variant %s: %w", v.Key, err)
+		}
+	}
+	for _, id := range usageVersionIDs {
+		if _, err := tx.Exec(ctx, `INSERT INTO public.lab_block_usages (build_id, block_version_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, buildID, id); err != nil {
+			return fmt.Errorf("labbuild.insertVariants: usage: %w", err)
+		}
+	}
+	if _, err := tx.Exec(ctx, `UPDATE public.lab_builds SET status = 'verifying' WHERE id = $1 AND status IN ('queued','rendering')`, buildID); err != nil {
+		return fmt.Errorf("labbuild.insertVariants: advance: %w", err)
+	}
+	return nil
+}
+
 // ListVariants returns a build's variants ordered by key.
 func (r *Repo) ListVariants(ctx context.Context, buildID string) ([]VariantRow, error) {
-	rows, err := r.pool.Query(ctx, `
+	return listVariants(ctx, r.pool, buildID)
+}
+
+// querier is what pgxpool.Pool and pgx.Tx share for reads.
+type querier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
+// listVariants reads a build's variants through q (a pool, or the caller's
+// transaction so it sees rows that transaction wrote).
+func listVariants(ctx context.Context, q querier, buildID string) ([]VariantRow, error) {
+	rows, err := q.Query(ctx, `
 		SELECT build_id, variant_key, workspace_bundle_key, workspace_bundle_sha256, grader_bundle_key, grader_bundle_sha256,
 		       brief_md, protected_manifest, app_ports, payload
 		FROM public.lab_build_variants WHERE build_id = $1 ORDER BY variant_key`, buildID)
@@ -214,4 +234,33 @@ func (r *Repo) UpdateVariantBrief(ctx context.Context, buildID, key, wsKey, wsSH
 		return fmt.Errorf("labbuild.Repo.UpdateVariantBrief: %w", err)
 	}
 	return nil
+}
+
+// FailStuck fails, as infra failures, in-flight builds older than grace that
+// have no live (pending/queued/running) render or verify job: their job died
+// before the dead hook ran, was cancelled, or was never enqueued (a crash
+// between CreateBuild and enqueue). Without this they would hold the in-flight
+// unique index for their recipe hash forever. A live job always exists while a
+// build is legitimately in flight (render enqueues verify, and a deferral
+// re-queues the same row, before the running job finishes), and the grace
+// covers CreateBuild -> enqueue, so a live build is never matched. Existing
+// partial report fields are kept. Returns the number of builds failed.
+func (r *Repo) FailStuck(ctx context.Context, grace time.Duration) (int64, error) {
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE public.lab_builds b
+		SET status = 'failed', finished_at = now(),
+		    report = COALESCE(b.report, '{}'::jsonb) || jsonb_build_object(
+		        'error', 'the build had no running pipeline job (it died, was cancelled or was never queued)',
+		        'infra', true)
+		WHERE b.status IN ('queued','rendering','verifying')
+		  AND b.created_at < now() - make_interval(secs => $1)
+		  AND NOT EXISTS (
+		        SELECT 1 FROM public.jobs j
+		        WHERE j.handler IN ($2, $3) AND j.payload->>'build_id' = b.id::text
+		          AND j.status IN ('pending','queued','running') AND j.deleted_at IS NULL)`,
+		grace.Seconds(), HandlerRecipeBuild, HandlerRecipeVerify)
+	if err != nil {
+		return 0, fmt.Errorf("labbuild.Repo.FailStuck: %w", err)
+	}
+	return tag.RowsAffected(), nil
 }
