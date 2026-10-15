@@ -118,13 +118,14 @@ pipeline {
               rid="$(docker run --rm --entrypoint cat mindforge/lab-debug:1 /opt/mindforge/RUNTIME_ID | tr -d '[:space:]')"
               cache="$HOME/.cache/mindforge-lab-verify"
               mkdir -p "$cache"
-              ls "$cache" | sort > lab-cache-before.txt
               rm -rf labset lab-cache-new lab-reports && mkdir -p lab-cache-new lab-reports
               (cd backend && go run ./cmd/coursegen blocks verify --parallel "$LAB_VERIFY_PARALLEL" --artifact ../labset \
                 --cache "$cache" --prune --runtime-id "$rid" --report ../lab-reports/verify.json --git-sha "$GIT_COMMIT" --ci-build "$BUILD_NUMBER")
-              ls "$cache" | sort | comm -13 lab-cache-before.txt - | grep -v '[.]tmp-' | while read -r e; do cp -a "$cache/$e" lab-cache-new/; done
+              # every live entry, not just new ones: --prune leaves only this runtime's recipes, and entries written by an earlier
+              # (failed) build are cache hits now but never reached the built-in agent's cache that Check labs reads
+              ls "$cache" | grep -v '[.]tmp-' | while read -r e; do cp -a "$cache/$e" lab-cache-new/; done
               echo "$rid" > lab-reports/runtime-id
-              rm -rf labset lab-cache-before.txt
+              rm -rf labset
             '''
             stash name: 'lab-cache-new', includes: 'lab-cache-new/**', allowEmpty: true
             archiveArtifacts artifacts: 'lab-reports/**', allowEmptyArchive: true // reports only; NEVER labset/ or the cache
