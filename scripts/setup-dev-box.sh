@@ -70,11 +70,13 @@ set_env frontend/.env.local BACKEND_URL "http://127.0.0.1:${BACKEND_PORT}"
 set_env frontend/.env.local NEXT_ALLOWED_DEV_ORIGINS "$ts_host"
 
 # ── Dev users (admin@mindforge.dev / Admin123!) — only once the backend has migrated ──
-db_host="$( (set -a; . backend/.env; set +a; echo "$DATABASE_URL") | sed -E 's#.*@([^/:?]+).*#\1#')"
-has_users="$( (set -a; . backend/.env; set +a; psql "$DATABASE_URL" -Atc "select count(*) from users" 2>/dev/null) || echo none)"
+# Read the URL with grep, never `source` the file: its unquoted '&' would background the line.
+DATABASE_URL="$(grep -m1 '^DATABASE_URL=' backend/.env | cut -d= -f2-)"
+db_host="$(sed -E 's#.*@([^/:?]+).*##' <<<"$DATABASE_URL")"
+has_users="$(psql "$DATABASE_URL" -Atc 'select count(*) from users' 2>/dev/null || echo none)"
 if [[ "$has_users" == "0" ]]; then
   read -r -p "Seed dev users into database host $db_host? It must NOT be prod. [y/N] " ans
-  [[ "$ans" =~ ^[Yy]$ ]] && (set -a; . backend/.env; set +a; psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/fixtures/dev_seed.sql)
+  [[ "$ans" =~ ^[Yy]$ ]] && psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/fixtures/dev_seed.sql
 elif [[ "$has_users" == "none" ]]; then
   echo "Users table not there yet — run 'make dev-k3s' once (it migrates), then re-run this script to seed."
 fi
