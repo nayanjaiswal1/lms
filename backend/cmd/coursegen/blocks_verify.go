@@ -338,6 +338,12 @@ func writeCacheEntry(entry string, r labbuild.LabsetRecipe, arts []labbuild.Vari
 		return fmt.Errorf("blocks verify: cache: %w", err)
 	}
 	if err := os.Rename(tmp, entry); err != nil {
+		// Entries are content-addressed: a concurrent run (or an earlier one)
+		// already stored the same verified recipe. Keep it, drop ours.
+		if _, statErr := os.Stat(filepath.Join(entry, cacheRecipeFile)); statErr == nil {
+			_ = os.RemoveAll(tmp)
+			return nil
+		}
 		return fmt.Errorf("blocks verify: cache: %w", err)
 	}
 	return nil
