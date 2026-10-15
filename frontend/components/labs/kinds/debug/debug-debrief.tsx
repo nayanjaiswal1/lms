@@ -1,5 +1,4 @@
-import { Lightbulb } from "lucide-react"
-import { DebugDiffView } from "@/components/labs/kinds/debug/debug-diff-view"
+import { DebugChangeViewer } from "@/components/labs/kinds/debug/debug-change-viewer"
 import { DebugWriteupReviewCard } from "@/components/labs/kinds/debug/debug-writeup-review-card"
 import { LabMarkdown } from "@/components/labs/kinds/debug/lab-markdown"
 import { apiGet } from "@/lib/server/api"
@@ -18,35 +17,25 @@ export async function DebugDebrief({ sessionId }: LabDebriefProps) {
 
   return (
     <>
-      <section aria-labelledby="debrief-root-cause" className="card-base flex flex-col gap-2 p-4">
-        <h2 className="flex items-center gap-2 text-sm font-semibold" id="debrief-root-cause">
-          <Lightbulb aria-hidden className="h-4 w-4 text-primary" />
-          Root cause
+      <section aria-labelledby="debrief-root-cause" className="flex flex-col gap-3">
+        <h2 className="subsection-title" id="debrief-root-cause">
+          What went wrong
         </h2>
-        <LabMarkdown>{debrief.root_cause}</LabMarkdown>
+        <div className="max-w-prose">
+          <LabMarkdown>{debrief.root_cause}</LabMarkdown>
+        </div>
       </section>
 
-      <section aria-labelledby="debrief-diff" className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold" id="debrief-diff">
-          Reference fix vs your changes
+      <section aria-labelledby="debrief-diff" className="flex flex-col gap-3">
+        <h2 className="subsection-title" id="debrief-diff">
+          The change
         </h2>
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <DebugDiffView
-            diff={debrief.fix_diff}
-            emptyMessage="No reference diff for this scenario."
-            title="Reference fix"
-          />
-          <DebugDiffView
-            diff={student_diff ?? ""}
-            emptyMessage="Your workspace changes are no longer available."
-            title="Your changes"
-          />
-        </div>
+        <DebugChangeViewer referenceDiff={debrief.fix_diff} studentDiff={student_diff ?? ""} />
       </section>
 
       {writeup_review && (
         <section aria-labelledby="debrief-writeup" className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold" id="debrief-writeup">
+          <h2 className="subsection-title" id="debrief-writeup">
             Your write-up review
           </h2>
           <DebugWriteupReviewCard result={writeup_review} />

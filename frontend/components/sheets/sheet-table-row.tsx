@@ -58,10 +58,19 @@ const DIFFICULTY_CLASS: Record<string, string> = {
   hard: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
-export function SheetTableRow({ sheetId, item, index, isOwner, isEditMode, isActive, onSelect }: SheetTableRowProps) {
+export function SheetTableRow({
+  sheetId,
+  item,
+  index,
+  isOwner,
+  isEditMode,
+  isActive,
+  onSelect,
+}: SheetTableRowProps) {
   const [isPending, startTransition] = useTransition();
   const StatusIcon = STATUS_ICON[item.status];
-  const isDue = item.status === "done" && !!item.revision_at && new Date(item.revision_at) <= new Date();
+  const isDue =
+    item.status === "done" && !!item.revision_at && new Date(item.revision_at) <= new Date();
 
   function cycleStatus(e: React.MouseEvent) {
     e.stopPropagation();
@@ -92,7 +101,7 @@ export function SheetTableRow({ sheetId, item, index, isOwner, isEditMode, isAct
   }
 
   return (
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- role/tabIndex/onKeyDown below already make this a real keyboard-operable button; jsx-a11y can't resolve the conditional `role` expression statically.
+    // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- role/tabIndex/onKeyDown below already make this a real keyboard-operable button; jsx-a11y can't resolve the conditional `role` expression statically.
     <li
       aria-current={onSelect && isActive ? "true" : undefined}
       className={cn(
@@ -116,7 +125,8 @@ export function SheetTableRow({ sheetId, item, index, isOwner, isEditMode, isAct
           : undefined
       }
     >
-      <Button aria-label={STATUS_LABEL[item.status]}
+      <Button
+        aria-label={STATUS_LABEL[item.status]}
         className={cn(
           "touch-target flex items-center justify-center rounded-full border shrink-0",
           STATUS_CLASS[item.status],
@@ -129,7 +139,8 @@ export function SheetTableRow({ sheetId, item, index, isOwner, isEditMode, isAct
         <StatusIcon aria-hidden className="h-4 w-4" />
       </Button>
 
-      <Button aria-label={item.is_starred ? "Unstar" : "Star"}
+      <Button
+        aria-label={item.is_starred ? "Unstar" : "Star"}
         aria-pressed={item.is_starred}
         className={cn(
           "touch-target shrink-0 text-muted-foreground hover:text-primary",
@@ -159,7 +170,9 @@ export function SheetTableRow({ sheetId, item, index, isOwner, isEditMode, isAct
           <p className="text-sm font-medium text-foreground truncate">{item.title}</p>
         )}
         <div className="flex items-center gap-2">
-          {item.category && <p className="truncate text-xs text-muted-foreground">{item.category}</p>}
+          {item.category && (
+            <p className="truncate text-xs text-muted-foreground">{item.category}</p>
+          )}
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {item.difficulty && (
               <Badge className={DIFFICULTY_CLASS[item.difficulty]} variant="outline">
@@ -180,7 +193,8 @@ export function SheetTableRow({ sheetId, item, index, isOwner, isEditMode, isAct
       </div>
 
       {isOwner && isEditMode && (
-        <Button aria-label={`Delete ${item.title}`}
+        <Button
+          aria-label={`Delete ${item.title}`}
           className="touch-target shrink-0 text-muted-foreground hover:text-destructive"
           disabled={isPending}
           type="button"

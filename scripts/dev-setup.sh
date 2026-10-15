@@ -37,7 +37,7 @@ check_cmd() {
 check_cmd docker   "Docker"
 check_cmd go       "Go"
 check_cmd node     "Node.js"
-check_cmd pnpm     "pnpm"
+check_cmd bun      "Bun"
 
 # Check docker compose (v2 plugin syntax)
 if docker compose version &>/dev/null; then

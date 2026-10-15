@@ -43,7 +43,7 @@ func renderRecipeLabRows(out *strings.Builder, courseID, moduleID, idKey, title 
 	}
 	hintPenaltyPct := spec.HintPenaltyPct
 	if hintPenaltyPct <= 0 {
-		hintPenaltyPct = defaultRecipeHintPenaltyPct
+		hintPenaltyPct = labkinds.DefaultHintPenaltyPct
 	}
 	workspaceLayout := spec.WorkspaceLayout
 	if workspaceLayout == "" {

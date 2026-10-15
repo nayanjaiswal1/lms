@@ -2,30 +2,22 @@
 # ─── Stage 1: Install dependencies ──────────────────────────────────────────
 FROM node:26-alpine AS deps
 
-# This project is pnpm-managed (pnpm-lock.yaml, pnpm-workspace.yaml). Node
-# stopped bundling corepack as of 25.0.0 (nodejs/node TSC vote, March 2025) —
-# install it explicitly, then let it auto-resolve to the pnpm version pinned
-# in package.json's "packageManager" field (see COPY below) — no version
-# duplicated here.
-RUN npm install -g corepack@latest && corepack enable
+# Bun does the installs (much faster than pnpm); Node still runs next build
+# and the runtime. Copy the musl bun binary from the official alpine image.
+COPY --from=oven/bun:1.3.14-alpine /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
-# Copy lockfile + package.json first for layer caching — corepack reads
-# package.json's "packageManager" field to activate the exact pnpm version
-# the lockfile/pnpm-workspace.yaml (allowBuilds) were generated with.
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json bun.lock ./
 
-# Cache mount keeps pnpm's content-addressable store across builds/retries —
-# without it, a flaky/slow registry connection means every retry re-downloads
-# all ~700 packages from scratch instead of resuming from what's already local.
-RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile
+# Cache mount keeps bun's package cache across builds/retries, so a flaky
+# registry connection doesn't re-download every package from scratch.
+RUN --mount=type=cache,id=bun-cache,target=/root/.bun/install/cache     bun install --frozen-lockfile
 
 # ─── Stage 2: Build ──────────────────────────────────────────────────────────
 FROM node:26-alpine AS builder
 
-RUN npm install -g corepack@latest && corepack enable
+COPY --from=oven/bun:1.3.14-alpine /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
@@ -51,7 +43,10 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
 # Next.js standalone output bundles only the files needed to run the server.
 # Set in next.config.ts: output: 'standalone'
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN pnpm run build
+# Cache mount persists Next's compile cache (.next/cache) so unchanged modules
+# aren't recompiled on every build; it stays out of the image layers.
+RUN --mount=type=cache,id=next-cache,target=/app/.next/cache \
+    bun run build
 
 # ─── Stage 3: Production runtime ─────────────────────────────────────────────
 FROM node:26-alpine AS runner
@@ -65,13 +60,12 @@ RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
 # Copy standalone server and static assets
-COPY --from=builder /app/.next/standalone ./
+# --chown on each COPY instead of a trailing `chown -R /app`, which would
+# duplicate the whole tree into another layer. Next.js writes its runtime
+# prerender cache under .next, so the non-root server user must own it.
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
-
-# Next.js stores its runtime prerender cache under .next; the non-root server
-# user must own that directory.
-RUN chown -R nextjs:nodejs /app
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 USER nextjs
 

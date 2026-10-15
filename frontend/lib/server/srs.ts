@@ -22,7 +22,16 @@ interface DueCardsResponse {
   total: number;
 }
 
-export async function getDueCards(): Promise<DueCardsResponse> {
-  const data = await apiGet<DueCardsResponse>("/api/srs/due");
+async function getCards(path: string): Promise<DueCardsResponse> {
+  const data = await apiGet<DueCardsResponse>(path);
   return { cards: data.cards ?? [], total: data.total ?? 0 };
+}
+
+export function getDueCards(): Promise<DueCardsResponse> {
+  return getCards("/api/srs/due");
+}
+
+// Today's due cards ranked weakest-first (overdue + repeated lapses), capped.
+export function getDrillCards(): Promise<DueCardsResponse> {
+  return getCards("/api/srs/drill");
 }

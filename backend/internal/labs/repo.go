@@ -924,7 +924,9 @@ func (r *Repo) ListCatalog(ctx context.Context, orgID, userID, kind, stack, cate
 		                  ELSE 'not_started'
 		                END
 		         FROM lab_sessions s WHERE s.lab_id = l.id AND s.user_id = $2
-		       ), 'not_started')
+		       ), 'not_started'),
+		       (SELECT MAX(s.score) FROM lab_sessions s
+		         WHERE s.lab_id = l.id AND s.user_id = $2 AND s.status = 'completed')
 		FROM lab_definitions l
 		JOIN lab_catalog_meta m ON m.lab_id = l.id
 		WHERE l.is_published = true
@@ -942,7 +944,7 @@ func (r *Repo) ListCatalog(ctx context.Context, orgID, userID, kind, stack, cate
 	out := []LabCatalogEntry{}
 	for rows.Next() {
 		var e LabCatalogEntry
-		if err := rows.Scan(&e.LabID, &e.Title, &e.LabType, &e.Stack, &e.Category, &e.Difficulty, &e.Skills, &e.MaxDuration, &e.Status); err != nil {
+		if err := rows.Scan(&e.LabID, &e.Title, &e.LabType, &e.Stack, &e.Category, &e.Difficulty, &e.Skills, &e.MaxDuration, &e.Status, &e.BestScore); err != nil {
 			return nil, fmt.Errorf("labs.Repo.ListCatalog: scan: %w", err)
 		}
 		out = append(out, e)

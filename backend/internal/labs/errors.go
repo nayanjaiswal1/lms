@@ -152,6 +152,10 @@ var (
 
 	// ErrGradeBusy is returned when the clean-room grader is at capacity.
 	ErrGradeBusy = errors.New("labs: grader is busy, try again shortly")
+	// ErrGradeTimeout is returned when a Check exceeds its grading deadline.
+	ErrGradeTimeout = errors.New("labs: grading timed out")
+	// ErrGradeInterrupted is returned when a Check's context is canceled mid-run.
+	ErrGradeInterrupted = errors.New("labs: grading interrupted")
 
 	// ErrMaxWriteupReviewsReached is returned past MaxWriteupReviewsPerSession.
 	ErrMaxWriteupReviewsReached = errors.New("labs: maximum write-up reviews for this session reached")

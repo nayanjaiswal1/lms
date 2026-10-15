@@ -5,6 +5,7 @@ import (
 	crand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -176,6 +177,7 @@ type GradeTarget struct {
 	Image     string // sandbox image (the lab's environment)
 	OrgID     string // org the validation seconds are metered against
 	SessionID string // triggering session ("" = build verification, metered without a session)
+	Budget    time.Duration // whole-run deadline; 0 = derived from the per-mode constants
 	// AfterGrade, when set, runs once after every mode has been graded and
 	// before the sandbox is destroyed. Build verification uses it to capture the
 	// broken app's real log/traceback. Its error is logged, never fatal.
@@ -228,7 +230,11 @@ func GradeModesInSandbox(ctx context.Context, rt ContainerRuntime, target GradeT
 	if len(v.WorkspaceBundle) == 0 || len(v.GraderBundle) == 0 {
 		return nil, fmt.Errorf("labs.GradeModesInSandbox: variant bundles not loaded")
 	}
-	ctx, cancel := context.WithTimeout(ctx, cleanRoomReadyBudget+time.Duration(len(modes))*DebugGradeTimeoutSeconds*time.Second)
+	budget := target.Budget
+	if budget <= 0 {
+		budget = cleanRoomReadyBudget + time.Duration(len(modes))*DebugGradeTimeoutSeconds*time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
 
 	idBytes := make([]byte, 8)
@@ -268,6 +274,11 @@ func GradeModesInSandbox(ctx context.Context, rt ContainerRuntime, target GradeT
 	for _, mode := range modes {
 		script := "/opt/mindforge/grade.sh " + shellQuote(mode) + " --seed " + shellQuote(seed)
 		stdout, stderr, exitCode, err := rt.ExecStdin(ctx, containerID, script, v.GraderBundle, DebugGradeTimeoutSeconds)
+		// A canceled/expired context can surface as exit=1 with empty output
+		// and no error; that is an interrupted grade, never "unusable output".
+		if cerr := gradeInterruption(ctx); cerr != nil {
+			return nil, fmt.Errorf("labs.GradeModesInSandbox: run %s: %w", mode, cerr)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("labs.GradeModesInSandbox: run %s: %w", mode, err)
 		}
@@ -288,6 +299,17 @@ func GradeModesInSandbox(ctx context.Context, rt ContainerRuntime, target GradeT
 		}
 	}
 	return results, nil
+}
+
+// gradeInterruption maps a finished grading context to a typed, retryable error.
+func gradeInterruption(ctx context.Context) error {
+	switch {
+	case errors.Is(ctx.Err(), context.DeadlineExceeded):
+		return ErrGradeTimeout
+	case ctx.Err() != nil:
+		return ErrGradeInterrupted
+	}
+	return nil
 }
 
 func tailString(s string, n int) string {
@@ -341,7 +363,7 @@ func (s *Service) gradeKindModes(ctx context.Context, session *LabSession, lab *
 	if err != nil {
 		return nil, fmt.Errorf("labs.gradeKindModes: %w", err)
 	}
-	results, err := s.GradeModesInCleanRoom(ctx, GradeTarget{Image: lab.Environment, OrgID: session.OrgID, SessionID: session.ID}, v, tar, modes, seed)
+	results, err := s.GradeModesInCleanRoom(ctx, GradeTarget{Image: lab.Environment, OrgID: session.OrgID, SessionID: session.ID, Budget: s.gradeTimeout}, v, tar, modes, seed)
 	if err != nil {
 		return nil, fmt.Errorf("labs.gradeKindModes: %w", err)
 	}
@@ -377,6 +399,8 @@ func kindTaskMode(kind labkinds.Kind, task *TaskSnapshot) (string, error) {
 // registered Kind: script-graded tasks run in a clean room; writeup_review
 // tasks are never run here.
 func (s *Service) verifyKindTask(ctx context.Context, session *LabSession, lab *LabDefinition, kind labkinds.Kind, tasks []TaskSnapshot, task *TaskSnapshot, attempts int) (*VerifyResult, error) {
+	// A student closing the tab must not abandon a half-graded Check.
+	ctx = context.WithoutCancel(ctx)
 	mode, err := kindTaskMode(kind, task)
 	if err != nil {
 		return nil, fmt.Errorf("labs.verifyKindTask: %w", err)

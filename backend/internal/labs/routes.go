@@ -32,11 +32,12 @@ import (
 // grader bundles live in (storage.PrivateStore) — nil is valid (a deploy
 // with no MinIO configured simply can't run lab-kind sessions; every other
 // lab type is unaffected).
-func New(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, pistonURL string, pistonTimeout time.Duration, snippetDailyLimit int, coursesSvc *courses.Service, container ContainerRuntime, repoPreparer RepoPreparer, notifSvc *notifications.Service, entitlementsSvc *ent.Service, aiProvider ai.LLMProvider, bundleStore storage.PrivateStore) *Handler {
+func New(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, pistonURL string, pistonTimeout time.Duration, snippetDailyLimit int, coursesSvc *courses.Service, container ContainerRuntime, repoPreparer RepoPreparer, notifSvc *notifications.Service, entitlementsSvc *ent.Service, aiProvider ai.LLMProvider, bundleStore storage.PrivateStore, gradeTimeout time.Duration) *Handler {
 	repo := NewRepo(pool)
 	piston := newLabPiston(pistonURL, pistonTimeout)
 	service := NewService(repo, container, rdb, pool, piston, coursesSvc, repoPreparer, notifSvc, entitlementsSvc, jwtSecret, aiProvider, bundleStore)
 	service.snippetDailyLimit = snippetDailyLimit
+	service.gradeTimeout = gradeTimeout
 	return NewHandler(repo, service, pool, rdb, jwtSecret, jwtIssuer, piston)
 }
 

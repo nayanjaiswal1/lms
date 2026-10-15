@@ -78,6 +78,8 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrKindLabNotBuilt: {Status: http.StatusConflict, Code: CodeKindLabNotBuilt, Message: "This lab has no runnable build yet."},
 	ErrBundleStoreUnavailable: {Status: http.StatusServiceUnavailable, Code: CodeBundleStoreUnavailable, Message: "Lab content storage is not available right now."},
 	ErrGradeBusy: {Status: http.StatusServiceUnavailable, Code: CodeGraderBusy, Message: "The grader is busy — try again in a few seconds."},
+	ErrGradeTimeout: {Status: http.StatusGatewayTimeout, Code: CodeGraderTimeout, Message: "The check took too long to finish. Nothing was lost — try again."},
+	ErrGradeInterrupted: {Status: http.StatusServiceUnavailable, Code: CodeGraderTimeout, Message: "The check was interrupted. Try again in a few seconds."},
 	ErrMaxWriteupReviewsReached: {Status: http.StatusTooManyRequests, Code: CodeWriteupReviewLimit, Message: "Maximum write-up reviews reached for this session."},
 	ErrHintNotSupported: {Status: http.StatusUnprocessableEntity, Code: CodeHintNotSupported, Message: "Hints are not available for this task."},
 	ErrNoDebrief: {Status: http.StatusConflict, Code: CodeNoDebrief, Message: "The debrief is available once the lab is completed."},

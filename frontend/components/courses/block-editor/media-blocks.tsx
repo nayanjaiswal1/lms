@@ -13,11 +13,11 @@ import type { ImageBlock, YouTubeBlock, VideoBlock } from "@/lib/courses/draft-t
 // ─── Shared: upload-or-url tabs ───────────────────────────────────────────────
 
 interface AssetInputProps {
-  url:        string;
-  accept:     string;
-  label:      string;
-  onUrl:      (url: string) => void;
-  onFile:     (file: File) => void;
+  url: string;
+  accept: string;
+  label: string;
+  onUrl: (url: string) => void;
+  onFile: (file: File) => void;
 }
 
 function AssetInput({ url, accept, label, onUrl, onFile }: AssetInputProps) {
@@ -26,7 +26,8 @@ function AssetInput({ url, accept, label, onUrl, onFile }: AssetInputProps) {
     <div className="flex flex-col gap-2">
       <div className="flex gap-1 text-xs">
         {(["url", "upload"] as const).map((t) => (
-          <Button className={cn(
+          <Button
+            className={cn(
               "flex items-center gap-1 rounded px-2 py-1 transition-colors",
               tab === t ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground",
             )}
@@ -68,7 +69,11 @@ function AssetInput({ url, accept, label, onUrl, onFile }: AssetInputProps) {
 
 // ─── Image block ──────────────────────────────────────────────────────────────
 
-interface ImageProps { block: ImageBlock; onChange: (b: ImageBlock) => void; onFile: (blockId: string, file: File) => void }
+interface ImageProps {
+  block: ImageBlock;
+  onChange: (b: ImageBlock) => void;
+  onFile: (blockId: string, file: File) => void;
+}
 
 export function ImageBlockEditor({ block, onChange, onFile }: ImageProps) {
   const displayUrl = block.previewUrl ?? block.url;
@@ -85,17 +90,29 @@ export function ImageBlockEditor({ block, onChange, onFile }: ImageProps) {
         onUrl={(url) => onChange({ ...block, url, previewUrl: undefined })}
       />
       {displayUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img alt={block.alt || "preview"} className="max-h-60 w-full rounded-md object-contain bg-muted" src={displayUrl} />
+        // oxlint-disable-next-line @next/next/no-img-element
+        <img
+          alt={block.alt || "preview"}
+          className="max-h-60 w-full rounded-md object-contain bg-muted"
+          src={displayUrl}
+        />
       )}
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
         <div className="flex flex-col gap-1">
           <Label>Alt text</Label>
-          <Input placeholder="Describe the image" value={block.alt} onChange={(e) => onChange({ ...block, alt: e.target.value })} />
+          <Input
+            placeholder="Describe the image"
+            value={block.alt}
+            onChange={(e) => onChange({ ...block, alt: e.target.value })}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <Label>Caption</Label>
-          <Input placeholder="Optional caption" value={block.caption} onChange={(e) => onChange({ ...block, caption: e.target.value })} />
+          <Input
+            placeholder="Optional caption"
+            value={block.caption}
+            onChange={(e) => onChange({ ...block, caption: e.target.value })}
+          />
         </div>
       </div>
     </div>
@@ -104,7 +121,10 @@ export function ImageBlockEditor({ block, onChange, onFile }: ImageProps) {
 
 // ─── YouTube block ────────────────────────────────────────────────────────────
 
-interface YouTubeProps { block: YouTubeBlock; onChange: (b: YouTubeBlock) => void }
+interface YouTubeProps {
+  block: YouTubeBlock;
+  onChange: (b: YouTubeBlock) => void;
+}
 
 export function YouTubeBlockEditor({ block, onChange }: YouTubeProps) {
   const [raw, setRaw] = useState("");
@@ -150,7 +170,11 @@ export function YouTubeBlockEditor({ block, onChange }: YouTubeProps) {
 
 // ─── Uploaded video block ─────────────────────────────────────────────────────
 
-interface VideoProps { block: VideoBlock; onChange: (b: VideoBlock) => void; onFile: (blockId: string, file: File) => void }
+interface VideoProps {
+  block: VideoBlock;
+  onChange: (b: VideoBlock) => void;
+  onFile: (blockId: string, file: File) => void;
+}
 
 export function VideoBlockEditor({ block, onChange, onFile }: VideoProps) {
   const displayUrl = block.previewUrl ?? block.url;
@@ -175,12 +199,8 @@ export function VideoBlockEditor({ block, onChange, onFile }: VideoProps) {
         onUrl={(url) => onChange({ ...block, url, storageKey: "", previewUrl: undefined })}
       />
       {displayUrl && (
-        // eslint-disable-next-line jsx-a11y/media-has-caption -- no caption track available in the data model
-        <video
-          controls
-          className="max-h-60 w-full rounded-md bg-muted"
-          src={displayUrl}
-        />
+        // oxlint-disable-next-line jsx-a11y/media-has-caption -- no caption track available in the data model
+        <video controls className="max-h-60 w-full rounded-md bg-muted" src={displayUrl} />
       )}
     </div>
   );

@@ -33,6 +33,8 @@ func orgIDPtr(claims *auth.Claims) *string {
 var domainErrors = map[error]httputil.ErrSpec{
 	ErrNotFound:          {Status: http.StatusNotFound, Message: "Roadmap not found."},
 	ErrAlreadyGenerating: {Status: http.StatusConflict, Message: "This roadmap is already generating."},
+	ErrNotBehind:         {Status: http.StatusConflict, Message: "This roadmap is on track, so there is nothing to re-plan."},
+	ErrNotActive:         {Status: http.StatusConflict, Message: "Only active roadmaps can be re-planned."},
 	ErrInvalidGoal:       {Status: http.StatusBadRequest, Message: "goal_description is required."},
 }
 
@@ -150,6 +152,20 @@ func (h *Handler) RegenerateRoadmap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rm, err := h.service.Get(r.Context(), id, claims.UserID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, rm)
+}
+
+// ReplanRoadmap re-estimates a behind-schedule roadmap (deterministic, no AI).
+func (h *Handler) ReplanRoadmap(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	rm, err := h.service.Replan(r.Context(), chi.URLParam(r, "roadmapID"), claims.UserID)
 	if err != nil {
 		writeDomainError(w, err)
 		return

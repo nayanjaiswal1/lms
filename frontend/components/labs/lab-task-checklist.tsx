@@ -97,7 +97,11 @@ export function LabTaskChecklist({
               {isPassed ? (
                 <div className="flex h-9 items-center gap-1.5 rounded-md border border-success/20 bg-success/10 px-3">
                   <CheckCircle2 aria-hidden className="h-3.5 w-3.5 text-success shrink-0" />
-                  <span className="text-xs font-medium text-success whitespace-nowrap">Passed</span>
+                  <span className="text-xs font-medium text-success whitespace-nowrap">
+                    Passed
+                    {(hintsUsedByTask?.[task.task_id] ?? 0) > 0 &&
+                      ` · ${hintsUsedByTask?.[task.task_id]}/${maxHints} hints`}
+                  </span>
                 </div>
               ) : (
                 <>

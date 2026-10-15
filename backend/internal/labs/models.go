@@ -535,6 +535,8 @@ type LabCatalogEntry struct {
 	// Status is "not_started" | "in_progress" | "completed" — the caller's
 	// best (most advanced) session status across every attempt at this lab.
 	Status string `json:"status"`
+	// BestScore is the caller's highest score over completed attempts; nil when none.
+	BestScore *int `json:"best_score"`
 }
 
 // ActiveLabSession is a lab_sessions row enriched with the lab's title and

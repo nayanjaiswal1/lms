@@ -7,17 +7,27 @@ runs (catches always-true checks) and PASSES after it.
 
 usage: python scripts/test-k8s-labs.py content/courses/<course>/<section>/<file>.md [...]
 env:   LAB_IMAGE (default mindforge/lab-k8s:1.31) — build it first from lab-images/.
+       LAB_READY_CMD (default "test -f /tmp/lab-ready") — in-container readiness probe, e.g.
+       "test -d /home/labuser/work" for images without a lab-ready marker (git course on lab-debug).
+       LAB_SETUP_USER (default root) - user that runs setup_script; labuser matches the backend.
+Works for any lab image, not just k8s.
 """
 import os, subprocess, sys, time, uuid
 
 import yaml
 
 IMAGE = os.environ.get("LAB_IMAGE", "mindforge/lab-k8s:1.31")
+READY_CMD = os.environ.get("LAB_READY_CMD", "test -f /tmp/lab-ready")
+# The backend runs setup_script as the image's default USER (container.go ExecSetup passes no --user),
+# which is labuser for every lab image; set LAB_SETUP_USER=labuser to reproduce that exactly.
+SETUP_USER = os.environ.get("LAB_SETUP_USER", "root")
 
 
 def sh(name, script, user="labuser"):
-    r = subprocess.run(["docker", "exec", "-i", "-u", user, "-w", "/home/labuser/work", name, "bash", "-s"],
-                       input=script.encode(), capture_output=True, timeout=180)
+    # bash -c with the script as an argument (like the backend's `timeout 10 bash -c`), so commands
+    # that read stdin cannot swallow the rest of the script.
+    r = subprocess.run(["docker", "exec", "-u", user, "-w", "/home/labuser/work", name, "timeout", "120", "bash", "-c", script],
+                       capture_output=True, timeout=180)
     return r.returncode, (r.stdout + r.stderr).decode(errors="replace")
 
 
@@ -34,13 +44,13 @@ def run(path):
     ok = True
     try:
         for _ in range(150):
-            if subprocess.run(["docker", "exec", name, "test", "-f", "/tmp/lab-ready"]).returncode == 0:
+            if subprocess.run(["docker", "exec", name, "sh", "-c", READY_CMD]).returncode == 0:
                 break
             time.sleep(2)
         for f in lab.get("files") or []:
             p = "/home/labuser/work/" + f["path"]
             sh(name, f"mkdir -p \"$(dirname {p})\"; cat > {p} <<'__EOF__'\n{f['content']}\n__EOF__\n")
-        rc, out = sh(name, lab.get("setup_script") or "true", user="root")
+        rc, out = sh(name, lab.get("setup_script") or "true", user=SETUP_USER)
         if rc:
             print(f"  SETUP FAILED: {out}")
             return False

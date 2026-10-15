@@ -8,8 +8,13 @@ function EnrollmentCard({ enrollment }: { enrollment: Enrollment }) {
     <div className="card-base p-4 flex gap-4">
       <div className="h-14 w-14 shrink-0 rounded-md bg-muted overflow-hidden flex items-center justify-center">
         {course.cover_url ? (
-          // eslint-disable-next-line @next/next/no-img-element -- dynamic remote cover, no known dimensions (same convention as components/courses/course-card.tsx)
-          <img alt={course.title} className="h-full w-full object-cover" loading="lazy" src={course.cover_url} />
+          // oxlint-disable-next-line @next/next/no-img-element -- dynamic remote cover, no known dimensions (same convention as components/courses/course-card.tsx)
+          <img
+            alt={course.title}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            src={course.cover_url}
+          />
         ) : (
           <BookOpen aria-hidden className="h-6 w-6 text-muted-foreground" />
         )}
@@ -24,8 +29,11 @@ function EnrollmentCard({ enrollment }: { enrollment: Enrollment }) {
 
         <div className="mt-2 flex items-center gap-2">
           <div className="progress-track flex-1">
-            { }
-            <div className="progress-fill" style={{ "--progress": `${progress.pct}%` } as React.CSSProperties} />
+            {}
+            <div
+              className="progress-fill"
+              style={{ "--progress": `${progress.pct}%` } as React.CSSProperties}
+            />
           </div>
           <span className="text-xs text-muted-foreground shrink-0">
             {progress.completed}/{progress.total}

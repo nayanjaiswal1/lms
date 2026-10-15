@@ -132,7 +132,11 @@ func (s *Service) syncOne(ctx context.Context, recipeID, orgID, labBuildID strin
 	if !res.Analysis.Valid {
 		return &labauthor.InvalidRecipeError{Analysis: res.Analysis}
 	}
-	latest, err := s.repo.LatestBuild(ctx, rc.ID, res.Analysis.RecipeHash)
+	runtimeID, err := s.runtimeID(ctx, snap.LabKind)
+	if err != nil {
+		return fmt.Errorf("labbuild.syncOne: %w", err)
+	}
+	latest, err := s.repo.LatestBuild(ctx, rc.ID, res.Analysis.RecipeHash, runtimeID)
 	if err != nil {
 		return fmt.Errorf("labbuild.syncOne: %w", err)
 	}

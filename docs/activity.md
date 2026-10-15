@@ -102,3 +102,22 @@ comment in `repo.go`).
 **Note:** `highlights` and `mistake_entries` are now unified under one
 `learning_annotations` branch (annotation_type='highlight'/'mistake'); they
 are no longer separate sources.
+
+## Weekly recap
+
+A Sunday email summarising the last 7 days: activity counts per kind
+(`activity.Repo.CountByKind`, same `eventsCTE` as the feed so kinds stay in
+sync) and current habit streaks (`weeklyrecap.CurrentStreak`, pure; the
+in-progress period never breaks a streak).
+
+- Cron `weekly_recap.fanout` at `0 9 * * 0` (**UTC for everyone** - no per-user
+  local hour, unlike `digest.nightly`). It enqueues one `weekly_recap.user` job
+  per active user with an org membership, idempotency key
+  `weekly_recap:{isoYear-Www}:{userID}`.
+- `weekly_recap.user` sends nothing when there is zero activity in the window
+  and no active streak; otherwise it enqueues `email.send` (type
+  `notification`, key `weekly_recap_email:{week}:{userID}`), which honors
+  `cfg.ShouldSendRealEmail`.
+- Opt-out: `user_profiles.notifications.weekly_recap` (`false` = off, absent =
+  on). Toggled in Settings > Profile > Preferences.
+- Streak lookback is capped at 366 days.

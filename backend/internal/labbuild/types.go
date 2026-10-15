@@ -46,9 +46,11 @@ type Snapshot struct {
 
 // Build is a lab_builds row.
 type Build struct {
-	ID                string          `json:"id"`
-	RecipeID          string          `json:"recipe_id"`
-	RecipeHash        string          `json:"recipe_hash"`
+	ID         string `json:"id"`
+	RecipeID   string `json:"recipe_id"`
+	RecipeHash string `json:"recipe_hash"`
+	// RuntimeID is the lab-image stamp the build was made and verified against.
+	RuntimeID         string          `json:"runtime_id"`
 	Status            string          `json:"status"`
 	Report            json.RawMessage `json:"report"`
 	DerivedDifficulty *string         `json:"derived_difficulty"`
@@ -66,7 +68,9 @@ type Report struct {
 	// Issues are the composition validator's findings if validation failed.
 	Issues []labblock.Issue `json:"issues,omitempty"`
 	// Analysis summary.
-	RecipeHash   string  `json:"recipe_hash,omitempty"`
+	RecipeHash string `json:"recipe_hash,omitempty"`
+	// RuntimeID: which lab-image runtime (grader bundle) verified this build.
+	RuntimeID    string  `json:"runtime_id,omitempty"`
 	Difficulty   string  `json:"difficulty,omitempty"`
 	VariantCount int     `json:"variant_count,omitempty"`
 	RenderSecs   float64 `json:"render_seconds,omitempty"`
@@ -127,16 +131,16 @@ type CheckResult struct {
 
 // VariantRow is a stored lab_build_variants row (bundle keys, never bytes).
 type VariantRow struct {
-	BuildID          string
-	Key              string
-	WorkspaceKey     string
-	WorkspaceSHA     string
-	GraderKey        string
-	GraderSHA        string
-	BriefMD          string
+	BuildID           string
+	Key               string
+	WorkspaceKey      string
+	WorkspaceSHA      string
+	GraderKey         string
+	GraderSHA         string
+	BriefMD           string
 	ProtectedManifest json.RawMessage
-	AppPorts         []int
-	Payload          json.RawMessage
+	AppPorts          []int
+	Payload           json.RawMessage
 }
 
 // VerifyBundle names the overlay bundle stored in a variant's payload.

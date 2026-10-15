@@ -75,7 +75,7 @@ func (s *Service) RunVerify(ctx context.Context, buildID string) error {
 		return s.failBuild(ctx, b, Report{Error: "the build has no variants"})
 	}
 
-	rep := Report{RecipeHash: b.RecipeHash}
+	rep := Report{RecipeHash: b.RecipeHash, RuntimeID: b.RuntimeID}
 	if b.DerivedDifficulty != nil {
 		rep.Difficulty = *b.DerivedDifficulty
 	}

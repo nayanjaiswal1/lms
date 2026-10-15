@@ -584,6 +584,45 @@ func withinReuseGrace(rotatedAt *time.Time, now time.Time, grace time.Duration) 
 	return rotatedAt != nil && now.Sub(*rotatedAt) <= grace
 }
 
+// replayAction is what HandleRefresh does with an already-consumed token.
+type replayAction int
+
+const (
+	// replayRevokeFamily: outside the grace window — treat as theft.
+	replayRevokeFamily replayAction = iota
+	// replayReissueSuccessor: inside the window and the successor this token
+	// rotated into is still live — answer exactly as the winning request did.
+	replayReissueSuccessor
+	// replayReject: inside the window but the successor is gone (logged out,
+	// family revoked, or already rotated on). Refuse without revoking, so a
+	// chain that legitimately moved on is left intact.
+	replayReject
+)
+
+// classifyReplay decides how to answer a refresh token that was already
+// rotated or revoked. successorLive reports whether the token derived from it
+// by successorRefreshToken still exists unrevoked and unexpired.
+func classifyReplay(rotatedAt *time.Time, now time.Time, grace time.Duration, successorLive bool) replayAction {
+	if !withinReuseGrace(rotatedAt, now, grace) {
+		return replayRevokeFamily
+	}
+	if successorLive {
+		return replayReissueSuccessor
+	}
+	return replayReject
+}
+
+// refreshUser is the identity HandleRefresh mints the new access token for.
+type refreshUser struct {
+	ID             string
+	Name           string
+	Email          string
+	AvatarURL      *string
+	SessionVersion int
+	Status         string
+	OrgRole        string
+}
+
 func (h *Handler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("refresh_token")
 	if err != nil {
@@ -607,22 +646,7 @@ func (h *Handler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 	// to issue the new token rolls the rotation back, rather than burning the
 	// user's only refresh token; a concurrent caller blocks on the row lock and
 	// then matches zero rows, which is exactly the intended outcome.
-	rawRefresh, refreshHash, err := CreateRefreshToken()
-	if err != nil {
-		slog.Error("auth: refresh create refresh token", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
-		return
-	}
-
-	type userRow struct {
-		ID             string
-		Name           string
-		Email          string
-		AvatarURL      *string
-		SessionVersion int
-		Status         string
-		OrgRole        string
-	}
+	rawRefresh, refreshHash := successorRefreshToken(h.cfg, cookie.Value)
 
 	// Rotate the old token, insert its replacement, and load the user + org
 	// role in a single round trip instead of six (BEGIN, UPDATE, INSERT,
@@ -638,7 +662,7 @@ func (h *Handler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 	// predicate, the row lock serializes the two attempts, and the loser's
 	// UPDATE matches zero rows — same outcome as before, just without a
 	// manual transaction to express it.
-	var u userRow
+	var u refreshUser
 	err = h.pool.QueryRow(r.Context(),
 		`WITH rotated AS (
 			UPDATE refresh_tokens
@@ -668,26 +692,59 @@ func (h *Handler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 
 		// No row claimed. Either the token never existed or simply aged out —
 		// both unremarkable — or it was already consumed, which is either the
-		// theft signal or a benign race: the Next.js edge middleware fires this
-		// endpoint on any protected navigation with an expired access token, and
-		// parallel navigations/prefetches legitimately submit the same stale
-		// refresh_token cookie moments after a sibling request already rotated
-		// it. rotated_at/revoked_at are set together at rotation time (see the
-		// UPDATE above), so a rotated_at within the grace window identifies that
-		// race rather than reuse of a stolen or independently-revoked token.
+		// theft signal or a benign race: the Next.js proxy fires this endpoint
+		// on any protected navigation with an expired access token, so parallel
+		// navigations/prefetches legitimately submit the same stale cookie
+		// moments after a sibling request rotated it, and a client can lose the
+		// winning response entirely (aborted navigation). rotated_at/revoked_at
+		// are set together at rotation time (see the UPDATE above), so a
+		// rotated_at within the grace window identifies that race rather than
+		// reuse of a stolen or independently-revoked token.
 		var familyID, userID string
 		var rotatedAt *time.Time
+		var successorLive bool
 		if lookupErr := h.pool.QueryRow(r.Context(),
-			`SELECT family_id, user_id, rotated_at FROM refresh_tokens
-			 WHERE token_hash = $1 AND (rotated_at IS NOT NULL OR revoked_at IS NOT NULL)`,
-			tokenHash,
-		).Scan(&familyID, &userID, &rotatedAt); lookupErr != nil {
+			`SELECT p.family_id, p.user_id, p.rotated_at,
+			        EXISTS (SELECT 1 FROM refresh_tokens s
+			                WHERE s.token_hash = $2 AND s.revoked_at IS NULL AND s.expires_at > now())
+			 FROM refresh_tokens p
+			 WHERE p.token_hash = $1 AND (p.rotated_at IS NOT NULL OR p.revoked_at IS NOT NULL)`,
+			tokenHash, refreshHash,
+		).Scan(&familyID, &userID, &rotatedAt, &successorLive); lookupErr != nil {
+			if !errors.Is(lookupErr, pgx.ErrNoRows) {
+				slog.Error("auth: refresh replay lookup", "error", fmt.Errorf("lookup consumed refresh token: %w", lookupErr))
+				httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
+				return
+			}
 			httputil.WriteError(w, http.StatusUnauthorized, "Invalid or expired refresh token.")
 			return
 		}
 
-		if withinReuseGrace(rotatedAt, time.Now(), h.cfg.RefreshReuseGrace) {
-			var gu userRow
+		switch classifyReplay(rotatedAt, time.Now(), h.cfg.RefreshReuseGrace, successorLive) {
+		case replayReject:
+			// No clearCookies: the browser may already hold the live successor,
+			// and expiring it here would sign the user out for nothing.
+			httputil.WriteError(w, http.StatusUnauthorized, "Invalid or expired refresh token.")
+			return
+		case replayRevokeFamily:
+			// A token that has already been rotated or revoked must never be
+			// accepted again. Revoke the whole family so neither the legitimate
+			// user nor the attacker keeps a live session.
+			if _, revokeErr := h.pool.Exec(r.Context(),
+				`UPDATE refresh_tokens SET revoked_at = now()
+				 WHERE family_id = $1 AND revoked_at IS NULL`,
+				familyID,
+			); revokeErr != nil {
+				slog.Error("auth: refresh revoke family", "error", fmt.Errorf("revoke family %s: %w", familyID, revokeErr))
+			}
+			clearCookies(w, h.cfg)
+			httputil.WriteError(w, http.StatusUnauthorized, "Session reuse detected. All sessions revoked.")
+			return
+		case replayReissueSuccessor:
+			// Fall through to the normal response below with the same derived
+			// successor the winning request issued, so every racing response
+			// sets an identical refresh_token and the browser converges on it
+			// whichever arrives last (or if the winner's never arrived at all).
 			if err := h.pool.QueryRow(r.Context(),
 				`SELECT u.id, u.name, u.email, u.avatar_url, u.session_version, u.status,
 				        COALESCE(om.role, 'learner')
@@ -695,63 +752,12 @@ func (h *Handler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 				 LEFT JOIN org_members om ON om.org_id = $2 AND om.user_id = u.id
 				 WHERE u.id = $1`,
 				userID, h.cfg.DefaultOrgID,
-			).Scan(&gu.ID, &gu.Name, &gu.Email, &gu.AvatarURL, &gu.SessionVersion, &gu.Status, &gu.OrgRole); err != nil {
-				slog.Error("auth: refresh grace-window user lookup", "error", err)
+			).Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.SessionVersion, &u.Status, &u.OrgRole); err != nil {
+				slog.Error("auth: refresh replay user lookup", "error", fmt.Errorf("load user %s: %w", userID, err))
 				httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
 				return
 			}
-
-			if msg := accountLockedMessage(gu.Status); msg != "" {
-				clearCookies(w, h.cfg)
-				httputil.WriteError(w, http.StatusForbidden, msg)
-				return
-			}
-
-			graceAccessToken, err := CreateAccessToken(h.cfg, Claims{
-				UserID:         gu.ID,
-				OrgID:          h.cfg.DefaultOrgID,
-				OrgRole:        gu.OrgRole,
-				AuthMethod:     "refresh",
-				SessionVersion: gu.SessionVersion,
-			})
-			if err != nil {
-				slog.Error("auth: refresh grace-window create access token", "error", err)
-				httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
-				return
-			}
-
-			// Only the access token is reissued here — the sibling request that
-			// won the rotation already set the current refresh_token/csrf_token
-			// cookies, and this handler never persisted the winner's raw refresh
-			// token (only its hash), so there is nothing valid to re-emit for
-			// those two. Leaving their Set-Cookie headers out means whichever
-			// order the two responses land in, the browser keeps the winner's
-			// values instead of one response clobbering the other with stale data.
-			SetAccessCookie(w, h.cfg, graceAccessToken)
-			httputil.WriteJSON(w, http.StatusOK, map[string]any{
-				"user": userResponse{
-					ID:        gu.ID,
-					Name:      gu.Name,
-					Email:     gu.Email,
-					AvatarURL: gu.AvatarURL,
-				},
-			})
-			return
 		}
-
-		// Outside the grace window: a token that has already been rotated or
-		// revoked must never be accepted again. Revoke the whole family so
-		// neither the legitimate user nor the attacker keeps a live session.
-		if _, revokeErr := h.pool.Exec(r.Context(),
-			`UPDATE refresh_tokens SET revoked_at = now()
-			 WHERE family_id = $1 AND revoked_at IS NULL`,
-			familyID,
-		); revokeErr != nil {
-			slog.Error("auth: refresh revoke family", "error", revokeErr)
-		}
-		clearCookies(w, h.cfg)
-		httputil.WriteError(w, http.StatusUnauthorized, "Session reuse detected. All sessions revoked.")
-		return
 	}
 
 	// A locked account must not be able to extend its session. The status

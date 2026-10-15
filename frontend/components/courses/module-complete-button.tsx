@@ -18,16 +18,14 @@ interface ModuleCompleteButtonProps {
 export function ModuleCompleteButton({ moduleId, initialCompleted, className }: ModuleCompleteButtonProps) {
   const [completed, setCompleted] = useState(initialCompleted);
   const [pending, setPending] = useState(false);
-  const { requiredIds, passedIds, labRequired, labCompleted, reflectionRequired, reflectionCompleted } = useModuleGate();
+  const { requiredIds, passedIds, labRequired, labCompleted } = useModuleGate();
   const hideChecks = useHideKnowledgeChecks();
   const checkPending = !hideChecks && requiredIds.some((id) => !passedIds.has(id));
   const labPending = labRequired && !labCompleted;
-  const reflectionPending = reflectionRequired && !reflectionCompleted;
-  const locked = !completed && (checkPending || labPending || reflectionPending);
+  const locked = !completed && (checkPending || labPending);
   const missing = [
     checkPending && "answer the knowledge check",
     labPending && "complete the attached lab",
-    reflectionPending && "save your reflection",
   ].filter((x): x is string => Boolean(x));
   const lockedReason = missing.length > 0 ? `Please ${missing.join(", ")} first.` : undefined;
 
@@ -58,11 +56,7 @@ export function ModuleCompleteButton({ moduleId, initialCompleted, className }: 
           Completed
         </>
       ) : locked ? (
-        checkPending
-          ? "Answer the knowledge check first"
-          : labPending
-            ? "Complete the lab first"
-            : "Save your reflection first"
+        checkPending ? "Answer the knowledge check first" : "Complete the lab first"
       ) : (
         "Mark as Complete"
       )}

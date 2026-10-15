@@ -84,6 +84,9 @@ export async function updatePreferencesAction(
     notifications: {
       email: ['on', 'true'].includes(formData.get('email_notifications') as string),
       push: ['on', 'true'].includes(formData.get('push_notifications') as string),
+      // Always rendered; unchecked = opted out. The weekly recap job treats a
+      // missing key as enabled (handlers/weekly_recap.go).
+      weekly_recap: ['on', 'true'].includes(formData.get('weekly_recap') as string),
       // Only rendered (and therefore only ever present in formData) for
       // features.revision_digest-entitled users — see preferences-form.tsx's
       // AccessGate. Absent for everyone else, which the nightly digest

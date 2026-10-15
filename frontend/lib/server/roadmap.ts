@@ -58,6 +58,10 @@ export interface Roadmap {
   updated_at: string;
   module_count: number;
   completed_count: number;
+  expected_pct: number;
+  progress_pct: number;
+  is_behind: boolean;
+  weeks_remaining: number;
   phases?: RoadmapPhase[];
 }
 

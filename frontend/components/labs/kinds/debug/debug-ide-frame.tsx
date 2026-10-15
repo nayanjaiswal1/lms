@@ -24,7 +24,7 @@ interface DebugIdeFrameProps {
  */
 export function DebugIdeFrame({ ide, sessionId, labId, reloaded }: DebugIdeFrameProps) {
   const { ideUrl, refreshUrl, popOutUrl, hasError } = ide
-  const { isLoaded, reloadKey, gaveUp, onLoad, reload } = useIdeFrameLoad(!!ideUrl)
+  const { isReachable, isLoaded, reloadKey, gaveUp, onLoad, reload } = useIdeFrameLoad(ideUrl)
   // The IDE sometimes comes up blank on first load; retries use the fresh-token URL.
   const freshSrc = reloaded || reloadKey > 0
 
@@ -39,7 +39,7 @@ export function DebugIdeFrame({ ide, sessionId, labId, reloaded }: DebugIdeFrame
           <DebugIdeUnavailable labId={labId} sessionId={sessionId} onRetry={ide.retry} />
         ) : (
           <>
-            {ideUrl && (
+            {ideUrl && isReachable && (
               <iframe
                 allow="clipboard-read; clipboard-write"
                 className="h-full w-full border-0 bg-background"
@@ -47,7 +47,11 @@ export function DebugIdeFrame({ ide, sessionId, labId, reloaded }: DebugIdeFrame
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
                 src={freshSrc ? (popOutUrl ?? ideUrl) : ideUrl}
                 title="Browser IDE"
-                onLoad={onLoad}
+                onLoad={(e) => {
+                  onLoad()
+                  // Hand keyboard focus to VS Code so Ctrl+P and friends reach it, not the page.
+                  e.currentTarget.focus()
+                }}
               />
             )}
             {!isLoaded && (

@@ -155,6 +155,10 @@ The dashboard shows all cards `due_at <= now()` as a review session.
 
 Every review is also logged to `srs_reviews` (card_id, user_id, quality, interval_days, ease_factor, reviewed_at) — `srs_cards` itself only ever holds current scheduling state, so this is the only history of past reviews. Written atomically with the `srs_cards` update inside `srs.ReviewCard` (backend/internal/srs), shared by both `POST /api/srs/review` and the MCP `mark_revision_result` tool. Feeds the `card_reviewed` entries in the activity timeline — see [docs/activity.md](activity.md).
 
+### Weak-spot drill
+
+`GET /api/srs/drill` (same `content.srs` gate as the other SRS routes) returns today's due cards ranked weakest-first, capped at 15 (`drillLimit`). Score = overdue days + 3 × failed reviews (`srs_reviews.quality <= 1`), ties broken by lowest `ease_factor`. Computed on read — no new table, no AI. The dashboard review widget uses it; answering goes through the normal `POST /api/srs/review`, so SM-2 stays in one place. The full `/review` page still lists all due cards by due date.
+
 ---
 
 ## Revision Plan + Final Test + Certificates

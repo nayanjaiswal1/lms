@@ -79,6 +79,9 @@ type Service struct {
 	// every lab-kind path checks for that and fails clearly rather than
 	// nil-panicking.
 	bundleStore storage.PrivateStore
+	// gradeTimeout is LABS_GRADE_TIMEOUT: the whole clean-room Check budget
+	// (0 = derive from the per-mode constants).
+	gradeTimeout time.Duration
 }
 
 // NewService wires up the labs service. coursesSvc completes the course module

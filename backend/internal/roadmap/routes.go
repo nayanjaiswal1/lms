@@ -24,6 +24,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/api/roadmaps", h.ListRoadmaps)
 	r.Post("/api/roadmaps/{roadmapID}/regenerate", h.RegenerateRoadmap)
 	r.Post("/api/roadmaps/{roadmapID}/start", h.StartRoadmap)
+	r.Post("/api/roadmaps/{roadmapID}/replan", h.ReplanRoadmap)
 	r.Patch("/api/roadmaps/{roadmapID}", h.UpdateRoadmap)
 	r.Delete("/api/roadmaps/{roadmapID}", h.DeleteRoadmap)
 	r.Patch("/api/roadmaps/{roadmapID}/modules/{moduleID}", h.UpdateModule)

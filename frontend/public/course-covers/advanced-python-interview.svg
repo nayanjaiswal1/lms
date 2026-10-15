@@ -8,22 +8,23 @@
     <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse">
       <circle cx="2" cy="2" r="1.4" fill="#ffffff" opacity="0.06"/>
     </pattern>
+    <path id="snake" d="M110 10C60 10 60 32 60 32V60H112V70H40C40 70 10 66 10 112C10 158 36 156 36 156H52V132C52 132 51 106 78 106H128C128 106 152 106 152 84V40C152 40 156 10 110 10Z"/>
   </defs>
 
   <rect width="1200" height="630" fill="url(#bg)"/>
   <rect width="1200" height="630" fill="url(#dots)"/>
 
-  <g transform="translate(640 150)">
-    <rect x="0" y="0" width="190" height="190" rx="36" fill="#4B8BBE"/>
-    <rect x="110" y="110" width="190" height="190" rx="36" fill="#FFD43B" opacity="0.95"/>
-    <circle cx="48" cy="48" r="11" fill="#ffffff"/>
-    <circle cx="252" cy="252" r="11" fill="#14264a"/>
+  <g transform="translate(690 50) scale(1.75)">
+    <use href="#snake" fill="#4B8BBE"/>
+    <use href="#snake" fill="#FFD43B" transform="rotate(180 105 108)"/>
+    <circle cx="84" cy="30" r="9" fill="#ffffff"/>
+    <circle cx="126" cy="186" r="9" fill="#14264a"/>
   </g>
 
   <path d="M540 250 l24 20 l-24 20" fill="none" stroke="#FFD43B" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
   <path d="M508 250 l24 20 l-24 20" fill="none" stroke="#FFD43B" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>
 
-  <text x="90" y="500" font-family="Georgia, serif" font-size="60" font-weight="700" fill="#EFF6FF">Python: Fundamentals to Advanced</text>
+  <text x="90" y="500" font-family="Georgia, serif" font-size="56" font-weight="700" fill="#EFF6FF">Python: Fundamentals to Advanced</text>
   <text x="90" y="540" font-family="Arial, sans-serif" font-size="26" fill="#DBEAFE" opacity="0.85">Core · OOP · Concurrency · Internals · Typing</text>
 
   <rect x="90" y="565" width="64" height="6" rx="3" fill="#FFD43B"/>

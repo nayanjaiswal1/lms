@@ -15,9 +15,7 @@ interface LessonNotesProps {
 }
 
 // A student's personal, editable overlay on a lesson — separate from the
-// lesson content itself (always visible on the page behind this panel) and
-// separate from the ungraded "Reflect" box (lesson-reflection.tsx), which
-// captures a one-time understanding signal rather than ongoing notes.
+// lesson content itself (always visible on the page behind this panel).
 // Closing this panel never replaces or hides the underlying lesson content,
 // only sits alongside it. The same content this panel edits can also be
 // written by the student's connected AI client via the save_my_lesson_note

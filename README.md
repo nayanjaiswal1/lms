@@ -12,8 +12,8 @@ Multi-tenant learning platform. LeetCode + KodeKloud + Udemy + Notion, self-host
 |---|---|---|
 | Docker + Docker Compose | Latest stable | [docs.docker.com](https://docs.docker.com/get-docker/) |
 | Go | 1.26.4+ | [go.dev/dl](https://go.dev/dl/) |
-| Node.js | 26+ (pnpm 11's `node:sqlite` dependency needs it fully stable) | [nodejs.org](https://nodejs.org/) |
-| pnpm | 9+ | `npm install -g pnpm` |
+| Node.js | 22+ (runs `next build` and the production server) | [nodejs.org](https://nodejs.org/) |
+| Bun | 1.3+ | [bun.sh](https://bun.sh/) |
 
 ---
 
@@ -81,21 +81,21 @@ Run `make <target>` from the project root.
 | Target | What it does |
 |---|---|
 | `make backend` | Run the Go server with `.env` loaded (`go run ./cmd/server`) |
-| `make frontend` | Run the Next.js dev server (`pnpm dev` in `frontend/`) |
+| `make frontend` | Run the Next.js dev server (`bun run dev` in `frontend/`) |
 
 ### Testing & Linting
 
 | Target | What it does |
 |---|---|
 | `make test-backend` | Run all Go tests (`go test ./...`) |
-| `make lint-frontend` | Run `pnpm lint:strict` in `frontend/` (zero-warning enforcement) |
+| `make lint-frontend` | Run `bun run lint:strict` in `frontend/` (zero-warning enforcement) |
 
 ### Building
 
 | Target | What it does |
 |---|---|
 | `make build-backend` | Compile the Go binary to `backend/bin/server` |
-| `make build-frontend` | Build the Next.js app for production (`pnpm build`) |
+| `make build-frontend` | Build the Next.js app for production (`bun run build`) |
 | `make docker-build` | Build production Docker images for backend and frontend |
 
 ---
@@ -247,7 +247,7 @@ Copy `.env.example` to `.env` for local development.
 | `ENCRYPTION_KEY` | Yes | — | Exactly 32 bytes. AES-256-GCM for sensitive fields. |
 | `ACCESS_TOKEN_TTL` | No | `15m` | Access token lifetime. |
 | `REFRESH_TOKEN_TTL` | No | `720h` | Refresh token lifetime (30 days). |
-| `REFRESH_REUSE_GRACE` | No | `30s` | A refresh token rotated this recently and presented again (multi-tab race) gets a fresh access token instead of revoking the whole session family. |
+| `REFRESH_REUSE_GRACE` | No | `30s` | A refresh token rotated this recently and presented again (multi-tab race) gets the same (HMAC-derived) successor refresh token plus a fresh access token instead of revoking the whole session family. |
 | `PASSWORD_RESET_TTL` | No | `30m` | Password reset link lifetime. |
 | `EMAIL_VERIFICATION_TTL` | No | `24h` | Email verification link lifetime. |
 

@@ -74,6 +74,15 @@ export function DebugTaskList({
                   </>
                 )}
               </div>
+              {isPassed && used > 0 && (
+                <span
+                  aria-label={`${used} of ${maxHints} hints used on ${task.title}`}
+                  className="flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted-foreground"
+                >
+                  <Lightbulb aria-hidden className="h-3.5 w-3.5" />
+                  {used}/{maxHints}
+                </span>
+              )}
               {!isPassed && task.grader !== "writeup_review" && (
                 <Button
                   aria-label={`Get a hint for ${task.title} (${used} of ${maxHints} used)`}

@@ -8,14 +8,11 @@ interface GroupedSection<T extends { group_title: string | null }> {
   section: T;
   /** Render a group heading (section.group_title) directly above this section. */
   isGroupStart: boolean;
-  /** Indent this section as nested under its group heading. */
-  isGrouped: boolean;
 }
 
 export function groupSections<T extends { group_title: string | null }>(sections: T[]): GroupedSection<T>[] {
   return sections.map((section, i) => ({
     section,
     isGroupStart: section.group_title !== null && sections[i - 1]?.group_title !== section.group_title,
-    isGrouped: section.group_title !== null,
   }));
 }

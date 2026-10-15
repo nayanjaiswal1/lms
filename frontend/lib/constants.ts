@@ -926,3 +926,8 @@ export const ANALYTICS_QUESTIONS_DEFAULT_LIMIT = 10;
 export const ANALYTICS_STUDENTS_DEFAULT_LIMIT = 25;
 export const ANALYTICS_MAX_LIMIT = 200;
 export const ORG_COURSES_DEFAULT_LIMIT = 20;
+
+// Notification preference labels (Settings > Profile > Preferences).
+export const NOTIFICATION_LABELS = {
+  weeklyRecap: "Weekly recap email",
+} as const;

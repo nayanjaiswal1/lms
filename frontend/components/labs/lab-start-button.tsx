@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2, Terminal } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button, type ButtonProps } from "@/components/ui/button"
 import { toast } from "sonner"
 import { startLabSessionAction, endLabSessionAction } from "@/app/(app)/labs/[labId]/actions"
 import { useLabProvisioning } from "@/lib/labs/provisioning-context"
@@ -16,6 +16,9 @@ interface LabStartButtonProps {
   lab: Pick<Lab, "id" | "title" | "lab_type">
   className?: string
   label?: string
+  /** Style while idle; an active (resumable) lab always uses the primary style. */
+  idleVariant?: ButtonProps["variant"]
+  size?: ButtonProps["size"]
 }
 
 // Starts a lab session. Code-type labs are ready immediately, so we route
@@ -30,7 +33,7 @@ interface LabStartButtonProps {
 // elsewhere. That last case stays clickable — it offers a way out (end the
 // other lab and switch, or jump to resume it) instead of just sitting
 // disabled with no path forward.
-export function LabStartButton({ lab, className, label = "Launch Lab" }: LabStartButtonProps) {
+export function LabStartButton({ lab, className, label = "Launch Lab", idleVariant, size = "lg" }: LabStartButtonProps) {
   const [isStarting, setIsStarting] = useState(false)
   const router = useRouter()
   const { session, track, clear } = useLabProvisioning()
@@ -129,7 +132,8 @@ export function LabStartButton({ lab, className, label = "Launch Lab" }: LabStar
       aria-label={isBusy ? buttonLabel : `Start ${lab.title}`}
       className={cn("w-full sm:w-auto", className)}
       disabled={isBusy}
-      size="lg"
+      size={size}
+      variant={isResumable ? "default" : idleVariant}
       onClick={handleClick}
     >
       {isStarting || isProvisioningThisLab ? (

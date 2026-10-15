@@ -148,6 +148,18 @@ function trackLastPage(request: NextRequest, response: NextResponse, event: Next
   return response
 }
 
+// Appends the backend's raw Set-Cookie headers. Must run after every
+// response.cookies.set() on the same response: NextResponse.cookies rebuilds
+// the whole Set-Cookie list from its own map on each set(), silently dropping
+// headers appended before it. Appending the refreshed auth cookies before
+// trackLastPage() set the last-page cookie lost the rotated refresh_token, so
+// the browser kept replaying the old one until reuse detection revoked the
+// session.
+function appendSetCookies(response: NextResponse, setCookies: string[]): NextResponse {
+  for (const raw of setCookies) response.headers.append("Set-Cookie", raw)
+  return response
+}
+
 async function authProxy(request: NextRequest, event: NextFetchEvent): Promise<NextResponse> {
   const { pathname } = request.nextUrl
 
@@ -198,7 +210,10 @@ async function authProxy(request: NextRequest, event: NextFetchEvent): Promise<N
     })
 
     if (!refreshRes.ok) {
-      return loginRedirect(request)
+      // Forward the backend's cookie clearing (sent on reuse detection) so the
+      // browser drops the dead refresh token instead of replaying it on every
+      // later navigation.
+      return appendSetCookies(loginRedirect(request), refreshRes.headers.getSetCookie())
     }
 
     // Refresh succeeded. Forward the new cookies into *this* request instead
@@ -216,11 +231,7 @@ async function authProxy(request: NextRequest, event: NextFetchEvent): Promise<N
       request.cookies.set(pair.slice(0, eq), pair.slice(eq + 1))
     }
 
-    const response = NextResponse.next({ request })
-    for (const raw of setCookies) {
-      response.headers.append("Set-Cookie", raw)
-    }
-    return trackLastPage(request, response, event)
+    return appendSetCookies(trackLastPage(request, NextResponse.next({ request }), event), setCookies)
   } catch {
     // Backend unreachable or timed out. Send the user to /login rather than
     // through: the session could not be refreshed, so there is nothing to

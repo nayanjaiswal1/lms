@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select"
 import { AccessGate } from "@/components/shared/access-gate"
 import { FEATURES } from "@/lib/features"
-import { DEFAULT_LANDING_PAGE_OPTIONS } from "@/lib/constants"
+import { DEFAULT_LANDING_PAGE_OPTIONS, NOTIFICATION_LABELS } from "@/lib/constants"
 import type { Profile } from "@/lib/profile/types"
 
 interface Props {
@@ -118,6 +118,18 @@ export function PreferencesForm({ profile, updateAction }: Props) {
             />
             <Label className="cursor-pointer" htmlFor="push-notifications">
               Push notifications
+            </Label>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox
+              defaultChecked={profile.notifications?.weekly_recap !== false}
+              id="weekly-recap"
+              name="weekly_recap"
+              value="true"
+            />
+            <Label className="cursor-pointer" htmlFor="weekly-recap">
+              {NOTIFICATION_LABELS.weeklyRecap}
             </Label>
           </div>
 

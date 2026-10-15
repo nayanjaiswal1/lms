@@ -133,7 +133,7 @@ func (s *Service) render(ctx context.Context, b *Build) error {
 	if err := s.repo.InsertVariants(ctx, b.ID, rows, usage); err != nil {
 		return fmt.Errorf("labbuild.render: %w", err)
 	}
-	rep := Report{RecipeHash: b.RecipeHash, Difficulty: res.Analysis.Difficulty, VariantCount: len(rows), RenderSecs: time.Since(started).Seconds()}
+	rep := Report{RecipeHash: b.RecipeHash, RuntimeID: b.RuntimeID, Difficulty: res.Analysis.Difficulty, VariantCount: len(rows), RenderSecs: time.Since(started).Seconds()}
 	return s.repo.SaveReport(ctx, b.ID, rep)
 }
 

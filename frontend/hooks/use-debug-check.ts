@@ -3,9 +3,10 @@
 import { useRef, useState } from "react"
 import { submitLabAction } from "@/app/(app)/labs/[labId]/actions"
 import { isLabAuthError } from "@/lib/labs/auth-error"
-import { LAB_ERROR_CODES, isLabCompletedAtDeadline, isLabSessionExpired } from "@/lib/labs"
+import { LAB_CHECK_CLIENT_TIMEOUT_MS, LAB_ERROR_CODES, isLabCompletedAtDeadline, isLabSessionExpired } from "@/lib/labs"
 import { parseCheckFailures, type CheckFailure } from "@/lib/labs/kinds/debug-results"
-import type { LabSubmitTaskResult, LabTask, TaskCompletion } from "@/lib/labs"
+import type { LabSubmitResult, LabSubmitTaskResult, LabTask, TaskCompletion } from "@/lib/labs"
+import type { ActionResult } from "@/lib/server/api"
 
 export type CheckProblem = "busy" | "auth" | "error"
 
@@ -58,6 +59,25 @@ function markPassed(prev: TaskCompletion[], taskId: string): TaskCompletion[] {
   return cur ? prev.map((c) => (c.task_id === taskId ? passed : c)) : [...prev, passed]
 }
 
+const CHECK_UNREACHABLE: ActionResult<LabSubmitResult> = {
+  error: "The check could not finish. Your work is safe — try again.",
+}
+
+// Server actions can throw (Next's "unexpected response" when the connection
+// drops) or never settle on a hung proxy; both must end as a retryable error,
+// never a spinner that only a reload clears.
+async function submitWithTimeout(sessionId: string): Promise<ActionResult<LabSubmitResult>> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<ActionResult<LabSubmitResult>>((resolve) => {
+    timer = setTimeout(() => resolve(CHECK_UNREACHABLE), LAB_CHECK_CLIENT_TIMEOUT_MS)
+  })
+  try {
+    return await Promise.race([submitLabAction(sessionId).catch(() => CHECK_UNREACHABLE), timeout])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 /**
  * The debug lab's Check button: batch-grades every pending task in a clean
  * room (POST /submit). 429 carries the cooldown's Retry-After, 503 means the
@@ -107,7 +127,7 @@ export function useDebugCheck({
     inFlight.current = true
     setIsChecking(true)
     try {
-      const res = await submitLabAction(sessionId)
+      const res = await submitWithTimeout(sessionId)
       if (res.code === LAB_ERROR_CODES.rateLimited) {
         setState((prev) => ({
           ...prev,

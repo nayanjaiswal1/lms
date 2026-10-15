@@ -3,12 +3,8 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { RotateCcw, LogOut, Trophy, Columns2, Rows2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import {
   AlertDialog,
-  AlertDialogTrigger,
   AlertDialogContent,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -17,7 +13,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog"
-import { LabTimer } from "@/components/labs/lab-timer"
+import { LabEnvironmentTopBar } from "@/components/labs/lab-environment-top-bar"
 import {
   LabWorkspaceContent,
   isLabAuthError,
@@ -38,141 +34,6 @@ interface LabEnvironmentProps {
   lab: Lab
   initialCompletions: TaskCompletion[]
   kindBlock?: LabKindBlock
-}
-
-interface TopBarProps {
-  labTitle: string
-  labType: string
-  maxResets: number
-  expiresAt: string
-  score: number
-  maxScore: number
-  resetCount: number
-  isPending: boolean
-  isResetting: boolean
-  layoutOrientation: "horizontal" | "vertical"
-  onEnd: () => void
-  onExpired: () => void
-  onReset: () => void
-  onToggleLayout: () => void
-}
-
-function LabEnvironmentTopBar({
-  labTitle,
-  labType,
-  maxResets,
-  expiresAt,
-  score,
-  maxScore,
-  resetCount,
-  isPending,
-  isResetting,
-  layoutOrientation,
-  onEnd,
-  onExpired,
-  onReset,
-  onToggleLayout,
-}: TopBarProps) {
-  const resetsLeft = maxResets - resetCount
-  const canReset = resetsLeft > 0
-
-  return (
-    <header className="h-14 shrink-0 flex-between gap-3 px-4 border-b border-border bg-card">
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="font-semibold text-sm truncate text-foreground">{labTitle}</span>
-        <Badge className="capitalize shrink-0 hidden sm:inline-flex text-xs" variant="outline">
-          {labType}
-        </Badge>
-      </div>
-
-      <div className="shrink-0">
-        <LabTimer expiresAt={expiresAt} onExpired={onExpired} />
-      </div>
-
-      <div className="flex items-center gap-2 shrink-0">
-        {maxScore > 0 && (
-          <div
-            aria-label={`Score: ${score} of ${maxScore} points`}
-            className="hidden sm:flex items-center gap-1 text-xs tabular-nums text-muted-foreground"
-          >
-            <Trophy aria-hidden className="h-3.5 w-3.5 text-primary shrink-0" />
-            <span>
-              {score}/{maxScore}
-            </span>
-          </div>
-        )}
-
-        <Button
-          aria-label={
-            layoutOrientation === "horizontal"
-              ? "Switch to stacked layout"
-              : "Switch to side-by-side layout"
-          }
-          className="gap-1.5 text-muted-foreground hover:text-foreground hidden md:inline-flex"
-          size="sm"
-          variant="ghost"
-          onClick={onToggleLayout}
-        >
-          {layoutOrientation === "horizontal" ? (
-            <Rows2 aria-hidden className="h-3.5 w-3.5" />
-          ) : (
-            <Columns2 aria-hidden className="h-3.5 w-3.5" />
-          )}
-        </Button>
-
-        {canReset && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                aria-label={`Reset lab — ${resetsLeft} reset${resetsLeft !== 1 ? "s" : ""} remaining`}
-                className="gap-1.5 text-muted-foreground hover:text-foreground hidden sm:inline-flex"
-                disabled={isPending || isResetting}
-                size="sm"
-                variant="ghost"
-              >
-                <RotateCcw aria-hidden className="h-3.5 w-3.5" />
-                <span className="hidden md:inline">Reset</span>
-                <Badge className="text-xs py-0 px-1.5 shrink-0" variant="secondary">
-                  {resetsLeft}
-                </Badge>
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Reset this lab?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  All task completions and your score will be cleared. Your code in the editor will
-                  also reset. This uses one of your {resetsLeft} remaining reset
-                  {resetsLeft !== 1 ? "s" : ""} — this action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  onClick={onReset}
-                >
-                  {isResetting ? "Resetting…" : "Reset Lab"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
-
-        <Button
-          aria-label="End lab session"
-          className="gap-1.5"
-          disabled={isPending || isResetting}
-          size="sm"
-          variant="outline"
-          onClick={onEnd}
-        >
-          <LogOut aria-hidden className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">{isPending ? "Ending…" : "End Lab"}</span>
-        </Button>
-      </div>
-    </header>
-  )
 }
 
 export function LabEnvironment({ session, lab, initialCompletions, kindBlock }: LabEnvironmentProps) {

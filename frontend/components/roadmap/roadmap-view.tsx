@@ -4,6 +4,7 @@ import { List, Map as MapIcon } from "lucide-react";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { Button } from "@/components/ui/button";
 import { RoadmapTree } from "@/components/roadmap/roadmap-tree";
+import { ReplanBanner } from "@/components/roadmap/replan-banner";
 import { RoadmapGraph } from "@/components/roadmap/roadmap-graph";
 import { cn } from "@/lib/utils";
 import type { Roadmap } from "@/lib/server/roadmap";
@@ -16,6 +17,7 @@ export function RoadmapView({ roadmap }: { roadmap: Roadmap }) {
 
   return (
     <div className="flex flex-col gap-4">
+      {roadmap.is_behind && <ReplanBanner roadmap={roadmap} />}
       <div className="flex w-fit gap-1 rounded-md border border-border p-1">
         <Button
           className={cn("touch-target", view !== "list" && "text-muted-foreground")}

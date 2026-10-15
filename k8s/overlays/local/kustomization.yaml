@@ -65,6 +65,14 @@ patches:
         path: /spec/hostnames/0
         value: mindforge.127.0.0.1.nip.io
 
+replicas:
+  - name: backend
+    count: 1
+  - name: frontend
+    count: 1
+  - name: labproxy
+    count: 1
+
 # Images are built locally (docker build ... :local) and imported straight into
 # k3s's containerd — no registry involved for this overlay.
 images:

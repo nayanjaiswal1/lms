@@ -28,7 +28,12 @@ function withTimeOfDay(base: Date, timeValue: string): Date {
 //
 // NOTE: This is the compact version. For full time-blocking features,
 // use <EnhancedQuickCreate /> which adds duration presets, notes, and better UX.
-export function QuickCreateSlot({ defaultStart, defaultEnd, onCreate, onCancel }: QuickCreateSlotProps) {
+export function QuickCreateSlot({
+  defaultStart,
+  defaultEnd,
+  onCreate,
+  onCancel,
+}: QuickCreateSlotProps) {
   const [title, setTitle] = React.useState("");
   const [isTask, setIsTask] = React.useState(false);
   const [startTime, setStartTime] = React.useState(toTimeInputValue(defaultStart));
@@ -36,7 +41,12 @@ export function QuickCreateSlot({ defaultStart, defaultEnd, onCreate, onCancel }
 
   function submit() {
     if (!title.trim()) return;
-    onCreate(title.trim(), withTimeOfDay(defaultStart, startTime), withTimeOfDay(defaultStart, endTime), isTask);
+    onCreate(
+      title.trim(),
+      withTimeOfDay(defaultStart, startTime),
+      withTimeOfDay(defaultStart, endTime),
+      isTask,
+    );
   }
 
   return (
@@ -62,7 +72,7 @@ export function QuickCreateSlot({ defaultStart, defaultEnd, onCreate, onCancel }
         </Button>
       </div>
       <Input
-        // eslint-disable-next-line jsx-a11y/no-autofocus -- the popover only opens after an explicit click, so autofocus is expected here rather than a distraction
+        // oxlint-disable-next-line jsx-a11y/no-autofocus -- the popover only opens after an explicit click, so autofocus is expected here rather than a distraction
         autoFocus
         aria-label={isTask ? "New task title" : "New event title"}
         placeholder={isTask ? "Task title…" : "Event title…"}
@@ -77,13 +87,31 @@ export function QuickCreateSlot({ defaultStart, defaultEnd, onCreate, onCancel }
       />
       {!isTask && (
         <div className="flex items-center gap-2">
-          <Input aria-label="Start time" className="min-w-0" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+          <Input
+            aria-label="Start time"
+            className="min-w-0"
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+          />
           <span className="shrink-0 text-sm text-muted-foreground">to</span>
-          <Input aria-label="End time" className="min-w-0" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+          <Input
+            aria-label="End time"
+            className="min-w-0"
+            type="time"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
+          />
         </div>
       )}
       {isTask && (
-        <Input aria-label="Due time" className="min-w-0" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+        <Input
+          aria-label="Due time"
+          className="min-w-0"
+          type="time"
+          value={startTime}
+          onChange={(e) => setStartTime(e.target.value)}
+        />
       )}
       <div className="flex justify-end gap-2">
         <Button size="sm" type="button" variant="ghost" onClick={onCancel}>

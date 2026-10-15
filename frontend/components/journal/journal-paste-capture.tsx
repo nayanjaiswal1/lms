@@ -5,7 +5,10 @@ import { Sparkles } from "lucide-react";
 
 import { LessonFloatingPanel } from "@/components/shared/lesson-floating-panel";
 import { JournalEntryForm } from "@/components/journal/journal-entry-form";
-import { MIN_STRUCTURE_LENGTH, useJournalStructure } from "@/components/journal/use-journal-structure";
+import {
+  MIN_STRUCTURE_LENGTH,
+  useJournalStructure,
+} from "@/components/journal/use-journal-structure";
 import type { JournalCategoryNode } from "@/lib/server/journal";
 
 interface JournalPasteCaptureProps {
@@ -39,7 +42,7 @@ export function JournalPasteCapture({ categories }: JournalPasteCaptureProps) {
     }
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- structure is stable for the listener's lifetime, re-subscribing on every render isn't needed
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- structure is stable for the listener's lifetime, re-subscribing on every render isn't needed
   }, []);
 
   if (!open) return null;

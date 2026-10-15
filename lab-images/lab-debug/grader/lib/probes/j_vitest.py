@@ -31,6 +31,8 @@ HARNESS_DIR = "/opt/mindforge/grader/js"
 TEST_TIMEOUT_MS = 15000
 DIAGNOSTIC_TAIL = 1800
 APP_ALIAS_MARKER = "@@APP_ALIAS@@"
+STRICT_JSX = HARNESS_DIR + "/strict-jsx.js"
+STRICT_JSX_MARKER = "@@STRICT_JSX@@"
 TEST_FILE_GLOB = "/**/*.test.{js,jsx,ts,tsx}"
 
 
@@ -46,6 +48,7 @@ def _config(ctx: Context, root: str, app_dir: str, includes: list[str], report: 
         "root": root,
         "cacheDir": os.path.join(ctx.tmp_dir, "vite-cache"),
         "esbuild": {"jsx": "automatic"},
+        "plugins": [STRICT_JSX_MARKER],
         "resolve": {
             "alias": [
                 {"find": "@mf/harness", "replacement": HARNESS_DIR + "/harness.js"},
@@ -72,8 +75,9 @@ def _config(ctx: Context, root: str, app_dir: str, includes: list[str], report: 
     path = os.path.join(ctx.tmp_dir, f"vitest-{os.path.basename(report)}.mjs")
     # The "@/" alias is a regular expression, which JSON cannot express.
     body = json.dumps(cfg, indent=2).replace(json.dumps(APP_ALIAS_MARKER), "/^@\\//")
+    body = body.replace(json.dumps(STRICT_JSX_MARKER), "strictJsx()")
     with open(path, "w", encoding="utf-8") as fh:
-        fh.write("export default " + body + ";\n")
+        fh.write(f'import strictJsx from "{STRICT_JSX}";\nexport default {body};\n')
     return path
 
 

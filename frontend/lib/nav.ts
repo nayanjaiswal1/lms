@@ -128,7 +128,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     mode:                "badge",
   },
   labs: {
-    label: "Debug Labs",
+    label: "Labs",
     href:  ROUTES.LABS_CATALOG,
     icon:  Bug,
   },

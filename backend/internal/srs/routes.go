@@ -18,6 +18,7 @@ func New(pool *pgxpool.Pool) *Handler {
 func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 	r.With(authz.RequirePermission(authzSvc, "content.srs")).Group(func(r chi.Router) {
 		r.Get("/api/srs/due", h.GetDueCards)
+		r.Get("/api/srs/drill", h.GetDrillCards)
 		r.Post("/api/srs/review", h.ReviewCard)
 		r.Post("/api/srs/cards", h.CreateCard)
 	})

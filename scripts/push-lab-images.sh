@@ -100,6 +100,12 @@ for dockerfile in "${!IMAGES[@]}"; do
       context="$(dirname "$dockerfile")" ;;
   esac
   target="${REGISTRY}/${name}"
+  # Already in the registry -> nothing to do. FORCE_LAB_REBUILD=1 rebuilds anyway
+  # (needed after editing a lab Dockerfile, since the tag doesn't change).
+  if [[ "${FORCE_LAB_REBUILD:-}" != 1 ]] && docker manifest inspect --insecure "$target" &>/dev/null; then
+    info "${target} already in registry — skipping (FORCE_LAB_REBUILD=1 to rebuild)."
+    continue
+  fi
   info "Building ${name} (${dockerfile})..."
   docker build -t "$target" -f "$dockerfile" "$context"
   info "Pushing ${target}..."

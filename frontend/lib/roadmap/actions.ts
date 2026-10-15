@@ -27,6 +27,15 @@ export async function regenerateRoadmapAction(id: string): Promise<ActionResult<
   return result;
 }
 
+export async function replanRoadmapAction(id: string): Promise<ActionResult<Roadmap>> {
+  const result = await apiAction<Roadmap>("POST", `/api/roadmaps/${id}/replan`);
+  if (result.ok) {
+    revalidatePath(ROUTES.roadmap(id));
+    revalidatePath(ROUTES.ROADMAP);
+  }
+  return result;
+}
+
 export async function startRoadmapAction(id: string): Promise<ActionResult<Roadmap>> {
   const result = await apiAction<Roadmap>("POST", `/api/roadmaps/${id}/start`);
   if (result.ok) revalidatePath(ROUTES.ROADMAP);

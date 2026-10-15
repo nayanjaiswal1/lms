@@ -84,7 +84,7 @@ function DebugWorkspaceBody({
       {isAuthExpired && <SessionExpiredOverlay onLogin={onLogin} />}
 
       <DebugShell
-        notice={<DebugCheckNotice message={check.message} problem={check.problem} />}
+        notice={<DebugCheckNotice message={check.message} problem={check.problem} onRetry={check.check} />}
         panel={
           <DebugSidePanel
             checks={

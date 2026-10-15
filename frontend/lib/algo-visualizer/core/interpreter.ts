@@ -217,6 +217,7 @@ function* execStmt(stmt: Stmt, frame: Frame, ctx: InterpCtx): Generator<Step, vo
         }
       }
     }
+    // oxlint-disable-next-line no-fallthrough -- for(;;) above only exits via return
     case "For": {
       const iterVal = yield* evalExpr(stmt.iter, frame, ctx);
       const items = toIterable(iterVal, stmt.line);

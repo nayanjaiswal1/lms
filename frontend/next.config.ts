@@ -62,6 +62,8 @@ const nextConfig: NextConfig = {
     return [
       { source: "/projects", destination: "/workspaces", permanent: false },
       { source: "/projects/:path*", destination: "/workspaces", permanent: false },
+      { source: "/labs", destination: "/labs/catalog", permanent: false },
+      { source: "/lab", destination: "/labs/catalog", permanent: false },
     ];
   },
 
