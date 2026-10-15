@@ -48,10 +48,15 @@ function Avatar({ name, avatarUrl, isMe }: { name: string; avatarUrl?: string; i
       )}
     >
       {avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
+        // oxlint-disable-next-line @next/next/no-img-element
         <img alt={name} className="h-full w-full object-cover" loading="lazy" src={avatarUrl} />
       ) : (
-        <span className={cn("flex h-full w-full items-center justify-center", isMe ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
+        <span
+          className={cn(
+            "flex h-full w-full items-center justify-center",
+            isMe ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+          )}
+        >
           {initials || "?"}
         </span>
       )}
@@ -59,7 +64,13 @@ function Avatar({ name, avatarUrl, isMe }: { name: string; avatarUrl?: string; i
   );
 }
 
-export function MyRewardSummary({ progressPct, achievements }: { progressPct?: number; achievements?: UserAchievement[] }) {
+export function MyRewardSummary({
+  progressPct,
+  achievements,
+}: {
+  progressPct?: number;
+  achievements?: UserAchievement[];
+}) {
   if (progressPct === undefined && !achievements?.length) return null;
 
   return (
@@ -69,7 +80,9 @@ export function MyRewardSummary({ progressPct, achievements }: { progressPct?: n
           <div
             aria-label={`${Math.round(progressPct)}% progress to next level`}
             className="progress-fill h-full transition-all duration-slow ease-smooth"
-            style={{ "--progress": `${Math.min(100, Math.max(0, progressPct))}%` } as React.CSSProperties}
+            style={
+              { "--progress": `${Math.min(100, Math.max(0, progressPct))}%` } as React.CSSProperties
+            }
           />
         </div>
       )}
@@ -95,7 +108,13 @@ export function MyRewardSummary({ progressPct, achievements }: { progressPct?: n
   );
 }
 
-export function LeaderboardTable({ entries, myUserID, myRank, myProgressPct, myAchievements }: LeaderboardTableProps) {
+export function LeaderboardTable({
+  entries,
+  myUserID,
+  myRank,
+  myProgressPct,
+  myAchievements,
+}: LeaderboardTableProps) {
   if (entries.length === 0) {
     return (
       <div className="empty-state py-12">
@@ -114,9 +133,7 @@ export function LeaderboardTable({ entries, myUserID, myRank, myProgressPct, myA
           <div
             className={cn(
               "flex flex-col gap-2 px-4 py-3 transition-colors",
-              isMe
-                ? "bg-primary/10"
-                : "bg-card hover:bg-muted/50",
+              isMe ? "bg-primary/10" : "bg-card hover:bg-muted/50",
             )}
             key={entry.user_id}
           >
@@ -130,13 +147,19 @@ export function LeaderboardTable({ entries, myUserID, myRank, myProgressPct, myA
               <div className="min-w-0 flex-1">
                 <p className={cn("truncate text-sm font-medium", isMe && "text-primary")}>
                   {entry.name}
-                  {isMe && <span className="ml-1.5 text-xs font-normal text-muted-foreground">(you)</span>}
+                  {isMe && (
+                    <span className="ml-1.5 text-xs font-normal text-muted-foreground">(you)</span>
+                  )}
                 </p>
-                <p className="text-xs text-muted-foreground">{entry.level_name} · Lv.{entry.level}</p>
+                <p className="text-xs text-muted-foreground">
+                  {entry.level_name} · Lv.{entry.level}
+                </p>
               </div>
 
               <div className="text-right">
-                <p className="text-sm font-semibold tabular-nums">{entry.total_xp.toLocaleString()}</p>
+                <p className="text-sm font-semibold tabular-nums">
+                  {entry.total_xp.toLocaleString()}
+                </p>
                 <p className="text-xs text-muted-foreground">XP</p>
               </div>
             </div>

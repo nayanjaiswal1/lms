@@ -42,7 +42,7 @@ export function ManageFeaturesDialog({ orgId, userId, userName }: Props) {
 
   useEffect(() => {
     if (open) void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load() closes over orgId/userId, stable for this row's dialog instance; only `open` toggling should retrigger the fetch
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- load() closes over orgId/userId, stable for this row's dialog instance; only `open` toggling should retrigger the fetch
   }, [open]);
 
   function toggleFlag(key: Feature, next: boolean) {
@@ -52,7 +52,9 @@ export function ManageFeaturesDialog({ orgId, userId, userName }: Props) {
         body: JSON.stringify({ enabled: next }),
       });
       if (updated !== null) {
-        toast.success(`${FEATURE_META[key].label} ${next ? "enabled" : "disabled"} for ${userName}.`);
+        toast.success(
+          `${FEATURE_META[key].label} ${next ? "enabled" : "disabled"} for ${userName}.`,
+        );
         await load();
       } else {
         toast.error("Failed to update feature.");
@@ -104,7 +106,8 @@ export function ManageFeaturesDialog({ orgId, userId, userName }: Props) {
                   {flag.overridden && (
                     <>
                       <Badge variant="secondary">Custom</Badge>
-                      <Button className="text-xs text-primary hover:underline disabled:opacity-50 disabled:pointer-events-none"
+                      <Button
+                        className="text-xs text-primary hover:underline disabled:opacity-50 disabled:pointer-events-none"
                         disabled={isPending}
                         type="button"
                         variant="unstyled"

@@ -84,6 +84,7 @@ export function GitlabConnectionManager({ connection, installationConnected }: G
         </div>
       ) : (
         <Button asChild>
+          {/* oxlint-disable-next-line next/no-html-link-for-pages -- API route that redirects to GitLab OAuth, needs a full navigation */}
           <a href="/api/gitlab/connect">
             <GitBranch aria-hidden className="mr-2 h-4 w-4" />
             Connect GitLab

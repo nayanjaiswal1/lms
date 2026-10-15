@@ -13,8 +13,6 @@ interface SettingsTabProps {
   disableDraft?:     boolean;
   disableCodeRun:    boolean;
   onDisableCodeRunChange: (value: boolean) => void;
-  disableReflection: boolean;
-  onDisableReflectionChange: (value: boolean) => void;
   disableKnowledgeCheck: boolean;
   onDisableKnowledgeCheckChange: (value: boolean) => void;
 }
@@ -25,8 +23,6 @@ export function SettingsTab({
   disableDraft,
   disableCodeRun,
   onDisableCodeRunChange,
-  disableReflection,
-  onDisableReflectionChange,
   disableKnowledgeCheck,
   onDisableKnowledgeCheckChange,
 }: SettingsTabProps) {
@@ -85,27 +81,6 @@ export function SettingsTab({
               Students can still read and copy code, but never execute it in this course —
               use this when a snippet isn&apos;t meant to be run standalone (fragments, exploit
               examples, config excerpts).
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <Label className="text-base font-semibold">Lesson reflection</Label>
-        <div className="flex items-start gap-3 rounded-lg border border-border p-4">
-          <Checkbox
-            checked={disableReflection}
-            className="mt-0.5"
-            id="disable-reflection"
-            onCheckedChange={(v) => onDisableReflectionChange(Boolean(v))}
-          />
-          <div className="flex flex-col gap-0.5">
-            <Label className="cursor-pointer font-normal" htmlFor="disable-reflection">
-              Hide the Reflect box on notes lessons
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              By default, students write a short reflection on every notes lesson and must save it
-              before marking the lesson complete. Turn this on to skip reflection for this course.
             </p>
           </div>
         </div>

@@ -76,7 +76,7 @@ export function CourseSidebar({ course, currentModuleId, progress, isEnrolled, o
       </div>
 
       <div className="mt-3 flex flex-col gap-1 overflow-y-auto pb-4">
-        {groupSections(course.sections).map(({ section, isGroupStart, isGrouped }) => {
+        {groupSections(course.sections).map(({ section, isGroupStart }) => {
           const sectionModules = isSearching
             ? section.modules.filter((m) => m.title.toLowerCase().includes(trimmed))
             : section.modules;
@@ -93,10 +93,10 @@ export function CourseSidebar({ course, currentModuleId, progress, isEnrolled, o
                   {section.group_title}
                 </p>
               )}
-              <details className={cn("group", isGrouped && "border-l-2 border-sidebar-border ml-4")} open={isSearching || containsCurrent}>
+              <details className="group" open={isSearching || containsCurrent}>
                 <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-2 text-sm font-semibold text-foreground transition-colors duration-fast hover:bg-muted">
                   <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-fast group-open:rotate-180" />
-                  <span className="min-w-0 flex-1 truncate">{section.title}</span>
+                  <span className="min-w-0 flex-1 truncate" title={section.title}>{section.title}</span>
                   <span className="shrink-0 text-xs font-normal text-muted-foreground">{sectionCompleted}/{section.modules.length}</span>
                 </summary>
 
@@ -112,7 +112,7 @@ export function CourseSidebar({ course, currentModuleId, progress, isEnrolled, o
                         <Link
                           aria-current={isCurrent ? "page" : undefined}
                           className={cn(
-                            "flex items-center gap-3 border-l-2 border-transparent py-2.5 pl-6 pr-4 text-sm text-foreground transition-colors duration-fast hover:bg-muted",
+                            "flex items-center gap-3 border-l-2 border-transparent py-2.5 pl-4 pr-3 text-sm text-foreground transition-colors duration-fast hover:bg-muted",
                             isCurrent && "border-primary bg-primary/8 font-medium text-primary",
                           )}
                           href={ROUTES.courseLearnModule(course.slug, mod.id)}
@@ -126,7 +126,7 @@ export function CourseSidebar({ course, currentModuleId, progress, isEnrolled, o
                           ) : (
                             <Icon aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
                           )}
-                          <span className="line-clamp-2 min-w-0 flex-1 leading-snug">{mod.title}</span>
+                          <span className="min-w-0 flex-1 break-words leading-snug" title={mod.title}>{mod.title}</span>
                           {isLocked ? (
                             <Lock aria-label="Requires enrollment" className="ml-auto h-3 w-3 shrink-0 text-muted-foreground" />
                           ) : (

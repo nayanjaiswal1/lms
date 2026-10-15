@@ -20,7 +20,15 @@ interface CourseCardProps {
 
 // Async only to read the deployment's currency — getPaymentsCurrency is
 // React-cached, so a grid of cards still resolves it once per render.
-export async function CourseCard({ course, enrolled, owned, canEdit, canViewAnalytics, progressPct, href }: CourseCardProps) {
+export async function CourseCard({
+  course,
+  enrolled,
+  owned,
+  canEdit,
+  canViewAnalytics,
+  progressPct,
+  href,
+}: CourseCardProps) {
   const currency = await getPaymentsCurrency();
   const showProgress = enrolled && progressPct !== undefined;
 
@@ -39,7 +47,7 @@ export async function CourseCard({ course, enrolled, owned, canEdit, canViewAnal
       )}
       <div className="relative aspect-[2/1] w-full bg-muted">
         {course.cover_url ? (
-          // eslint-disable-next-line @next/next/no-img-element -- dynamic remote cover, no known dimensions (same convention as course detail page)
+          // oxlint-disable-next-line @next/next/no-img-element -- dynamic remote cover, no known dimensions (same convention as course detail page)
           <img
             alt={course.title}
             className="absolute inset-0 h-full w-full object-cover"
@@ -84,19 +92,17 @@ export async function CourseCard({ course, enrolled, owned, canEdit, canViewAnal
             </span>
           )}
 
-          {owned ? (
-            course.status !== "published" && (
-              <Badge className="ml-auto" variant="secondary">
-                {course.status}
-              </Badge>
-            )
-          ) : (
-            !enrolled && (
-              <span className="ml-auto text-sm font-bold text-foreground">
-                {course.is_free ? "Free" : formatMoney(course.price_cents, currency)}
-              </span>
-            )
-          )}
+          {owned
+            ? course.status !== "published" && (
+                <Badge className="ml-auto" variant="secondary">
+                  {course.status}
+                </Badge>
+              )
+            : !enrolled && (
+                <span className="ml-auto text-sm font-bold text-foreground">
+                  {course.is_free ? "Free" : formatMoney(course.price_cents, currency)}
+                </span>
+              )}
         </div>
       </div>
 

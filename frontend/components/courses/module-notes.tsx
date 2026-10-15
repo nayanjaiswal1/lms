@@ -6,7 +6,6 @@ import { markHighlightsInHtml } from "@/lib/highlights/mark-html";
 import { LessonSqlRunner } from "@/components/courses/lesson-sql-runner";
 import { LessonSqlChallenge } from "@/components/courses/lesson-sql-challenge";
 import { LessonKnowledgeCheck } from "@/components/courses/lesson-knowledge-check";
-import { LessonReflection } from "@/components/courses/lesson-reflection";
 import { LessonFigure } from "@/components/courses/lesson-figure";
 import { LessonHtml } from "@/components/courses/lesson-html";
 import { LessonCodeBlock } from "@/components/courses/lesson-code-block";
@@ -17,14 +16,11 @@ import { LessonLabWorkspacePane } from "@/components/courses/lesson-lab-workspac
 interface ModuleNotesProps {
   moduleId: string;
   segments: Segment[];
-  initialReflection: string | null;
   lab?: Lab | null;
   initialSession?: GetSessionResponse | null;
   highlights?: Highlight[];
   /** Course-level kill switch (courses.disable_code_run) — locks Run on every code block in this lesson. */
   disableCodeRun?: boolean;
-  /** Course-level kill switch (courses.disable_reflection) — hides the Reflect box and lifts its ModuleCompleteButton gate. */
-  disableReflection?: boolean;
   /** Course-level kill switch (courses.disable_knowledge_check) — drops the embedded Knowledge Check. */
   disableKnowledgeCheck?: boolean;
 }
@@ -32,12 +28,10 @@ interface ModuleNotesProps {
 export function ModuleNotes({
   moduleId,
   segments,
-  initialReflection,
   lab = null,
   initialSession = null,
   highlights = [],
   disableCodeRun = false,
-  disableReflection = false,
   disableKnowledgeCheck = false,
 }: ModuleNotesProps) {
   const firstLabTaskIndex = segments.findIndex((s) => s.type === "lab-task");
@@ -109,7 +103,6 @@ export function ModuleNotes({
             );
         }
       })}
-      {!disableReflection && <LessonReflection initialResponse={initialReflection} moduleId={moduleId} />}
     </div>
   );
 

@@ -26,15 +26,26 @@ success() { echo -e "${GREEN}[OK]${NC}    $*"; }
 error()   { echo -e "${RED}[ERROR]${NC} $*" >&2; exit 1; }
 
 command -v docker &>/dev/null || error "docker is not installed."
-command -v k3s &>/dev/null || error "k3s is not installed — run scripts/setup-k3s-local.sh first."
+[[ -n "${IMAGE_REGISTRY:-}" ]] || command -v k3s &>/dev/null || error "k3s is not installed — run scripts/setup-k3s-local.sh first."
 
-DOMAIN="mindforge.127.0.0.1.nip.io"
+DOMAIN="${DOMAIN:-mindforge.127.0.0.1.nip.io}"
 
+# Optional arg: backend (backend + labproxy) | frontend | all (default). Lets CI build the two in parallel.
+TARGET="${1:-all}"
+case "$TARGET" in backend|frontend|all) ;; *) error "usage: $0 [backend|frontend|all]" ;; esac
+IMAGES=()
+
+if [[ "$TARGET" != frontend ]]; then
+  IMAGES+=(mindforge-backend mindforge-labproxy)
 info "Building backend..."
 docker build -t mindforge-backend:local -f backend/Dockerfile backend/
 
 info "Building labproxy..."
 docker build -t mindforge-labproxy:local -f backend/Dockerfile.labproxy backend/
+fi
+
+if [[ "$TARGET" != backend ]]; then
+  IMAGES+=(mindforge-frontend)
 
 info "Building frontend (NEXT_PUBLIC_* baked in for https://${DOMAIN})..."
 docker build -t mindforge-frontend:local -f frontend/Dockerfile \
@@ -45,13 +56,24 @@ docker build -t mindforge-frontend:local -f frontend/Dockerfile \
   --build-arg NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED="false" \
   --build-arg NEXT_PUBLIC_GITHUB_OAUTH_ENABLED="false" \
   frontend/
+fi
 
-info "Importing images into k3s's containerd..."
-for img in mindforge-backend mindforge-labproxy mindforge-frontend; do
-  docker save "${img}:local" | sudo k3s ctr images import -
-done
-
-success "Images built and imported: mindforge-backend:local, mindforge-labproxy:local, mindforge-frontend:local"
+# IMAGE_REGISTRY set -> push there (build agent is not the k3s host); unset -> import into this host's k3s.
+if [[ -n "${IMAGE_REGISTRY:-}" ]]; then
+  info "Pushing images to ${IMAGE_REGISTRY}..."
+  for img in "${IMAGES[@]}"; do
+    ref="${IMAGE_REGISTRY}/${img}:${IMAGE_TAG:-local}"
+    docker tag "${img}:local" "$ref"
+    # large layers over a slow link can hit Docker's response-header timeout; layers already uploaded are skipped on retry
+    for attempt in 1 2 3; do docker push "$ref" && break; [[ $attempt == 3 ]] && error "push of ${img} failed after 3 attempts"; done
+  done
+else
+  info "Importing images into k3s's containerd..."
+  for img in "${IMAGES[@]}"; do
+    docker save "${img}:local" | sudo k3s ctr images import -
+  done
+fi
+success "Images built and imported: ${IMAGES[*]/%/:local}"
 echo ""
 echo "  Next: bash scripts/deploy-k8s.sh local"
 echo ""

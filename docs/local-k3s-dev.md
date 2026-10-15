@@ -177,3 +177,15 @@ None of these were local-only issues — they'd have broken the cloud deploy pat
 - **Browser shows an untrusted-certificate warning.** The `selfSigned` ClusterIssuer can't produce a publicly-trusted cert — there's no domain to prove ownership of via ACME HTTP-01/DNS-01 locally. Click through it. Prod uses real Let's Encrypt via the same annotation.
 - **Piston (code execution) needs privileged Pods**, same as prod — `mindforge-labs` namespace already has the permissive Pod Security Admission labels for this (`k8s/base/namespace.yaml`). k3s allows privileged Pods by default, so this just works locally without extra config.
 - **No dedicated node pool for sysbox-runc Pods.** `k8s/base/runtimeclass-sysbox.yaml` tolerates a `mindforge.io/sysbox-only` taint so production can isolate untrusted nested-docker workloads onto their own node pool (defense in depth beyond sysbox's own isolation). A single-node cluster has nowhere to put that taint without also blocking postgres/redis/backend/everything-else from scheduling, so `scripts/setup-sysbox-local.sh` labels the node `mindforge.io/sysbox=true` but never taints it — nested-docker Pods share the one node with everything else locally. Not a gap to fix locally; provision a real multi-node cluster (or a separate tainted node pool) before treating this as validated for production isolation.
+
+## Automated deploys with Jenkins
+
+`Jenkinsfile` + `scripts/setup-jenkins.sh` make a k3s box pull from GitHub, build, and deploy on every push (SCM poll every 2 min; no webhook needed on a LAN-only host).
+
+On the k3s machine (Debian/Ubuntu, k3s already installed via `scripts/setup-k3s-local.sh`):
+
+```bash
+sudo SECRETS_FILE=~/secrets.env [GIT_TOKEN=<pat if repo is private>] bash scripts/setup-jenkins.sh
+```
+
+Jenkins runs at `http://<host>:8080` (user `admin`, password in `/var/lib/jenkins/admin-password.txt`). The first build starts automatically. To deploy to a different machine, run the job with `DEPLOY_TARGET=user@host`; to make another machine its own deploy host, run the command above there.
