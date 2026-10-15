@@ -129,6 +129,8 @@ export const MAX_HINTS_PER_TASK = 3
 export interface LabSession {
   id: string
   lab_id: string
+  // The task version this session is pinned to (a later republish does not change it).
+  task_version_id: string
   status: SessionStatus
   score: number
   reset_count: number

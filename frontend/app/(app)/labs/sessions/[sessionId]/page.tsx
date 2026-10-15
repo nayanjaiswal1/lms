@@ -32,7 +32,7 @@ export default async function LabSessionPage({ params }: PageProps) {
     redirect(ROUTES.labSessionResult(sessionId))
   }
 
-  const lab = await apiGet<Lab>(`/api/labs/${session.lab_id}`)
+  const lab = await apiGet<Lab>(`/api/labs/${session.lab_id}?task_version_id=${session.task_version_id}`)
 
   if (session.status === "provisioning") {
     return (

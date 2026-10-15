@@ -33,7 +33,7 @@ export default async function LabResultPage({ params }: PageProps) {
     redirect(ROUTES.labSession(sessionId))
   }
 
-  const lab = await apiGet<Lab>(`/api/labs/${session.lab_id}`)
+  const lab = await apiGet<Lab>(`/api/labs/${session.lab_id}?task_version_id=${session.task_version_id}`)
   const completions = new Map(task_completions.map((c) => [c.task_id, c]))
   const required = lab.tasks.filter((t) => !t.is_optional)
   const requiredPassed = required.filter((t) => completions.get(t.task_id)?.status === "passed").length

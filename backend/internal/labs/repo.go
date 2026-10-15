@@ -127,6 +127,19 @@ func (r *Repo) GetLabByModuleID(ctx context.Context, moduleID, orgID string) (*L
 	return &l, nil
 }
 
+// TaskVersionBelongsToLab reports whether versionID is one of labID's task versions.
+func (r *Repo) TaskVersionBelongsToLab(ctx context.Context, versionID, labID string) (bool, error) {
+	var ok bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM lab_task_versions WHERE id=$1 AND lab_id=$2)`,
+		versionID, labID,
+	).Scan(&ok)
+	if err != nil {
+		return false, fmt.Errorf("labs.Repo.TaskVersionBelongsToLab: %w", err)
+	}
+	return ok, nil
+}
+
 // GetPublishedVersion loads the task snapshot rows for a task version,
 // ordered by position. TaskSnapshot.ID is the lab_task_version_items
 // surrogate id (not the mutable lab_tasks id) — it's what completions are
