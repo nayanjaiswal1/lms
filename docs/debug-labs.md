@@ -801,6 +801,15 @@ A new block version only shows "update available: 1.2.0 → 1.3.0 (changelog)". 
 
 **Platform course content:** a lab `.md` gets `recipe: ../recipes/<name>.yaml`, referencing `block_key@version`. Coursegen emits the lab rows **unpublished** plus a platform `lab_recipes` row (`is_platform`, deterministic id `canonical.LabRecipeID(id_key)`). Platform recipes are **never built in the app** (`POST /recipes/{id}/builds` answers 409 `platform_recipe`; the old `lab.platform_recipes_sync` cron is removed, migration 006 cancels its queued jobs). CI renders and verifies them with the exact same matrix and publishes them by importing a **labset** — see "Platform labs: CI artifacts" below.
 
+### Platform labs: labset in the private bucket (any environment)
+
+A labset used to reach only the environment Jenkins `kubectl exec`ed into; every other database (dev-k3s, a rebuilt or restored DB) kept its platform labs unpublished, and the student page showed "Lab not available yet." (`GetLabByModuleID` filters on `is_published`).
+
+- **Publish (CI).** After a successful import, `scripts/import-lab-artifacts.sh --target k8s` also runs `coursegen blocks publish-labset -` in the backend pod: the labset is validated (`ReadLabset`) and uploaded as `labsets/<runtime_id>.tar.gz` to the private bucket (`labbuild.PublishLabset`). One object per lab runtime, overwritten by each full CI run. Never run with `--partial`. The labset holds graders and fix/cheat overlays: the private bucket only.
+- **Import (any env).** `POST /api/admin/lab-authoring/labset/import` (`super_admin`, CSRF): probes this environment's lab runtime id (the same stamp builds use), downloads `labsets/<runtime_id>.tar.gz` and runs `ImportLabset` (whole set only). Idempotent. Response `{runtime_id, recipes, published, bundles_uploaded}`. Errors: 404 `labset_not_published` (CI has not published this runtime), 409 `labset_mismatch` (different runtime or the labset does not cover this DB's platform recipes), 422 `labset_corrupt`.
+- **UI.** `/admin/labs/platform-labs` (`super_admin`) has an "Import published labset" button that calls the endpoint.
+- **Scope.** Environments share a labset by sharing the private bucket (dev-k3s uses the k3s MinIO). An environment with its own bucket needs CI to run `coursegen blocks publish-labset DIR` against that bucket's `MINIO_*`.
+
 ### Platform labs: CI artifacts (labset)
 
 Why: in-app builds of ~50 platform recipes on a small cluster starved student sessions, and on an environment whose MinIO never received the block payloads (only `coursegen blocks sync` uploaded them; `db.SeedDev` only inserts the rows) every build failed with `loadPayloads: ... The specified key does not exist`. Verifying once in CI and importing the result removes both problems.

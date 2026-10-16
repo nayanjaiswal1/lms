@@ -157,6 +157,7 @@ const ROUTES = {
   // Admin — Labs
   ADMIN_LABS_WARM_POOLS:   "/admin/labs/warm-pools",
   ADMIN_LABS_USAGE:        "/admin/labs/usage",
+  ADMIN_LABS_PLATFORM:     "/admin/labs/platform-labs",
 
   // Admin — Payments
   ADMIN_COUPONS:           "/admin/coupons",

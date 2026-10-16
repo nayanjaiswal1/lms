@@ -105,6 +105,11 @@ echo "import-lab-artifacts: $dir -> $target (lab runtime ${runtime_id:0:12} from
 if [[ "$target" == "k8s" ]]; then
   tar -C "$dir" -cf - . |
     kc exec -i -n "$NAMESPACE" deploy/backend -- /app/coursegen blocks import --expect-runtime-id "$runtime_id" $partial -
+  # Publish the labset to this environment's private bucket so POST /api/admin/lab-authoring/labset/import
+  # can re-import it into any database that shares the bucket (dev-k3s, a rebuilt DB). Never a partial set.
+  if [[ -z "$partial" ]]; then
+    tar -C "$dir" -cf - . | kc exec -i -n "$NAMESPACE" deploy/backend -- /app/coursegen blocks publish-labset -
+  fi
 else
   cd "$PROJECT_ROOT/backend"
   go run ./cmd/coursegen blocks import --expect-runtime-id "$runtime_id" $partial "$dir"
