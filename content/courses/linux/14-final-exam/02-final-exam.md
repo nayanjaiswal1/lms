@@ -4,14 +4,14 @@ id_key: linux/final-exam
 course: linux
 section: final-exam
 section_title: "Final Exam: Atlas Certified"
-section_position: 11
+section_position: 14
 title: "Final Exam: Linux on Atlas"
-position: 0
-estimated_minutes: 30
+position: 1
+estimated_minutes: 40
 pass_percentage: 70
-duration_minutes: 30
+duration_minutes: 40
 source:
-  - content/courses/linux chapters 1-10
+  - content/courses/linux chapters 1-13
 questions:
   - id_key: linux/final-exam/kernel-vs-shell
     type: mcq
@@ -324,4 +324,121 @@ questions:
       - text: "chmod -R 777 /etc/brewbot so permissions cannot be the problem"
       - text: "Reinstall the operating system"
     explanation: "Every Real Linux Pro Checks: Error, Resources, Logs, Permissions, Changes. A recent config change plus a startup failure points straight at the config - read the logs, fix one thing, validate, restart."
+
+  - id_key: linux/final-exam/strace
+    type: mcq
+    difficulty: intermediate
+    points: 5
+    prompt: "A program fails with a vague error and no useful log. Which tool shows the exact file it tried to open and the error the kernel returned?"
+    options:
+      - text: "strace"
+        correct: true
+      - text: "lsblk"
+      - text: "uptime"
+      - text: "crontab -l"
+    explanation: "strace prints each system call and its result, for example openat(...) = -1 ENOENT. The others show disks, load and scheduled jobs."
+
+  - id_key: linux/final-exam/namespaces-cgroups
+    type: mcq
+    difficulty: intermediate
+    points: 5
+    prompt: "Which pair of kernel features makes a container?"
+    options:
+      - text: "Namespaces (what it can see) and cgroups (how much it can use)"
+        correct: true
+      - text: "SUID and the sticky bit"
+      - text: "cron and systemd timers"
+      - text: "LVM and fstab"
+    explanation: "Namespaces isolate views of PIDs, mounts, network and hostname; cgroups limit CPU, memory and processes. All containers share the host kernel."
+
+  - id_key: linux/final-exam/memory-max
+    type: mcq
+    difficulty: intermediate
+    points: 5
+    prompt: "A memory leak in brewbot should kill brewbot, not the database next to it. What do you set?"
+    options:
+      - text: "MemoryMax= in brewbot's unit file (a cgroup limit)"
+        correct: true
+      - text: "nice -n 19 brewbot"
+      - text: "A bigger swap file"
+      - text: "Restart=no"
+    explanation: "MemoryMax confines the OOM kill to brewbot's cgroup. Niceness affects CPU, more swap only delays the problem, and Restart controls restarts."
+
+  - id_key: linux/final-exam/available-memory
+    type: mcq
+    difficulty: beginner
+    points: 5
+    prompt: "free -h shows free 200Mi and available 3.0Gi with no swapping. What is the right conclusion?"
+    options:
+      - text: "Memory is fine; Linux uses spare RAM as reclaimable cache"
+        correct: true
+      - text: "The server is nearly out of memory"
+      - text: "Swap is broken"
+      - text: "Reboot to free memory"
+    explanation: "available includes cache the kernel hands back on demand. Low free memory alone is normal and healthy."
+
+  - id_key: linux/final-exam/use-method
+    type: mcq
+    difficulty: intermediate
+    points: 5
+    prompt: "In the USE method, which signal shows CPU saturation?"
+    options:
+      - text: "A run queue (vmstat r, or load) consistently above the number of CPUs"
+        correct: true
+      - text: "High %util in iostat"
+      - text: "A large RSS"
+      - text: "Many open SSH sessions"
+    explanation: "Saturation means waiting work. For CPU that is runnable processes beyond the CPU count. iostat %util is disk utilisation and RSS is memory."
+
+  - id_key: linux/final-exam/lvm-grow
+    type: mcq
+    difficulty: intermediate
+    points: 5
+    prompt: "/srv/data is an ext4 LVM volume and nearly full; the volume group has free space. Which command grows it online?"
+    options:
+      - text: "sudo lvextend -r -L +20G /dev/vg_data/lv_srv"
+        correct: true
+      - text: "sudo mkfs.ext4 /dev/vg_data/lv_srv"
+      - text: "sudo fdisk /dev/vg_data/lv_srv"
+      - text: "sudo mount -a"
+    explanation: "lvextend -r grows the logical volume and the filesystem together. mkfs erases it, fdisk partitions disks, and mount -a only mounts fstab entries."
+
+  - id_key: linux/final-exam/ssh-hardening
+    type: mcq
+    difficulty: intermediate
+    points: 5
+    prompt: "You disabled SSH password logins in a drop-in. What do you do before closing your current session?"
+    options:
+      - text: "Run sshd -t, reload ssh, and confirm a new session can log in with your key"
+        correct: true
+      - text: "Reboot immediately"
+      - text: "Nothing; sshd validates changes itself"
+      - text: "Delete your authorized_keys"
+    explanation: "Check syntax, reload (existing sessions stay), and prove access still works from a new terminal. Otherwise one mistake locks you out."
+
+  - id_key: linux/final-exam/suid-audit
+    type: mcq
+    difficulty: intermediate
+    points: 5
+    prompt: "Which command lists SUID files, a common place for backdoors?"
+    options:
+      - text: "find / -xdev -perm -4000 -type f 2>/dev/null"
+        correct: true
+      - text: "find / -perm 777"
+      - text: "ls -la /"
+      - text: "df -i"
+    explanation: "-perm -4000 matches the SUID bit. 777 is a different (world-writable) problem, ls / shows one directory, and df -i shows inode usage."
+
+  - id_key: linux/final-exam/journal-previous-boot
+    type: mcq
+    difficulty: intermediate
+    points: 5
+    prompt: "Atlas crashed overnight and rebooted. Which command shows error messages from before the crash (with a persistent journal)?"
+    options:
+      - text: "journalctl -b -1 -p err"
+        correct: true
+      - text: "journalctl -b -p err"
+      - text: "systemctl --failed"
+      - text: "dmesg -T"
+    explanation: "-b -1 selects the previous boot. The other commands show the current boot or the current state."
 ---
