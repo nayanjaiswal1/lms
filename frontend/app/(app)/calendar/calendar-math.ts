@@ -136,6 +136,19 @@ export function dateAtMinutes(dayStart: Date, minutes: number): Date {
   return d;
 }
 
+/** "HH:mm" for an <input type="time"> value. */
+export function toTimeInputValue(date: Date): string {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+/** base's calendar day at an "HH:mm" time-of-day. */
+export function withTimeOfDay(base: Date, timeValue: string): Date {
+  const [hours, minutes] = timeValue.split(":").map(Number);
+  const next = new Date(base);
+  next.setHours(hours, minutes, 0, 0);
+  return next;
+}
+
 export function formatTimeLabel(date: Date): string {
   return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }

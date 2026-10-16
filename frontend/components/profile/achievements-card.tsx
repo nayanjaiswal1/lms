@@ -1,4 +1,5 @@
 import { Award, Trophy } from "lucide-react"
+import { SettingsSection } from "@/components/profile/settings-section"
 import { cn } from "@/lib/utils"
 import type { Stats } from "@/lib/profile/types"
 import type { UserAchievement } from "@/lib/server/rewards"
@@ -20,74 +21,47 @@ export function AchievementsCard({ stats, achievements }: Props) {
   const earned = achievements ?? []
 
   return (
-    <section aria-label="Achievements" className="card-base p-6">
-      <h2 className="section-title mb-4">Achievements</h2>
-
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">
-            Badges
-          </h3>
-          {earned.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {earned.map((achievement) => (
-                <div
-                  className={cn(
-                    "flex flex-col items-center gap-1.5 p-3 rounded-lg border text-center",
-                    TIER_RING[achievement.definition.badge_tier]
-                  )}
-                  key={achievement.id}
-                  title={achievement.definition.description}
-                >
-                  <span aria-hidden="true" className="text-2xl">
-                    {achievement.definition.icon}
-                  </span>
-                  <p className="text-xs font-semibold text-foreground leading-tight">
-                    {achievement.definition.name}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-2 py-6 text-center">
-              <Trophy aria-hidden="true" className="text-muted-foreground" size={32} />
-              <p className="text-sm text-muted-foreground max-w-56">
-                Solve problems, pass tests, and complete courses to earn badges.
+    <SettingsSection
+      action={
+        <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+          <Award aria-hidden="true" className={cn("h-4 w-4", certCount > 0 && "text-primary")} />
+          {certCount} {certCount === 1 ? "certificate" : "certificates"}
+        </span>
+      }
+      description="Badges you've earned. Certificates come from finishing a course and passing its final test."
+      id="achievements"
+      title="Achievements"
+    >
+      {earned.length > 0 ? (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {earned.map((achievement) => (
+            <li
+              className={cn(
+                "flex flex-col items-center gap-1.5 rounded-lg border p-4 text-center",
+                TIER_RING[achievement.definition.badge_tier]
+              )}
+              key={achievement.id}
+              title={achievement.definition.description}
+            >
+              <span aria-hidden="true" className="text-2xl">
+                {achievement.definition.icon}
+              </span>
+              <p className="text-xs font-semibold leading-tight text-foreground">
+                {achievement.definition.name}
               </p>
-            </div>
-          )}
+              <p className="text-xs capitalize text-muted-foreground">{achievement.definition.badge_tier}</p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border px-4 py-8 text-center">
+          <Trophy aria-hidden="true" className="h-6 w-6 text-muted-foreground" />
+          <p className="text-sm font-medium text-foreground">No badges yet</p>
+          <p className="max-w-xs text-sm text-muted-foreground">
+            Solve problems, pass tests and complete courses to earn your first one.
+          </p>
         </div>
-
-        {/* Certificates — full list with links now lives on the public
-            profile card (components/profile/public-profile-card.tsx); this
-            private settings view only needs the count. */}
-        <div>
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">
-            Certificates
-          </h3>
-          {certCount > 0 ? (
-            <div className="flex items-center gap-3 p-4 rounded-lg bg-muted">
-              <Award aria-hidden="true" className="text-primary shrink-0" size={20} />
-              <div>
-                <p className="text-sm font-semibold text-foreground">
-                  {certCount} {certCount === 1 ? "Certificate" : "Certificates"} earned
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-2 py-6 text-center">
-              <Award
-                aria-hidden="true"
-                className="text-muted-foreground"
-                size={32}
-              />
-              <p className="text-sm text-muted-foreground max-w-56">
-                Complete courses and pass their final tests to earn certificates.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </section>
+      )}
+    </SettingsSection>
   )
 }

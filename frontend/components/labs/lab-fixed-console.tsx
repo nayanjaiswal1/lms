@@ -111,6 +111,22 @@ export function LabFixedConsole({
   // header drops the title and stacks just the icon buttons vertically.
   const resolvedSize = layout.collapsed ? LAB_CONSOLE_COLLAPSED_HEIGHT : size
   const collapsedRight = layout.collapsed && isRight
+  const insetVar = isRight ? "--lab-console-right" : "--lab-console-bottom"
+
+  // Reserves the docked edge on <body> (see globals.css) so the page can
+  // scroll its last lines / right column out from under the panel. Inline
+  // ref re-runs on every render, so the reservation tracks resize, collapse
+  // and re-dock; cleanup releases it on unmount.
+  // ponytail: one var per edge — two panels docked to the same edge at once
+  // share it (last one wins); per-panel stacking if that ever ships.
+  const reserveEdge = (node: HTMLDivElement | null) => {
+    if (!node) return
+    const root = document.documentElement
+    root.style.setProperty(insetVar, `${resolvedSize}px`)
+    return () => {
+      root.style.removeProperty(insetVar)
+    }
+  }
 
   return createPortal(
     <div
@@ -118,8 +134,9 @@ export function LabFixedConsole({
         "fixed z-sticky hidden bg-card shadow-raised md:flex",
         isRight
           ? "inset-y-0 right-0 flex-row border-l border-border w-[var(--lab-console-size)]"
-          : "inset-x-0 bottom-0 flex-col border-t border-border h-[var(--lab-console-size)]",
+          : "inset-x-0 bottom-0 flex-col border-t border-border h-[var(--lab-console-size)] safe-bottom",
       )}
+      ref={reserveEdge}
       style={{ "--lab-console-size": `${resolvedSize}px` } as React.CSSProperties}
     >
       {!layout.collapsed && (

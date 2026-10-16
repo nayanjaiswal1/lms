@@ -99,114 +99,106 @@ export default async function SettingsProfilePage({
   return (
     <div className="space-y-6">
       <Link
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors duration-fast"
+        className="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground transition-colors duration-fast hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         href={ROUTES.SETTINGS_PROFILE}
       >
-        <ArrowLeft aria-hidden="true" size={14} />
-        Back to profile
+        <ArrowLeft aria-hidden="true" size={16} />
+        Back to profile overview
       </Link>
 
       <ProfileHeader profile={profile} uploadAction={uploadAvatarAction} />
 
-      <div
-        aria-label="Profile settings sections"
-        className="flex overflow-x-auto gap-0 border-b border-border -mb-px"
-        role="tablist"
-      >
-        {EDIT_TABS.map((tab) => {
-          const isActive = tab.key === activeTab
-          return (
-            <Link
-              aria-selected={isActive}
-              className={cn(
-                'flex-shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-[--duration-fast] whitespace-nowrap',
-                isActive
-                  ? 'text-primary border-primary'
-                  : 'text-muted-foreground border-transparent hover:text-foreground hover:border-border'
-              )}
-              href={`?tab=${tab.key}`}
-              key={tab.key}
-              role="tab"
-            >
-              {tab.label}
-            </Link>
-          )
-        })}
-      </div>
+      <ProfileCompletion
+        breakdown={breakdown}
+        score={profile.completion_score}
+      />
 
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-        <div className="flex-1 min-w-0 space-y-6">
-          {activeTab === 'profile' && (
-            <>
-              <BasicInfoForm
-                profile={profile}
-                updateAction={updateBasicInfoAction}
-              />
-              <SocialLinksForm
-                socialLinks={profile.social_links}
-                updateAction={updateSocialLinksAction}
-              />
-              <SkillsManager
-                addAction={addSkillAction}
-                removeAction={removeSkillAction}
-                skills={profile.skills}
-              />
-              <ResumeUpload
-                applyAction={applyResumeAction}
-                parseAction={parseResumeAction}
-              />
-            </>
-          )}
-
-
-
-
-          {activeTab === 'activity' && (
-            <>
-              <AchievementsCard achievements={rewardProfile?.achievements ?? null} stats={profile.stats} />
-              <ProfileStats stats={profile.stats} />
-            </>
-          )}
-
-          {activeTab === 'activity' && activityPage && (
-            activityPage.entries.length === 0 ? (
-              <div className="empty-state">
-                <History aria-hidden className="h-10 w-10 text-muted-foreground" />
-                <p className="text-muted-foreground">Nothing tracked yet — complete a module or review a card to see it here.</p>
-              </div>
-            ) : (
-              <>
-                <ActivityTimeline entries={activityPage.entries} />
-
-                <NextPageLink nextCursor={activityPage.next_cursor} searchParams={{ tab: "activity" }} />
-              </>
+      <nav aria-label="Profile settings sections" className="border-b border-border">
+        <ul className="-mb-px flex overflow-x-auto">
+          {EDIT_TABS.map((tab) => {
+            const isActive = tab.key === activeTab
+            return (
+              <li className="shrink-0" key={tab.key}>
+                <Link
+                  aria-current={isActive ? 'page' : undefined}
+                  className={cn(
+                    'flex min-h-11 items-center whitespace-nowrap border-b-2 px-4 text-sm font-medium',
+                    'transition-colors duration-fast ease-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                    isActive
+                      ? 'border-primary text-foreground'
+                      : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
+                  )}
+                  href={`?tab=${tab.key}`}
+                >
+                  {tab.label}
+                </Link>
+              </li>
             )
-          )}
+          })}
+        </ul>
+      </nav>
 
-          {activeTab === 'preferences' && (
-            <>
-              <LearningPreferences
-                profile={profile}
-                updateAction={updateLearningAction}
-              />
-              <PreferencesForm
-                profile={profile}
-                updateAction={updatePreferencesAction}
-              />
-              <AppearanceSection />
-              <KnowledgeCheckToggle />
-            </>
-          )}
-        </div>
+      <div className="space-y-6">
+        {activeTab === 'profile' && (
+          <>
+            <BasicInfoForm
+              profile={profile}
+              updateAction={updateBasicInfoAction}
+            />
+            <SocialLinksForm
+              socialLinks={profile.social_links}
+              updateAction={updateSocialLinksAction}
+            />
+            <SkillsManager
+              addAction={addSkillAction}
+              removeAction={removeSkillAction}
+              skills={profile.skills}
+            />
+            <ResumeUpload
+              applyAction={applyResumeAction}
+              parseAction={parseResumeAction}
+            />
+          </>
+        )}
 
-        <aside className="w-full lg:w-[260px] flex-shrink-0">
-          <ProfileCompletion
-            breakdown={breakdown}
-            score={profile.completion_score}
-          />
-        </aside>
+        {activeTab === 'preferences' && (
+          <>
+            <LearningPreferences
+              profile={profile}
+              updateAction={updateLearningAction}
+            />
+            <PreferencesForm
+              profile={profile}
+              updateAction={updatePreferencesAction}
+            />
+            <AppearanceSection />
+            <KnowledgeCheckToggle />
+          </>
+        )}
+
+        {activeTab === 'activity' && (
+          <>
+            <AchievementsCard achievements={rewardProfile?.achievements ?? null} stats={profile.stats} />
+            <ProfileStats stats={profile.stats} />
+            {activityPage && (
+              activityPage.entries.length === 0 ? (
+                <div className="card-base empty-state p-6">
+                  <History aria-hidden="true" className="empty-state-icon" />
+                  <div className="space-y-1">
+                    <p className="font-medium text-foreground">Nothing tracked yet</p>
+                    <p className="text-sm">Complete a module or review a card and it shows up here.</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <ActivityTimeline entries={activityPage.entries} />
+                  <NextPageLink nextCursor={activityPage.next_cursor} searchParams={{ tab: "activity" }} />
+                </>
+              )
+            )}
+          </>
+        )}
       </div>
     </div>
   )
 }
-

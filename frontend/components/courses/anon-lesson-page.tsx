@@ -87,7 +87,7 @@ export function AnonLessonPage({ course, currentModuleId, translations, activeLo
   const nextPath = ROUTES.courseLearnModule(course.slug, currentModule.id);
 
   return (
-    <div className="flex flex-col items-start gap-6 lg:flex-row">
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       <CourseSidebarRail course={course} currentModuleId={currentModuleId} isEnrolled={false} progress={progress} />
 
       <main className="min-w-0 flex-1">
@@ -99,12 +99,12 @@ export function AnonLessonPage({ course, currentModuleId, translations, activeLo
           progress={progress}
         />
 
-        <div className="mx-auto max-w-7xl flex items-start py-6 lg:py-8">
-          <article className="min-w-0 flex-1 mx-auto max-w-3xl">
+        <div className="mx-auto flex max-w-7xl flex-col gap-8 py-6 lg:py-8 xl:flex-row xl:items-start xl:gap-0">
+          <article className="mx-auto w-full min-w-0 max-w-3xl flex-1">
             <AnonCourseBanner nextPath={nextPath} />
 
             <div className="mb-2 flex items-start justify-between gap-3">
-              <h2 className="min-w-0 flex-1 text-2xl font-bold tracking-tight">{currentModule.title}</h2>
+              <h2 className="min-w-0 flex-1 break-words text-2xl font-bold tracking-tight">{currentModule.title}</h2>
             </div>
             <div className="mb-6 flex flex-wrap items-center gap-2">
               <Badge className="gap-1.5 rounded-full border-primary/20 bg-accent px-2.5 py-1 font-mono text-sm capitalize text-primary" variant="outline">
@@ -153,7 +153,7 @@ export function AnonLessonPage({ course, currentModuleId, translations, activeLo
           </article>
 
           <ModuleProgressRail>
-            <CourseProgressBar completed={completedCount} total={totalCount} />
+            <CourseProgressBar className="hidden xl:flex" completed={completedCount} total={totalCount} />
             {isReadable && (
               <AnonLessonNotes
                 courseId={course.id}
@@ -162,7 +162,7 @@ export function AnonLessonPage({ course, currentModuleId, translations, activeLo
               />
             )}
             {notesResult && (
-              <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="hidden min-h-0 flex-1 overflow-y-auto xl:block">
                 <ModuleToc entries={notesResult.toc} />
               </div>
             )}

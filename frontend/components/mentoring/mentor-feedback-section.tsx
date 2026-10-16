@@ -1,9 +1,10 @@
 "use client";
 
 import { parseAsBoolean, useQueryState } from "nuqs";
-import { MessageSquarePlus, Star } from "lucide-react";
+import { MessageSquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MentorRatingForm } from "@/components/mentoring/mentor-rating-form";
+import { StarRating } from "@/components/mentoring/star-rating";
 
 interface Props {
   mentorId: string;
@@ -33,32 +34,41 @@ export function MentorFeedbackSection({
   if (avgRating === null && !canReview) return null;
 
   return (
-    <section className="card-raised">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Mentee feedback</h2>
+    <section aria-labelledby="mentor-feedback-title" className="card-raised">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2">
+          <h2 className="subsection-title" id="mentor-feedback-title">
+            Mentee feedback
+          </h2>
+          {avgRating !== null ? (
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="text-4xl font-bold tabular-nums text-foreground">{avgRating.toFixed(1)}</span>
+              <div className="flex flex-col gap-1">
+                <StarRating value={avgRating} />
+                <span className="text-sm text-muted-foreground">
+                  out of 5 · {ratingCount} review{ratingCount === 1 ? "" : "s"}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No ratings yet — yours would be the first.</p>
+          )}
+        </div>
         {canReview && (
-          <Button size="sm" variant="secondary" onClick={() => void setOpen(open ? null : true)}>
-            <MessageSquarePlus aria-hidden className="h-4 w-4" />
+          <Button
+            aria-expanded={open}
+            className="min-h-11"
+            variant={open ? "outline" : "secondary"}
+            onClick={() => void setOpen(open ? null : true)}
+          >
+            <MessageSquarePlus aria-hidden />
             {open ? "Hide" : initialRating ? "Edit your review" : "Leave a review"}
           </Button>
         )}
       </div>
 
-      {avgRating !== null && (
-        <div className="mt-3 flex items-center gap-3">
-          <span aria-hidden className="flex items-center gap-0.5 text-primary">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <Star className="h-4 w-4" fill={n <= Math.round(avgRating) ? "currentColor" : "none"} key={n} />
-            ))}
-          </span>
-          <span className="text-sm font-medium text-foreground">
-            {avgRating.toFixed(1)} / 5.0 ({ratingCount} review{ratingCount === 1 ? "" : "s"})
-          </span>
-        </div>
-      )}
-
       {canReview && open && (
-        <div className="mt-4 border-t border-border pt-4">
+        <div className="mt-6 border-t border-border pt-6">
           <MentorRatingForm initialComment={initialComment} initialRating={initialRating} mentorId={mentorId} />
         </div>
       )}

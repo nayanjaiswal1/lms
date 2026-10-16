@@ -50,10 +50,9 @@ export function ProfileOverview({ profile, overview, rewardProfile, rank, batche
             <RecentSubmissionsList items={overview.recent_activity} />
           </>
         ) : (
-          <div className="card-base p-6">
-            <p className="text-sm text-muted-foreground">
-              Activity data isn&apos;t available right now. Try refreshing the page.
-            </p>
+          <div className="card-base empty-state p-6">
+            <p className="font-medium text-foreground">Activity is unavailable right now</p>
+            <p className="text-sm">Try refreshing the page in a moment.</p>
           </div>
         )}
       </div>

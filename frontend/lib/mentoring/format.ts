@@ -26,6 +26,12 @@ export function formatResponseTime(minutes: number | null): string | null {
   return `${(minutes / 60).toFixed(1)}h`;
 }
 
+// "Staff Engineer · 8 yrs experience" — either half may be missing; null when both are.
+export function formatMentorHeadline(role: string | null, years: number | null): string | null {
+  const yearsLabel = years !== null ? `${years} yr${years === 1 ? "" : "s"} experience` : null;
+  return [role, yearsLabel].filter(Boolean).join(" · ") || null;
+}
+
 export function formatDuration(hours: number | null): string | null {
   if (hours === null) return null;
   return `${hours.toFixed(hours < 10 ? 1 : 0)}h`;

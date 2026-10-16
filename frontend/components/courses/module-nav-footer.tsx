@@ -27,7 +27,7 @@ export function ModuleNavFooter({ courseSlug, prevModule, nextModule, completeBu
         >
           {prevModule ? (
             <Link
-              className="flex flex-1 items-center gap-2 px-4 py-3 transition-colors duration-fast hover:bg-muted"
+              className="flex min-w-0 flex-1 items-center gap-2 px-4 py-3 transition-colors duration-fast hover:bg-muted"
               href={ROUTES.courseLearnModule(courseSlug, prevModule.id)}
             >
               <ArrowLeft aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -42,7 +42,7 @@ export function ModuleNavFooter({ courseSlug, prevModule, nextModule, completeBu
 
           {nextModule ? (
             <Link
-              className="flex flex-1 items-center justify-end gap-2 px-4 py-3 text-right transition-colors duration-fast hover:bg-muted"
+              className="flex min-w-0 flex-1 items-center justify-end gap-2 px-4 py-3 text-right transition-colors duration-fast hover:bg-muted"
               href={ROUTES.courseLearnModule(courseSlug, nextModule.id)}
             >
               <span className="flex min-w-0 flex-col items-end">

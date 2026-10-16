@@ -1,52 +1,35 @@
 "use client";
 
 import * as React from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { toast } from "sonner";
-import { MoreVertical, Pencil, Trash2, UserPlus } from "lucide-react";
+import { MoreVertical, Pencil, Trash2 } from "lucide-react";
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Form } from "@/components/ui/form";
-import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formatTimeLabel } from "@/app/(app)/calendar/calendar-math";
+import { layerMetaFor, primaryLayerFor } from "@/app/(app)/calendar/event-block";
+import { EditEventForm } from "@/app/(app)/calendar/edit-event-form";
+import { EventAttendees, RSVP_BADGE } from "@/app/(app)/calendar/event-attendees";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import {
   cancelEventAction,
-  inviteAction,
   rsvpAction,
   setEventCompletedAction,
-  updateEventAction,
   updateNotesAction,
 } from "@/lib/server/calendar";
-import { ATTENDEE_ROLE_OPTIONS, CALENDAR_PRIORITY_OPTIONS } from "@/lib/calendar/types";
-import { Checkbox } from "@/components/ui/checkbox";
-import type {
-  Attendee,
-  AttendeeRole,
-  CalendarEvent,
-  CalendarEventPriority,
-  CalendarEventScope,
-  EventInvite,
-  RsvpStatus,
-} from "@/lib/calendar/types";
+import { CALENDAR_PRIORITY_OPTIONS } from "@/lib/calendar/types";
+import type { Attendee, CalendarEvent, CalendarEventPriority, EventInvite, RsvpStatus } from "@/lib/calendar/types";
+import { cn } from "@/lib/utils";
 
-const RSVP_BADGE: Record<RsvpStatus, "default" | "secondary" | "destructive"> = {
-  pending: "secondary",
-  accepted: "default",
-  declined: "destructive",
-};
 
 const PRIORITY_LABEL = Object.fromEntries(
   CALENDAR_PRIORITY_OPTIONS.map((opt) => [opt.value, opt.label]),
@@ -55,274 +38,7 @@ const PRIORITY_BADGE_CLASS = Object.fromEntries(
   CALENDAR_PRIORITY_OPTIONS.map((opt) => [opt.value, opt.badgeClassName]),
 ) as Record<CalendarEventPriority, string>;
 
-// An external invite can only ever grant 'editor' or 'viewer' — the backend
-// rejects 'owner' here (IsValidInviteRole in backend/internal/calendar/models.go).
-const INVITE_ROLE_OPTIONS = ATTENDEE_ROLE_OPTIONS.filter((opt) => opt.value !== "owner");
-
-const InviteSchema = z.object({
-  email: z.string().email("Enter a valid email."),
-  role: z.enum(["editor", "viewer"]),
-});
-type InviteFormData = z.infer<typeof InviteSchema>;
-
-function InviteForm({ eventId, onInvited }: { eventId: string; onInvited: (invite: EventInvite) => void }) {
-  const form = useForm<InviteFormData>({
-    resolver: zodResolver(InviteSchema),
-    defaultValues: { email: "", role: "viewer" },
-  });
-
-  async function onSubmit(data: InviteFormData) {
-    const result = await inviteAction(eventId, data.email, data.role as AttendeeRole);
-    if (!result.ok || !result.data) {
-      toast.error(result.error ?? "Could not send invite.");
-      return;
-    }
-    toast.success(`Invited ${data.email}.`);
-    onInvited(result.data.invite);
-    form.reset({ email: "", role: "viewer" });
-  }
-
-  return (
-    <Form {...form}>
-      <form className="flex items-end gap-2" onSubmit={form.handleSubmit(onSubmit)}>
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem className="flex-1">
-              <FormLabel className="sr-only">Email</FormLabel>
-              <FormControl>
-                <Input placeholder="Invite by email…" type="email" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="role"
-          render={({ field }) => (
-            <FormItem className="w-full sm:w-32">
-              <FormLabel className="sr-only">Role</FormLabel>
-              <Select defaultValue={field.value} onValueChange={field.onChange}>
-                <FormControl>
-                  <SelectTrigger aria-label="Attendee role">
-                    <SelectValue />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {INVITE_ROLE_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Button disabled={form.formState.isSubmitting} size="icon" type="submit" variant="outline">
-          <UserPlus aria-hidden className="h-4 w-4" />
-          <span className="sr-only">Send invite</span>
-        </Button>
-      </form>
-    </Form>
-  );
-}
-
-const EditEventSchema = z.object({
-  title: z.string().min(1, "Title is required.").max(200),
-  date: z.string().min(1, "Date is required."),
-  startTime: z.string().min(1, "Start time is required."),
-  endTime: z.string().min(1, "End time is required."),
-  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
-});
-type EditEventFormData = z.infer<typeof EditEventSchema>;
-
-function toDateInputValue(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function toTimeInputValue(date: Date): string {
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-}
-
-function combineDateTime(dateValue: string, timeValue: string): Date {
-  const [year, month, day] = dateValue.split("-").map(Number);
-  const [hours, minutes] = timeValue.split(":").map(Number);
-  return new Date(year, month - 1, day, hours, minutes, 0, 0);
-}
-
-interface EditEventFormProps {
-  event: CalendarEvent;
-  onSaved: (event: CalendarEvent) => void;
-  onCancel: () => void;
-}
-
-function EditEventForm({ event, onSaved, onCancel }: EditEventFormProps) {
-  const start = new Date(event.starts_at);
-  const end = new Date(event.ends_at ?? event.starts_at);
-  const form = useForm<EditEventFormData>({
-    resolver: zodResolver(EditEventSchema),
-    defaultValues: {
-      title: event.title,
-      date: toDateInputValue(start),
-      startTime: toTimeInputValue(start),
-      endTime: toTimeInputValue(end),
-      priority: event.priority ?? undefined,
-    },
-  });
-  const isTask = event.event_type === "task";
-
-  async function submit(data: EditEventFormData, scope: CalendarEventScope) {
-    const newStart = combineDateTime(data.date, data.startTime);
-    const newEnd = combineDateTime(data.date, data.endTime);
-    if (!(newEnd > newStart)) {
-      form.setError("endTime", { message: "End time must be after start time." });
-      return;
-    }
-    const result = await updateEventAction(
-      event.id,
-      {
-        title: data.title,
-        starts_at: newStart.toISOString(),
-        ends_at: newEnd.toISOString(),
-        ...(isTask ? { priority: data.priority } : {}),
-      },
-      scope,
-    );
-    if (!result.ok || !result.data) {
-      toast.error(result.error ?? "Could not save changes.");
-      return;
-    }
-    toast.success("Event updated.");
-    onSaved(result.data);
-  }
-
-  return (
-    <Form {...form}>
-      <form className="flex flex-col gap-3">
-        <FormField
-          control={form.control}
-          name="title"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="sr-only">Title</FormLabel>
-              <FormControl>
-                <Input placeholder="Event title" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="date"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="sr-only">Date</FormLabel>
-              <FormControl>
-                <Input type="date" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <div className="flex items-start gap-2">
-          <FormField
-            control={form.control}
-            name="startTime"
-            render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel className="sr-only">Start time</FormLabel>
-                <FormControl>
-                  <Input className="min-w-0" type="time" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <span className="shrink-0 pt-2.5 text-sm text-muted-foreground">to</span>
-          <FormField
-            control={form.control}
-            name="endTime"
-            render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel className="sr-only">End time</FormLabel>
-                <FormControl>
-                  <Input className="min-w-0" type="time" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-        {isTask && (
-          <FormField
-            control={form.control}
-            name="priority"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">Priority</FormLabel>
-                <Select defaultValue={field.value} onValueChange={field.onChange}>
-                  <FormControl>
-                    <SelectTrigger aria-label="Task priority">
-                      <SelectValue placeholder="No priority" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {CALENDAR_PRIORITY_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button disabled={form.formState.isSubmitting} size="sm" type="button" variant="ghost" onClick={onCancel}>
-            Cancel
-          </Button>
-          {event.recurrence_rule ? (
-            <>
-              <Button
-                disabled={form.formState.isSubmitting}
-                size="sm"
-                type="button"
-                variant="outline"
-                onClick={form.handleSubmit((data) => submit(data, "single"))}
-              >
-                Save this event
-              </Button>
-              <Button
-                disabled={form.formState.isSubmitting}
-                size="sm"
-                type="button"
-                onClick={form.handleSubmit((data) => submit(data, "series"))}
-              >
-                Save series
-              </Button>
-            </>
-          ) : (
-            <Button
-              disabled={form.formState.isSubmitting}
-              size="sm"
-              type="button"
-              onClick={form.handleSubmit((data) => submit(data, "single"))}
-            >
-              Save
-            </Button>
-          )}
-        </div>
-      </form>
-    </Form>
-  );
-}
+const DESKTOP_QUERY = "(min-width: 640px)";
 
 interface EventPanelProps {
   event: CalendarEvent;
@@ -412,13 +128,28 @@ export function EventPanel({
   const start = new Date(event.starts_at);
   const end = new Date(event.ends_at ?? event.starts_at);
   const myAttendance = attendees?.find((a) => a.user_id === currentUserId);
+  const layer = layerMetaFor(primaryLayerFor(event, currentUserId));
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="modal-responsive flex w-full flex-col gap-6 overflow-y-auto sm:max-w-md" side="right">
+      {/* Bottom sheet on phones (thumb-reachable, page stays visible above),
+          right-hand side panel from sm up. */}
+      <SheetContent
+        className={cn(
+          "flex w-full flex-col gap-6 overflow-y-auto",
+          isDesktop ? "sm:max-w-md" : "safe-bottom max-h-[85dvh] rounded-t-2xl pt-3",
+        )}
+        side={isDesktop ? "right" : "bottom"}
+      >
+        {!isDesktop && <span aria-hidden className="mx-auto h-1.5 w-10 shrink-0 rounded-pill bg-border" />}
         <SheetHeader className="flex-row items-start justify-between gap-2 pr-8">
-          <div className="flex flex-col gap-1.5">
-            <SheetTitle>{event.title}</SheetTitle>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <span className={cn("inline-flex w-fit items-center gap-1.5 rounded-pill border px-2 py-0.5 text-xs font-medium", layer.badgeClassName)}>
+              <span aria-hidden className={cn("h-2 w-2 rounded-full", layer.swatchClassName)} />
+              {layer.label}
+            </span>
+            <SheetTitle className={cn("break-words", event.status === "cancelled" && "line-through opacity-70")}>{event.title}</SheetTitle>
             <SheetDescription>
               {event.all_day
                 ? start.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })
@@ -427,12 +158,12 @@ export function EventPanel({
           </div>
           {!readOnly && event.status !== "cancelled" && !isEditing && (
             <div className="flex shrink-0 items-center gap-1">
-              <Button aria-label="Edit event" size="icon" variant="ghost" onClick={() => setIsEditing(true)}>
+              <Button aria-label="Edit event" className="touch-target" size="icon" variant="ghost" onClick={() => setIsEditing(true)}>
                 <Pencil aria-hidden className="h-4 w-4" />
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button aria-label="Event actions" size="icon" variant="ghost">
+                  <Button aria-label="Event actions" className="touch-target" size="icon" variant="ghost">
                     <MoreVertical aria-hidden className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -462,10 +193,10 @@ export function EventPanel({
 
         {!isEditing && !readOnly && event.event_type === "task" && (
           <div className="flex-between gap-2">
-            <label className="flex w-fit items-center gap-2 text-sm" htmlFor="event-mark-done">
+            <label className="flex min-h-11 w-fit cursor-pointer items-center gap-3 text-sm font-medium" htmlFor="event-mark-done">
               <Checkbox
                 checked={Boolean(event.completed_at)}
-                className="h-4 w-4"
+                className="h-5 w-5"
                 id="event-mark-done"
                 onCheckedChange={(v) => void handleToggleComplete(v === true)}
               />
@@ -490,10 +221,11 @@ export function EventPanel({
         {!isEditing && !readOnly && myAttendance && myAttendance.role !== "owner" && (
           <div className="flex-between gap-2">
             <span className="text-sm text-muted-foreground">Your RSVP</span>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <Badge variant={RSVP_BADGE[myAttendance.rsvp_status]}>{myAttendance.rsvp_status}</Badge>
               <Button
                 disabled={myAttendance.rsvp_status === "accepted"}
+                className="touch-target-dense"
                 size="sm"
                 variant="outline"
                 onClick={() => handleRsvp("accepted")}
@@ -502,6 +234,7 @@ export function EventPanel({
               </Button>
               <Button
                 disabled={myAttendance.rsvp_status === "declined"}
+                className="touch-target-dense"
                 size="sm"
                 variant="outline"
                 onClick={() => handleRsvp("declined")}
@@ -515,9 +248,10 @@ export function EventPanel({
         {!isEditing && (
         <div className="flex flex-col gap-2">
           <div className="flex-between">
-            <span className="text-sm font-medium">Notes</span>
+            <span className="text-sm font-semibold">Notes</span>
             {!readOnly && (
               <Button
+                className="touch-target-dense"
                 disabled={notes === (event.notes ?? "")}
                 size="sm"
                 variant="outline"
@@ -540,46 +274,7 @@ export function EventPanel({
         )}
 
         {!isEditing && !readOnly && (
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">Attendees</span>
-            {attendees === null ? (
-              <p className="text-sm text-muted-foreground">Loading attendees…</p>
-            ) : attendees.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No attendees yet.</p>
-            ) : (
-              <ul className="flex flex-col gap-1.5">
-                {attendees.map((a) => (
-                  <li className="flex-between gap-2 text-sm" key={a.user_id}>
-                    <span className="truncate">{a.name ?? a.email ?? a.user_id}</span>
-                    <span className="flex shrink-0 items-center gap-1.5">
-                      {a.role === "owner" ? (
-                        <Badge variant="outline">Organizer</Badge>
-                      ) : (
-                        <>
-                          <Badge variant="outline">{a.role}</Badge>
-                          <Badge variant={RSVP_BADGE[a.rsvp_status]}>{a.rsvp_status}</Badge>
-                        </>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {pendingInvites && pendingInvites.length > 0 && (
-              <ul className="flex flex-col gap-1.5">
-                {pendingInvites.map((inv) => (
-                  <li className="flex-between gap-2 text-sm" key={inv.id}>
-                    <span className="truncate text-muted-foreground">{inv.email}</span>
-                    <span className="flex shrink-0 items-center gap-1.5">
-                      <Badge variant="outline">{inv.role}</Badge>
-                      <Badge variant="secondary">Invited</Badge>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <InviteForm eventId={event.id} onInvited={onInvited} />
-          </div>
+          <EventAttendees attendees={attendees} eventId={event.id} pendingInvites={pendingInvites} onInvited={onInvited} />
         )}
       </SheetContent>
     </Sheet>

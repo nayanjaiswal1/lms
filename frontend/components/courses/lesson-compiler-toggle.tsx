@@ -24,9 +24,11 @@ export function LessonCompilerToggle({ language }: LessonCompilerToggleProps) {
   // a live admin switch — org-disabled restricts this panel to right-dock only.
   const bottomDockAllowed = useIsOrgFeatureEnabled(FEATURES.LESSON_COMPILER_BOTTOM_DOCK)
 
+  // Hidden below md: LabFixedConsole only renders md+, so the toggle would
+  // open nothing on phones — inline per-block runners still cover them.
   return (
     <>
-      <Button className="w-full" size="sm" variant="outline" onClick={() => setOpen((o) => !o)}>
+      <Button className="touch-target hidden w-full md:inline-flex" size="sm" variant="outline" onClick={() => setOpen((o) => !o)}>
         <Code2 aria-hidden className="h-3.5 w-3.5" />
         {open ? "Close compiler" : `Open ${label} compiler`}
       </Button>
