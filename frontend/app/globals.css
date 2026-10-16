@@ -988,3 +988,8 @@
 .qr-surface {
   background-color: #fff;
 }
+
+/* Monaco's iPad "show keyboard" button overlaps the first code line in lesson code blocks. */
+.monaco-editor .iPadShowKeyboard {
+  display: none;
+}
