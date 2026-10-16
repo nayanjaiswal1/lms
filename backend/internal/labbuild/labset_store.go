@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -77,7 +78,8 @@ func (s *Service) ImportPublishedLabset(ctx context.Context) (*ImportResult, str
 	}
 	data, err := s.store.Download(ctx, LabsetKey(runtimeID))
 	if err != nil {
-		return nil, runtimeID, fmt.Errorf("%w (%s): %v", ErrLabsetNotPublished, runtimeID, err)
+		slog.Warn("labbuild: no published labset", "runtime_id", runtimeID, "error", err)
+		return nil, runtimeID, fmt.Errorf("%w (this environment's runtime id is %s)", ErrLabsetNotPublished, runtimeID)
 	}
 	files, err := readTar(data)
 	if err != nil {
