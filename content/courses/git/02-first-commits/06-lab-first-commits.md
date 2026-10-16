@@ -5,9 +5,9 @@ course: git
 section: first-commits
 section_title: Setup and First Commits
 section_position: 2
-title: Init, Stage, Commit, Amend, Ignore
-position: 0
-estimated_minutes: 40
+title: "Lab: Your First Clean History"
+position: 5
+estimated_minutes: 35
 source:
   - Pro Git book, ch. 2 "Git Basics" (git-scm.com/book)
   - git-commit(1), git-config(1), gitignore(5) manual pages
@@ -130,39 +130,20 @@ lab:
         git commit --amend -m "Update README and script"
 ---
 
-> **Day 1 at Brightside.** Maya, your tech lead, hands you an empty folder: "Start the hello tool. Commit as you go - the whole team will read this history, so keep it clean." By the end of this section you will have a tidy three-commit history you are not embarrassed to show.
+## Why this matters
 
-## The three areas
+Maya wants a tidy three-commit history in a new `hello` project. This lab uses
+everything from the last five lessons: the three areas, identity, commits,
+`.gitignore`, status and diff, and amend. Each task is checked automatically.
 
-Git tracks your work in three places. Files move between them with explicit commands:
+## Task 1: create the repository
 
-```
- WORKING TREE            INDEX (staging)             REPOSITORY (.git)
- files you edit   --->   next commit's snapshot --->  permanent history
-                 git add                    git commit
-       <---------------- git restore -----------------
-```
-
-`git init` creates the repository, `git status` tells you what sits in each area, and `git diff`
-compares two of them.
-
-```knowledge-check
-{ "questions": [
-  { "id": "git-first-areas-q1", "type": "mcq",
-    "prompt": "Which area does git commit actually snapshot?",
-    "options": [
-      {"id":"a","text":"The working tree"},
-      {"id":"b","text":"The index (staging area)"},
-      {"id":"c","text":"The remote repository"},
-      {"id":"d","text":"Only files modified in the last hour"}],
-    "correct": "b",
-    "explanation": "A commit is built from the index. Edits you did not git add are not part of it." }
-] }
-```
+Make `~/work/hello` and turn it into a repository. The first branch is already
+configured to be `main` in this lab.
 
 [[lab-task:1]]
 
-What you should see after `git init hello` and `git status`:
+Expected output of `git init` and `git status`:
 
 ```
 Initialized empty Git repository in /home/labuser/work/hello/.git/
@@ -173,155 +154,66 @@ No commits yet
 nothing to commit (create/copy files and use "git add" to track)
 ```
 
-## Identity and your first commit
+## Task 2: tell Git who you are
 
-Every commit stores an author. Configure it once:
-
-```bash
-git config --global user.name  "Ada Student"
-git config --global user.email "ada@example.com"
-git config --list --show-origin | grep user
-```
+Set the global name `Ada Student` and email `ada@example.com`.
 
 [[lab-task:2]]
 
-Then create and commit a file. Before and after:
+Check: `git config --list --show-origin | grep user`.
 
-```
-BEFORE (after git add)            AFTER (git commit -m "Add README")
+## Task 3: first commit
 
- working: README.md                working: README.md
- index  : README.md                index  : README.md
- HEAD   : (none)                   HEAD   : A  <- main
-                                          A = "Add README"
-```
-
-```bash
-echo "# Hello" > README.md
-git add README.md
-git commit -m "Add README"
-git log --oneline
-```
+Create `README.md` with the single line `# Hello`, stage it and commit it as
+`Add README`.
 
 [[lab-task:3]]
 
-What you should see (the hash will differ):
+Expected `git log --oneline` (hash differs):
 
 ```
 3f1c9ab (HEAD -> main) Add README
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-first-commit-q1", "type": "mcq",
-    "prompt": "Where does Git get the author name stored in a commit?",
-    "options": [
-      {"id":"a","text":"The operating system login name, always"},
-      {"id":"b","text":"user.name and user.email from git config"},
-      {"id":"c","text":"The remote repository owner"},
-      {"id":"d","text":"The file's last modified time"}],
-    "correct": "b",
-    "explanation": "user.name and user.email are read from config at commit time and baked into the commit object." }
-] }
-```
+## Task 4: ignore generated files
 
-## Ignoring files with .gitignore
-
-Logs, build output and secrets should never be committed. List patterns in `.gitignore`:
-
-```
-*.log
-build/
-```
-
-Ignore rules only apply to files Git is not already tracking. Verify a rule with
-`git check-ignore -v app.log`.
+Create `main.sh`, a `.gitignore` that ignores `*.log` and `build/`, and the
+noise files `app.log` and `build/out.txt`. Commit only `main.sh` and
+`.gitignore` as `Add main script and gitignore`.
 
 [[lab-task:4]]
 
-What you should see from `git status` once the rules exist and everything is committed:
+Expected `git status` afterwards (the ignored files stay on disk, unlisted):
 
 ```
 On branch main
 nothing to commit, working tree clean
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-first-ignore-q1", "type": "mcq",
-    "prompt": "You add app.log to .gitignore AFTER committing it. What happens to the already-tracked app.log?",
-    "options": [
-      {"id":"a","text":"It is deleted from history"},
-      {"id":"b","text":"It stays tracked until you git rm --cached it"},
-      {"id":"c","text":"It is removed from disk"},
-      {"id":"d","text":"Git refuses further commits"}],
-    "correct": "b",
-    "explanation": ".gitignore only affects untracked files. A tracked file keeps being tracked until you remove it from the index with git rm --cached." }
-] }
-```
+Confirm a rule with `git check-ignore -v app.log`.
 
-## status and diff: reading the three areas
+## Task 5: one staged, one not
 
-```
- working tree --git diff--> index --git diff --staged--> HEAD
-
- README.md  (edited, added)       -> shows under "Changes to be committed"
- main.sh    (edited, not added)   -> shows under "Changes not staged"
-```
-
-```bash
-echo "Learning git" >> README.md && git add README.md
-echo "echo done" >> main.sh
-git status -s
-git diff            # main.sh only (unstaged)
-git diff --staged   # README.md only (staged)
-```
+Append `Learning git` to `README.md` and stage it. Append `echo done` to
+`main.sh` and do **not** stage it. Compare `git diff` and `git diff --staged`.
 
 [[lab-task:5]]
 
-What you should see from `git status -s`:
+Expected `git status -s`:
 
 ```
 M  README.md
  M main.sh
 ```
 
-The left column is the index versus HEAD, the right column is working tree versus index.
+## Task 6: commit, then amend
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-first-diff-q1", "type": "mcq",
-    "prompt": "git diff prints nothing but git status shows a file under 'Changes to be committed'. Why?",
-    "options": [
-      {"id":"a","text":"The change is already staged, and plain git diff only compares working tree to index"},
-      {"id":"b","text":"The file was ignored"},
-      {"id":"c","text":"Git diff only works on binary files"},
-      {"id":"d","text":"The repository is corrupt"}],
-    "correct": "a",
-    "explanation": "Use git diff --staged to see index versus HEAD." }
-] }
-```
-
-## Fixing the last commit with --amend
-
-```
-BEFORE amend                         AFTER git commit --amend
-
- A---B---C  <- main                   A---B---C'  <- main
-                                           \
-                                            C (orphaned, still in reflog)
-```
-
-```bash
-git commit -m "Update readme"
-git add main.sh
-git commit --amend -m "Update README and script"
-git log --oneline
-```
+Commit the staged change as `Update readme`. Then stage `main.sh` and amend so
+one commit named `Update README and script` holds both files.
 
 [[lab-task:6]]
 
-What you should see:
+Expected `git log --oneline`:
 
 ```
 b94e2d1 (HEAD -> main) Update README and script
@@ -329,18 +221,8 @@ b94e2d1 (HEAD -> main) Update README and script
 3f1c9ab Add README
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-first-amend-q1", "type": "mcq",
-    "prompt": "Why should you not amend a commit you already pushed?",
-    "options": [
-      {"id":"a","text":"Amend creates a new commit with a new hash, so the pushed one diverges from your local branch"},
-      {"id":"b","text":"Amend deletes the remote repository"},
-      {"id":"c","text":"Amend only works on the first commit"},
-      {"id":"d","text":"Amend is not a real command"}],
-    "correct": "a",
-    "explanation": "The amended commit is a different object. Anyone who already has the old one now has diverging history." }
-] }
-```
+## Remember
 
-> **Next:** your history is only on your laptop. Maya needs it on the team server - time to connect.
+- Look at `git status` before and after every command while you learn.
+- Commit only what is staged; review it with `git diff --staged`.
+- Amend replaces the last commit; do it before you push.

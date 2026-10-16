@@ -5,9 +5,9 @@ course: git
 section: undo-recovery
 section_title: Undo and Recovery
 section_position: 8
-title: restore, reset, revert, reflog, cherry-pick and stash
-position: 0
-estimated_minutes: 60
+title: "Lab: Undo Anything"
+position: 6
+estimated_minutes: 50
 source:
   - Pro Git book, ch. 7.3 "Stashing and Cleaning", ch. 7.7 "Reset Demystified"
   - git-restore(1), git-reset(1), git-revert(1), git-reflog(1), git-cherry-pick(1), git-stash(1) manual pages

@@ -5,9 +5,9 @@ course: git
 section: clone-remotes
 section_title: Clone and Remotes
 section_position: 4
-title: Clone, Fetch, Pull, Push and Tracking Branches
-position: 0
-estimated_minutes: 45
+title: "Lab: Clone, Track, Fetch, Pull and Push"
+position: 3
+estimated_minutes: 35
 source:
   - Pro Git book, ch. 2.5 "Working with Remotes" and ch. 3.5 "Remote Branches"
   - git-clone(1), git-fetch(1), git-pull(1), git-push(1) manual pages
@@ -163,177 +163,78 @@ lab:
         git push -u origin feature/search
 ---
 
-> **Connected - now work together.** You can reach the team repository. Maya says: "Pull my latest, add your change, push it back." This section is the daily loop of every developer: clone, fetch, pull, push.
+## Why this matters
 
-## A remote is just another repository
+This is the loop you will run every working day: clone, track a branch, commit,
+get rejected because a teammate pushed first, fetch, integrate, push, and
+publish a new branch. The "server" is the bare repository `/srv/git/origin.git`.
+A helper command, `teammate-push`, plays Maya pushing to `main`.
 
-`origin` is a nickname for a URL (here a bare repository on disk, in real life GitHub or GitLab).
-Your clone keeps a read-only copy of each remote branch as `origin/<name>` (a remote-tracking
-branch). It only moves when you `fetch`, `pull` or `push`.
+## Task 1: clone
 
-```
-        origin  (/srv/git/origin.git)
-        A---B---C  <- main
-                 \
-                  D  <- feature/login
-   ============================================
-        your clone
-        A---B---C  <- main, origin/main
-                 \
-                  D  <- origin/feature/login
-```
-
-```bash
-git clone /srv/git/origin.git app
-cd app
-git remote -v
-git branch -a
-```
-
-```knowledge-check
-{ "questions": [
-  { "id": "git-clone-remote-q1", "type": "mcq",
-    "prompt": "What is origin/main in your clone?",
-    "options": [
-      {"id":"a","text":"A live view of the server's main branch"},
-      {"id":"b","text":"A local snapshot of where the server's main was at your last fetch"},
-      {"id":"c","text":"A second copy of your own main branch"},
-      {"id":"d","text":"A tag"}],
-    "correct": "b",
-    "explanation": "Remote-tracking branches are only updated when you talk to the remote (fetch, pull, push)." }
-] }
-```
+Clone `/srv/git/origin.git` into `~/work/app`.
 
 [[lab-task:1]]
 
-What you should see from `git remote -v`:
+Expected `git remote -v` inside `app`:
 
 ```
 origin  /srv/git/origin.git (fetch)
 origin  /srv/git/origin.git (push)
 ```
 
-## Tracking branches
+## Task 2: track a remote branch
 
-A local branch can name an upstream. `git switch feature/login` in a clone where only
-`origin/feature/login` exists creates it for you:
-
-```
-before:  main -> origin/main            (feature/login only as origin/feature/login)
-after :  main -> origin/main
-         feature/login -> origin/feature/login   (new tracking branch)
-```
-
-```bash
-git switch feature/login
-git branch -vv
-```
+`origin/feature/login` exists, but you have no local `feature/login`. Create one
+that tracks it.
 
 [[lab-task:2]]
 
-What you should see:
+Expected `git branch -vv`:
 
 ```
 * feature/login 5d2e9a1 [origin/feature/login] Add login form
   main          8c1f7b3 [origin/main] Add license
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-clone-track-q1", "type": "mcq",
-    "prompt": "What does git branch -vv show in square brackets?",
-    "options": [
-      {"id":"a","text":"The upstream (tracked) branch of each local branch"},
-      {"id":"b","text":"The author of the last commit"},
-      {"id":"c","text":"Files with conflicts"},
-      {"id":"d","text":"Stashed changes"}],
-    "correct": "a",
-    "explanation": "The upstream is what status, pull and push compare against." }
-] }
-```
+## Task 3: commit locally
 
-## fetch vs pull, and a rejected push
-
-`fetch` only updates `origin/*`. `pull` is `fetch` followed by a merge (or rebase) into your branch.
-
-```
-You commit locally, a teammate pushes first:
-
-            origin/main (server)           your clone
- before:    A---B---C---T                  A---B---C---N   <- main
-                                                       \
-                                           origin/main -> C   (stale)
-
- git push  -> REJECTED: server has T that you do not have (non-fast-forward)
-
- git fetch:                                A---B---C---N   <- main
-                                                \
-                                                 T         <- origin/main
-```
-
-```bash
-teammate-push
-git push            # rejected - read the message
-git fetch
-git log --oneline --graph --all
-```
+Back on `main`, commit a new file `notes.txt` as `Add notes.txt`. Do not push.
+`git status` should now say `ahead of 'origin/main' by 1 commit`.
 
 [[lab-task:3]]
+
+## Task 4: get rejected, then fetch
+
+Run `teammate-push`, then try `git push` and read the rejection. Then `git fetch`
+(not pull) so only `origin/main` moves.
+
+```
+ after teammate-push and git fetch:
+
+ * 9d4b0c2 (origin/main) Teammate: add changelog
+ | * 41ae6f8 (HEAD -> main) Add notes.txt
+ |/
+ * 8c1f7b3 Add license
+```
+
 [[lab-task:4]]
 
-What you should see from the rejected push and the graph:
+Expected rejection:
 
 ```
  ! [rejected]        main -> main (fetch first)
 error: failed to push some refs to '/srv/git/origin.git'
-
-* 9d4b0c2 (origin/main) Teammate: add changelog
-| * 41ae6f8 (HEAD -> main) Add notes.txt
-|/
-* 8c1f7b3 Add license
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-clone-fetch-q1", "type": "mcq",
-    "prompt": "After git fetch, which of these has changed?",
-    "options": [
-      {"id":"a","text":"Your local main branch and working tree"},
-      {"id":"b","text":"Only the remote-tracking branches such as origin/main"},
-      {"id":"c","text":"Nothing, fetch only prints a message"},
-      {"id":"d","text":"The server's branches"}],
-    "correct": "b",
-    "explanation": "fetch is safe: it never changes your branches or files." },
-  { "id": "git-clone-fetch-q2", "type": "mcq",
-    "prompt": "A push is rejected with 'fetch first'. What is the usual fix?",
-    "options": [
-      {"id":"a","text":"git push --force"},
-      {"id":"b","text":"Delete the remote"},
-      {"id":"c","text":"Integrate the remote work (pull, or fetch + merge/rebase) and push again"},
-      {"id":"d","text":"Re-clone the repository"}],
-    "correct": "c",
-    "explanation": "Force pushing would erase the teammate's commit. Integrate first, then push a fast-forward." }
-] }
-```
+## Task 5: integrate and push
 
-## Integrating and pushing
-
-```
- before pull               after git pull (merge)          after git push
- N <- main                 M <- main  (merge commit)       server main = M
- T <- origin/main           / \                            (fast-forward)
-                           N   T <- origin/main
-```
-
-```bash
-git pull --no-rebase
-git push
-git log --oneline --graph
-```
+Merge the teammate's commit with `git pull` (merge strategy is the default in
+this lab), then push.
 
 [[lab-task:5]]
 
-What you should see:
+Expected `git log --oneline --graph`:
 
 ```
 *   c7e21d0 (HEAD -> main, origin/main) Merge branch 'main' of /srv/git/origin
@@ -344,57 +245,18 @@ What you should see:
 * 8c1f7b3 Add license
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-clone-pull-q1", "type": "mcq",
-    "prompt": "git pull is equivalent to:",
-    "options": [
-      {"id":"a","text":"git fetch followed by git merge (or rebase) of the upstream branch"},
-      {"id":"b","text":"git push in the other direction"},
-      {"id":"c","text":"git clone again"},
-      {"id":"d","text":"git fetch only"}],
-    "correct": "a",
-    "explanation": "pull = fetch + integrate. Knowing the two halves lets you inspect before integrating." }
-] }
-```
+## Task 6: publish a new branch
 
-## Publishing a new branch
-
-```
- before:  feature/search            (local only)
- after :  feature/search -> origin/feature/search     git push -u origin feature/search
-```
-
-```bash
-git switch -c feature/search
-echo search > search.txt && git add search.txt && git commit -m "Add search stub"
-git push -u origin feature/search
-git ls-remote origin
-```
+Create `feature/search` with one commit `Add search stub` (file `search.txt`)
+and push it with upstream tracking.
 
 [[lab-task:6]]
 
-What you should see from `git ls-remote origin` (hashes differ):
+Check: `git ls-remote origin` lists `refs/heads/feature/search`, and
+`git status` on the branch says `up to date with 'origin/feature/search'`.
 
-```
-c7e21d0...	HEAD
-c7e21d0...	refs/heads/main
-5d2e9a1...	refs/heads/feature/login
-e0b64f9...	refs/heads/feature/search
-```
+## Remember
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-clone-publish-q1", "type": "mcq",
-    "prompt": "What does the -u in git push -u origin feature/search do?",
-    "options": [
-      {"id":"a","text":"Updates all submodules"},
-      {"id":"b","text":"Records origin/feature/search as the upstream so later bare git pull/push work"},
-      {"id":"c","text":"Uploads untracked files"},
-      {"id":"d","text":"Forces the push"}],
-    "correct": "b",
-    "explanation": "-u is short for --set-upstream and writes the tracking configuration." }
-] }
-```
-
-> **Next:** you and Maya both want to change the same project at once. Branches let you do that without stepping on each other.
+- Rejected push = someone pushed first. Fetch, integrate, push.
+- `fetch` is safe to run any time.
+- `push -u` once per new branch.

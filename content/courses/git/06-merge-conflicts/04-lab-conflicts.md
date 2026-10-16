@@ -5,9 +5,9 @@ course: git
 section: merge-conflicts
 section_title: Merge Conflicts
 section_position: 6
-title: Reading, Resolving, Aborting and Remembering Conflicts
-position: 0
-estimated_minutes: 40
+title: "Lab: Resolve, Abort and Remember Conflicts"
+position: 3
+estimated_minutes: 30
 source:
   - Pro Git book, ch. 3.2 "Basic Merging" and ch. 7.8 "Rerere"
   - git-merge(1), git-rerere(1) manual pages
@@ -154,45 +154,26 @@ lab:
         git commit --no-edit
 ---
 
-> **The scary moment.** Git stops and prints CONFLICT. Most beginners panic here. You will learn that a conflict is just Git asking a question it cannot answer alone - and you will answer it calmly.
+## Why this matters
 
-## Why conflicts happen
-
-Git merges by comparing each branch to their common ancestor. If only one side changed a line, that
-change wins. If both sides changed the same lines differently, Git stops and asks you.
-
-```
- ancestor:  timeout=30
- main    :  timeout=60        both changed the same line
- feature :  timeout=45        ->  CONFLICT
-```
-
-```knowledge-check
-{ "questions": [
-  { "id": "git-conflict-why-q1", "type": "mcq",
-    "prompt": "When does Git report a merge conflict?",
-    "options": [
-      {"id":"a","text":"Whenever two branches exist"},
-      {"id":"b","text":"When both branches changed the same lines in different ways since the common ancestor"},
-      {"id":"c","text":"When a branch is older than a week"},
-      {"id":"d","text":"When a file is larger than 1 MB"}],
-    "correct": "b",
-    "explanation": "If only one side changed a region, Git takes that change automatically." }
-] }
-```
-
-## Reading the markers
+In `~/work/config-app`, `main` and two feature branches all edited the same
+config lines. You will trigger a conflict, resolve it by combining both sides,
+finish the merge, abort a second one, and finally let rerere record a
+resolution.
 
 ```bash
-git switch main
-git merge feature/timeout
-git status
-cat app.conf
+cd ~/work/config-app
+git log --oneline --graph --all
 ```
+
+## Task 1: trigger the conflict
+
+Merge `feature/timeout` into `main` and stop at the conflict. Do not resolve
+yet.
 
 [[lab-task:1]]
 
-What you should see:
+Expected output and file:
 
 ```
 Auto-merging app.conf
@@ -209,54 +190,22 @@ log=info
 retries=3
 ```
 
-Above `=======` is your side (HEAD, the branch you are on). Below it is the incoming branch.
+## Task 2: resolve by combining
 
-```
- DURING the merge
-   A---B---C  <- main <- HEAD         .git/MERGE_HEAD -> feature/timeout tip
-        \
-         D  <- feature/timeout
-   index holds 3 versions of app.conf (ancestor / ours / theirs) = "unmerged"
-```
-
-```knowledge-check
-{ "questions": [
-  { "id": "git-conflict-markers-q1", "type": "mcq",
-    "prompt": "In a conflict block, what sits between <<<<<<< HEAD and =======?",
-    "options": [
-      {"id":"a","text":"The incoming branch's version"},
-      {"id":"b","text":"The version from the branch you are currently on"},
-      {"id":"c","text":"The common ancestor"},
-      {"id":"d","text":"A summary written by Git"}],
-    "correct": "b",
-    "explanation": "HEAD is your current branch (ours); below ======= is theirs." }
-] }
-```
-
-## Resolving and completing the merge
-
-Resolving = edit the file to the final text, then tell Git with `git add`. Finish with `git commit`.
-
-```
- resolve         git add app.conf      git commit
- (edit file) --> (conflict cleared) --> merge commit M (parents: main tip, feature tip)
-
-   A---B---C---M  <- main
-        \     /
-         D---+   <- feature/timeout
-```
-
-```bash
-# edit app.conf: keep timeout=60 and retries=3, delete the markers
-git add app.conf
-git commit
-git log --oneline --graph
-```
+Make `app.conf` keep `timeout=60` from `main` **and** `retries=3` from the
+feature branch. Remove every marker and stage the file. Do not commit yet.
 
 [[lab-task:2]]
+
+Check: `git status` says `All conflicts fixed but you are still merging.`
+
+## Task 3: complete the merge
+
+Commit with the default message.
+
 [[lab-task:3]]
 
-What you should see:
+Expected graph:
 
 ```
 *   6be1f20 (HEAD -> main) Merge branch 'feature/timeout'
@@ -267,109 +216,44 @@ What you should see:
 * a70d3e5 Initial config
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-conflict-resolve-q1", "type": "mcq",
-    "prompt": "After editing a conflicted file you must:",
-    "options": [
-      {"id":"a","text":"git add it, then git commit to complete the merge"},
-      {"id":"b","text":"Delete the .git directory"},
-      {"id":"c","text":"git push immediately"},
-      {"id":"d","text":"Run git clone"}],
-    "correct": "a",
-    "explanation": "git add marks the path resolved; git commit records the merge commit." },
-  { "id": "git-conflict-resolve-q2", "type": "mcq",
-    "prompt": "What is the safest way to check no markers were left in the repository?",
-    "options": [
-      {"id":"a","text":"git grep -nE '^(<<<<<<<|>>>>>>>)'"},
-      {"id":"b","text":"git gc"},
-      {"id":"c","text":"git remote -v"},
-      {"id":"d","text":"git tag"}],
-    "correct": "a",
-    "explanation": "Markers are plain text, so Git will happily commit them if you stage a file without cleaning it." }
-] }
-```
+## Task 4: a second conflict
 
-## Aborting a merge
-
-If you start a merge and it is not the right time, back out cleanly:
-
-```
- DURING conflict                     AFTER git merge --abort
- main + half-resolved files    -->   exactly the pre-merge state of main
-```
-
-```bash
-git merge feature/log-level      # conflict
-git merge --abort
-git status
-```
+Merge `feature/log-level`. `logging.conf` conflicts (debug vs warn). Stop there.
 
 [[lab-task:4]]
+
+## Task 5: abort
+
+Decide it is not the right time. Abort so the repository is exactly as before.
+
 [[lab-task:5]]
 
-What you should see:
+Expected `git status`:
 
 ```
 On branch main
 nothing to commit, working tree clean
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-conflict-abort-q1", "type": "mcq",
-    "prompt": "What does git merge --abort do?",
-    "options": [
-      {"id":"a","text":"Deletes the other branch"},
-      {"id":"b","text":"Restores the repository to its state before the merge started"},
-      {"id":"c","text":"Commits the conflict markers"},
-      {"id":"d","text":"Pushes to origin"}],
-    "correct": "b",
-    "explanation": "It is only available while a merge is in progress; afterwards use reset or revert instead." }
-] }
-```
+## Task 6: record a resolution with rerere
 
-## rerere: reuse recorded resolution
-
-Turn on `rerere` and Git remembers how you resolved each conflict. When the same conflict
-appears again (re-merge, rebase, cherry-pick), it replays your answer.
-
-```
- conflict #1:  preimage ---you resolve---> postimage      saved in .git/rr-cache/<hash>/
- conflict #2 (same hunk) -> "Resolved 'logging.conf' using previous resolution."
-```
-
-```bash
-git config rerere.enabled true
-git merge feature/log-level      # conflict, recorded
-# resolve to level=warn
-git add logging.conf && git commit --no-edit
-ls .git/rr-cache/*/
-```
+Enable rerere for this repository, merge `feature/log-level` again, resolve
+`logging.conf` as `level=warn`, and commit.
 
 [[lab-task:6]]
 
-What you should see:
+Expected messages along the way:
 
 ```
 Recorded preimage for 'logging.conf'
 ...
 Recorded resolution for 'logging.conf'.
-postimage  preimage
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-conflict-rerere-q1", "type": "mcq",
-    "prompt": "When is rerere most useful?",
-    "options": [
-      {"id":"a","text":"When you repeat the same merge or rebase many times, such as a long-lived branch rebased daily"},
-      {"id":"b","text":"For encrypting commits"},
-      {"id":"c","text":"For speeding up git clone"},
-      {"id":"d","text":"For deleting old branches"}],
-    "correct": "a",
-    "explanation": "Each repeat of an identical conflict is resolved automatically from the recorded postimage." }
-] }
-```
+and `ls .git/rr-cache/*/` shows `postimage  preimage`.
 
-> **Next:** conflicts are easier when history is tidy. Maya wants your branch rebased before review.
+## Remember
+
+- Read `git status` at every step of a conflict.
+- Combine both sides when both are right.
+- `--abort` is your undo button while the merge is in progress.

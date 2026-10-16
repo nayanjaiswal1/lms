@@ -5,9 +5,9 @@ course: git
 section: connection
 section_title: Connecting to the Team
 section_position: 3
-title: Join the Team Repository - Remotes, SSH and Tokens
-position: 0
-estimated_minutes: 25
+title: "Lab: Fix a Remote and Push to the Team"
+position: 2
+estimated_minutes: 20
 source:
   - Pro Git book, ch. 2.5 "Working with Remotes" and ch. 4 "Git on the Server"
   - git-remote(1), ssh-keygen(1), git-credential(1) manual pages
@@ -89,17 +89,29 @@ lab:
         git push backup main
 ---
 
-> **Day 2.** You have a clean local history, but it lives only on your laptop. Maya says: "Join the team repo so I can see your work." That means one thing: connecting to a remote. On a real host (GitHub, GitLab) this is where most beginners get stuck, so this section covers both the commands and the errors you will meet.
+## Why this matters
 
-## A remote is a name for a URL
+Maya cloned an onboarding repository for you, but `git fetch` fails. Fix the
+remote, push your first commit to the team, and add a backup remote. In this
+sandbox the "server" repositories are bare repos on disk under `/srv/git`, so no
+keys or tokens are needed; the commands are the same as with GitHub.
 
-`origin` is the default name for wherever you cloned from. It is nothing special.
+## Task 1: fix the broken remote
 
 ```bash
+cd ~/work/onboarding
 git remote -v
-git remote add backup <url>
-git remote set-url origin <url>
+git fetch          # fails - read the message
 ```
+
+Expected error:
+
+```
+fatal: '/srv/git/tean.git' does not appear to be a git repository
+fatal: Could not read from remote repository.
+```
+
+Point `origin` at the real repository, `/srv/git/team.git`.
 
 [[lab-task:1]]
 
@@ -111,71 +123,39 @@ origin  /srv/git/team.git (fetch)
 origin  /srv/git/team.git (push)
 ```
 
-## Proving who you are
+## Task 2: say hello to the team
 
-On a real host there are two ways to authenticate:
-
-```
- HTTPS  https://host/you/project.git     username + personal access token
-                                         (account passwords are not accepted)
- SSH    git@host:you/project.git         a key pair: the private key stays on
-                                         your machine, the public key goes to the host
-```
-
-Setting up SSH takes four commands:
-
-```bash
-ssh-keygen -t ed25519 -C "you@example.com"   # creates id_ed25519 and id_ed25519.pub
-eval "$(ssh-agent -s)" && ssh-add ~/.ssh/id_ed25519
-cat ~/.ssh/id_ed25519.pub                     # paste into the host's SSH keys page
-ssh -T git@github.com                         # should greet you by name
-```
-
-Never share or commit the private key (the file without `.pub`). For HTTPS, create a personal access token on the host and use it as the password; `git config --global credential.helper store` remembers it.
-
-## When it fails, read the error
-
-```
- Permission denied (publickey)   public key not added to the host, or key not loaded in ssh-agent
- Authentication failed           expired/wrong token, or the account password was used
- Repository not found            URL typo, or no access to a private repo
-```
-
-```knowledge-check
-{ "questions": [
-  { "id": "git-connection-q1", "type": "mcq",
-    "prompt": "You get 'Permission denied (publickey)' when pushing over SSH. What do you check first?",
-    "options": [
-      {"id":"a","text":"That the public key is uploaded to the host and the key is loaded in ssh-agent"},
-      {"id":"b","text":"That the branch is called main"},
-      {"id":"c","text":"That the commit message is short"},
-      {"id":"d","text":"That the repository has a README"}],
-    "correct": "a",
-    "explanation": "The host must know your public key, and your machine must offer the matching private key." },
-  { "id": "git-connection-q2", "type": "mcq",
-    "prompt": "git push over HTTPS says 'Authentication failed' although your account password is correct. Most likely cause?",
-    "options": [
-      {"id":"a","text":"Hosts require a personal access token, not the account password"},
-      {"id":"b","text":"The branch is named main"},
-      {"id":"c","text":"Your commits are too large"},
-      {"id":"d","text":"SSH is also enabled"}],
-    "correct": "a",
-    "explanation": "GitHub and GitLab no longer accept account passwords for Git over HTTPS." }
-] }
-```
-
-## Your first push
+Create `welcome.txt` containing `Hello from the new developer`, commit it as
+`Add welcome note`, and push to `origin main`.
 
 ```
  before push                     after git push origin main
- you   : A---B---C               you   : A---B---C
- origin: A---B                   origin: A---B---C
+ you   : A---B                   you   : A---B
+ origin: A                       origin: A---B
 ```
 
 [[lab-task:2]]
 
-## More than one remote
+Check: `git ls-remote origin main` prints the same hash as `git rev-parse HEAD`.
+
+## Task 3: add a second remote
+
+Add a remote named `backup` pointing at `/srv/git/backup.git`, then push `main`
+to it.
 
 [[lab-task:3]]
 
-> **Next:** you are connected and your first commit is on the team server. Now learn the daily loop: clone, fetch, pull and push.
+Expected `git remote -v`:
+
+```
+backup  /srv/git/backup.git (fetch)
+backup  /srv/git/backup.git (push)
+origin  /srv/git/team.git (fetch)
+origin  /srv/git/team.git (push)
+```
+
+## Remember
+
+- When fetch or push fails, check `git remote -v` before anything else.
+- `git push <remote> <branch>` names exactly where your commits go.
+- One repository can have many remotes.

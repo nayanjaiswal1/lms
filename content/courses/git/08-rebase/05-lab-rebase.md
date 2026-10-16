@@ -5,9 +5,9 @@ course: git
 section: rebase
 section_title: Rebase
 section_position: 7
-title: Rebase, Interactive Rebase and force-with-lease
-position: 0
-estimated_minutes: 55
+title: "Lab: Rebase, Squash, Reword and Push Safely"
+position: 4
+estimated_minutes: 45
 source:
   - Pro Git book, ch. 3.6 "Rebasing" and ch. 7.6 "Rewriting History"
   - git-rebase(1), git-push(1) manual pages

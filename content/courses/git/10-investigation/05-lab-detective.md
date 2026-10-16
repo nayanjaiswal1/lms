@@ -5,9 +5,9 @@ course: git
 section: investigation
 section_title: Investigating History
 section_position: 9
-title: blame, log -S/-G, --follow, bisect and show
-position: 0
-estimated_minutes: 50
+title: "Lab: Detective Work in a Real History"
+position: 4
+estimated_minutes: 40
 source:
   - Pro Git book, ch. 7.5 "Debugging with Git"
   - git-blame(1), git-log(1), git-bisect(1), git-show(1) manual pages

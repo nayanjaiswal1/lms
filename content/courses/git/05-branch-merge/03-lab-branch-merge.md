@@ -5,9 +5,9 @@ course: git
 section: branch-merge
 section_title: Branching and Merging
 section_position: 5
-title: Branches, Fast-Forward and Merge Commits
-position: 0
-estimated_minutes: 40
+title: "Lab: Branch, Fast-Forward and Merge"
+position: 2
+estimated_minutes: 30
 source:
   - Pro Git book, ch. 3 "Git Branching"
   - git-branch(1), git-switch(1), git-merge(1) manual pages
@@ -128,31 +128,27 @@ lab:
         git branch -d feature/greeting feature/cart feature/footer
 ---
 
-> **Two people, one codebase.** Maya is mid-release, so she tells you: "Don't touch main. Do your login form on a branch." Branches make that safe and nearly free.
+## Why this matters
 
-## A branch is a pointer
+The `~/work/shop` repository has `main` (three commits) and `feature/cart`
+(two commits started from `main`). You will create a branch, fast-forward,
+make a true merge, force a merge commit with `--no-ff`, and clean up.
 
-A branch is a 41-byte file holding a commit hash. `HEAD` says which branch you are on. Creating a
-branch copies a pointer, nothing else.
-
-```
-BEFORE  git switch -c feature/greeting     AFTER one commit on the new branch
-
- A---B---C  <- main <- HEAD                 A---B---C  <- main
-                                                     \
-                                                      D  <- feature/greeting <- HEAD
-```
+Start by looking:
 
 ```bash
 cd ~/work/shop
-git switch -c feature/greeting
-echo hello > greeting.txt && git add greeting.txt && git commit -m "Add greeting"
 git log --oneline --graph --all
 ```
 
+## Task 1: branch and commit
+
+Create `feature/greeting` from `main`, add `greeting.txt`, commit it as
+`Add greeting`. `main` must not move.
+
 [[lab-task:1]]
 
-What you should see (hashes differ):
+Expected graph:
 
 ```
 * 2ab9c40 (HEAD -> feature/greeting) Add greeting
@@ -160,133 +156,45 @@ What you should see (hashes differ):
 | * 0c4f8e2 Add cart file
 |/
 * 5e13a9b (main) Add checkout
-* 9b2d6c1 Add product list
-* 1f0a7d3 Initial commit
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-branch-pointer-q1", "type": "mcq",
-    "prompt": "What does creating a new branch copy?",
-    "options": [
-      {"id":"a","text":"All files in the repository"},
-      {"id":"b","text":"Only a pointer to the current commit"},
-      {"id":"c","text":"The whole history"},
-      {"id":"d","text":"The staging area only"}],
-    "correct": "b",
-    "explanation": "Branches are cheap because they are just references to commits." }
-] }
-```
+## Task 2: fast-forward
 
-## Fast-forward merges
-
-If the branch you are on has not moved since the other branch split off, merging just slides the
-pointer forward:
-
-```
-BEFORE                                AFTER  git switch main; git merge feature/greeting
-
- A---B---C  <- main                    A---B---C---D  <- main, feature/greeting
-          \
-           D  <- feature/greeting
-```
-
-```bash
-git switch main
-git merge feature/greeting
-```
+Switch to `main` and merge `feature/greeting`. `main` has not moved, so this is
+a fast-forward.
 
 [[lab-task:2]]
 
-What you should see:
+Expected output contains `Fast-forward`.
 
-```
-Updating 5e13a9b..2ab9c40
-Fast-forward
- greeting.txt | 1 +
- 1 file changed, 1 insertion(+)
-```
+## Task 3: a real merge
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-branch-ff-q1", "type": "mcq",
-    "prompt": "When can Git fast-forward a merge?",
-    "options": [
-      {"id":"a","text":"When both branches have new commits"},
-      {"id":"b","text":"When the current branch is an ancestor of the branch being merged"},
-      {"id":"c","text":"Only for the main branch"},
-      {"id":"d","text":"When there are no files changed"}],
-    "correct": "b",
-    "explanation": "Nothing diverged, so the pointer simply moves ahead." }
-] }
-```
-
-## Merge commits (three-way)
-
-Now main has `D` (greeting) while `feature/cart` still hangs off `C`. Histories diverged, so Git
-makes a commit with two parents:
-
-```
-BEFORE                                  AFTER  git merge feature/cart
-
- A---B---C---D  <- main                  A---B---C---D---M  <- main
-          \                                       \     /
-           E---F  <- feature/cart                  E---F  <- feature/cart
-```
-
-```bash
-git merge feature/cart -m "Merge feature/cart"
-git log --oneline --graph
-```
+`feature/cart` started before the greeting commit, so history has diverged.
+Merge it into `main` with the message `Merge feature/cart`.
 
 [[lab-task:3]]
 
-What you should see:
+Expected graph:
 
 ```
 *   e5a1d77 (HEAD -> main) Merge feature/cart
 |\
 | * 77d1e0a (feature/cart) Add cart totals
 | * 0c4f8e2 Add cart file
-* | 2ab9c40 Add greeting
+* | 2ab9c40 (feature/greeting) Add greeting
 |/
 * 5e13a9b Add checkout
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-branch-merge-q1", "type": "mcq",
-    "prompt": "How many parents does a normal merge commit have?",
-    "options": [
-      {"id":"a","text":"One"},
-      {"id":"b","text":"Two"},
-      {"id":"c","text":"Three"},
-      {"id":"d","text":"None"}],
-    "correct": "b",
-    "explanation": "One parent per merged line of history: the target branch and the merged-in branch." }
-] }
-```
+## Task 4: --no-ff
 
-## --no-ff: keep the branch visible
-
-```
- without --no-ff (fast-forward)         with --no-ff
-
- A---B---C---F  <- main                  A---B---C-------M  <- main
- (feature commits look like main's)               \     /
-                                                   F---G  <- feature/footer
-```
-
-```bash
-git switch -c feature/footer
-echo footer > footer.txt && git add footer.txt && git commit -m "Add footer"
-git switch main
-git merge --no-ff feature/footer -m "Merge feature/footer"
-```
+Create `feature/footer` from `main` with one commit `Add footer`
+(`footer.txt`). Merge it into `main` with `--no-ff` and the message
+`Merge feature/footer`, even though a fast-forward was possible.
 
 [[lab-task:4]]
 
-What you should see from `git log --oneline --graph -4`:
+Expected `git log --oneline --graph -4`:
 
 ```
 *   a41c0be (HEAD -> main) Merge feature/footer
@@ -296,42 +204,20 @@ What you should see from `git log --oneline --graph -4`:
 *   e5a1d77 Merge feature/cart
 ```
 
-Finally, tidy up. Deleting a branch only deletes the pointer:
+## Task 5: clean up
 
-```bash
-git branch -d feature/greeting feature/cart feature/footer
-git branch
-```
+Delete the three merged feature branches. Only `main` remains; every commit
+stays in history.
 
 [[lab-task:5]]
 
-What you should see:
+Expected `git branch`:
 
 ```
 * main
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-branch-noff-q1", "type": "mcq",
-    "prompt": "Why use git merge --no-ff?",
-    "options": [
-      {"id":"a","text":"It is faster"},
-      {"id":"b","text":"It records a merge commit so the feature branch stays visible in history even when a fast-forward was possible"},
-      {"id":"c","text":"It deletes the feature branch"},
-      {"id":"d","text":"It rewrites commit hashes"}],
-    "correct": "b",
-    "explanation": "The merge commit groups the branch's commits and gives you one commit to revert later." },
-  { "id": "git-branch-noff-q2", "type": "mcq",
-    "prompt": "git branch -d refuses to delete a branch. What does that usually mean?",
-    "options": [
-      {"id":"a","text":"The branch has commits not yet merged into the current branch"},
-      {"id":"b","text":"The branch is too old"},
-      {"id":"c","text":"You must be root"},
-      {"id":"d","text":"The repo is read-only"}],
-    "correct": "a",
-    "explanation": "-d is the safe delete. Use -D only when you are sure the work is disposable." }
-] }
-```
+## Remember
 
-> **Next:** you merged your branch - but what happens when Maya changed the same line you did?
+- Look at the graph before and after each merge.
+- `-d` deletes only merged branches; that is your safety net.

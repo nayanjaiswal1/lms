@@ -5,7 +5,7 @@ course: git
 section: capstone
 section_title: Capstone - Team Workflow
 section_position: 10
-title: Feature Branch to Release, and Fixing a Bad Commit on main
+title: "Capstone Lab: Feature Branch to Release"
 position: 0
 estimated_minutes: 60
 source:

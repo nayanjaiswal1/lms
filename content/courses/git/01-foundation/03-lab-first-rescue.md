@@ -5,8 +5,8 @@ course: git
 section: foundation
 section_title: Foundation - Why Git
 section_position: 1
-title: The Day You Lose Your Work (and Git Saves It)
-position: 0
+title: "Lab: Rescue a File, Find the First Commit, Branch Safely"
+position: 2
 estimated_minutes: 20
 source:
   - Pro Git book, ch. 1 "Getting Started" and ch. 10.2 "Git Objects"
@@ -81,19 +81,38 @@ lab:
         git commit -m "Try a bold rewrite"
 ---
 
-> **Start with the pain.** You have a report due. You paste the wrong text over it, save, close the editor. The real report is gone. Without version control, that is a bad afternoon. With Git, it is one command - you will do it in the first lab, in under three minutes.
+## Why this matters
 
-## Why Git exists
+You have read what Git protects you from. Now feel it: rescue an overwritten
+file, find where a history began, and try a risky idea on a branch without
+touching `main`. Each task is checked automatically in a real terminal.
 
-Before version control, history lived in file names like `report_final_v2_REAL.docx`. Git records every change, who made it and why, and lets you go back or work on several ideas at once.
+## Before you start
+
+The lab already contains a repository at `~/work/notes` with two commits. Someone
+just pasted the wrong text over `report.txt`. Move into it first:
+
+```bash
+cd ~/work/notes
+git status
+```
+
+Expected output:
 
 ```
- Centralized (SVN)              Distributed (Git)
- one server holds history       every clone holds ALL history
- no server = no work            work offline, sync when ready
+On branch main
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   report.txt
 ```
 
-Your clone is a complete repository, so commits, branches and history work with no network. A server such as GitHub is just another copy the team agrees to share.
+Read the hint lines. Git usually tells you the next command.
+
+## Task 1: rescue the report
+
+The committed snapshot still holds the real report. Copy it back over the
+broken file (lesson 2 showed the command).
 
 [[lab-task:1]]
 
@@ -105,55 +124,38 @@ On branch main
 nothing to commit, working tree clean
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-foundation-q1", "type": "mcq",
-    "prompt": "You overwrote a tracked file by accident and had committed it earlier. Is the old content lost?",
-    "options": [
-      {"id":"a","text":"Yes, the file is gone for good"},
-      {"id":"b","text":"No, Git still has the committed snapshot and can restore it"},
-      {"id":"c","text":"Only if you have a remote"},
-      {"id":"d","text":"Only if you saved a backup copy"}],
-    "correct": "b",
-    "explanation": "Committed snapshots stay in the repository. git restore brings the file back." }
-] }
-```
+## Task 2: find the first commit
 
-## Snapshots with a name
-
-Each commit is a snapshot of the whole project, named by a hash of its content and its parent. That chain of parents is the history, and it is why history cannot be changed silently.
-
-```
- A <-- B <-- C      each arrow points to the parent
- first        latest
-```
+Every history starts at a root commit (a commit with no parent). Print full
+hashes with `git log --format=%H`; the oldest commit is the last line. Save just
+that hash into `~/work/first.txt`.
 
 [[lab-task:2]]
 
-## Branches are cheap
+Check yourself: `cat ~/work/first.txt` shows a single 40-character hash.
+
+## Task 3: experiment on a branch
+
+Create a branch named `experiment`, change `summary.txt` on it and commit with
+the message `Try a bold rewrite`. `main` must stay exactly as it was.
 
 ```
  main        A---B
                   \
- experiment        C     <- your risky idea, isolated
+ experiment        C   "Try a bold rewrite"
 ```
-
-A branch is only a pointer to a commit. Try bold ideas on a branch; if they fail, delete it and nothing is lost.
 
 [[lab-task:3]]
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-foundation-q2", "type": "mcq",
-    "prompt": "What is a Git branch?",
-    "options": [
-      {"id":"a","text":"A full copy of all project files"},
-      {"id":"b","text":"A movable pointer to a commit"},
-      {"id":"c","text":"A separate repository"},
-      {"id":"d","text":"A list of changed lines"}],
-    "correct": "b",
-    "explanation": "A branch is a tiny pointer, which is why creating one is instant." }
-] }
+Check yourself:
+
+```bash
+git log --oneline --all --graph
+git show main:summary.txt     # still prints: TODO: write summary
 ```
 
-> **Next:** you have seen what Git protects you from. Now start for real - on your first day at Brightside, with an empty folder.
+## Remember
+
+- `git status` reads the situation and suggests the next command.
+- `git restore <file>` brings back the committed version.
+- A branch lets you experiment while `main` stays safe.
