@@ -108,7 +108,7 @@ export function MentorDirectory({ mentors, chatTicketByMentor }: MentorDirectory
         <div className="empty-state rounded-xl border border-dashed border-border">
           <SearchX aria-hidden className="empty-state-icon" />
           <p className="text-sm">No mentors match those filters.</p>
-          <Button className="min-h-11" variant="outline" onClick={clearFilters}>
+          <Button className="min-h-11 lg:min-h-9" variant="outline" onClick={clearFilters}>
             Clear filters
           </Button>
         </div>

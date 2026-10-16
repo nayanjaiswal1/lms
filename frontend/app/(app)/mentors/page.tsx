@@ -28,7 +28,7 @@ const TICKET_STATUS_COPY: Record<string, string> = {
 
 // Personal mentor rows carry an amber rail so "your people" read apart from
 // the directory grid below them at a glance.
-const PERSONAL_ROW = "card-base flex flex-col gap-4 border-l-4 border-l-primary sm:flex-row sm:items-center";
+const PERSONAL_ROW = "card-base flex flex-col gap-3 p-4 border-l-4 border-l-primary sm:flex-row sm:items-center";
 
 // A mentor only has a chat thread once they're the *assigned* mentor on one
 // of the student's tickets — batch/directory listings have no ticket of
@@ -43,7 +43,7 @@ function ticketIdByMentor(tickets: Ticket[]): Map<string, string> {
 
 function ChatLink({ ticketId, label }: { ticketId: string; label: string }) {
   return (
-    <Button asChild className="min-h-11">
+    <Button asChild className="min-h-11 lg:min-h-9">
       <Link href={ROUTES.mentoringTicketChat(ticketId)}>
         <MessageCircle aria-hidden />
         {label}
@@ -66,7 +66,7 @@ function MentorTicketCard({
   return (
     <li className={PERSONAL_ROW}>
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <ProfileAvatar avatarUrl={mentor?.avatar_url ?? null} name={mentor?.name ?? "Mentor"} size="md" />
+        <ProfileAvatar avatarUrl={mentor?.avatar_url ?? null} name={mentor?.name ?? "Mentor"} size="sm" />
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="truncate text-base font-semibold text-foreground">
@@ -81,7 +81,7 @@ function MentorTicketCard({
       {assignedTo && (
         <div className="flex flex-wrap items-center gap-2">
           <ChatLink label="Chat with your mentor" ticketId={ticket.id} />
-          <Button asChild className="min-h-11" variant="outline">
+          <Button asChild className="min-h-11 lg:min-h-9" variant="outline">
             <Link href={ROUTES.mentor(assignedTo)}>View profile &amp; rate</Link>
           </Button>
           <RequestMentorChangeDialog ticketId={ticket.id} />
@@ -105,7 +105,7 @@ function BatchMentorCard({
   return (
     <li className={PERSONAL_ROW}>
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <ProfileAvatar avatarUrl={mentor?.avatar_url ?? null} name={mentor?.name ?? "Mentor"} size="md" />
+        <ProfileAvatar avatarUrl={mentor?.avatar_url ?? null} name={mentor?.name ?? "Mentor"} size="sm" />
         <div className="min-w-0">
           <h3 className="truncate text-base font-semibold text-foreground">{mentor?.name ?? "Cohort mentor"}</h3>
           <p className="truncate text-sm text-muted-foreground">Cohort mentor · {batchName}</p>
@@ -113,7 +113,7 @@ function BatchMentorCard({
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {ticketId && <ChatLink label="Chat" ticketId={ticketId} />}
-        <Button asChild className="min-h-11" variant="outline">
+        <Button asChild className="min-h-11 lg:min-h-9" variant="outline">
           <Link href={ROUTES.mentor(mentorId)}>View profile</Link>
         </Button>
       </div>
@@ -184,9 +184,9 @@ async function YourMentorsSection() {
 
   if (active.length === 0) {
     return (
-      <section className="card-raised flex flex-col gap-4 sm:flex-row sm:items-center">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <UserPlus aria-hidden className="h-6 w-6" />
+      <section className="card-raised flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <UserPlus aria-hidden className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
           <h2 className="subsection-title">No mentor yet</h2>
@@ -201,7 +201,7 @@ async function YourMentorsSection() {
             enrollments={enrollments.map((e) => ({ id: e.course_id, title: e.course.title }))}
           />
         ) : (
-          <Button asChild className="min-h-11">
+          <Button asChild className="min-h-11 lg:min-h-9">
             <Link href={ROUTES.COURSES}>Browse courses</Link>
           </Button>
         )}
@@ -233,14 +233,14 @@ export default async function MentorsDirectoryPage() {
 
   return (
     <main className="page-container">
-      <div className="page-header">
+      <div className="page-header mb-4">
         <div className="flex min-w-0 flex-col gap-2">
           <h1 className="page-title">Mentors</h1>
           <p className="text-muted-foreground">
             Your assigned mentor, and everyone else available in your organization.
           </p>
         </div>
-        <Button asChild className="min-h-11" variant="outline">
+        <Button asChild className="min-h-11 lg:min-h-9" variant="outline">
           <Link href={ROUTES.MENTORING_CONVERSATIONS}>
             <Inbox aria-hidden />
             Your conversations

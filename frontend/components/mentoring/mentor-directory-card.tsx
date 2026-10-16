@@ -30,12 +30,12 @@ export function MentorDirectoryCard({ mentor, chatTicketId, activeSkill }: Mento
   return (
     <article
       className={cn(
-        "card-base flex h-full flex-col gap-4 transition-shadow duration-fast ease-smooth hover:shadow-raised",
+        "card-base flex h-full flex-col gap-3 p-4 transition-shadow duration-fast ease-smooth hover:shadow-raised",
         chatTicketId && "border-primary/40",
       )}
     >
       <div className="flex min-w-0 items-start gap-3">
-        <ProfileAvatar avatarUrl={mentor.avatar_url} name={mentor.name} size="md" />
+        <ProfileAvatar avatarUrl={mentor.avatar_url} name={mentor.name} size="sm" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h3 className="truncate text-base font-semibold">
             <Link className="text-foreground hover:text-primary" href={ROUTES.mentor(mentor.user_id)}>
@@ -89,16 +89,16 @@ export function MentorDirectoryCard({ mentor, chatTicketId, activeSkill }: Mento
 
       <div className="mt-auto flex flex-col gap-2 pt-2 sm:flex-row">
         {chatTicketId ? (
-          <Button asChild className="min-h-11 flex-1">
+          <Button asChild className="min-h-11 lg:min-h-9 flex-1">
             <Link href={ROUTES.mentoringTicketChat(chatTicketId)}>
               <MessageCircle aria-hidden />
               Chat
             </Link>
           </Button>
         ) : (
-          <MessageMentorButton className="min-h-11 flex-1" mentorId={mentor.user_id} variant="default" />
+          <MessageMentorButton className="min-h-11 lg:min-h-9 flex-1" mentorId={mentor.user_id} variant="default" />
         )}
-        <Button asChild className="min-h-11 flex-1" variant="outline">
+        <Button asChild className="min-h-11 lg:min-h-9 flex-1" variant="outline">
           <Link aria-label={`View ${mentor.name}'s profile`} href={ROUTES.mentor(mentor.user_id)}>
             View profile
           </Link>
