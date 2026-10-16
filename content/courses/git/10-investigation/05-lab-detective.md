@@ -163,206 +163,104 @@ lab:
         printf 'culprit_email=%s\n' "$e" >> ~/work/answers.txt
 ---
 
-> **Production is broken.** A test that passed last week now fails. Who changed it, when, and why? Git has the answers - you just need to ask the right command.
+## Why this matters
 
-## blame: who wrote this line?
-
-`git blame file` prefixes every line with the commit, author and date that last changed it.
-`-L start,end` narrows the range.
-
-```
- commit history of tax.sh                 git blame -L1,1 tax.sh
- c1 Alice: rate=10                        ^
- c7 Dave : rate=15   <- last change  --->  7a3f9c1 (Dave Hotfix 2024-06-07 1) rate=15
-```
+`~/work/inventory` has two weeks of history from seven people: a reformat, a
+moved function, a deleted flag, a changed value, a renamed file and a bug that
+broke `check.sh`. Answer each question with the right tool and write the
+answers into `~/work/answers.txt`, one `key=value` per line.
 
 ```bash
 cd ~/work/inventory
-git blame -L1,1 tax.sh
-echo "rate_author=Dave Hotfix" >> ~/work/answers.txt
+git log --oneline
 ```
+
+## Task 1: who set the tax rate?
+
+Use `git blame -L` on line 1 of `tax.sh`. Write `rate_author=<name>`.
 
 [[lab-task:1]]
 
-What you should see (hashes differ):
+Expected blame line:
 
 ```
 7a3f9c1 (Dave Hotfix 2024-06-07 10:00:00 +0000 1) rate=15
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-inv-blame-q1", "type": "mcq",
-    "prompt": "What does git blame show for a line?",
-    "options": [
-      {"id":"a","text":"The commit and author that most recently changed that line"},
-      {"id":"b","text":"The person who reviewed it"},
-      {"id":"c","text":"Every commit that ever touched the file"},
-      {"id":"d","text":"The branch it lives on"}],
-    "correct": "a",
-    "explanation": "Blame is about the last change to each line, which is the starting point for digging deeper with git log." }
-] }
-```
-
-## blame -w and -C: seeing through refactors
-
-Reformatting and moving code make plain blame blame the wrong person.
-
-```
- c4 Carol writes  "  echo $(( $1 * 10 / 100 ))"
- c9 Eve re-indents "\techo ..."           plain blame -> Eve      blame -w -> Carol
-
- c6 Gina writes shipping.sh
- c10 Frank moves the lines to util.sh    plain blame -> Frank    blame -C -> Gina
-```
-
 ```bash
-git blame -L2,2 discount.sh        # Eve
-git blame -w -L2,2 discount.sh     # Carol
-git blame util.sh | sed -n 4p       # Frank
-git blame -C util.sh | sed -n 4p    # Gina (run it on the whole file, not with -L)
+echo "rate_author=Dave Hotfix" >> ~/work/answers.txt
 ```
+
+## Task 2: see through the reformat
+
+Plain blame on line 2 of `discount.sh` names the person who re-indented it. Use
+`-w` and write `discount_author=<name>`.
 
 [[lab-task:2]]
+
+## Task 3: follow the moved code
+
+Line 4 of `util.sh` was moved from `shipping.sh`. Use `git blame -C` on the
+whole file and write `shipping_author=<name>`.
+
 [[lab-task:3]]
 
-What you should see:
+## Task 4: when did the flag disappear?
 
-```
-$ git blame -L2,2 discount.sh
-d41e0b7 (Eve Formatter 2024-06-09 10:00:00 +0000 2) 	echo $(( $1 * 10 / 100 ))
-$ git blame -w -L2,2 discount.sh
-b09c7a2 (Carol Pricing 2024-06-04 10:00:00 +0000 2) 	echo $(( $1 * 10 / 100 ))
-```
-
-```knowledge-check
-{ "questions": [
-  { "id": "git-inv-blamewc-q1", "type": "mcq",
-    "prompt": "A formatter re-indented a file and now blame names the formatter. Which flag finds the real author?",
-    "options": [
-      {"id":"a","text":"-w to ignore whitespace changes"},
-      {"id":"b","text":"-q"},
-      {"id":"c","text":"--first-parent"},
-      {"id":"d","text":"-v"}],
-    "correct": "a",
-    "explanation": "-w ignores whitespace when attributing lines." },
-  { "id": "git-inv-blamewc-q2", "type": "mcq",
-    "prompt": "Code was moved from one file to another in a single commit. Which flag lets blame follow it?",
-    "options": [
-      {"id":"a","text":"-C"},
-      {"id":"b","text":"-w"},
-      {"id":"c","text":"-L"},
-      {"id":"d","text":"-s"}],
-    "correct": "a",
-    "explanation": "-C detects lines moved or copied between files; repeat it for deeper searches." }
-] }
-```
-
-## log -S, -G and --follow: searching history
-
-```
- -S 'text'   commits where the COUNT of 'text' changed (added / removed)
- -G 'regex'  commits whose diff has a +/- line matching regex (also catches edits)
- --follow f  history of one file across renames
-
- config.sh:   Misc changes  (+timeout=30 +LEGACY_FLAG=1)
-              Bump timeout  (-timeout=30 +timeout=45)   found by -G, NOT by -S 'timeout='
-              Tidy up       (-LEGACY_FLAG=1)             found by -S LEGACY_FLAG
-```
-
-```bash
-git log -S LEGACY_FLAG --oneline
-git log -G 'timeout=' --oneline
-git log --follow --oneline -- pricing.sh
-```
+Use `git log -S LEGACY_FLAG` and write `legacy_removed_in=<subject>` for the
+commit that removed it.
 
 [[lab-task:4]]
-[[lab-task:5]]
-[[lab-task:6]]
 
-What you should see:
+Expected:
 
 ```
-$ git log -S LEGACY_FLAG --oneline
 9e1b3d0 Tidy up
 c3a77f4 Misc changes
-$ git log -G 'timeout=' --oneline
-5f0e2c8 Bump timeout
-c3a77f4 Misc changes
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-inv-search-q1", "type": "mcq",
-    "prompt": "A value changed from timeout=30 to timeout=45. Which search finds that commit?",
-    "options": [
-      {"id":"a","text":"git log -S 'timeout='"},
-      {"id":"b","text":"git log -G 'timeout='"},
-      {"id":"c","text":"git log --follow"},
-      {"id":"d","text":"git blame -C"}],
-    "correct": "b",
-    "explanation": "-S only fires when the number of occurrences changes; -G matches any changed line." }
-] }
-```
+## Task 5: when did the value change?
 
-## bisect: binary search for a bug
+Use `git log -G 'timeout='` and write `timeout_changed_in=<subject>` for the
+commit that changed the value (not the one that created the file).
 
-Mark one known-good and one known-bad commit; Git checks out the middle, you (or a script) say
-good or bad, and the range halves each time.
+[[lab-task:5]]
 
-```
- v1.0 (good)                                              HEAD (bad)
-  c5   c6   c7   c8   c9   c10  c11  c12  c13
-  good  ?    ?    ?    ?    ?    ?    ?   bad
-              test c9 -> bad    [c5 .. c9]
-              test c7 -> bad    [c5 .. c7]
-              test c6 -> good   first bad = c7  "Speed up tax calc"
-```
+## Task 6: before the rename
+
+`pricing.sh` used to be `price.sh`. Use `git log --follow` and write
+`pricing_origin=<subject of the creating commit>`.
+
+[[lab-task:6]]
+
+## Task 7: find the breaking commit
+
+`check.sh` passes at tag `v1.0` but fails on `main`. Run an automatic bisect,
+save the culprit's full hash in `~/work/culprit.txt`, then reset.
 
 ```bash
 git bisect start HEAD v1.0
-git bisect run sh check.sh     # exit 0 = good, 1 = bad
+git bisect run sh check.sh
 git rev-parse refs/bisect/bad > ~/work/culprit.txt
 git bisect reset
-git show -s --format='%an <%ae>' "$(cat ~/work/culprit.txt)"
 ```
 
 [[lab-task:7]]
+
+Expected: `... is the first bad commit` and the subject `Speed up tax calc`.
+
+## Task 8: inspect the culprit
+
+Use `git show` to read the culprit and write `culprit_email=<author email>`.
+
 [[lab-task:8]]
 
-What you should see:
+## Remember
 
-```
-running 'sh' 'check.sh'
-FAIL
-7a3f9c1e... is the first bad commit
-commit 7a3f9c1e...
-Author: Dave Hotfix <dave@example.com>
-    Speed up tax calc
-bisect found first bad commit
-```
-
-```knowledge-check
-{ "questions": [
-  { "id": "git-inv-bisect-q1", "type": "mcq",
-    "prompt": "About how many test runs does git bisect need for 1000 commits?",
-    "options": [
-      {"id":"a","text":"About 10 (binary search)"},
-      {"id":"b","text":"About 500"},
-      {"id":"c","text":"1000"},
-      {"id":"d","text":"It depends on the file sizes"}],
-    "correct": "a",
-    "explanation": "Each test halves the remaining range: log2(1000) is roughly 10." },
-  { "id": "git-inv-bisect-q2", "type": "mcq",
-    "prompt": "What does a script given to git bisect run return for a good commit?",
-    "options": [
-      {"id":"a","text":"Exit status 0"},
-      {"id":"b","text":"Exit status 1"},
-      {"id":"c","text":"Any output"},
-      {"id":"d","text":"The word good"}],
-    "correct": "a",
-    "explanation": "0 means good, 1 to 127 (except 125 = skip) means bad." }
-] }
-```
-
-> **Next:** you have all the pieces. The capstone puts them together in one real team workflow.
+| Question | Tool |
+|---|---|
+| Who last changed this line? | `git blame -L` (+ `-w`, `-C`) |
+| When was this text added/removed? | `git log -S` |
+| When did this line change? | `git log -G` |
+| History before a rename? | `git log --follow` |
+| Which commit broke it? | `git bisect run` |

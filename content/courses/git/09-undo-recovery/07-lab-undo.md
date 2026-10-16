@@ -253,291 +253,135 @@ lab:
         git stash pop
 ---
 
-> **"I just deleted my work."** Everyone says it once. After this section you will know which undo to reach for, and that the reflog remembers almost everything.
+## Why this matters
 
-## restore: discard or unstage
-
-`git restore` fixes the working tree and the index without moving any branch.
-
-```
- BEFORE                                   AFTER
- HEAD   : ledger v1                       HEAD   : ledger v1
- index  : ledger v1                       index  : ledger v1
- working: ledger v1 + GARBAGE             working: ledger v1       git restore ledger.txt
-
- git restore --staged secret.txt:  index loses the file, working copy untouched
-```
+`~/work/ledger` is a small accounting repo in a messy state: a junk line in
+`ledger.txt`, a secret file staged by accident, a typo in a commit message, and
+two feature branches. You will use every undo from this section, in the order
+you would meet them on the job.
 
 ```bash
 cd ~/work/ledger
 git status
-git restore ledger.txt
-git restore --staged secret.txt
+git log --oneline --graph --all
 ```
+
+## Part 1: uncommitted changes
+
+**Task 1.** Throw away the uncommitted `GARBAGE` line in `ledger.txt`.
 
 [[lab-task:1]]
+
+**Task 2.** Unstage `secret.txt` but keep it on disk.
+
 [[lab-task:2]]
 
-What you should see:
+Expected `git status -s` afterwards:
 
 ```
-$ git status -s
- M ledger.txt
-A  secret.txt
-(after both restores)
 ?? secret.txt
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-undo-restore-q1", "type": "mcq",
-    "prompt": "Which command removes a file from the staging area without deleting your edits?",
-    "options": [
-      {"id":"a","text":"git restore --staged <file>"},
-      {"id":"b","text":"git restore <file>"},
-      {"id":"c","text":"git reset --hard"},
-      {"id":"d","text":"git clean -f"}],
-    "correct": "a",
-    "explanation": "Plain git restore <file> would discard the working-tree edits instead." }
-] }
-```
+## Part 2: reset
 
-## reset: soft, mixed, hard
-
-`reset` moves the current branch to another commit, and then decides how much else to rewind:
-
-```
-              moves HEAD    resets INDEX    overwrites WORKING TREE
- --soft           yes            no                 no
- --mixed (default) yes           yes                no
- --hard           yes            yes                yes   (destructive)
-```
-
-```
-BEFORE: A---B---C  <- main (HEAD)         git reset X HEAD~1
-
- --soft :  A---B  <- main   index = C's content (staged)   working = C's content
- --mixed:  A---B  <- main   index = B              working = C's content (unstaged)
- --hard :  A---B  <- main   index = B              working = B      (C's changes gone)
-           C is now unreachable (but in the reflog)
-```
-
-```bash
-git reset --soft HEAD~1 && git commit -m "Add March entries"   # fix a commit message
-git reset --mixed HEAD~1                                      # unstage and keep edits
-git commit -am "Add March entries"
-git reset --hard HEAD~2                                       # drop commits AND edits
-```
+**Task 3.** The last commit says `Add Marsh entries`. Use `reset --soft` and
+recommit as `Add March entries` (still four commits).
 
 [[lab-task:3]]
+
+**Task 4.** Step back to `Add February entries` with a **mixed** reset so the
+March line stays as an unstaged edit.
+
 [[lab-task:4]]
+
+Expected `git status -s`:
+
+```
+ M ledger.txt
+```
+
+**Task 5.** Commit March again (`Add March entries`), then add `april.txt`
+containing `Apr: 200` as `Add April entries`.
+
 [[lab-task:5]]
+
+**Task 6.** Throw away both commits and their changes with `reset --hard`.
+
 [[lab-task:6]]
 
-What you should see after `git reset --hard HEAD~2`:
+Expected: `HEAD is now at 4be2c19 Add February entries`.
 
-```
-HEAD is now at 4be2c19 Add February entries
-```
+## Part 3: recover
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-undo-reset-q1", "type": "mcq",
-    "prompt": "After git reset --soft HEAD~1, where do the undone commit's changes live?",
-    "options": [
-      {"id":"a","text":"Staged in the index"},
-      {"id":"b","text":"Unstaged in the working tree"},
-      {"id":"c","text":"Deleted"},
-      {"id":"d","text":"In a stash"}],
-    "correct": "a",
-    "explanation": "--soft leaves index and working tree alone; --mixed unstages; --hard discards." },
-  { "id": "git-undo-reset-q2", "type": "mcq",
-    "prompt": "Which reset mode can destroy uncommitted work?",
-    "options": [
-      {"id":"a","text":"--soft"},
-      {"id":"b","text":"--mixed"},
-      {"id":"c","text":"--hard"},
-      {"id":"d","text":"None of them"}],
-    "correct": "c",
-    "explanation": "--hard overwrites the working tree, and uncommitted edits are not in the reflog." }
-] }
-```
-
-## reflog: the safety net
-
-`git reflog` records every move of HEAD. After a `reset --hard` the commits are unreachable from
-any branch but still reachable via the reflog.
-
-```
- git reflog
- 4be2c19 HEAD@{0}: reset: moving to HEAD~2
- a91d6f3 HEAD@{1}: commit: Add April entries      <-- the "lost" commit
- 5c07b8e HEAD@{2}: commit: Add March entries
-
- git reset --hard a91d6f3     main points at April again:  A---B---C---D---E <- main
-```
-
-```bash
-git reflog
-git reset --hard <hash of "commit: Add April entries">
-```
+**Task 7.** You needed April after all. Find it in the reflog and move `main`
+back to it.
 
 [[lab-task:7]]
 
-What you should see:
+Expected `git reflog` top lines:
 
 ```
-HEAD is now at a91d6f3 Add April entries
+4be2c19 HEAD@{0}: reset: moving to HEAD~2
+a91d6f3 HEAD@{1}: commit: Add April entries
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-undo-reflog-q1", "type": "mcq",
-    "prompt": "You ran git reset --hard and lost commits. What is your first move?",
-    "options": [
-      {"id":"a","text":"Re-clone the repo"},
-      {"id":"b","text":"git reflog to find the old commit hash, then reset or branch to it"},
-      {"id":"c","text":"git gc --prune=now"},
-      {"id":"d","text":"Nothing - it is gone"}],
-    "correct": "b",
-    "explanation": "The reflog keeps the previous positions of HEAD (for 90 days by default for reachable-once commits)." }
-] }
-```
+## Part 4: shared-history undo
 
-## revert: undo safely on shared history
+Pretend `main` is already pushed from here on, so no more resets.
 
-`reset` rewrites history; `revert` adds a new commit that undoes an old one.
-
-```
-BEFORE                               AFTER git revert C
-
- A---B---C---D  <- main               A---B---C---D---C'  <- main
-                                      C' = inverse of C   (C stays in history)
-```
-
-For a merge commit there are two parents, so tell Git which one is the mainline:
-
-```
-        M  <- main (merge of feature into main)       git revert -m 1 M
-       / \                                             -m 1 = keep parent 1 (main's side),
-      B   F  <- feature                                undo everything F brought in
-```
-
-```bash
-git revert --no-edit <hash of "Add March entries">
-git merge --no-ff feature/bonus -m "Merge feature/bonus"
-git revert -m 1 --no-edit HEAD
-```
+**Task 8.** Revert `Add March entries` (keep April).
 
 [[lab-task:8]]
+
+**Task 9.** Merge `feature/bonus` with `--no-ff` and the message
+`Merge feature/bonus`.
+
 [[lab-task:9]]
+
+**Task 10.** The bonus feature must come out: revert the merge commit, keeping
+the main side (`-m 1`).
+
 [[lab-task:10]]
 
-What you should see:
+Expected:
 
 ```
 [main 7ad03ce] Revert "Merge feature/bonus"
- Date: ...
  1 file changed, 1 deletion(-)
  delete mode 100644 bonus.txt
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-undo-revert-q1", "type": "mcq",
-    "prompt": "Why is revert preferred over reset on a branch teammates already pulled?",
-    "options": [
-      {"id":"a","text":"It adds a new commit instead of rewriting history, so nobody's clone diverges"},
-      {"id":"b","text":"It is faster"},
-      {"id":"c","text":"It deletes the original commit"},
-      {"id":"d","text":"It works without a repository"}],
-    "correct": "a",
-    "explanation": "Rewriting shared history forces everyone else to repair their branches." },
-  { "id": "git-undo-revert-q2", "type": "mcq",
-    "prompt": "What does git revert -m 1 <merge> keep?",
-    "options": [
-      {"id":"a","text":"The side of parent 1 (the branch the merge was made on) and undoes what the other parent brought in"},
-      {"id":"b","text":"Only the other parent's changes"},
-      {"id":"c","text":"Nothing"},
-      {"id":"d","text":"Both sides"}],
-    "correct": "a",
-    "explanation": "-m picks the mainline parent; changes relative to it are inverted." }
-] }
-```
+## Part 5: copy and park
 
-## cherry-pick: borrow one commit
-
-```
-BEFORE                                AFTER  git switch main; git cherry-pick S
-
- main:    A---B---C                    main:    A---B---C---S'   (S' = copy of S)
- audit:        \                       audit:        \
-                L---S                                 L---S   (unchanged)
-```
-
-```bash
-git log --oneline feature/audit
-git cherry-pick <hash of "Add audit summary">
-```
+**Task 11.** Bring only `Add audit summary` from `feature/audit` onto `main`.
 
 [[lab-task:11]]
 
-What you should see:
+Check: `git log -1 --format='%an'` prints `Priya Auditor`.
 
-```
-[main 3b9f1a2] Add audit summary
- Author: Priya Auditor <priya@example.com>
- 1 file changed, 1 insertion(+)
-```
-
-```knowledge-check
-{ "questions": [
-  { "id": "git-undo-pick-q1", "type": "mcq",
-    "prompt": "A cherry-picked commit has the same hash as the original.",
-    "options": [
-      {"id":"a","text":"True"},
-      {"id":"b","text":"False - it is a new commit with a different parent, so a different hash"}],
-    "correct": "b",
-    "explanation": "The diff and message are copied but the commit identity (parent, date) differs." }
-] }
-```
-
-## stash: park work in progress
-
-```
- working tree dirty ----git stash push -m "wip total"----> working tree clean
-                                     stash@{0} holds the edits
- later: git stash pop  ------------------------------------> edits are back, stash entry dropped
-```
-
-```bash
-echo "WIP total" >> ledger.txt
-git stash push -m "wip total"
-git stash list
-git stash pop
-```
+**Task 12.** Append `WIP total` to `ledger.txt` and stash it with the message
+`wip total`.
 
 [[lab-task:12]]
-[[lab-task:13]]
 
-What you should see from `git stash list`:
+Expected `git stash list`:
 
 ```
 stash@{0}: On main: wip total
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-undo-stash-q1", "type": "mcq",
-    "prompt": "What is the difference between git stash pop and git stash apply?",
-    "options": [
-      {"id":"a","text":"pop applies and removes the stash entry; apply keeps it"},
-      {"id":"b","text":"pop deletes the repo"},
-      {"id":"c","text":"apply only works on tags"},
-      {"id":"d","text":"There is none"}],
-    "correct": "a",
-    "explanation": "apply is useful when you want to apply the same stash on several branches." }
-] }
-```
+**Task 13.** Bring the stash back and drop it in one step.
 
-> **Next:** now the reverse - something is broken on main and nobody knows when it started. Time to be a detective.
+[[lab-task:13]]
+
+## Remember
+
+| Situation | Command |
+|---|---|
+| Discard an uncommitted edit | `git restore <file>` |
+| Unstage | `git restore --staged <file>` |
+| Redo local commits | `git reset --soft` / `--mixed` |
+| Drop local commits | `git reset --hard` (then reflog if wrong) |
+| Undo a pushed commit | `git revert` (`-m 1` for merges) |
+| Copy one commit | `git cherry-pick` |
+| Park unfinished work | `git stash push -m` / `pop` |
