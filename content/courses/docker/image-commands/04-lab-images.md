@@ -3,11 +3,11 @@ kind: lesson
 id_key: docker/image-commands/lesson
 course: docker
 section: image-commands
-section_title: Image Commands
+section_title: Images & Layers
 section_position: 3
-title: Building & Managing Images
-position: 0
-estimated_minutes: 45
+title: "Lab: Build, Tag, Save and Load Images"
+position: 3
+estimated_minutes: 20
 source:
   - Docker Command Cheat Sheet.pdf
   - docker_cheatsheet.pdf (Red Hat CLI & Dockerfile cheat sheet)
@@ -63,104 +63,86 @@ lab:
       solution_script: docker rmi myimage:v1
 ---
 
-## Syntax
+## Why this matters
 
-```
-docker [CMD] [OPTS] [IMAGE]
-```
+This lab practises the image life cycle you just read about: build an image,
+give it a second tag, carry it through a tar file, and remove one tag without
+losing the image. Each task is checked automatically.
 
-## Command reference
+## The image you will use
 
-| Command | Description |
-|---|---|
-| `docker build` | Build an image from a Dockerfile |
-| `docker images` | List local images |
-| `docker rmi` | Remove one or more images |
-| `docker image prune` | Remove all dangling (untagged, unreferenced) images |
-| `docker tag` | Add a tag to an image, or create a renamed reference to it |
-| `docker history` | Show the layer-by-layer build history of an image |
-| `docker inspect` | Full image metadata as JSON |
-| `docker save` / `docker load` | Export an image to a `.tar` file / import it back |
-| `docker import` | Create an image from a filesystem tarball |
-| `docker pull` / `docker push` | Download from / upload to a registry |
-| `docker search` | Search a configured registry for images |
-| `docker login` / `docker logout` | Authenticate to a registry (default `https://index.docker.io/v1/`) |
+A minimal Dockerfile. You will learn every instruction properly in Section 4;
+for now, read it as "start from Alpine, and by default print a message".
 
-## Examples
-
-### Building & tagging
-
-```bash
-# A minimal Dockerfile to build from — write this to ./Dockerfile
+```dockerfile
 FROM alpine:3.20
 CMD ["echo", "hello from myimage"]
 ```
 
-```bash
-# Build an image from the Dockerfile in the current directory
-docker build -t myimage:latest .
-docker build -t [username/]<image-name>[:tag] <dockerfile-path>
+## Task 1: build an image
 
-# Build without using Docker's layer cache
-docker build -t <image_name> . --no-cache
+```bash
+cd ~/work
+printf 'FROM alpine:3.20\nCMD ["echo", "hello from myimage"]\n' > Dockerfile
+
+# Build from the Dockerfile in "." and name (tag) the result myimage:latest
+docker build --network=host -t myimage:latest .
+
+docker images myimage            # it is listed
+docker history myimage:latest    # its layers (lesson 1)
+docker run --rm myimage:latest   # prints: hello from myimage
 ```
 
-> This lab sandbox's Docker runs inside its own nested network — any RUN instruction
-> in a Dockerfile starts an internal build-time container, and that needs
-> `--network=host` here to work at all (`docker build --network=host -t ...`), the
-> same way running any container does. A Dockerfile with no RUN steps builds fine
-> either way; add the flag as a habit once your Dockerfile has one.
+**Sandbox note:** any `RUN` step in a Dockerfile starts a temporary build
+container. In this nested sandbox that needs `--network=host`, the same reason
+running containers here needs `--network host`. This Dockerfile has no `RUN`,
+so the flag is optional here; keep it as a habit in labs. On a normal machine
+you would just type `docker build -t myimage:latest .`
+
+Two more build flags worth knowing:
 
 ```bash
-# List local images
-docker images
-
-# View the build history of an image
-docker history myimage:latest
-
-# Tag an image: create a second reference to the same image
-docker tag myimage:latest myimage:v1
-docker tag <image-name> <new-image-name>
+docker build -t myimage:latest --no-cache .           # ignore the build cache
+docker build -t myuser/myimage:1.0 path/to/context    # tag with a namespace, other folder
 ```
 
 [[lab-task:1]]
 
-[[lab-task:2]]
+## Task 2: add a second tag
 
-### Save, load & clean up
+Recall lesson 2: a tag is a pointer; `docker tag` makes no copy.
 
 ```bash
-# Export an image to a file, then re-import it elsewhere
-docker save -o myimage.tar myimage:latest
-docker load -i myimage.tar
+docker tag myimage:latest myimage:v1
+docker images myimage     # two rows, SAME image ID
+```
 
-# Remove a specific tag; remove all unused (dangling) images
-docker rmi myimage:v1
-docker image prune
+[[lab-task:2]]
+
+## Task 3: save to a file and load it back
+
+Recall lesson 3: `save`/`load` move a whole image (layers + metadata) as a tar file.
+
+```bash
+docker save -o ~/work/myimage.tar myimage:latest
+ls -lh ~/work/myimage.tar
+docker load -i ~/work/myimage.tar     # prints: Loaded image: myimage:latest
 ```
 
 [[lab-task:3]]
 
-[[lab-task:4]]
-
-### Registries (Docker Hub, in real usage)
+## Task 4: remove one tag, keep the image
 
 ```bash
-# Authenticate, then push an image to a registry
-docker login -u <username>
-docker push <username>/<image-name>[:tag]
-
-# Pull an image from Docker Hub; search Hub for one first
-docker search <image-name>
-docker pull <image-name>
+docker rmi myimage:v1          # prints: Untagged: myimage:v1
+docker images myimage          # only latest remains, same ID as before
+docker image prune             # optional: delete dangling <none> images
 ```
 
-These three (`login`/`push`/`search`) target Docker Hub in real usage — the
-[Compose, Hub & Registry](../compose-hub-registry/01-lesson.md) lesson runs the same
-push/pull flow against an offline registry so you can practice it hands-on.
+[[lab-task:4]]
 
-## Images vs. containers, in one line
+## Remember
 
-An **image** is the read-only template on disk (or in a registry); a **container** is
-a live, writable instance of that template. `docker build` produces images, `docker
-run` produces containers.
+- `docker build -t name:tag .` turns a Dockerfile into an image.
+- `docker tag` adds a pointer; `docker rmi` removes one. Layers go with the last pointer.
+- `docker save`/`docker load` carry an image without a registry.

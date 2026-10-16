@@ -3,11 +3,11 @@ kind: lesson
 id_key: docker/dockerfile/lesson
 course: docker
 section: dockerfile
-section_title: Dockerfile
+section_title: Writing Dockerfiles
 section_position: 4
-title: Writing a Dockerfile
-position: 0
-estimated_minutes: 40
+title: "Lab: Write, Build and Run a Dockerfile"
+position: 6
+estimated_minutes: 20
 source:
   - docker_cheatsheet.pdf (Red Hat CLI & Dockerfile cheat sheet)
 lab:
@@ -55,79 +55,88 @@ lab:
         docker run --rm --network host busybox:1.36 wget -qO- http://127.0.0.1:80
 ---
 
-## What it is
+## Why this matters
 
-A Dockerfile is the set of instructions `docker build` compiles into an image — the
-same way a compiler turns source code into a binary. It always starts from a base
-image (`FROM`), followed by whatever setup instructions the app needs.
+You have read how `RUN`, `CMD`, layers and the cache work. Now write a
+Dockerfile, build it, and prove the result serves your own page. Each task is
+checked automatically.
 
-```bash
-docker build -t [username/]<image-name>[:tag] <dockerfile-path>
-```
+## The Dockerfile
 
-## Instruction reference
-
-| Instruction | Description |
-|---|---|
-| `FROM` | Sets the base image for everything that follows |
-| `MAINTAINER` | Sets the author field on the generated image (legacy — prefer a `LABEL`) |
-| `RUN` | Executes a command in a new layer on top of the current image and commits the result |
-| `CMD` | The default command to run when the container starts. Allowed once — if repeated, the last one wins |
-| `LABEL` | Adds metadata (key/value) to an image |
-| `EXPOSE` | Documents which network ports the container listens on at runtime |
-| `ENV` | Sets an environment variable |
-| `ADD` | Copies files, directories, or remote URLs into the image filesystem (also unpacks local tarballs) |
-| `COPY` | Copies files/directories into the image filesystem (no URL fetching, no auto-unpacking) |
-| `ENTRYPOINT` | Configures the container to run as an executable |
-| `VOLUME` | Creates a mount point marked as holding externally-mounted data |
-| `USER` | Sets the username/UID subsequent instructions and the container run as |
-| `WORKDIR` | Sets the working directory for `RUN`, `CMD`, `ENTRYPOINT`, `COPY`, and `ADD` |
-| `ARG` | Declares a build-time variable, settable via `--build-arg` |
-| `ONBUILD` | Registers an instruction to run later, when this image is used as a base for another build |
-| `STOPSIGNAL` | Sets the system call signal sent to the container to make it exit |
-
-## Example Dockerfile
-
-A custom nginx image that serves a static page and exposes port 80:
+A custom nginx image that serves a page baked in at build time:
 
 ```dockerfile
-# Use the existing nginx image as a base
+# Base image: nginx already installed and configured
 FROM nginx:1.27-alpine
 
-# Bake a custom page into the image at build time
+# Build time: write a custom page into the image (this becomes a layer)
 RUN echo "<h1>Built from a Dockerfile</h1>" > /usr/share/nginx/html/index.html
 
-# Document which port the container listens on
+# Documentation: the container listens on 80
 EXPOSE 80
 
-# nginx:1.27-alpine's own base image already sets the CMD that starts nginx
-# in the foreground — no need to override it here.
+# No CMD needed: nginx:1.27-alpine already sets one that starts nginx in the foreground
 ```
 
-Build and run it:
+Recall from lesson 1: `RUN` executes **once, at build time**, and its result is
+saved in a layer. `CMD`/`ENTRYPOINT` decide what runs **at container start**
+and add no files.
+
+## Task 1: write the Dockerfile
+
+The quickest way from a plain shell is a heredoc:
 
 ```bash
-# Build the image. --network=host is needed here because the RUN instruction
-# above starts an internal build-time container, and this sandbox's Docker
-# runs inside its own nested network — same reason running any container
-# here needs --network host (see the Container Commands lesson).
-docker build --network=host -t mysite .
-
-# Run it — --network host (not -p) is how a container here becomes reachable at all
-docker run -d --name mysite --network host mysite
-
-# Confirm it's serving your custom page, from a second --network host
-# container (both share the same network stack, so this can reach it via
-# 127.0.0.1 even though the terminal itself can't)
-docker run --rm --network host busybox:1.36 wget -qO- http://127.0.0.1:80
+cd ~/work
+cat > Dockerfile <<'EOF'
+FROM nginx:1.27-alpine
+RUN echo "<h1>Built from a Dockerfile</h1>" > /usr/share/nginx/html/index.html
+EXPOSE 80
+EOF
+cat Dockerfile     # check it
 ```
-
-`RUN` vs. `CMD`/`ENTRYPOINT` is the instruction to internalize: `RUN` executes at
-**build** time and bakes its result into a layer; `CMD`/`ENTRYPOINT` define what runs
-at **container start** time and don't affect the image's layers at all.
 
 [[lab-task:1]]
 
+## Task 2: build the image
+
+```bash
+cd ~/work
+docker build --network=host -t mysite:latest .
+docker history mysite:latest    # your RUN line is the newest layer
+```
+
+**Sandbox note:** the `RUN` step starts a temporary build container, and in
+this nested sandbox that needs `--network=host`. On a normal machine:
+`docker build -t mysite:latest .`
+
+Build it a second time and notice every step says `CACHED` (lesson 4).
+
 [[lab-task:2]]
 
+## Task 3: run it and confirm your page
+
+```bash
+# Sandbox: --network host instead of -p (see the Running Containers lab)
+docker run -d --name mysite --network host mysite:latest
+
+# Fetch the page from a second --network host container
+docker run --rm --network host busybox:1.36 wget -qO- http://127.0.0.1:80
+```
+
+Expected output:
+
+```
+<h1>Built from a Dockerfile</h1>
+```
+
+On a normal machine you would run `docker run -d -p 8080:80 mysite` and open
+`http://localhost:8080`.
+
 [[lab-task:3]]
+
+## Remember
+
+- Write → build → run → verify is the loop for every image you make.
+- `RUN` bakes results into the image; `CMD` is inherited from the base if you do not set one.
+- A second identical build is fully `CACHED`.
