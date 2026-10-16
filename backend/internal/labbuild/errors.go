@@ -41,8 +41,8 @@ const (
 )
 
 var errSpecs = map[error]httputil.ErrSpec{
-	ErrLabsetNotPublished: {Status: http.StatusNotFound, Code: CodeLabsetMissing, Message: "No labset has been published for this environment's lab runtime."},
-	ErrLabsetRuntime:      {Status: http.StatusConflict, Code: CodeLabsetMismatch, Message: "The labset was verified against a different lab runtime."},
+	ErrLabsetNotPublished: {Status: http.StatusNotFound, Code: CodeLabsetMissing},
+	ErrLabsetRuntime:      {Status: http.StatusConflict, Code: CodeLabsetMismatch},
 	ErrLabsetIncomplete:   {Status: http.StatusConflict, Code: CodeLabsetMismatch, Message: "The labset does not cover every platform recipe."},
 	ErrLabsetRecipe:       {Status: http.StatusConflict, Code: CodeLabsetMismatch, Message: "The labset does not match this database's platform recipes."},
 	ErrLabsetCorrupt:      {Status: http.StatusUnprocessableEntity, Code: CodeLabsetCorrupt, Message: "The published labset is corrupt."},

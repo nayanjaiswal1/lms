@@ -807,7 +807,7 @@ A labset used to reach only the environment Jenkins `kubectl exec`ed into; every
 
 - **Publish (CI).** After a successful import, `scripts/import-lab-artifacts.sh --target k8s` also runs `coursegen blocks publish-labset -` in the backend pod: the labset is validated (`ReadLabset`) and uploaded as `labsets/<runtime_id>.tar.gz` to the private bucket (`labbuild.PublishLabset`). One object per lab runtime, overwritten by each full CI run. Never run with `--partial`. The labset holds graders and fix/cheat overlays: the private bucket only.
 - **Import (any env).** `POST /api/admin/lab-authoring/labset/import` (`super_admin`, CSRF): probes this environment's lab runtime id (the same stamp builds use), downloads `labsets/<runtime_id>.tar.gz` and runs `ImportLabset` (whole set only). Idempotent. Response `{runtime_id, recipes, published, bundles_uploaded}`. Errors: 404 `labset_not_published` (CI has not published this runtime), 409 `labset_mismatch` (different runtime or the labset does not cover this DB's platform recipes), 422 `labset_corrupt`.
-- **UI.** `/admin/labs/platform-labs` (`super_admin`) has an "Import published labset" button that calls the endpoint.
+- **UI.** An "Import published labset" button calls the endpoint. It is on org settings > Labs (`/org/settings/labs`, shown to `super_admin` only) and on `/admin/labs/platform-labs`.
 - **Scope.** Environments share a labset by sharing the private bucket (dev-k3s uses the k3s MinIO). An environment with its own bucket needs CI to run `coursegen blocks publish-labset DIR` against that bucket's `MINIO_*`.
 
 ### Platform labs: CI artifacts (labset)
