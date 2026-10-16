@@ -30,7 +30,7 @@ chmod 600 .env backend/.env
 
 # ── Tools ────────────────────────────────────────────────────────────────────
 sudo apt-get update -y
-sudo apt-get install -y make git curl unzip golang-go postgresql-client
+sudo apt-get install -y make git curl unzip golang-go postgresql-client openssl
 have bun       || curl -fsSL https://bun.sh/install | bash
 have kubectl   || { curl -fsSLo /tmp/kubectl "https://dl.k8s.io/release/$(curl -fsSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
                     && sudo install /tmp/kubectl /usr/local/bin/kubectl; }
@@ -59,6 +59,8 @@ ts_host="$(tailscale status --json | python3 -c 'import sys,json;print(json.load
 
 # ── backend/.env: values that must hold on this box ──────────────────────────
 set_env backend/.env PORT "$BACKEND_PORT"
+# A .env copied from another machine carries that machine's kubeconfig path.
+set_env backend/.env KUBECONFIG "$HOME/.kube/config"
 set_env backend/.env PISTON_URL "http://localhost:2000"
 set_env backend/.env LABS_RUNTIME "kubernetes"
 if ! grep -q '^LAB_TOKEN_SECRET=.\+' backend/.env; then
@@ -72,15 +74,30 @@ set_env frontend/.env.local BACKEND_URL "http://127.0.0.1:${BACKEND_PORT}"
 set_env frontend/.env.local NEXT_ALLOWED_DEV_ORIGINS "$ts_host"
 set_env frontend/.env.local NEXT_PUBLIC_LAB_PROXY_URL "wss://${ts_host}/lab-ws"
 
-# ── Dev fixtures (users, courses, labs) load on every backend boot, but only into a local DB
-# unless DEV_SEED_REMOTE_DB=true. Read the URL with grep, never `source` the file: its
-# unquoted '&' would background the line.
-if ! grep -q '^DEV_SEED_REMOTE_DB=true' backend/.env; then
-  db_url="$(grep -m1 '^DATABASE_URL=' backend/.env | cut -d= -f2-)"
-  db_host="$(sed -E 's#.*@([^/:?]+).*##' <<<"$db_url")"
-  read -r -p "Auto-load dev fixtures (admin@mindforge.dev / Admin123!) into $db_host on every boot? It must NOT be prod. [y/N] " ans
-  [[ "$ans" =~ ^[Yy]$ ]] && set_env backend/.env DEV_SEED_REMOTE_DB true
+# ── Dev database: `mindforge_dev` on the cluster's Postgres ──────────────────
+# A database (not a schema): the baseline migration hard-codes `public.`, so a schema would not
+# isolate anything. Reached through a port-forward on 127.0.0.1, which counts as a local DB, so
+# dev fixtures (users, courses, labs) auto-seed on every backend boot — no manual seeding.
+DEV_DB=mindforge_dev
+PG_LOCAL_PORT=15432
+if ! grep -q "^DATABASE_URL=.*@127.0.0.1:${PG_LOCAL_PORT}/${DEV_DB}" backend/.env; then
+  cp backend/.env "backend/.env.bak.$(date +%s)"   # holds the previous DATABASE_URL
+  pw="$(openssl rand -hex 16)"
+  # The postgres image trusts local socket connections, so no superuser secret is needed.
+  kubectl exec -i -n mindforge postgres-0 -- sh -c 'psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -q' <<SQL
+DO \$\$ BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${DEV_DB}') THEN
+    CREATE ROLE ${DEV_DB} LOGIN PASSWORD '${pw}';
+  ELSE
+    ALTER ROLE ${DEV_DB} PASSWORD '${pw}';
+  END IF;
+END \$\$;
+SELECT 'CREATE DATABASE ${DEV_DB} OWNER ${DEV_DB}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${DEV_DB}')\gexec
+SQL
+  set_env backend/.env DATABASE_URL "postgres://${DEV_DB}:${pw}@127.0.0.1:${PG_LOCAL_PORT}/${DEV_DB}?sslmode=disable"
 fi
+# No remote-DB opt-in needed any more; a leftover one would be harmless but misleading.
+sed -i '/^DEV_SEED_REMOTE_DB=/d' backend/.env
 
 # ── Platform debug labs: verified offline (CI labset), never built in the app ─
 # Without an import every platform lab stays unpublished. Verifying all recipes
