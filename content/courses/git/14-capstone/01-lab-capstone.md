@@ -20,15 +20,15 @@ lab:
   workspace_layout: console
   setup_script: |
     umask 000
-    git config --system init.defaultBranch main
-    git config --system safe.directory '*'
-    git config --system pull.rebase false
-    git config --system user.name "Lab Student"
-    git config --system user.email "student@lab.local"
-    rm -rf /srv/git /home/labuser/work/storefront /tmp/seed
-    mkdir -p /srv/git
-    git init -q --bare /srv/git/storefront.git
-    git clone -q /srv/git/storefront.git /tmp/seed 2>/dev/null
+    git config --global init.defaultBranch main
+    git config --global safe.directory '*'
+    git config --global pull.rebase false
+    git config --global user.name "Lab Student"
+    git config --global user.email "student@lab.local"
+    rm -rf /home/labuser/srv/git /home/labuser/work/storefront /tmp/seed
+    mkdir -p /home/labuser/srv/git
+    git init -q --bare /home/labuser/srv/git/storefront.git
+    git clone -q /home/labuser/srv/git/storefront.git /tmp/seed 2>/dev/null
     cd /tmp/seed
     export GIT_AUTHOR_NAME="Maya Lead" GIT_AUTHOR_EMAIL=maya@example.com GIT_COMMITTER_NAME="Maya Lead" GIT_COMMITTER_EMAIL=maya@example.com
     c() { git add -A; GIT_AUTHOR_DATE="$1T10:00:00+0000" GIT_COMMITTER_DATE="$1T10:00:00+0000" git commit -q -m "$2"; }
@@ -37,13 +37,14 @@ lab:
     printf '. ./app.sh\n[ "$(round 14)" = 10 ] || { echo FAIL; exit 1; }\necho OK\n' > check.sh; c 2024-07-03 "Add check script"
     git push -q origin main
     cd /; rm -rf /tmp/seed
-    git --git-dir=/srv/git/storefront.git symbolic-ref HEAD refs/heads/main
-    cat > /usr/local/bin/teammate <<'SCRIPT'
+    git --git-dir=/home/labuser/srv/git/storefront.git symbolic-ref HEAD refs/heads/main
+    mkdir -p /home/labuser/bin
+    cat > /home/labuser/bin/teammate <<'SCRIPT'
     #!/bin/bash
     # Simulates Maya pushing to origin/main. usage: teammate land-greeting | land-bad
     set -e
     t=$(mktemp -d); trap 'rm -rf "$t"' EXIT
-    git clone -q /srv/git/storefront.git "$t/w" 2>/dev/null; cd "$t/w"
+    git clone -q /home/labuser/srv/git/storefront.git "$t/w" 2>/dev/null; cd "$t/w"
     case "$1" in
       land-greeting) subject="Change greeting wording"; date=2024-07-10
         edit() { sed -i 's/^GREETING=.*/GREETING="Hello, welcome"/' app.sh; } ;;
@@ -58,14 +59,14 @@ lab:
     git push -q origin main
     echo "pushed to origin/main: $subject"
     SCRIPT
-    chmod 755 /usr/local/bin/teammate
-    chmod -R a+rwX /srv/git
+    chmod 755 /home/labuser/bin/teammate
+    chmod -R a+rwX /home/labuser/srv/git
   tasks:
     - id_key: feature-branch
       title: Build the feature on a branch
       points: 15
       is_stateful: true
-      description: 'Clone /srv/git/storefront.git into ~/work/storefront. Create branch feature/discount-banner with exactly three commits: add banner.txt, tweak banner.txt (a "WIP" commit), and change the GREETING line in app.sh to GREETING="Welcome to the store".'
+      description: 'Clone /home/labuser/srv/git/storefront.git into ~/work/storefront. Create branch feature/discount-banner with exactly three commits: add banner.txt, tweak banner.txt (a "WIP" commit), and change the GREETING line in app.sh to GREETING="Welcome to the store".'
       verification_script: |
         r=/home/labuser/work/storefront
         [ "$(git -C $r rev-list --count origin/main..feature/discount-banner)" = 3 ] &&
@@ -74,7 +75,7 @@ lab:
       hint_context: git clone, git switch -c feature/discount-banner, then three separate git commit invocations. Use sed -i or an editor for the GREETING change.
       explanation_context: Small, separate commits are normal while working; you will tidy them before the review.
       solution_script: |
-        cd ~/work && git clone /srv/git/storefront.git storefront && cd storefront
+        cd ~/work && git clone /home/labuser/srv/git/storefront.git storefront && cd storefront
         git switch -c feature/discount-banner
         echo "SALE 10% off" > banner.txt && git add banner.txt && git commit -m "Add banner text"
         echo "style: bold" >> banner.txt && git commit -am "WIP banner styling"
@@ -97,15 +98,15 @@ lab:
       title: A teammate lands a change on main
       points: 10
       is_stateful: true
-      description: Run the helper teammate land-greeting (it pushes a commit to origin/main, changing the same GREETING line). Then fetch so you can see it in origin/main.
+      description: Run the helper ~/bin/teammate land-greeting (it pushes a commit to origin/main, changing the same GREETING line). Then fetch so you can see it in origin/main.
       verification_script: |
         r=/home/labuser/work/storefront
         git -C $r log origin/main --format=%s | grep -qx "Change greeting wording" &&
         [ "$(git -C $r rev-parse origin/main)" = "$(git -C $r ls-remote origin refs/heads/main | cut -f1)" ]
-      hint_context: teammate land-greeting, then git fetch, then git log --oneline --graph --all.
+      hint_context: ~/bin/teammate land-greeting, then git fetch, then git log --oneline --graph --all.
       explanation_context: While your branch was open, main moved. Your branch is now based on an older main and touches a line that changed on both sides.
       solution_script: |
-        teammate land-greeting
+        ~/bin/teammate land-greeting
         cd ~/work/storefront && git fetch
     - id_key: rebase-resolve
       title: Rebase the branch and resolve the conflict
@@ -203,17 +204,17 @@ lab:
       title: Revert a bad commit pushed to main
       points: 25
       is_stateful: true
-      description: Run teammate land-bad - it pushes a commit "Switch to experimental rounding" that breaks check.sh on main. Pull it, revert that commit (do not rewrite history) and push so check.sh passes again on origin/main.
+      description: Run ~/bin/teammate land-bad - it pushes a commit "Switch to experimental rounding" that breaks check.sh on main. Pull it, revert that commit (do not rewrite history) and push so check.sh passes again on origin/main.
       verification_script: |
-        o=/srv/git/storefront.git
+        o=/home/labuser/srv/git/storefront.git
         git --git-dir=$o log main --format=%s | grep -qx 'Revert "Switch to experimental rounding"' &&
         git --git-dir=$o log main --format=%s | grep -qx 'Switch to experimental rounding' &&
         [ "$(git --git-dir=$o rev-parse main)" = "$(git -C /home/labuser/work/storefront rev-parse main)" ] &&
         d=$(mktemp -d) && git --git-dir=$o archive main | tar -x -C $d && (cd $d && sh check.sh | grep -qx OK)
-      hint_context: teammate land-bad, git pull, git log --oneline to find the bad hash, git revert <hash>, git push. Run sh check.sh to confirm.
+      hint_context: ~/bin/teammate land-bad, git pull, git log --oneline to find the bad hash, git revert <hash>, git push. Run sh check.sh to confirm.
       explanation_context: main is shared and already pulled by others, so you add a new commit that undoes the bad one. History stays append-only and the fix can ship immediately.
       solution_script: |
-        teammate land-bad
+        ~/bin/teammate land-bad
         cd ~/work/storefront
         git pull --no-rebase
         git revert --no-edit "$(git log --format=%h --grep='^Switch to experimental rounding$' -1)"
@@ -260,7 +261,7 @@ and (when something slips through) revert. Keep this picture in mind:
 ```
 
 ```bash
-cd ~/work && git clone /srv/git/storefront.git storefront && cd storefront
+cd ~/work && git clone /home/labuser/srv/git/storefront.git storefront && cd storefront
 git switch -c feature/discount-banner
 # three commits ...
 git push -u origin feature/discount-banner

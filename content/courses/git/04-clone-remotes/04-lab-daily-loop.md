@@ -20,15 +20,15 @@ lab:
   workspace_layout: console
   setup_script: |
     umask 000
-    git config --system init.defaultBranch main
-    git config --system safe.directory '*'
-    git config --system pull.rebase false
-    git config --system user.name "Lab Student"
-    git config --system user.email "student@lab.local"
-    rm -rf /srv/git /home/labuser/work/app /tmp/seed
-    mkdir -p /srv/git
-    git init -q --bare /srv/git/origin.git
-    git clone -q /srv/git/origin.git /tmp/seed 2>/dev/null
+    git config --global init.defaultBranch main
+    git config --global safe.directory '*'
+    git config --global pull.rebase false
+    git config --global user.name "Lab Student"
+    git config --global user.email "student@lab.local"
+    rm -rf /home/labuser/srv/git /home/labuser/work/app /tmp/seed
+    mkdir -p /home/labuser/srv/git
+    git init -q --bare /home/labuser/srv/git/origin.git
+    git clone -q /home/labuser/srv/git/origin.git /tmp/seed 2>/dev/null
     cd /tmp/seed
     export GIT_AUTHOR_NAME="Maya Lead" GIT_AUTHOR_EMAIL=maya@example.com GIT_COMMITTER_NAME="Maya Lead" GIT_COMMITTER_EMAIL=maya@example.com
     c() { GIT_AUTHOR_DATE="$1T10:00:00+0000" GIT_COMMITTER_DATE="$1T10:00:00+0000" git commit -q -m "$2"; }
@@ -40,13 +40,14 @@ lab:
     echo "login form" > login.txt; git add -A; c 2024-01-04 "Add login form"
     git push -q origin feature/login
     cd /; rm -rf /tmp/seed
-    git --git-dir=/srv/git/origin.git symbolic-ref HEAD refs/heads/main
-    cat > /usr/local/bin/teammate-push <<'SCRIPT'
+    git --git-dir=/home/labuser/srv/git/origin.git symbolic-ref HEAD refs/heads/main
+    mkdir -p /home/labuser/bin
+    cat > /home/labuser/bin/teammate-push <<'SCRIPT'
     #!/bin/bash
     # Simulates a teammate pushing a commit to origin/main.
     set -e
     t=$(mktemp -d); trap 'rm -rf "$t"' EXIT
-    git clone -q /srv/git/origin.git "$t/w" 2>/dev/null; cd "$t/w"
+    git clone -q /home/labuser/srv/git/origin.git "$t/w" 2>/dev/null; cd "$t/w"
     if git log --format=%s | grep -qx "Teammate: add changelog"; then echo "teammate already pushed"; exit 0; fi
     echo "# Changelog" > CHANGELOG.md; git add -A
     GIT_AUTHOR_NAME="Maya Lead" GIT_AUTHOR_EMAIL=maya@example.com GIT_COMMITTER_NAME="Maya Lead" GIT_COMMITTER_EMAIL=maya@example.com \
@@ -54,23 +55,23 @@ lab:
     git push -q origin main
     echo "teammate pushed to origin/main"
     SCRIPT
-    chmod 755 /usr/local/bin/teammate-push
-    chmod -R a+rwX /srv/git
+    chmod 755 /home/labuser/bin/teammate-push
+    chmod -R a+rwX /home/labuser/srv/git
   tasks:
     - id_key: clone-origin
       title: Clone the shared repository
       points: 10
       is_stateful: true
-      description: The team repository lives at /srv/git/origin.git (a bare repository acting as "the server"). Clone it into a directory called app inside your work directory.
+      description: The team repository lives at /home/labuser/srv/git/origin.git (a bare repository acting as "the server"). Clone it into a directory called app inside your work directory.
       verification_script: |
         r=/home/labuser/work/app
-        [ "$(git -C $r remote get-url origin)" = /srv/git/origin.git ] &&
+        [ "$(git -C $r remote get-url origin)" = /home/labuser/srv/git/origin.git ] &&
         [ "$(git -C $r symbolic-ref HEAD)" = refs/heads/main ] &&
         [ "$(git -C $r rev-list --count HEAD)" = 3 ]
       hint_context: git clone <url> <directory>. A local path works as a URL. Afterwards run git remote -v to see where origin points.
       explanation_context: Clone copies all history, creates the remote named origin, remote-tracking refs (origin/main ...) and checks out main with main tracking origin/main.
       solution_script: |
-        cd ~/work && git clone /srv/git/origin.git app
+        cd ~/work && git clone /home/labuser/srv/git/origin.git app
     - id_key: track-branch
       title: Check out a remote branch
       points: 10
@@ -107,7 +108,7 @@ lab:
       title: Fetch a teammate's work without merging
       points: 20
       is_stateful: true
-      description: Run the helper command teammate-push (it simulates a colleague pushing to origin/main). Then try git push - it will be rejected. Run git fetch (not pull) so origin/main updates while your own main stays untouched.
+      description: Run the helper command ~/bin/teammate-push (it simulates a colleague pushing to origin/main). Then try git push - it will be rejected. Run git fetch (not pull) so origin/main updates while your own main stays untouched.
       verification_script: |
         r=/home/labuser/work/app
         o=$(git -C $r ls-remote origin refs/heads/main | cut -f1)
@@ -115,10 +116,10 @@ lab:
         [ "$(git -C $r rev-parse main)" != "$o" ] &&
         git -C $r log origin/main --format=%s | grep -qx "Teammate: add changelog" &&
         [ "$(git -C $r log main -1 --format=%s)" = "Add notes.txt" ]
-      hint_context: teammate-push is already on your PATH. After git push is rejected, git fetch updates origin/main but never touches your branches. Compare with git log --oneline --graph --all.
+      hint_context: Run ~/bin/teammate-push first. After git push is rejected, git fetch updates origin/main but never touches your branches. Compare with git log --oneline --graph --all.
       explanation_context: Push is rejected (non-fast-forward) because origin/main has a commit you lack. fetch downloads it into the remote-tracking branch only; pull would also merge it into your branch.
       solution_script: |
-        teammate-push
+        ~/bin/teammate-push
         cd ~/work/app
         git push || true
         git fetch
@@ -167,20 +168,20 @@ lab:
 
 This is the loop you will run every working day: clone, track a branch, commit,
 get rejected because a teammate pushed first, fetch, integrate, push, and
-publish a new branch. The "server" is the bare repository `/srv/git/origin.git`.
-A helper command, `teammate-push`, plays Maya pushing to `main`.
+publish a new branch. The "server" is the bare repository `/home/labuser/srv/git/origin.git`.
+A helper command, `~/bin/teammate-push`, plays Maya pushing to `main`.
 
 ## Task 1: clone
 
-Clone `/srv/git/origin.git` into `~/work/app`.
+Clone `/home/labuser/srv/git/origin.git` into `~/work/app`.
 
 [[lab-task:1]]
 
 Expected `git remote -v` inside `app`:
 
 ```
-origin  /srv/git/origin.git (fetch)
-origin  /srv/git/origin.git (push)
+origin  /home/labuser/srv/git/origin.git (fetch)
+origin  /home/labuser/srv/git/origin.git (push)
 ```
 
 ## Task 2: track a remote branch
@@ -206,7 +207,7 @@ Back on `main`, commit a new file `notes.txt` as `Add notes.txt`. Do not push.
 
 ## Task 4: get rejected, then fetch
 
-Run `teammate-push`, then try `git push` and read the rejection. Then `git fetch`
+Run `~/bin/teammate-push`, then try `git push` and read the rejection. Then `git fetch`
 (not pull) so only `origin/main` moves.
 
 ```
@@ -224,7 +225,7 @@ Expected rejection:
 
 ```
  ! [rejected]        main -> main (fetch first)
-error: failed to push some refs to '/srv/git/origin.git'
+error: failed to push some refs to '/home/labuser/srv/git/origin.git'
 ```
 
 ## Task 5: integrate and push
@@ -237,7 +238,7 @@ this lab), then push.
 Expected `git log --oneline --graph`:
 
 ```
-*   c7e21d0 (HEAD -> main, origin/main) Merge branch 'main' of /srv/git/origin
+*   c7e21d0 (HEAD -> main, origin/main) Merge branch 'main' of /home/labuser/srv/git/origin
 |\
 | * 9d4b0c2 Teammate: add changelog
 * | 41ae6f8 Add notes.txt

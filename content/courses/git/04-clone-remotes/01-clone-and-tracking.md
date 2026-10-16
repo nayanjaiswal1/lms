@@ -23,7 +23,7 @@ most "but I pulled!" surprises.
 ## Mental model: your branch, your notes about theirs, and the link
 
 ```
-        origin  (/srv/git/origin.git)
+        origin  (/home/labuser/srv/git/origin.git)
         A---B---C  <- main
                  \
                   D  <- feature/login
@@ -49,7 +49,7 @@ most "but I pulled!" surprises.
 ### Clone
 
 ```bash
-git clone /srv/git/origin.git app
+git clone /home/labuser/srv/git/origin.git app
 cd app
 git remote -v
 git branch -a

@@ -19,8 +19,8 @@ lab:
   is_required: false
   workspace_layout: console
   setup_script: |
-    git config --system init.defaultBranch main
-    git config --system safe.directory '*'
+    git config --global init.defaultBranch main
+    git config --global safe.directory '*'
     rm -rf /home/labuser/work/hello
   tasks:
     - id_key: init-repo

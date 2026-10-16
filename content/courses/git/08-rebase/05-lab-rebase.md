@@ -20,12 +20,12 @@ lab:
   workspace_layout: console
   setup_script: |
     umask 000
-    git config --system init.defaultBranch main
-    git config --system safe.directory '*'
-    git config --system user.name "Lab Student"
-    git config --system user.email "student@lab.local"
-    rm -rf /home/labuser/work/blog /srv/git
-    mkdir -p /srv/git /home/labuser/work/blog && cd /home/labuser/work/blog
+    git config --global init.defaultBranch main
+    git config --global safe.directory '*'
+    git config --global user.name "Lab Student"
+    git config --global user.email "student@lab.local"
+    rm -rf /home/labuser/work/blog /home/labuser/srv/git
+    mkdir -p /home/labuser/srv/git /home/labuser/work/blog && cd /home/labuser/work/blog
     git init -q
     M() { git add -A; GIT_AUTHOR_NAME="Maya Lead" GIT_AUTHOR_EMAIL=maya@example.com GIT_COMMITTER_NAME="Maya Lead" GIT_COMMITTER_EMAIL=maya@example.com GIT_AUTHOR_DATE="$1T10:00:00+0000" GIT_COMMITTER_DATE="$1T10:00:00+0000" git commit -q -m "$2"; }
     printf '# My Blog\nWelcome\n' > index.md
@@ -47,12 +47,12 @@ lab:
     printf '# Profile\nname: TBD\n' > profile.md; M 2024-04-10 "fix typo in profile"
     echo 'bio: hello' >> profile.md; M 2024-04-11 "wip: bio"
     git switch -q main
-    git init -q --bare /srv/git/blog.git
-    git remote add origin /srv/git/blog.git
+    git init -q --bare /home/labuser/srv/git/blog.git
+    git remote add origin /home/labuser/srv/git/blog.git
     git push -q origin main feature/profile
     git branch -q --set-upstream-to=origin/main main
     git branch -q --set-upstream-to=origin/feature/profile feature/profile
-    chmod -R a+rwX /home/labuser/work/blog /srv/git
+    chmod -R a+rwX /home/labuser/work/blog /home/labuser/srv/git
   tasks:
     - id_key: rebase-onto-main
       title: Rebase a feature branch onto main
@@ -137,7 +137,7 @@ lab:
         [ "$(git -C $r show --name-only --format= feature/profile)" = avatar.md ] &&
         git -C $r show feature/profile~1:profile.md | grep -qx '# Profile' &&
         git -C $r show feature/profile~1:profile.md | grep -qx 'bio: hello'
-      hint_context: In the todo list move the "fix typo" and "bio" lines directly under the skeleton line and change pick to fixup (f). Leave the avatar line last. In this lab terminal the editor is nano or vim.
+      hint_context: In the todo list move the "fix typo" and "bio" lines directly under the skeleton line and change pick to fixup (f). Leave the avatar line last. The default editor here is vi; run git config --global core.editor nano to use nano instead.
       explanation_context: fixup melds a commit into the one above it and discards its message; reordering lines reorders history. Commits that touch different files reorder without conflicts.
       solution_script: |
         cd ~/work/blog
@@ -183,151 +183,91 @@ lab:
         git push --force-with-lease origin feature/profile
 ---
 
-> **Review day.** Maya asks: "Can you clean up these seven commits into a story a reviewer can follow, and put them on top of the latest main?" That is rebase.
+## Why this matters
 
-## Rebase: move a branch onto a new base
-
-Merge joins two histories; rebase **replays** your commits on top of another branch. The result
-is a straight line, but your commits get new hashes.
-
-```
-BEFORE                                AFTER  git switch feature; git rebase main
-
- A---B---C---D  <- main                A---B---C---D  <- main
-      \                                              \
-       E---F  <- feature                              E'---F'  <- feature
-                                       (E and F are replaced by copies E' and F')
-```
+`~/work/blog` has a `main` that moved on, and three feature branches: one that
+rebases cleanly, one that conflicts, and one with four messy commits that is
+already pushed to `origin`. You will rebase, abort, resolve, squash, reword and
+then publish the rewritten branch safely.
 
 ```bash
 cd ~/work/blog
-git switch feature/comments
-git rebase main
 git log --oneline --graph --all
 ```
 
+## Task 1: a clean rebase
+
+Rebase `feature/comments` onto `main`.
+
 [[lab-task:1]]
 
-What you should see:
+Expected graph afterwards:
 
 ```
 * 7c3a2e9 (HEAD -> feature/comments) Add comment form
 * 0f6b18d Add comments page
 * b1e47a0 (main) Rename title to Dev Blog
-* 5d9c30f Add footer
-* 2a8f6c1 Add about page
-* e0d31b7 Initial blog
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-rebase-basic-q1", "type": "mcq",
-    "prompt": "After git rebase main, the commits of your feature branch...",
-    "options": [
-      {"id":"a","text":"Keep exactly the same hashes"},
-      {"id":"b","text":"Are replaced by new commits with new hashes on top of main"},
-      {"id":"c","text":"Are deleted"},
-      {"id":"d","text":"Are merged into one commit"}],
-    "correct": "b",
-    "explanation": "Each commit has a new parent, so a new hash. The old commits remain in the reflog." }
-] }
-```
+## Task 2: hit a conflict
 
-## Conflicts during a rebase
-
-A conflict stops the replay on the commit that cannot apply. You have three choices:
-
-```
- git rebase main  --> CONFLICT while applying E
-      |
-      +-- fix files, git add, git rebase --continue   (carry on with next commit)
-      +-- git rebase --skip                           (drop this commit)
-      +-- git rebase --abort                          (go back to before the rebase)
-```
-
-In a rebase the labels flip: "ours" (HEAD) is the branch you are rebasing **onto**, "theirs" is the
-commit being replayed.
-
-```bash
-git switch feature/title
-git rebase main          # CONFLICT in index.md
-git rebase --abort       # back to the start
-git rebase main          # conflict again
-# edit index.md, then
-git add index.md
-GIT_EDITOR=true git rebase --continue
-```
+`feature/title` and `main` both renamed the heading in `index.md`. Rebase
+`feature/title` onto `main` and stop at the conflict.
 
 [[lab-task:2]]
-[[lab-task:3]]
-[[lab-task:4]]
 
-What you should see while stopped:
+Expected:
 
 ```
-Auto-merging index.md
 CONFLICT (content): Merge conflict in index.md
 error: could not apply 3e5f1aa... Rename blog title
-hint: Resolve all conflicts manually, mark them as resolved with
-hint: "git add/rm <conflicted_files>", then run "git rebase --continue".
-
-$ git status
-interactive rebase in progress; onto b1e47a0
 ```
 
-And afterwards:
+`git status` shows `interactive rebase in progress`.
+
+## Task 3: abort
+
+Back out completely.
+
+[[lab-task:3]]
+
+## Task 4: resolve and continue
+
+Rebase again. Resolve `index.md` so the first line is `# The Dev Blog` and the
+second is `Welcome`, then `git add` and continue (prefix with `GIT_EDITOR=true`
+to skip the message editor).
+
+[[lab-task:4]]
+
+Expected: `Successfully rebased and updated refs/heads/feature/title.`
+
+## Task 5: squash with interactive rebase
+
+On `feature/profile`, run `git rebase -i main`. Move `fix typo in profile` and
+`wip: bio` directly under `wip: profile skeleton` and mark both `fixup`. Keep
+`wip: add avatar` last.
 
 ```
-Successfully rebased and updated refs/heads/feature/title.
+pick   1111 wip: profile skeleton
+fixup  3333 fix typo in profile
+fixup  4444 wip: bio
+pick   2222 wip: add avatar
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-rebase-conflict-q1", "type": "mcq",
-    "prompt": "During a rebase conflict, which command gives up and restores the branch to its pre-rebase state?",
-    "options": [
-      {"id":"a","text":"git rebase --continue"},
-      {"id":"b","text":"git rebase --abort"},
-      {"id":"c","text":"git reset --hard origin/main"},
-      {"id":"d","text":"git rebase --skip"}],
-    "correct": "b",
-    "explanation": "--skip would drop the commit being applied; --abort undoes the whole rebase." }
-] }
-```
-
-## Interactive rebase: squash, reorder, reword
-
-`git rebase -i main` opens a todo list, oldest commit first. Edit the verbs, save, and Git replays:
-
-```
- pick   1111 wip: profile skeleton        pick   1111 wip: profile skeleton
- pick   2222 wip: add avatar        -->   fixup  3333 fix typo in profile
- pick   3333 fix typo in profile          fixup  4444 wip: bio
- pick   4444 wip: bio                     pick   2222 wip: add avatar
-```
-
-```
-BEFORE (4 commits)                  AFTER (2 commits)
-
- main---P1---P2---P3---P4            main---P1'---P2'
-        skel avatar typo bio              skel+typo+bio  avatar
-```
-
-Verbs: `pick` keep, `reword` keep and edit message, `squash` meld and combine messages, `fixup`
-meld and discard message, `drop` delete, and reordering lines reorders commits.
-
-Scripts can drive it with `GIT_SEQUENCE_EDITOR` (the todo editor) and `GIT_EDITOR` (the message
-editor), e.g. `GIT_SEQUENCE_EDITOR='sed -i s/^pick/reword/' git rebase -i main`.
-
-```bash
-git switch feature/profile
-git rebase -i main
-```
+The lab's default editor is `vi`. Prefer nano? Run
+`git config --global core.editor nano` first (save with Ctrl+O, Enter; exit with
+Ctrl+X).
 
 [[lab-task:5]]
+
+## Task 6: reword
+
+Run interactive rebase again and `reword` both commits to `Add profile page`
+(oldest) and `Add profile avatar`.
+
 [[lab-task:6]]
 
-What you should see afterwards:
+Expected:
 
 ```
 * 91c0d4e (HEAD -> feature/profile) Add profile avatar
@@ -335,71 +275,21 @@ What you should see afterwards:
 * b1e47a0 (main) Rename title to Dev Blog
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-rebase-interactive-q1", "type": "mcq",
-    "prompt": "What is the difference between squash and fixup in an interactive rebase?",
-    "options": [
-      {"id":"a","text":"squash keeps and combines the commit message, fixup discards it"},
-      {"id":"b","text":"fixup deletes the file"},
-      {"id":"c","text":"They are identical"},
-      {"id":"d","text":"squash pushes to the remote"}],
-    "correct": "a",
-    "explanation": "Both meld the commit into the previous one; only squash lets you keep its message." }
-] }
-```
+## Task 7: publish safely
 
-## Never rebase shared history; use force-with-lease
-
-Rebasing rewrites commits. If teammates already built on the old ones, their history and yours
-no longer match:
-
-```
- origin/feature:  A---B---C---D        teammate has D checked out
- you rebase  ->   A---B---C'---D'      (new hashes)
- push --force     origin now has C'D'  -> teammate's D is orphaned, their next pull is a mess
-```
-
-Rule: rebase only commits nobody else has based work on (your own unpublished branch, or a
-branch you own). When you must update a branch you already pushed, use
-`--force-with-lease`; it refuses if the remote moved since you last fetched.
-
-```bash
-git push                                  # rejected: non-fast-forward
-git push --force-with-lease origin feature/profile
-```
+`origin` still has the old four commits. Try `git push` (rejected), then use
+`--force-with-lease`. `origin/main` must not change.
 
 [[lab-task:7]]
 
-What you should see:
+Expected:
 
 ```
- ! [rejected]        feature/profile -> feature/profile (non-fast-forward)
-...
  + 0b7e5ad...91c0d4e feature/profile -> feature/profile (forced update)
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-rebase-lease-q1", "type": "mcq",
-    "prompt": "Why is --force-with-lease safer than --force?",
-    "options": [
-      {"id":"a","text":"It refuses to overwrite the remote branch if it has commits you have not seen"},
-      {"id":"b","text":"It is faster"},
-      {"id":"c","text":"It also rebases for you"},
-      {"id":"d","text":"It deletes the remote branch first"}],
-    "correct": "a",
-    "explanation": "It checks the remote still points where your remote-tracking ref says before overwriting." },
-  { "id": "git-rebase-lease-q2", "type": "mcq",
-    "prompt": "Which branch should you NEVER rebase?",
-    "options": [
-      {"id":"a","text":"A private local branch nobody has pulled"},
-      {"id":"b","text":"A shared branch like main that others have pulled"},
-      {"id":"c","text":"A branch with one commit"},
-      {"id":"d","text":"A branch with no remote"}],
-    "correct": "b",
-    "explanation": "Rewriting commits others already have forces them to reconcile two versions of history." }
-] }
-```
+## Remember
 
-> **Next:** sooner or later you will push something wrong. Good news: almost everything in Git can be undone.
+- Rebase, resolve, `--continue`; or `--abort` to start over.
+- Clean up with `rebase -i` before review.
+- Rewritten pushed branch: `--force-with-lease`, never plain `--force`.

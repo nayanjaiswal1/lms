@@ -20,10 +20,10 @@ lab:
   workspace_layout: console
   setup_script: |
     umask 000
-    git config --system init.defaultBranch main
-    git config --system safe.directory '*'
-    git config --system user.name "Lab Student"
-    git config --system user.email "student@lab.local"
+    git config --global init.defaultBranch main
+    git config --global safe.directory '*'
+    git config --global user.name "Lab Student"
+    git config --global user.email "student@lab.local"
     rm -rf /home/labuser/work/config-app
     mkdir /home/labuser/work/config-app && cd /home/labuser/work/config-app
     git init -q

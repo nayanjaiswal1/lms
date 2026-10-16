@@ -48,7 +48,7 @@ Expected output:
 
 ```
  ! [rejected]        main -> main (fetch first)
-error: failed to push some refs to '/srv/git/origin.git'
+error: failed to push some refs to '/home/labuser/srv/git/origin.git'
 hint: Updates were rejected because the remote contains work that you do not
 hint: have locally. ...
 ```

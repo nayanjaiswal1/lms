@@ -92,7 +92,7 @@ git log --oneline --graph
 Expected output:
 
 ```
-*   c7e21d0 (HEAD -> main) Merge branch 'main' of /srv/git/origin
+*   c7e21d0 (HEAD -> main) Merge branch 'main' of /home/labuser/srv/git/origin
 |\
 | * 9d4b0c2 (origin/main) Teammate: add changelog
 * | 41ae6f8 Add notes.txt

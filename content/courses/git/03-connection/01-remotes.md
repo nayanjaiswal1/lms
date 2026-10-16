@@ -29,7 +29,7 @@ cloned from. It is not special and you can rename it.
 ```
  your repo                         remotes (name -> URL)
  +-----------+   origin  ---->  git@github.com:brightside/shop.git
- | .git      |   backup  ---->  /srv/git/backup.git
+ | .git      |   backup  ---->  /home/labuser/srv/git/backup.git
  +-----------+   upstream ---->  https://github.com/original/shop.git
 ```
 
@@ -42,8 +42,8 @@ cloned from. It is not special and you can rename it.
 |---|---|---|
 | SSH | `git@github.com:brightside/shop.git` | SSH key |
 | HTTPS | `https://github.com/brightside/shop.git` | Username + token |
-| Local path | `/srv/git/team.git` | File permissions |
-| File URL | `file:///srv/git/team.git` | File permissions |
+| Local path | `/home/labuser/srv/git/team.git` | File permissions |
+| File URL | `file:///home/labuser/srv/git/team.git` | File permissions |
 
 Servers usually store **bare** repositories (created with `git init --bare`):
 just the `.git` contents, no working tree, because nobody edits files on the
@@ -60,13 +60,13 @@ git remote -v
 What this does: lists each remote with its fetch and push URL. Expected output:
 
 ```
-origin  /srv/git/team.git (fetch)
-origin  /srv/git/team.git (push)
+origin  /home/labuser/srv/git/team.git (fetch)
+origin  /home/labuser/srv/git/team.git (push)
 ```
 
 ```bash
-git remote add backup /srv/git/backup.git       # add a second remote
-git remote set-url origin /srv/git/team.git      # fix a wrong URL
+git remote add backup /home/labuser/srv/git/backup.git       # add a second remote
+git remote set-url origin /home/labuser/srv/git/team.git      # fix a wrong URL
 git remote rename backup mirror                  # rename
 git remote remove mirror                         # delete the entry (not the server repo)
 git remote show origin                           # details: branches, tracking
@@ -83,7 +83,7 @@ prints refs, the URL and access are fine. If it fails, the message tells you
 why:
 
 ```
-fatal: '/srv/git/tean.git' does not appear to be a git repository
+fatal: '/home/labuser/srv/git/tean.git' does not appear to be a git repository
 fatal: Could not read from remote repository.
 ```
 
