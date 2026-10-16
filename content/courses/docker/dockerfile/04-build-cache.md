@@ -53,7 +53,8 @@ Slow version:
 ```dockerfile
 FROM python:3.12-slim
 WORKDIR /app
-COPY . .                                   # any code edit invalidates this...
+# any code edit invalidates this...
+COPY . .
 RUN pip install --no-cache-dir -r requirements.txt   # ...so this reruns every time
 CMD ["python", "app.py"]
 ```
@@ -63,9 +64,11 @@ Fast version:
 ```dockerfile
 FROM python:3.12-slim
 WORKDIR /app
-COPY requirements.txt .                    # changes rarely
+# changes rarely
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt   # cached until requirements change
-COPY . .                                   # changes often; cheap to redo
+# changes often; cheap to redo
+COPY . .
 CMD ["python", "app.py"]
 ```
 

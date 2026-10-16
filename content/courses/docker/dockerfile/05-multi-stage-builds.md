@@ -111,7 +111,8 @@ docker build --target build -t goapp:debug .   # stop at the "build" stage (for 
 ```
 
 ```dockerfile
-COPY --from=nginx:1.27-alpine /etc/nginx/nginx.conf /tmp/   # copy from any image, not just a stage
+# copy from any image, not just a stage
+COPY --from=nginx:1.27-alpine /etc/nginx/nginx.conf /tmp/
 ```
 
 With BuildKit (the default builder), stages the final image does not need are

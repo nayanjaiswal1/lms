@@ -41,8 +41,10 @@ To replace the ENTRYPOINT itself, use `docker run --entrypoint`.
 Both instructions can be written two ways:
 
 ```dockerfile
-CMD python app.py            # shell form
-CMD ["python", "app.py"]     # exec form (a JSON array)
+# shell form
+CMD python app.py
+# exec form (a JSON array)
+CMD ["python", "app.py"]
 ```
 
 | | Shell form | Exec form |

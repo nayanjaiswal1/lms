@@ -39,12 +39,15 @@ Documentation       LABEL, EXPOSE        (metadata only)
 | Typical use | Versions to build with | App configuration defaults |
 
 ```dockerfile
-ARG PY_VERSION=3.12               # ARG before FROM can parameterise the base image
+# ARG before FROM can parameterise the base image
+ARG PY_VERSION=3.12
 FROM python:${PY_VERSION}-slim
 
-ARG APP_VERSION=dev               # ARG after FROM: usable in the following RUN steps
+# ARG after FROM: usable in the following RUN steps
+ARG APP_VERSION=dev
+# Baked in; containers see these
 ENV APP_ENV=production \
-    PORT=8000                     # baked in; containers see these
+    PORT=8000
 LABEL org.opencontainers.image.version=$APP_VERSION
 ```
 
@@ -71,7 +74,8 @@ they are root inside the container, one kernel bug away from the host.
 RUN addgroup -S app && adduser -S -G app app   # Alpine syntax
 # Debian/Ubuntu: RUN groupadd -r app && useradd -r -g app app
 COPY --chown=app:app . /app
-USER app                                     # everything after, and the container, runs as app
+# everything after, and the container, runs as app
+USER app
 ```
 
 Put `USER` **after** steps that need root (package installs), and before `CMD`.

@@ -95,7 +95,8 @@ docker pull alpine@sha256:<digest-from-above>
 ```
 
 ```dockerfile
-FROM alpine:3.20@sha256:<digest>   # human-readable tag + exact content
+# human-readable tag + exact content
+FROM alpine:3.20@sha256:<digest>
 ```
 
 ### Dangling images

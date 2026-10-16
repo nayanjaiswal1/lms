@@ -36,7 +36,8 @@ lab:
       points: 10
       description: Start a second container named "tempbox" from alpine:3.20 that sleeps, then stop it and remove it so it no longer appears in "docker ps -a".
       verification_script: |
-        ! docker ps -a --filter name=tempbox --format '{{.Names}}' | grep -q tempbox
+        ! docker ps -a --filter name=tempbox --format '{{.Names}}' | grep -q tempbox \
+          && docker events --since 6h --until "$(( $(date +%s) + 1 ))" --filter type=container --filter event=destroy --format '{{.Actor.Attributes.name}}' | grep -qx tempbox
       hint_context: docker run -d --network host --name tempbox alpine:3.20 sleep 3600 creates it; docker stop and docker rm (or docker rm -f) remove it.
       explanation_context: docker stop sends SIGTERM (then SIGKILL after a grace period); docker rm then deletes the stopped container's filesystem and metadata. docker rm -f does both in one step.
       solution_script: |

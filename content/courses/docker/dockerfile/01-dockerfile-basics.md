@@ -149,6 +149,9 @@ No `CMD` needed: it is inherited from the base image. Build with
 - **`RUN cd /app`.** Each `RUN` is a fresh shell; the `cd` is forgotten on the
   next line. Use `WORKDIR`.
 - **No `.dockerignore`.** Your `.git` folder, local `node_modules` and `.env` secrets end up in the image.
+- **Comments at the end of a line.** `#` starts a comment only at the **start**
+  of a line. `USER app  # comment` makes Docker read `# comment` as part of the
+  instruction. Put comments on their own line.
 - **`COPY` paths outside the context.** `COPY ../shared .` fails: only files inside
   the build context are visible.
 

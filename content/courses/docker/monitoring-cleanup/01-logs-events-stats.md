@@ -3,25 +3,72 @@ kind: lesson
 id_key: docker/monitoring-cleanup/lesson
 course: docker
 section: monitoring-cleanup
-section_title: Monitoring & Cleanup
-section_position: 7
-title: Logs, Monitoring & Cleanup
+section_title: Troubleshooting & Cleanup
+section_position: 8
+title: "Observing Containers: Logs, Events, Stats and Log Drivers"
 position: 0
-estimated_minutes: 15
+estimated_minutes: 8
 source:
   - Docker Command Cheat Sheet.pdf
 ---
 
-## Logs & monitoring
+## Why this matters
 
-| Command | Description |
-|---|---|
-| `docker ps -a` | Show running **and** stopped containers |
-| `docker logs` | Show a container's logs (`-f` to follow) |
-| `docker events` | Stream real-time events from the daemon (container start/stop/die, image pull, ...) |
-| `docker top` | Show running processes inside a container |
-| `docker stats` | Live CPU, memory, and network I/O usage per container |
-| `docker port` | Show a container's published ports |
+When something breaks at 3 a.m., you need to know **what happened** (logs),
+**when** (events) and **how hard the machine is working** (stats). You met
+`docker logs` in Section 2. This lesson adds the rest of the toolbox, plus the
+one setting that stops logs from filling your disk.
+
+## Mental model: a car dashboard
+
+| Gauge | Docker command | Answers |
+|---|---|---|
+| Trip recorder | `docker logs` | What did the app say? |
+| Black box / event log | `docker events` | What happened to containers (start, die, OOM, health)? |
+| Speedometer and fuel | `docker stats` | CPU, memory, network, disk I/O right now |
+| Passenger list | `docker top`, `docker ps` | Which processes / containers exist? |
+
+## See it work
+
+### Logs, with time filters
+
+```bash
+docker logs --since 10m --tail 100 -t api   # last 100 lines from the last 10 min, with timestamps
+docker logs -f api 2>&1 | grep -i error    # follow and filter (stderr included)
+```
+
+### Events: the daemon's timeline
+
+```bash
+docker events --since 30m --filter container=api
+```
+
+Expected lines (shortened):
+
+```
+2026-10-16T10:01:12 container start 5c1f... (image=api:1.8.0, name=api)
+2026-10-16T10:14:55 container oom 5c1f... (name=api)
+2026-10-16T10:14:55 container die 5c1f... (exitCode=137, name=api)
+2026-10-16T10:14:56 container restart 5c1f... (name=api)
+```
+
+This tells a story `docker logs` cannot: the container was **OOM-killed** and
+restarted. Other useful filters: `--filter event=die`, `--filter event=health_status`,
+`--filter type=image`. Without `--since`, `docker events` streams live until Ctrl+C.
+
+### Stats: live resource use
+
+```bash
+docker stats                    # live table for all running containers (Ctrl+C to stop)
+docker stats --no-stream        # one snapshot (good for scripts)
+docker stats --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"
+```
+
+```bash
+docker top api                  # processes inside the container
+docker port api                 # published ports
+docker ps -a                    # running AND stopped containers
+```
 
 ```knowledge-check
 {
@@ -50,70 +97,82 @@ source:
         { "id": "d", "text": "docker stats only works on stopped containers" }
       ],
       "correct": "b",
-      "explanation": "docker top answers \"what processes are running in this container\" (like ps inside it). docker stats answers \"how much CPU/memory/network is this container using right now\" — a live resource dashboard, not a process list."
+      "explanation": "docker top answers \"what processes are running in this container\" (like ps inside it). docker stats answers \"how much CPU/memory/network is this container using right now\": a live resource dashboard, not a process list."
     }
   ]
 }
 ```
 
-## Cleanup / prune commands
+### Log drivers and rotation
 
-Docker accumulates disk usage fast — stopped containers, dangling images, unused
-volumes and networks. Prune commands reclaim that space in one shot:
+Where do `docker logs` lines live? The default **log driver** `json-file`
+writes them to a file under `/var/lib/docker/containers/<id>/`, and by default
+that file **grows forever**.
 
-| Command | Description |
-|---|---|
-| `docker system prune` | Remove all resources (stopped containers, dangling images, unused networks, build cache) not associated with a running container |
-| `docker image prune` | Remove dangling (untagged) images |
-| `docker container prune` | Remove all stopped containers |
-| `docker volume prune` | Remove all volumes not used by at least one container |
-| `docker network prune` | Remove all networks not used by at least one container |
+Set rotation per container:
 
 ```bash
-# Reclaim everything unused in one command
-docker system prune
-
-# Narrower cleanups
-docker container prune
-docker image prune
-docker volume prune
-docker network prune
+docker run -d --log-opt max-size=10m --log-opt max-file=3 nginx:1.27-alpine
 ```
 
-`docker system prune` skips anything a running container still references — it's
-safe to run routinely without checking `docker ps` first. Add `-a` to also remove
-images not referenced by *any* container (running or not), and `--volumes` to include
-unused volumes in the same pass.
+Or for every container, in `/etc/docker/daemon.json` (then restart Docker):
 
-```knowledge-check
+```json
 {
-  "questions": [
-    {
-      "id": "docker-monitoring-prune-q1",
-      "type": "mcq",
-      "prompt": "Is it safe to run plain docker system prune without first checking docker ps?",
-      "options": [
-        { "id": "a", "text": "No — it can delete a running container" },
-        { "id": "b", "text": "Yes — it only removes resources not associated with a running container" },
-        { "id": "c", "text": "Only if --volumes is omitted" },
-        { "id": "d", "text": "Only on a freshly restarted daemon" }
-      ],
-      "correct": "b",
-      "explanation": "docker system prune skips anything a running container still references. Whatever it removes was already stopped/dangling/unused, so it's safe to run routinely."
-    },
-    {
-      "id": "docker-monitoring-prune-q2",
-      "type": "mcq",
-      "prompt": "What does adding -a to docker system prune change?",
-      "options": [
-        { "id": "a", "text": "It also stops running containers first" },
-        { "id": "b", "text": "It also removes images not referenced by any container, running or not" },
-        { "id": "c", "text": "It also removes named volumes" },
-        { "id": "d", "text": "It runs the prune faster" }
-      ],
-      "correct": "b",
-      "explanation": "Plain prune only touches dangling (untagged) images. -a widens that to every image not currently used by any container. --volumes is the separate flag that additionally reclaims unused volumes."
-    }
-  ]
+  "log-driver": "local",
+  "log-opts": { "max-size": "10m", "max-file": "3" }
 }
 ```
+
+The `local` driver is compact and rotates by default. Other drivers ship logs
+elsewhere: `journald`, `syslog`, `fluentd`, `gelf`, `awslogs`, `gcplogs`. With
+most remote drivers, `docker logs` still works through Docker's dual logging cache.
+
+In Compose:
+
+```yaml
+services:
+  api:
+    logging:
+      driver: local
+      options: { max-size: "10m", max-file: "3" }
+```
+
+## Try it
+
+A container restarted at 02:14 and its logs show nothing unusual before the
+restart. Which command reveals why, and what would you look for?
+
+<details>
+<summary>Show answer</summary>
+
+```bash
+docker events --since "2026-10-16T02:00:00" --until "2026-10-16T02:30:00" --filter container=NAME
+```
+
+Look for an `oom` event, or `die` with `exitCode=137` (killed) vs another code,
+or `health_status: unhealthy` followed by a restart from an orchestrator.
+`docker inspect -f '{{.State.OOMKilled}}' NAME` confirms an OOM for the last exit.
+
+</details>
+
+## Common mistakes
+
+- **No log rotation.** The json-file log grows until the disk is full and the host stops.
+- **Apps logging to files inside the container.** `docker logs` is empty, and the
+  writable layer grows. Log to stdout/stderr.
+- **Using `docker stats` for history.** It shows only *now*. For trends, export
+  metrics (cAdvisor, Prometheus, your cloud's monitoring).
+
+## Remember
+
+- `logs` = what the app said; `events` = what happened to the container; `stats` = resource use now.
+- `docker events --filter container=X --since 1h` explains restarts and OOM kills.
+- Default `json-file` logs grow forever: set `max-size`/`max-file`, or use the `local` driver.
+- Log to stdout/stderr; ship logs with a log driver or collector.
+
+**Self-check:**
+
+1. Which command shows that a container was OOM-killed, besides `inspect`?
+2. Where does the default log driver store logs, and what is its danger?
+3. Name two log drivers other than `json-file`.
