@@ -35,16 +35,24 @@ const (
 	CodeVariantUnknown = "variant_unknown"
 	CodeQueueFailed    = "build_queue_failed"
 	CodePlatformRecipe = "platform_recipe"
+	CodeLabsetMissing  = "labset_not_published"
+	CodeLabsetMismatch = "labset_mismatch"
+	CodeLabsetCorrupt  = "labset_corrupt"
 )
 
 var errSpecs = map[error]httputil.ErrSpec{
-	ErrBuildNotFound:  {Status: http.StatusNotFound, Code: CodeBuildNotFound, Message: "Build not found."},
-	ErrBuildInFlight:  {Status: http.StatusConflict, Code: CodeBuildInFlight},
-	ErrNotVerified:    {Status: http.StatusConflict, Code: CodeNotVerified},
-	ErrBuildStale:     {Status: http.StatusConflict, Code: CodeBuildStale},
-	ErrBuildRateLimit: {Status: http.StatusTooManyRequests, Code: CodeBuildRateLimit},
-	ErrBadPlacement:   {Status: http.StatusUnprocessableEntity, Code: CodeBadPlacement},
-	ErrVariantUnknown: {Status: http.StatusUnprocessableEntity, Code: CodeVariantUnknown},
-	ErrNoWorker:       {Status: http.StatusServiceUnavailable, Code: CodeQueueFailed},
-	ErrPlatformRecipe: {Status: http.StatusConflict, Code: CodePlatformRecipe},
+	ErrLabsetNotPublished: {Status: http.StatusNotFound, Code: CodeLabsetMissing, Message: "No labset has been published for this environment's lab runtime."},
+	ErrLabsetRuntime:      {Status: http.StatusConflict, Code: CodeLabsetMismatch, Message: "The labset was verified against a different lab runtime."},
+	ErrLabsetIncomplete:   {Status: http.StatusConflict, Code: CodeLabsetMismatch, Message: "The labset does not cover every platform recipe."},
+	ErrLabsetRecipe:       {Status: http.StatusConflict, Code: CodeLabsetMismatch, Message: "The labset does not match this database's platform recipes."},
+	ErrLabsetCorrupt:      {Status: http.StatusUnprocessableEntity, Code: CodeLabsetCorrupt, Message: "The published labset is corrupt."},
+	ErrBuildNotFound:      {Status: http.StatusNotFound, Code: CodeBuildNotFound, Message: "Build not found."},
+	ErrBuildInFlight:      {Status: http.StatusConflict, Code: CodeBuildInFlight},
+	ErrNotVerified:        {Status: http.StatusConflict, Code: CodeNotVerified},
+	ErrBuildStale:         {Status: http.StatusConflict, Code: CodeBuildStale},
+	ErrBuildRateLimit:     {Status: http.StatusTooManyRequests, Code: CodeBuildRateLimit},
+	ErrBadPlacement:       {Status: http.StatusUnprocessableEntity, Code: CodeBadPlacement},
+	ErrVariantUnknown:     {Status: http.StatusUnprocessableEntity, Code: CodeVariantUnknown},
+	ErrNoWorker:           {Status: http.StatusServiceUnavailable, Code: CodeQueueFailed},
+	ErrPlatformRecipe:     {Status: http.StatusConflict, Code: CodePlatformRecipe},
 }

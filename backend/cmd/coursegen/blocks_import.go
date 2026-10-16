@@ -145,3 +145,46 @@ func extractTar(r io.Reader, dir string, maxBytes int64) error {
 		}
 	}
 }
+
+// runBlocksPublishLabset uploads a CI-verified labset to the private bucket
+// (labsets/<runtime_id>.tar.gz) so any environment can import it with
+// POST /api/admin/lab-authoring/labset/import. Credentials: MINIO_* from the
+// environment, exactly like `blocks sync`. "-" reads the labset as a tar on
+// stdin, like `blocks import`, so a deploy can publish from inside the backend pod.
+func runBlocksPublishLabset(args []string, stdin io.Reader) error {
+	fs := newFlagSet("blocks publish-labset")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 1 {
+		return fmt.Errorf("%s", blocksUsage)
+	}
+	_ = godotenv.Load()
+	ctx, cancel := context.WithTimeout(context.Background(), importTimeout)
+	defer cancel()
+	store, err := storage.NewPrivateMinioClient(config.LoadMinioOnly())
+	if err != nil {
+		return fmt.Errorf("blocks publish-labset: private store: %w", err)
+	}
+	if err := store.EnsureBucket(ctx); err != nil {
+		return fmt.Errorf("blocks publish-labset: ensure private bucket: %w", err)
+	}
+	dir := fs.Arg(0)
+	if dir == "-" {
+		tmp, err := os.MkdirTemp("", "mf-labset-")
+		if err != nil {
+			return fmt.Errorf("blocks publish-labset: %w", err)
+		}
+		defer os.RemoveAll(tmp)
+		if err := extractTar(stdin, tmp, maxLabsetTarBytes); err != nil {
+			return fmt.Errorf("blocks publish-labset: %w", err)
+		}
+		dir = tmp
+	}
+	key, m, err := labbuild.PublishLabset(ctx, store, dir)
+	if err != nil {
+		return fmt.Errorf("blocks publish-labset: %w", err)
+	}
+	fmt.Printf("coursegen blocks publish-labset: %d recipe(s) -> %s (git %s, ci build %s)\n", len(m.Recipes), key, m.GitSHA, m.CIBuild)
+	return nil
+}

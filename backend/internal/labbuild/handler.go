@@ -3,6 +3,7 @@ package labbuild
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -14,6 +15,7 @@ import (
 	"github.com/mindforge/backend/internal/labauthor"
 	"github.com/mindforge/backend/internal/labs"
 	"github.com/mindforge/backend/internal/library"
+	"github.com/mindforge/backend/internal/middleware"
 )
 
 const maxBodyBytes = 1 << 16
@@ -37,6 +39,34 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 	r.With(compose).Get(base+"/builds/{id}", h.HandleGetBuild)
 	r.With(compose).Post(base+"/builds/{id}/preview-session", h.HandlePreview)
 	r.With(publish).Post(base+"/builds/{id}/publish", h.HandlePublish)
+	r.With(middleware.RequirePlatformRole(h.svc.pool, middleware.PlatformRoleSuperAdmin)).
+		Post("/api/admin/lab-authoring/labset/import", h.HandleImportLabset)
+}
+
+// HandleImportLabset imports the CI-published labset for this environment's lab
+// runtime: POST /api/admin/lab-authoring/labset/import (super_admin). Idempotent;
+// the way to publish platform labs into any environment without kubectl access.
+func (h *Handler) HandleImportLabset(w http.ResponseWriter, r *http.Request) {
+	res, runtimeID, err := h.svc.ImportPublishedLabset(r.Context())
+	if err != nil {
+		if errors.Is(err, ErrLabsetNotPublished) || errors.Is(err, ErrLabsetRuntime) ||
+			errors.Is(err, ErrLabsetIncomplete) || errors.Is(err, ErrLabsetRecipe) || errors.Is(err, ErrLabsetCorrupt) {
+			writeErr(w, err)
+			return
+		}
+		slog.Error("labbuild: import published labset", "error", err)
+		httputil.WriteError(w, http.StatusInternalServerError, "Labset import failed.")
+		return
+	}
+	published := 0
+	for _, rc := range res.Recipes {
+		if !rc.Unchanged {
+			published++
+		}
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{
+		"runtime_id": runtimeID, "recipes": len(res.Recipes), "published": published, "bundles_uploaded": res.Uploaded,
+	})
 }
 
 func writeErr(w http.ResponseWriter, err error) {
