@@ -3,11 +3,11 @@ kind: lesson
 id_key: linux/teaching-atlas-tricks/lesson
 course: linux
 section: teaching-atlas-tricks
-section_title: "Chapter 9: Teaching Atlas Tricks"
+section_title: "Chapter 9: Teaching Atlas Tricks - Bash Scripting"
 section_position: 9
-title: Bash Scripting - Variables, Conditions, Loops, Functions and Exit Codes
-position: 0
-estimated_minutes: 55
+title: "Lab: Teach Atlas Its Chores"
+position: 6
+estimated_minutes: 35
 source:
   - GNU Bash Reference Manual (gnu.org/software/bash/manual)
   - bash(1), test(1), date(1) manual pages
@@ -148,127 +148,52 @@ lab:
         chmod +x /home/labuser/work/scripts/backup.sh
 ---
 
-> **Wednesday, week 2.** Rhea counts on her fingers: "You checked services by hand, made backups by hand, read logs by hand. Tom wrote on the whiteboard: *lazy admins write scripts*. Today atlas learns to do your chores." A script is just the commands you already know, saved in a file, plus a little logic.
+## Why this matters
 
-## Anatomy of a script
+Time to make atlas do your chores. You write a loop, a script with proper
+arguments and exit codes, a service watchdog and the backup script Rhea asked
+for. The checks run your scripts with different inputs, including bad ones, so
+error handling matters. Each task is checked automatically.
 
-```bash
-#!/bin/bash
-# greet.sh - say hello
-set -euo pipefail
-
-name="$1"
-echo "Hello, $name!"
-```
+## Before you start
 
 ```bash
-chmod +x greet.sh
-./greet.sh Rhea          # run it (./ because the current dir is not in PATH)
-bash greet.sh Rhea       # or hand it to bash directly
-bash -x greet.sh Rhea    # debug: print every command before running it
+cd ~/work/scripts
+cat services.txt
 ```
 
-- **Shebang** `#!/bin/bash` - line one tells the kernel which interpreter runs the file.
-- **`set -euo pipefail`** - the safety belt: `-e` stop on the first failing command, `-u` error on unset variables, `-o pipefail` a pipeline fails if *any* part fails.
+Expected output:
 
-> **Memory hook:** "**E**very **U**nsafe **O**ption, **P**lease **F**ail" - put `set -euo pipefail` at the top of every script.
-
-## Variables and quoting
-
-```bash
-shop="Orbit Coffee"          # no spaces around =
-echo "$shop"                 # always quote: "$var"
-echo "${shop}-backup"        # braces separate the name from text
-today=$(date +%Y-%m-%d)      # command substitution: capture output
-count=$((3 + 4))             # arithmetic
-echo '$shop'                 # single quotes: NO expansion, prints $shop
-port=${PORT:-8080}           # default value if PORT is unset or empty
+```
+nginx running
+brewbot stopped
+postgres running
+redis failed
+cron running
 ```
 
-Why quote? Without quotes, a value with spaces splits into several words: `rm $file` where `file="my notes.txt"` tries to delete `my` and `notes.txt`.
+## Task 1: five reports with one loop
 
-Special variables:
-
-| Variable | Meaning |
-|---|---|
-| `$0` | script name |
-| `$1`, `$2` ... | arguments |
-| `$#` | number of arguments |
-| `"$@"` | all arguments, each safely quoted |
-| `$?` | exit status of the last command |
-| `$$` | this script's PID |
-
-## Loops
-
-```bash
-for n in 1 2 3; do echo "$n"; done
-for n in {1..5}; do echo "Report $n" > "report-$n.txt"; done
-for f in *.log; do gzip "$f"; done
-for host in web1 web2 db1; do ssh "$host" uptime; done
-
-while read -r name status; do        # read a file line by line
-  echo "$name is $status"
-done < services.txt
-
-count=0
-while [ $count -lt 3 ]; do count=$((count + 1)); done
-```
+Using a `for` loop at the prompt, create `~/work/scripts/reports/` with
+`report-1.txt` to `report-5.txt`, each holding one line `Report N`.
 
 [[lab-task:1]]
 
-## Exit codes and conditions
+## Task 2: your first real script
 
-Every command returns a number: **0 = success**, anything else = failure. `if` just checks that number.
-
-```bash
-if grep -q ERROR app.log; then
-  echo "errors found"
-elif [ -f app.log ]; then
-  echo "clean log"
-else
-  echo "no log at all" >&2
-  exit 1
-fi
-
-mkdir -p backups && echo "ready"     # && runs only on success
-cd /srv/shop || exit 1               # || runs only on failure
-```
-
-Common tests inside `[ ]`:
-
-| Test | True when |
-|---|---|
-| `-f path` / `-d path` / `-e path` | file / directory / anything exists |
-| `-x path` / `-r path` / `-w path` | executable / readable / writable |
-| `-z "$s"` / `-n "$s"` | string empty / not empty |
-| `"$a" = "$b"` / `!=` | strings equal / differ |
-| `$a -eq $b`, `-ne`, `-lt`, `-gt`, `-le`, `-ge` | number comparisons |
-
-`[[ ]]` is bash's improved test: safer with empty variables, supports `&&`, `||` and pattern matching (`[[ $file == *.log ]]`).
-
-> **Memory hook:** in the shell, **zero is a hero** - 0 means success, the opposite of most programming languages.
+Write the executable script `~/work/scripts/greet.sh`. It starts with a bash
+shebang and has `set -euo pipefail` in its first lines. `greet.sh Rhea` prints
+exactly `Hello, Rhea! Welcome to Atlas.`. With no argument it prints a message
+containing `Usage` to stderr and exits with status 1.
 
 [[lab-task:2]]
 
-## case and functions
+## Task 3: a service watchdog
 
-```bash
-case "$1" in
-  start)   echo "starting" ;;
-  stop)    echo "stopping" ;;
-  *)       echo "Usage: $0 {start|stop}" >&2; exit 1 ;;
-esac
-
-log() {                               # a function
-  echo "$(date +%T) $*" >> /var/log/brewbot-tools.log
-}
-is_up() {
-  curl -sf --max-time 2 "http://localhost:$1/" >/dev/null   # its exit code is the result
-}
-if is_up 8080; then log "brewbot ok"; else log "brewbot DOWN"; fi
-```
-
-Inside a function, `$1` is the function's own first argument, and `local var=x` keeps a variable from leaking out.
+Write the executable script `~/work/scripts/check-services.sh`. It takes a file
+name; each line is `NAME STATUS`. For every service not `running` it prints
+`ALERT: NAME is STATUS`, in file order. Its exit status is the number of
+services that are not running (0 when all are fine).
 
 [[lab-task:3]]
 
@@ -281,18 +206,13 @@ ALERT: redis is failed
 exit=2
 ```
 
-## Making scripts robust
+## Task 4: the backup script Rhea asked for
 
-```bash
-tmp=$(mktemp -d)                      # safe temp directory
-trap 'rm -rf "$tmp"' EXIT             # clean up however the script ends
-[ -d "$src" ] || { echo "no such dir: $src" >&2; exit 2; }
-```
-
-- Use **full paths** in anything cron runs.
-- Send errors to **stderr** (`>&2`) and return **meaningful exit codes**.
-- Run **`shellcheck script.sh`** - it catches unquoted variables and other classic bugs.
-- Make scripts **idempotent**: running twice should be as safe as running once (`mkdir -p`, `ln -sf`).
+Write the executable script `~/work/scripts/backup.sh SRC_DIR DEST_DIR`. It
+creates `DEST_DIR` if needed and writes `DEST_DIR/NAME-YYYYMMDD.tar.gz`, where
+`NAME` is the last part of `SRC_DIR` and `YYYYMMDD` is today's date. If
+`SRC_DIR` is not an existing directory it prints an error to stderr and exits
+with status 2.
 
 [[lab-task:4]]
 
@@ -303,4 +223,14 @@ $ ./backup.sh /home/labuser/work/scripts /tmp/backups
 /tmp/backups/scripts-20261014.tar.gz
 ```
 
-> **End of day 9.** Atlas now checks its own services and backs itself up every night through cron. Rhea grins: "Good timing. Next week is Black Friday - our biggest sale of the year. You're on call for all of it." Tom's last note, stuck to the server rack: "When it breaks, stay calm and follow the method."
+## Remember
+
+- Shebang, `set -euo pipefail`, `chmod +x`.
+- Check `$#` and directories first; errors to `>&2` with a non-zero `exit`.
+- `while read -r a b; do ...; done < "$1"` processes a file.
+- `$(basename "$1")`, `$(date +%Y%m%d)` and quotes everywhere.
+
+> **End of day 9.** Atlas now checks its own services and backs itself up every
+> night. Rhea: "Before Black Friday I want you to understand what is really
+> going on inside atlas, how to find what is slow, and how to lock it down."
+> Tom's note: "Look under the hood."
