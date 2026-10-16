@@ -3,7 +3,7 @@ kind: quiz
 id_key: git/undo-recovery/quiz
 course: git
 section: undo-recovery
-section_title: Undo and Recovery
+section_title: "Undo and Recovery"
 section_position: 9
 title: "Quiz: Undo and Recovery"
 position: 7

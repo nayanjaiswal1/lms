@@ -3,7 +3,7 @@ kind: quiz
 id_key: git/connection/quiz
 course: git
 section: connection
-section_title: Connecting to the Team
+section_title: "Connecting to the Team"
 section_position: 3
 title: "Quiz: Connecting to the Team"
 position: 3

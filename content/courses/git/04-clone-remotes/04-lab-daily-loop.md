@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/clone-remotes/lesson
 course: git
 section: clone-remotes
-section_title: Clone and Remotes
+section_title: "Clone, Fetch, Pull and Push"
 section_position: 4
 title: "Lab: Clone, Track, Fetch, Pull and Push"
 position: 3

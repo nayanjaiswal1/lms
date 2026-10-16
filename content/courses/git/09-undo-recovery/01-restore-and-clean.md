@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/undo-recovery/restore-clean
 course: git
 section: undo-recovery
-section_title: Undo and Recovery
+section_title: "Undo and Recovery"
 section_position: 9
 title: "restore and clean: Undo Uncommitted Changes"
 position: 0

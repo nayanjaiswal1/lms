@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/foundation/why-git
 course: git
 section: foundation
-section_title: Foundation - Why Git
+section_title: "Big Picture: Why Git"
 section_position: 1
 title: "Lab: Rescue a File, Find the First Commit, Branch Safely"
 position: 2

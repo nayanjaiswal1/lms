@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/rebase/interactive
 course: git
 section: rebase
-section_title: Rebase and Rewriting History
+section_title: "Rebase and Rewriting History"
 section_position: 8
 title: "Interactive Rebase: Squash, Reorder, Reword, Drop"
 position: 2

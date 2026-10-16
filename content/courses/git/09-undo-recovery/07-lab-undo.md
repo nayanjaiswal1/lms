@@ -3,8 +3,8 @@ kind: lesson
 id_key: git/undo-recovery/lesson
 course: git
 section: undo-recovery
-section_title: Undo and Recovery
-section_position: 8
+section_title: "Undo and Recovery"
+section_position: 9
 title: "Lab: Undo Anything"
 position: 6
 estimated_minutes: 50

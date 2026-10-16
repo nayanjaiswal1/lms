@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/rebase/rebase-vs-merge
 course: git
 section: rebase
-section_title: Rebase and Rewriting History
+section_title: "Rebase and Rewriting History"
 section_position: 8
 title: "Rebase vs Merge: When to Use Which"
 position: 1

@@ -3,7 +3,7 @@ kind: quiz
 id_key: git/first-commits/quiz
 course: git
 section: first-commits
-section_title: Setup and First Commits
+section_title: "Setup and First Commits"
 section_position: 2
 title: "Quiz: Setup and First Commits"
 position: 6

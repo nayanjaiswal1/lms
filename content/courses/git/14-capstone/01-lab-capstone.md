@@ -3,8 +3,8 @@ kind: lesson
 id_key: git/capstone/lesson
 course: git
 section: capstone
-section_title: Capstone - Team Workflow
-section_position: 10
+section_title: "Capstone: Team Workflow"
+section_position: 14
 title: "Capstone Lab: Feature Branch to Release"
 position: 0
 estimated_minutes: 60
@@ -221,15 +221,18 @@ lab:
         git push
 ---
 
-> **Your first real release.** No hints about which command to use this time - just the situation, like on the job. Feature branch, review, release, and a bad commit on main to fix.
+## Why this matters
 
-## The workflow we are about to run
+Your first real release at Brightside. No hints about which command to use:
+just the situation, like on the job. Build a feature on a branch, publish it,
+catch up with a teammate's change, clean up, merge, tag, and fix a bad commit
+that reaches `main`. The server is `/home/labuser/srv/git/storefront.git`; the
+helper `~/bin/teammate` plays Maya.
 
-A typical team loop: branch, commit, publish, rebase on the latest main, clean up, merge, tag,
-and (when something slips through) revert. Keep this picture in mind:
+## The workflow you are about to run
 
 ```
- origin/main  A---B---C---T--------M---R(tag v1.1.0)---X---X'(revert of X)
+ origin/main  A---B---C---T--------M---(tag v1.1.0)---X---X'(revert of X)
                           \       /
  feature branch            D'----+     (D' = squashed + rebased copy of D1 D2 D3)
 
@@ -247,30 +250,24 @@ and (when something slips through) revert. Keep this picture in mind:
       {"id":"c","text":"To rename commits"},
       {"id":"d","text":"To delete main"}],
     "correct": "a",
-    "explanation": "Conflicts are resolved by the author, not at merge time on the shared branch." }
+    "explanation": "Conflicts are resolved by the author, not at merge time on the shared branch. Merge works fine after fetch, rebase is not for renaming, and main is never deleted." }
 ] }
 ```
 
-## Build and publish the feature
+## Stage 1: build and publish
 
-```
- BEFORE                               AFTER (3 commits + pushed)
- main: A---B---C  (origin/main)       main: A---B---C
-                                                    \
-                                      feature: D1---D2---D3  (also origin/feature/discount-banner)
-```
-
-```bash
-cd ~/work && git clone /home/labuser/srv/git/storefront.git storefront && cd storefront
-git switch -c feature/discount-banner
-# three commits ...
-git push -u origin feature/discount-banner
-```
+Clone the repo into `~/work/storefront` and create `feature/discount-banner`
+with three commits: add `banner.txt`, a "WIP" tweak to it, and change the
+`GREETING` line in `app.sh` to `GREETING="Welcome to the store"`.
 
 [[lab-task:1]]
+
+Publish the branch with upstream tracking (on a real host this is where you open
+the pull request).
+
 [[lab-task:2]]
 
-What you should see from `git log --oneline --graph --all`:
+Expected `git log --oneline --graph --all`:
 
 ```
 * 8d1f6c2 (HEAD -> feature/discount-banner, origin/feature/discount-banner) Update greeting
@@ -289,41 +286,29 @@ What you should see from `git log --oneline --graph --all`:
       {"id":"c","text":"A git command that downloads code"},
       {"id":"d","text":"A tag"}],
     "correct": "a",
-    "explanation": "Git only knows branches; the PR UI is a feature of the hosting service." }
+    "explanation": "Git only knows branches; the PR UI is a feature of the hosting service. It is not a commit type, not git pull, and not a tag." }
 ] }
 ```
 
-## main moves: rebase and resolve
+## Stage 2: main moves
+
+Run `~/bin/teammate land-greeting` and fetch.
+
+[[lab-task:3]]
+
+Rebase your branch onto `origin/main`. The greeting commit conflicts: resolve
+`app.sh` to `GREETING="Hello, welcome to the store"`, keep the `round` line,
+and continue.
 
 ```
- after teammate-land: origin/main  A---B---C---T
-                      feature                \
-                                              (still based on C)  D1---D2---D3
+ after teammate:  origin/main  A---B---C---T
+                  feature                \
+                                          (still based on C)  D1---D2---D3
 
  git rebase origin/main:   A---B---C---T---D1'---D2'---D3'   (conflict on D3: GREETING line)
 ```
 
-```bash
-teammate land-greeting
-git fetch
-git switch feature/discount-banner
-git rebase origin/main        # CONFLICT in app.sh
-# fix app.sh: GREETING="Hello, welcome to the store"
-git add app.sh && GIT_EDITOR=true git rebase --continue
-```
-
-[[lab-task:3]]
 [[lab-task:4]]
-
-What you should see:
-
-```
-Auto-merging app.sh
-CONFLICT (content): Merge conflict in app.sh
-error: could not apply 8d1f6c2... Update greeting
-...
-Successfully rebased and updated refs/heads/feature/discount-banner.
-```
 
 ```knowledge-check
 { "questions": [
@@ -335,27 +320,20 @@ Successfully rebased and updated refs/heads/feature/discount-banner.
       {"id":"c","text":"The first commit, always"},
       {"id":"d","text":"None - rebase never conflicts"}],
     "correct": "a",
-    "explanation": "Only the commit touching the line main also changed conflicts; the others replay cleanly." }
+    "explanation": "Only the commit touching the line main also changed conflicts; the others replay cleanly. New files do not conflict, the first commit is not special, and rebases can conflict." }
 ] }
 ```
 
-## Tidy up: squash and update the remote
+## Stage 3: tidy up and update the PR
 
-```
- BEFORE                                      AFTER
- main---T---D1'---D2'---D3'                  main---T---D'
- remote still has old D1 D2 D3               git push --force-with-lease -> remote has D'
-```
-
-```bash
-git rebase -i origin/main      # 2nd, 3rd line -> fixup; reword to "Add discount banner"
-git push --force-with-lease origin feature/discount-banner
-```
+Squash the three commits into one named `Add discount banner`, then update the
+remote branch safely.
 
 [[lab-task:5]]
+
 [[lab-task:6]]
 
-What you should see:
+Expected:
 
 ```
 * 5be0a93 (HEAD -> feature/discount-banner, origin/feature/discount-banner) Add discount banner
@@ -372,78 +350,39 @@ What you should see:
       {"id":"c","text":"git push --delete"},
       {"id":"d","text":"git pull"}],
     "correct": "a",
-    "explanation": "History was rewritten, so a plain push is rejected. The lease keeps it safe." }
+    "explanation": "History was rewritten, so a plain push is rejected. The lease keeps it safe. --delete removes the branch and pull downloads instead of uploading." }
 ] }
 ```
 
-## Merge, tag, release
+## Stage 4: merge and release
 
-```
- BEFORE merge                 AFTER git merge --no-ff + tag
- main: A---B---C---T          A---B---C---T-----M   <- main, tag v1.1.0 (annotated)
-                \                          \   /
- feature:        D'                          D'
-```
-
-```bash
-git switch main && git pull
-git merge --no-ff feature/discount-banner -m "Merge feature/discount-banner"
-git push
-git tag -a v1.1.0 -m "Release 1.1.0"
-git push origin v1.1.0
-```
+Update local `main`, merge the branch with `--no-ff` and the message
+`Merge feature/discount-banner`, push, then create and push the annotated tag
+`v1.1.0` (`Release 1.1.0`).
 
 [[lab-task:7]]
+
 [[lab-task:8]]
 
-What you should see from `git ls-remote --tags origin`:
+Expected `git ls-remote --tags origin`:
 
 ```
 a14c7be...	refs/tags/v1.1.0
 5be0a93...	refs/tags/v1.1.0^{}
 ```
 
-```knowledge-check
-{ "questions": [
-  { "id": "git-cap-tag-q1", "type": "mcq",
-    "prompt": "Does a plain git push publish tags?",
-    "options": [
-      {"id":"a","text":"No - push them explicitly (git push origin <tag> or --tags)"},
-      {"id":"b","text":"Yes, always"},
-      {"id":"c","text":"Only annotated tags"},
-      {"id":"d","text":"Only on the main branch"}],
-    "correct": "a",
-    "explanation": "Tags are references of their own and must be pushed on request." }
-] }
-```
+## Stage 5: a bad commit reaches main
 
-## A bad commit reaches main
-
-Never reset or force-push shared `main`. Revert:
+Run `~/bin/teammate land-bad`. Pull, confirm `sh check.sh` fails, undo the bad
+commit **without rewriting history**, push, and confirm `sh check.sh` prints
+`OK`.
 
 ```
  BEFORE revert                     AFTER git revert X; git push
  ...---M---X  <- main (broken)     ...---M---X---X'  <- main (fixed, history intact)
 ```
 
-```bash
-teammate land-bad
-git pull
-sh check.sh                              # FAIL
-git revert <hash of "Switch to experimental rounding">
-git push
-sh check.sh                              # OK
-```
-
 [[lab-task:9]]
-
-What you should see:
-
-```
-[main 6d2e8f1] Revert "Switch to experimental rounding"
- 1 file changed, 1 insertion(+), 1 deletion(-)
-OK
-```
 
 ```knowledge-check
 { "questions": [
@@ -455,8 +394,11 @@ OK
       {"id":"c","text":"Reset does not work on main"},
       {"id":"d","text":"There is no difference"}],
     "correct": "a",
-    "explanation": "Shared history is append-only; a revert is an ordinary, reviewable commit." }
+    "explanation": "Shared history is append-only; a revert is an ordinary, reviewable commit. Speed is not the reason, reset works on any branch, and the difference is exactly who gets broken." }
 ] }
 ```
 
-> **You made it.** Keep the cheat sheet open next to your terminal for the first few weeks.
+## You made it
+
+You ran the full loop: branch, publish, rebase, resolve, squash, lease-push,
+merge, tag, revert. Next: the course review and the final exam.

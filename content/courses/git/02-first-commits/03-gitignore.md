@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/first-commits/gitignore
 course: git
 section: first-commits
-section_title: Setup and First Commits
+section_title: "Setup and First Commits"
 section_position: 2
 title: "Ignoring Files with .gitignore"
 position: 2

@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/undo-recovery/reflog
 course: git
 section: undo-recovery
-section_title: Undo and Recovery
+section_title: "Undo and Recovery"
 section_position: 9
 title: "reflog: The Safety Net Under Everything"
 position: 2

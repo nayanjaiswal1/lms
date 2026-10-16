@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/connection/remotes
 course: git
 section: connection
-section_title: Connecting to the Team
+section_title: "Connecting to the Team"
 section_position: 3
 title: "Remotes: Names for Other Copies"
 position: 0

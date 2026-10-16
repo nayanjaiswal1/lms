@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/branch-merge/branches
 course: git
 section: branch-merge
-section_title: Branching and Merging
+section_title: "Branching and Merging"
 section_position: 5
 title: "Creating, Switching and Deleting Branches"
 position: 0

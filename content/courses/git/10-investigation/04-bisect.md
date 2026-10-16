@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/investigation/bisect
 course: git
 section: investigation
-section_title: Investigating History
+section_title: "Investigating History"
 section_position: 10
 title: "bisect: Binary Search for the Commit That Broke It"
 position: 3

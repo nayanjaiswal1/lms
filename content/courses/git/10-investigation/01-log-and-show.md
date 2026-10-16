@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/investigation/log-show
 course: git
 section: investigation
-section_title: Investigating History
+section_title: "Investigating History"
 section_position: 10
 title: "Reading History with log and show"
 position: 0

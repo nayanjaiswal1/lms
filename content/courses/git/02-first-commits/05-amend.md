@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/first-commits/amend
 course: git
 section: first-commits
-section_title: Setup and First Commits
+section_title: "Setup and First Commits"
 section_position: 2
 title: "Fixing the Last Commit with --amend"
 position: 4

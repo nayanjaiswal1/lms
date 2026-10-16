@@ -3,7 +3,7 @@ kind: quiz
 id_key: git/branch-merge/quiz
 course: git
 section: branch-merge
-section_title: Branching and Merging
+section_title: "Branching and Merging"
 section_position: 5
 title: "Quiz: Branching and Merging"
 position: 3

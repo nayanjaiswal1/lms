@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/merge-conflicts/resolving
 course: git
 section: merge-conflicts
-section_title: Merge Conflicts
+section_title: "Merge Conflicts"
 section_position: 6
 title: "Resolving, Completing and Aborting a Merge"
 position: 1

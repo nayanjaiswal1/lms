@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/undo-recovery/revert
 course: git
 section: undo-recovery
-section_title: Undo and Recovery
+section_title: "Undo and Recovery"
 section_position: 9
 title: "revert: Undo Safely on Shared History"
 position: 3

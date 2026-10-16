@@ -3,8 +3,8 @@ kind: lesson
 id_key: git/investigation/lesson
 course: git
 section: investigation
-section_title: Investigating History
-section_position: 9
+section_title: "Investigating History"
+section_position: 10
 title: "Lab: Detective Work in a Real History"
 position: 4
 estimated_minutes: 40

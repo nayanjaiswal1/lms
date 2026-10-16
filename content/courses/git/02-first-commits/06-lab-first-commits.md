@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/first-commits/lesson
 course: git
 section: first-commits
-section_title: Setup and First Commits
+section_title: "Setup and First Commits"
 section_position: 2
 title: "Lab: Your First Clean History"
 position: 5

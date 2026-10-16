@@ -3,7 +3,7 @@ kind: quiz
 id_key: git/merge-conflicts/quiz
 course: git
 section: merge-conflicts
-section_title: Merge Conflicts
+section_title: "Merge Conflicts"
 section_position: 6
 title: "Quiz: Merge Conflicts"
 position: 4

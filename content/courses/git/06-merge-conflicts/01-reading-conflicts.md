@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/merge-conflicts/reading
 course: git
 section: merge-conflicts
-section_title: Merge Conflicts
+section_title: "Merge Conflicts"
 section_position: 6
 title: "Why Conflicts Happen and How to Read Them"
 position: 0

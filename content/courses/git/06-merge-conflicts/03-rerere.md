@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/merge-conflicts/rerere
 course: git
 section: merge-conflicts
-section_title: Merge Conflicts
+section_title: "Merge Conflicts"
 section_position: 6
 title: "rerere: Let Git Remember Your Resolutions"
 position: 2

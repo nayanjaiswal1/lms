@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/branch-merge/lesson
 course: git
 section: branch-merge
-section_title: Branching and Merging
+section_title: "Branching and Merging"
 section_position: 5
 title: "Lab: Branch, Fast-Forward and Merge"
 position: 2

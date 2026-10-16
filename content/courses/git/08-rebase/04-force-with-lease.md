@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/rebase/force-with-lease
 course: git
 section: rebase
-section_title: Rebase and Rewriting History
+section_title: "Rebase and Rewriting History"
 section_position: 8
 title: "Pushing Rewritten History Safely: --force-with-lease"
 position: 3

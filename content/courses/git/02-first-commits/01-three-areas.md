@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/first-commits/three-areas
 course: git
 section: first-commits
-section_title: Setup and First Commits
+section_title: "Setup and First Commits"
 section_position: 2
 title: "The Three Areas: Working Tree, Index and Repository"
 position: 0

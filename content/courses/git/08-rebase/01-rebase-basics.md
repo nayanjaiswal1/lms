@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/rebase/basics
 course: git
 section: rebase
-section_title: Rebase and Rewriting History
+section_title: "Rebase and Rewriting History"
 section_position: 8
 title: "Rebase: Replay Your Commits on a New Base"
 position: 0

@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/undo-recovery/reset
 course: git
 section: undo-recovery
-section_title: Undo and Recovery
+section_title: "Undo and Recovery"
 section_position: 9
 title: "reset: --soft, --mixed and --hard"
 position: 1

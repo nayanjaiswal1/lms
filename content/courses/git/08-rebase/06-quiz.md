@@ -3,7 +3,7 @@ kind: quiz
 id_key: git/rebase/quiz
 course: git
 section: rebase
-section_title: Rebase and Rewriting History
+section_title: "Rebase and Rewriting History"
 section_position: 8
 title: "Quiz: Rebase and Rewriting History"
 position: 5

@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/merge-conflicts/lesson
 course: git
 section: merge-conflicts
-section_title: Merge Conflicts
+section_title: "Merge Conflicts"
 section_position: 6
 title: "Lab: Resolve, Abort and Remember Conflicts"
 position: 3

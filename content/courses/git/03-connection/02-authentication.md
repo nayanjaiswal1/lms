@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/connection/authentication
 course: git
 section: connection
-section_title: Connecting to the Team
+section_title: "Connecting to the Team"
 section_position: 3
 title: "Proving Who You Are: SSH Keys and Tokens"
 position: 1

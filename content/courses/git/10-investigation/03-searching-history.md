@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/investigation/searching
 course: git
 section: investigation
-section_title: Investigating History
+section_title: "Investigating History"
 section_position: 10
 title: "Searching History: log -S, -G, -L and --follow"
 position: 2

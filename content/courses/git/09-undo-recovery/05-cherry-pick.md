@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/undo-recovery/cherry-pick
 course: git
 section: undo-recovery
-section_title: Undo and Recovery
+section_title: "Undo and Recovery"
 section_position: 9
 title: "cherry-pick: Copy One Commit to Another Branch"
 position: 4

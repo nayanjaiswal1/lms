@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/first-commits/identity-commit
 course: git
 section: first-commits
-section_title: Setup and First Commits
+section_title: "Setup and First Commits"
 section_position: 2
 title: "Identity, Config and Your First Commit"
 position: 1

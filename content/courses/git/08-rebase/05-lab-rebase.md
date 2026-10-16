@@ -3,8 +3,8 @@ kind: lesson
 id_key: git/rebase/lesson
 course: git
 section: rebase
-section_title: Rebase
-section_position: 7
+section_title: "Rebase and Rewriting History"
+section_position: 8
 title: "Lab: Rebase, Squash, Reword and Push Safely"
 position: 4
 estimated_minutes: 45

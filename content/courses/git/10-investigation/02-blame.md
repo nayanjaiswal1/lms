@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/investigation/blame
 course: git
 section: investigation
-section_title: Investigating History
+section_title: "Investigating History"
 section_position: 10
 title: "blame: Who Last Changed This Line, Really?"
 position: 1

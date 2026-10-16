@@ -3,7 +3,7 @@ kind: lesson
 id_key: git/branch-merge/merge-types
 course: git
 section: branch-merge
-section_title: Branching and Merging
+section_title: "Branching and Merging"
 section_position: 5
 title: "Fast-Forward, Merge Commits, --no-ff and Squash Merges"
 position: 1
