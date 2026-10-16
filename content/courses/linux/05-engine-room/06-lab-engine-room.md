@@ -3,11 +3,11 @@ kind: lesson
 id_key: linux/engine-room/lesson
 course: linux
 section: engine-room
-section_title: "Chapter 5: The Engine Room"
+section_title: "Chapter 5: The Engine Room - Processes"
 section_position: 5
-title: Processes, Jobs, Signals and Resources
-position: 0
-estimated_minutes: 45
+title: "Lab: Run the Engine Room"
+position: 5
+estimated_minutes: 20
 source:
   - ps(1), top(1), kill(1), signal(7), nice(1), renice(1), proc(5), free(1) manual pages
   - GNU Bash Reference Manual, "Job Control"
@@ -84,95 +84,45 @@ lab:
         echo 15 > /home/labuser/work/answers/signal.txt
 ---
 
-> **Friday morning.** Atlas feels slow. Rhea: "A server is never doing just one thing - right now it's running hundreds of programs. Find out who is using the engine." Welcome to the engine room.
+## Why this matters
 
-## What a process is
+A forgotten backup job is hogging atlas and an old worker refuses to leave.
+In this lab you find PID 1, start jobs that survive logout, change priorities and
+stop a process politely. Each task is checked automatically.
 
-A **program** is a file on disk (`/usr/bin/sleep`). A **process** is a running copy of it, with:
-
-- a **PID** (process ID) and a **PPID** (its parent's PID)
-- an owner (the user it runs as)
-- memory, open files, a current directory, environment variables
-- a **state**: `R` running, `S` sleeping (waiting), `D` uninterruptible (usually waiting on disk), `T` stopped, `Z` zombie
-
-Every process is started by another one, forming a family tree. At the top is **PID 1** - on a real server that is **systemd**, the ancestor of everything.
-
-```
-systemd (1)
- |-- sshd (812)
- |    `-- sshd (2210) -- bash (2211) -- ps (2300)    <- you
- |-- nginx (901) --+-- nginx worker (902)
- |                 `-- nginx worker (903)
- `-- brewbot (1040)
-```
+## Before you start
 
 ```bash
-ps                  # processes in this terminal
-ps aux              # every process: USER PID %CPU %MEM ... COMMAND
-ps -ef --forest     # tree view
-pstree -p           # family tree with PIDs (if installed)
-pgrep -a nginx      # find processes by name
-pidof nginx         # just the PIDs
+ps aux
+echo $$
 ```
 
-> **Memory hook:** the program is the **recipe**, the process is the **coffee being made** right now. One recipe, many cups - each with its own order number (PID).
+What this does: lists every process and prints your shell's PID, so you know
+which line is you.
+
+## Task 1: who is process number one?
+
+Using `/proc`, save the name of the process with PID 1 into
+`~/work/answers/pid1.txt`.
 
 [[lab-task:1]]
 
-## Watching resources
+## Task 2: a worker that survives logout
 
-```bash
-top                 # live view: q quit, P sort by CPU, M by memory, k kill
-htop                # friendlier top, if installed
-uptime              # load average over 1, 5 and 15 minutes
-free -h             # memory: total, used, free, available
-vmstat 1            # CPU, memory, IO every second
-nproc               # number of CPUs
-```
-
-Reading `uptime`:
-
-```
- 10:42:01 up 12 days,  3 users,  load average: 3.90, 2.10, 1.05
-                                                1 min  5 min  15 min
-```
-
-The load average is the number of processes running or waiting. Compare it with `nproc`: **load 4 on 4 CPUs = fully busy**; load 8 on 4 CPUs = a queue is forming. Rising left-to-right numbers (1.05 -> 3.90) mean it is getting worse.
-
-In `free -h`, look at **available**, not free - Linux uses spare memory as disk cache and gives it back when needed. "Free memory is wasted memory."
-
-## Foreground, background and jobs
-
-```bash
-sleep 300           # foreground: the shell waits
-Ctrl+Z              # suspend it (state T)
-bg                  # resume it in the background
-jobs                # list this shell's jobs: [1]+ Running sleep 300 &
-fg %1               # bring job 1 back to the foreground
-sleep 300 &         # start directly in the background
-nohup ./backup.sh &         # survive terminal close (ignores SIGHUP)
-```
-
-For long work on remote servers use `tmux` or `screen`: they keep a whole session alive when your SSH connection drops.
+Start `sleep 3001` in the background so it keeps running even if your terminal
+is closed.
 
 [[lab-task:2]]
 
-## Priorities: nice and renice
+## Task 3: run a low-priority job
 
-```
-  -20 ......... 0 ......... 19
-  greedy     default     polite
-```
-
-```bash
-nice -n 10 ./backup.sh          # start with lower priority
-renice -n 5 -p 1234             # change a running process
-sudo renice -n -5 -p 1234       # only root may raise priority
-```
-
-> **Memory hook:** the **nicer** you are, the **longer** you wait in the queue. Root is the only one allowed to cut in line (negative nice).
+Start `sleep 3002` in the background with a niceness of 15.
 
 [[lab-task:3]]
+
+## Task 4: change priority on the fly
+
+Without restarting it, change the niceness of the running `sleep 3001` to 5.
 
 [[lab-task:4]]
 
@@ -185,47 +135,20 @@ $ ps -o pid,ni,cmd -C sleep
   418  15 sleep 3002
 ```
 
-## Signals: talking to processes
+## Task 5: stop a process politely
 
-A signal is a tiny message from the kernel or another process.
-
-| Signal | Number | Meaning | Can be caught? |
-|---|---|---|---|
-| SIGHUP | 1 | terminal closed / "reload your config" | yes |
-| SIGINT | 2 | Ctrl+C | yes |
-| SIGKILL | 9 | die now | **no** |
-| SIGTERM | 15 | please exit cleanly (default for `kill`) | yes |
-| SIGSTOP | 19 | pause (Ctrl+Z sends SIGTSTP, 20) | no |
-| SIGCONT | 18 | resume | yes |
-
-```bash
-kill 1234           # SIGTERM - polite
-kill -9 1234        # SIGKILL - last resort, no cleanup
-kill -HUP 1234      # many daemons (nginx) reload config on HUP
-pkill -f brewbot    # by name / command line
-killall nginx       # every process with that name
-kill -l             # list all signals
-```
-
-> **Memory hook:** **15 asks, 9 insists.** "Fifteen is a friend, nine is the end." Always send 15, wait a few seconds, and use 9 only if the process ignores you - SIGKILL can leave half-written files and stale lock files behind.
-
-**Zombies** (`Z`) are processes that have exited but whose parent never collected their exit status. They use no CPU or memory, only a PID slot. You cannot kill a zombie - it is already dead. Fix or restart the **parent**.
+Stop `sleep 3002` with the polite termination signal (not the forceful one),
+then save the number of the signal you sent into `answers/signal.txt`.
 
 [[lab-task:5]]
 
-## /proc: the live order screen
+## Remember
 
-Every process is a directory in `/proc`:
+- `/proc/PID/comm` names a process; `pgrep -a` finds one.
+- `nohup CMD &` survives logout; `nice -n` / `renice -n` set politeness.
+- 15 asks, 9 insists.
 
-```bash
-ls /proc/1234/
-cat /proc/1234/cmdline | tr '\0' ' '   # full command line
-cat /proc/1234/status                  # state, memory, threads
-ls -l /proc/1234/fd                    # open files
-ls -l /proc/1234/cwd                   # current directory
-cat /proc/loadavg /proc/meminfo        # system-wide numbers
-```
-
-Tools like `ps`, `top` and `free` are just reading these files for you.
-
-> **End of day 5.** You found a forgotten backup job hogging the CPU, reniced it, and stopped an old worker politely. Rhea nods: "Good. Tonight you see who keeps atlas running while we sleep." Tom's note on the engine room door: "Services, logs, and the clock."
+> **End of day 5.** You found a forgotten backup job hogging the CPU, reniced
+> it, and stopped an old worker politely. Rhea nods: "Good. Tonight you see who
+> keeps atlas running while we sleep." Tom's note on the engine room door:
+> "Services, logs, and the clock."

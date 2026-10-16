@@ -3,11 +3,11 @@ kind: lesson
 id_key: linux/keys-and-locks/lesson
 course: linux
 section: keys-and-locks
-section_title: "Chapter 4: Keys and Locks"
+section_title: "Chapter 4: Keys and Locks - Users and Permissions"
 section_position: 4
-title: Users, Groups, Permissions and sudo
-position: 0
-estimated_minutes: 50
+title: "Lab: Lock Up Atlas"
+position: 9
+estimated_minutes: 25
 source:
   - chmod(1), chown(1), umask(2), passwd(5), group(5), shadow(5), sudoers(5) manual pages
   - useradd(8), usermod(8), setfacl(1) manual pages
@@ -89,170 +89,77 @@ lab:
         echo 'umask 027' >> ~/.bashrc
 ---
 
-> **Thursday.** Rhea is upset: "Someone read our database password last night. Tom's old deploy script was world-readable." Tom's note said *not everyone should have every key*. Today you learn who can open what on atlas.
+## Why this matters
 
-## Users and groups
+Last night someone read the database password because a script was
+world-readable. In this lab you read the staff register, lock the deploy script
+and the secrets, build a shared drop box, and make new files private by default.
+Each task is checked automatically.
 
-Every process runs as a **user**, and every file belongs to a **user** and a **group**. Linux checks those two facts on every single file access.
-
-```bash
-whoami              # your user name
-id                  # uid=1001(labuser) gid=1001(labuser) groups=...
-groups              # just the groups
-who / w             # who is logged in right now
-```
-
-The staff register lives in three text files:
-
-```
-/etc/passwd   labuser:x:1001:1001:Lab User:/home/labuser:/bin/bash
-               name  pw UID  GID  comment  home          shell
-/etc/shadow   labuser:$y$j9T$...:19800:0:99999:7:::     (password hashes, root only)
-/etc/group    baristas:x:2001:labuser,rhea              (group:pw:GID:members)
-```
-
-UID **0** is **root** - the superuser who bypasses permission checks. UIDs below 1000 are usually system accounts for services (`www-data`, `postgres`), which often have the shell `/usr/sbin/nologin` so nobody can log in as them.
-
-Managing users (needs root):
+## Before you start
 
 ```bash
-sudo useradd -m -s /bin/bash -G baristas sam   # create user with home + group
-sudo passwd sam                                # set password
-sudo usermod -aG docker sam                    # ADD to a group (-a matters!)
-sudo groupadd roasters                         # new group
-sudo userdel -r sam                            # delete user and home
-sudo chage -l sam                              # password ageing info
+id
+umask
+ls -ld ~ ~/work /tmp
 ```
 
-> **Memory hook:** `usermod -aG` - **a**ppend to **G**roups. Forget the `-a` and the user is *removed* from every other group. "**A**lways **a**ppend."
+What this does: shows who you are, your current umask, and three directory
+modes to compare with later.
+
+## Task 1: read the staff register
+
+Using `/etc/passwd`, save labuser's numeric UID and login shell, separated by
+one space, into `~/work/answers/passwd-check.txt` (for example `1234 /bin/sh`).
 
 [[lab-task:1]]
 
-## Reading permissions
+## Task 2: lock the deploy script
 
-```
- -rwxr-x---  1  rhea  baristas  512  Oct 14  deploy.sh
- |\_/\_/\_/     |     |
- | |  |  |      owner group
- | |  |  others: ---  nothing
- | |  group:     r-x  read + execute
- | owner:        rwx  read + write + execute
- type: - file, d directory, l symlink
-```
-
-| | On a file | On a directory |
-|---|---|---|
-| **r** | read the content | list the names inside (`ls`) |
-| **w** | change the content | create, delete, rename entries |
-| **x** | run it as a program | enter it (`cd`) and reach files inside |
-
-Linux checks **one** class only: if you are the owner, owner bits apply; else if you are in the group, group bits; else others.
-
-## chmod: changing the locks
-
-Numbers: each class is a sum of **r=4, w=2, x=1**.
-
-```
- 7 = rwx   6 = rw-   5 = r-x   4 = r--   0 = ---
-
- chmod 755 script.sh     rwxr-xr-x   programs, directories
- chmod 644 notes.txt     rw-r--r--   normal files
- chmod 600 secret.key    rw-------   private keys, passwords
- chmod 700 ~/.ssh        rwx------   private directories
-```
-
-> **Memory hook:** **R**eal **W**izards e**X**ist: **4 - 2 - 1**. Add the wizards you want: read+write = 4+2 = 6.
-
-Symbols are handy for small changes:
-
-```bash
-chmod u+x deploy.sh          # owner: add execute
-chmod go-rwx secrets.env     # group & others: remove everything
-chmod g=r deploy.sh          # group: exactly read
-chmod -R g+w shared/         # recursive
-```
-
-`u` user/owner, `g` group, `o` others, `a` all.
+Create `~/work/keys/deploy.sh` (any content). The owner may read, write and
+execute; the group may only read; others get nothing.
 
 [[lab-task:2]]
+
+## Task 3: hide the secrets
+
+Create `keys/secrets.env` containing the line `DB_PASSWORD=espresso`, readable
+and writable by its owner only.
 
 [[lab-task:3]]
 
 What you should see:
 
 ```
-$ ls -l keys
+$ ls -l ~/work/keys
 -rwxr----- 1 labuser labuser 15 ... deploy.sh
 -rw------- 1 labuser labuser 21 ... secrets.env
 ```
 
-## chown and chgrp: changing the owner
+## Task 4: a shared drop box
 
-```bash
-sudo chown rhea deploy.sh             # new owner
-sudo chown rhea:baristas deploy.sh    # owner and group
-sudo chown -R www-data:www-data /srv/shop   # whole tree, e.g. for the web server
-chgrp baristas notes.txt              # group only (you must be in that group)
-```
-
-Only root can give a file away to another user - otherwise you could dodge disk quotas by "gifting" files.
-
-## Special bits: SUID, SGID, sticky
-
-| Bit | Value | On a file | On a directory | Looks like |
-|---|---|---|---|---|
-| SUID | 4000 | runs as the file's **owner** | - | `-rwsr-xr-x` |
-| SGID | 2000 | runs as the file's group | new files inherit the dir's group | `drwxrwsr-x` |
-| Sticky | 1000 | - | only the owner can delete their files | `drwxrwxrwt` |
-
-`/usr/bin/passwd` is SUID root - that is how a normal user can update the root-only `/etc/shadow`. SUID binaries are a favourite attack target: `find / -perm -4000 2>/dev/null` lists them all.
-
-> **Memory hook:** the **sticky** bit is **chewing gum on a locker** - anyone can put things in, but only you can take yours out. `/tmp` is the classic sticky directory.
+Create `keys/drop`, a directory everyone can write into, where users can only
+delete their own files: the same behaviour as `/tmp`.
 
 [[lab-task:4]]
 
-## umask: default permissions
+## Task 5: safer defaults for new files
 
-New files start at `666`, new directories at `777`, then the **umask** removes bits:
-
-```
-  files:  666 - 022 = 644      directories: 777 - 022 = 755    (common default)
-  files:  666 - 027 = 640      directories: 777 - 027 = 750    (safer)
-  files:  666 - 077 = 600      directories: 777 - 077 = 700    (private)
-```
-
-```bash
-umask           # show current (0022)
-umask 027       # set for this shell; put it in ~/.bashrc to keep it
-```
+Set your umask to `027` permanently in `~/.bashrc`, so new files are never
+readable by others.
 
 [[lab-task:5]]
 
-## sudo: borrowing root's keys
+Check yourself: open a new shell with `bash`, run `touch t && ls -l t`, and you
+should see `-rw-r-----`.
 
-Never log in as root for daily work. Use `sudo` for the one command that needs it:
+## Remember
 
-```bash
-sudo apt update              # run one command as root
-sudo -i                      # root shell (be careful)
-sudo -u postgres psql        # run as another user
-sudo -l                      # what am I allowed to run?
-sudo visudo                  # edit /etc/sudoers SAFELY (syntax-checked)
-```
+- `/etc/passwd`: name:x:UID:GID:comment:home:shell.
+- 740 script, 600 secrets, 1777 shared drop box.
+- `umask 027` in `~/.bashrc` makes new files 640.
 
-Who may use sudo is decided by `/etc/sudoers` and `/etc/sudoers.d/`. On Ubuntu, members of the `sudo` group get full access (`wheel` on RHEL/Fedora). Every sudo use is logged (`/var/log/auth.log`) - that is how Rhea will find out who read the password.
-
-```
-# /etc/sudoers.d/baristas
-%baristas ALL=(ALL) /usr/bin/systemctl restart brewbot
-#  who    host  as-whom   which command (only this one!)
-```
-
-**ACLs** go beyond owner/group/others when one extra person needs access:
-
-```bash
-setfacl -m u:sam:r secrets.env    # give sam read, nobody else changes
-getfacl secrets.env               # a + at the end of ls -l means an ACL exists
-```
-
-> **End of day 4.** The deploy script is locked, secrets are 600, and new files are private by default. Rhea checks `/var/log/auth.log` and finds the culprit: a forgotten test account. Tom's next note was taped under a desk: "Atlas is never doing just one thing."
+> **End of day 4.** The deploy script is locked, secrets are 600, and new files
+> are private by default. Rhea checks the sudo log and finds the culprit: a
+> forgotten test account. Tom's next note was taped under a desk: "Atlas is
+> never doing just one thing."
