@@ -153,6 +153,15 @@ func (k *KubernetesContainerService) ExecSetup(ctx context.Context, containerID,
 	return k.execWithStdin(ctx, containerID, script, nil, timeoutSec)
 }
 
+// pullPolicy is Always when images come from a registry (the registry is the
+// source of truth for a rebuilt tag) and the Kubernetes default otherwise.
+func (k *KubernetesContainerService) pullPolicy() corev1.PullPolicy {
+	if k.registry != "" {
+		return corev1.PullAlways
+	}
+	return ""
+}
+
 // qualifyImage prepends the configured registry to a bare image name for the
 // Pod spec. Must run AFTER Classify/profile lookup — profiles are keyed by
 // the bare name from LABS_IMAGE_PROFILES, which never includes a registry.
@@ -212,9 +221,14 @@ func (k *KubernetesContainerService) startPod(ctx context.Context, name string, 
 			RestartPolicy:                corev1.RestartPolicyNever,
 			AutomountServiceAccountToken: boolPtr(false),
 			Containers: []corev1.Container{{
-				Name:      "sandbox",
-				Image:     k.qualifyImage(image),
-				Resources: podResources(cpuQty, memQty, requests),
+				Name:  "sandbox",
+				Image: k.qualifyImage(image),
+				// The tag (":1") is mutable: lab images are rebuilt and re-pushed under it, and
+				// the runtime stamp a verified labset is checked against (docs/debug-labs.md B5)
+				// comes from the image the Pod actually runs. IfNotPresent would keep a node on
+				// a stale cached copy forever, so a registry-backed image is always re-checked.
+				ImagePullPolicy: k.pullPolicy(),
+				Resources:       podResources(cpuQty, memQty, requests),
 				SecurityContext: &corev1.SecurityContext{
 					Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 					AllowPrivilegeEscalation: boolPtr(false),
