@@ -3,11 +3,11 @@ kind: lesson
 id_key: linux/the-logbook/lesson
 course: linux
 section: the-logbook
-section_title: "Chapter 3: The Logbook"
+section_title: "Chapter 3: The Logbook - Text Tools and Pipes"
 section_position: 3
-title: Viewing Text, grep, Pipes, Redirection, sed and awk
-position: 0
-estimated_minutes: 50
+title: "Lab: Read the Logbook"
+position: 6
+estimated_minutes: 25
 source:
   - grep(1), sort(1), uniq(1), cut(1), sed(1), awk(1), tee(1) manual pages
   - GNU Bash Reference Manual, "Redirections" and "Pipelines"
@@ -121,126 +121,66 @@ lab:
         ls /home/labuser/work/logbook /no/such/dir > /home/labuser/work/answers/out.txt 2> /home/labuser/work/answers/err.txt
 ---
 
-> **Wednesday, 10:14.** Customers are complaining that checkout is broken. Rhea: "Tom always said *the logs never lie*. Don't guess - read the logbook." You have two files in `~/work/logbook`: the web server's `access.log` and the app's `app.log`. Today you learn to turn thousands of lines into one answer.
+## Why this matters
 
-## Looking at files
+Checkout is broken and the logs hold the answer. In this lab you turn hundreds of
+log lines into five precise answers, the same way you would during a real
+incident. Each task is checked automatically.
 
-```bash
-cat file.txt            # dump the whole file (fine for small files)
-less file.txt           # scroll: Space/b page, /word search, n next, G end, q quit
-head -n 20 file.txt     # first 20 lines
-tail -n 20 file.txt     # last 20 lines
-tail -f /var/log/syslog # follow: keep printing new lines live (Ctrl+C to stop)
-wc -l file.txt          # count lines (-w words, -c bytes)
-```
-
-> **Memory hook:** `head` and `tail` are the two ends of a coffee queue. `tail -f` is standing at the end of the queue **forever**, watching new customers arrive.
-
-## grep: find the needle
+## Before you start
 
 ```bash
-grep ERROR app.log              # lines containing ERROR
-grep -i error app.log           # ignore case
-grep -c ERROR app.log           # count matching lines
-grep -v INFO app.log            # invert: lines WITHOUT INFO
-grep -n timeout app.log         # show line numbers
-grep -r "port" /etc/brewbot/    # search every file in a directory
-grep -E "ERROR|WARN" app.log    # extended regex: either word
-grep -A2 -B1 ERROR app.log      # 2 lines After, 1 Before each match
+cd ~/work/logbook
+wc -l *.log
+head -2 access.log app.log
 ```
 
-Regex survival kit: `^` start of line, `$` end of line, `.` any char, `*` repeat previous 0+ times, `[0-9]` one digit, `[^ ]` anything but a space.
+What this does: sizes up both logs and shows their format. In `access.log` the
+IP is field 1, the path field 7 and the status code field 9.
+
+## Task 1: how bad is it?
+
+Count how many lines in `app.log` contain `ERROR` and save just the number into
+`~/work/answers/errors.txt`.
 
 [[lab-task:1]]
 
-## Pipes and redirection
+## Task 2: who is hammering the shop?
 
-Every program has three streams:
-
-```
-            +-----------+
- stdin  0 ->|  program  |-> 1 stdout  (normal output)
-            |           |-> 2 stderr  (errors)
-            +-----------+
-```
-
-| Syntax | Meaning |
-|---|---|
-| `cmd > file` | stdout to file (overwrite) |
-| `cmd >> file` | stdout to file (append) |
-| `cmd 2> file` | stderr to file |
-| `cmd > file 2>&1` | both streams to the same file |
-| `cmd &> file` | same, bash shorthand |
-| `cmd 2>/dev/null` | throw errors away (`/dev/null` is the black hole) |
-| `cmd < file` | read stdin from a file |
-| `cmd1 \| cmd2` | stdout of cmd1 becomes stdin of cmd2 |
-| `cmd \| tee file` | show on screen *and* save to file |
-
-The pipe `|` is the soul of Linux: small tools, each doing one thing, chained together.
-
-```
- cat access.log | awk '{print $1}' | sort | uniq -c | sort -rn | head -3
-      lines     ->   just IPs      -> grouped -> counted -> biggest -> top 3
-```
-
-> **Memory hook:** a pipe is a **coffee filter chain** - every stage takes what drips from the stage above and passes on something smaller.
-
-## Slicing and counting: cut, sort, uniq, tr
-
-```bash
-cut -d: -f1 /etc/passwd          # field 1, ":" separated (all usernames)
-cut -c1-10 file                  # characters 1-10
-sort names.txt                   # alphabetical
-sort -n numbers.txt              # numeric
-sort -rn                         # numeric, biggest first
-sort -k2 -t, data.csv            # by column 2 of a CSV
-sort -u                          # sort + remove duplicates
-uniq -c                          # count ADJACENT duplicates (so sort first!)
-tr 'a-z' 'A-Z' < file            # translate characters
-tr -d '\r' < win.txt > unix.txt  # delete Windows carriage returns
-```
+Find the IP address that made the most requests in `access.log` and save only
+that IP into `answers/top-ip.txt`. Use the top-N pipeline from lesson 4.
 
 [[lab-task:2]]
 
-What you should see:
+What you should see while building it:
 
 ```
-$ awk '{print $1}' logbook/access.log | sort | uniq -c | sort -rn
+$ awk '{print $1}' access.log | sort | uniq -c | sort -rn
      95 192.168.1.20
      60 172.16.0.9
      60 10.0.0.7
      60 10.0.0.5
 ```
 
-## awk: columns made easy
+## Task 3: which pages are crashing?
 
-`awk` splits each line into fields: `$1`, `$2`, ... `$NF` (last), and `NR` is the line number.
-
-```bash
-awk '{print $1, $9}' access.log              # IP and status
-awk '$9 == 500' access.log                   # only lines where status is 500
-awk '$9 == 500 {print $7}' access.log        # ...and print the path
-awk -F: '{print $1, $7}' /etc/passwd         # custom separator
-awk '{sum += $10} END {print sum}' access.log   # add up bytes sent
-```
+Save the distinct request paths that returned status 500 into
+`answers/500-paths.txt`, one per line, sorted alphabetically with no duplicates.
 
 [[lab-task:3]]
 
-## sed: edit the stream
+## Task 4: hide the leaked passwords
 
-```bash
-sed 's/old/new/' file          # replace first match on each line
-sed 's/old/new/g' file         # replace every match
-sed -n '10,20p' file           # print only lines 10-20
-sed '/^#/d' config             # delete comment lines
-sed -i.bak 's/80/8080/' conf   # edit IN PLACE, keep conf.bak as backup
-```
-
-Without `-i`, sed never touches the file - it prints the result. That makes it safe to test, then redirect to a new file.
-
-> **Memory hook:** **s**ed **s**ubstitutes: `s/what/with/`. **awk** **a**sks about columns.
+Create `logbook/app-clean.log`, a copy of `app.log` where every
+`password=VALUE` becomes `password=***`, using `sed`. Leave `app.log`
+unchanged: it is evidence.
 
 [[lab-task:4]]
+
+## Task 5: separate the good from the bad
+
+Run `ls /home/labuser/work/logbook /no/such/dir` as one command so that normal
+output goes to `answers/out.txt` and the error goes to `answers/err.txt`.
 
 [[lab-task:5]]
 
@@ -251,12 +191,14 @@ $ cat answers/err.txt
 ls: cannot access '/no/such/dir': No such file or directory
 ```
 
-## Comparing files
+## Remember
 
-```bash
-diff old.conf new.conf         # line differences
-diff -u old.conf new.conf      # unified format (what git shows)
-cmp a.bin b.bin                # byte-level, for binaries
-```
+- `grep -c` counts; `awk 'COND {print $N}'` filters and slices.
+- `sort | uniq -c | sort -rn | head` answers every "top N" question.
+- `sed 's/x/y/' in > out` makes a clean copy without touching the original.
+- `>` and `2>` split stdout and stderr.
 
-> **End of day 3.** The pipeline told the story: `/checkout` and `/api/orders` were throwing 500s, and one IP was hammering the cart. You masked the leaked passwords before anyone saw them. In the corner of the log you spot Tom's next note: "Not everyone should have every key."
+> **End of day 3.** The pipeline told the story: `/checkout` and `/api/orders`
+> were throwing 500s, and one IP was hammering the cart. You masked the leaked
+> passwords before anyone saw them. In the corner of the log you spot Tom's next
+> note: "Not everyone should have every key."

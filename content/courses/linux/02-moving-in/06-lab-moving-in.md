@@ -3,11 +3,11 @@ kind: lesson
 id_key: linux/moving-in/lesson
 course: linux
 section: moving-in
-section_title: "Chapter 2: Moving In"
+section_title: "Chapter 2: Moving In - Working with Files"
 section_position: 2
-title: Files, Directories, Links and Finding Things
-position: 0
-estimated_minutes: 45
+title: "Lab: Unpack the Boxes"
+position: 5
+estimated_minutes: 25
 source:
   - cp(1), mv(1), rm(1), ln(1), find(1), stat(1) manual pages
   - GNU Coreutils manual (gnu.org/software/coreutils/manual)
@@ -100,103 +100,49 @@ lab:
         echo beans-inventory.csv > /home/labuser/work/answers/biggest.txt
 ---
 
-> **Tuesday.** Rhea points at a pile of digital boxes Tom dumped in `~/work/moving`: "The shop needs a proper home. Unpack, throw out the junk, and don't delete anything we need - there is no recycle bin on Linux."
+## Why this matters
 
-## Creating files and directories
+Time to unpack Tom's boxes for real: build the shop's folders, copy and move
+files, throw out the junk without losing anything, link the menu, and find what
+is eating the space. Each task is checked automatically.
+
+## Before you start
 
 ```bash
-mkdir shop                       # one directory
-mkdir -p shop/config/recipes     # whole path, no error if it exists
-mkdir -p shop/{config,logs,backups}   # brace expansion -> three dirs
-touch notes.txt                  # create empty file (or update its timestamp)
-echo "hello" > file.txt          # create/overwrite with content
-echo "more"  >> file.txt         # append
-rmdir emptydir                   # remove an EMPTY directory
+cd ~/work/moving
+find . -type f
 ```
 
-Editors on a server: `nano file.txt` (easy, shortcuts at the bottom: `Ctrl+O` save, `Ctrl+X` exit) or `vi file.txt` (always installed). Survival `vi`: `i` to type, `Esc` to stop, `:wq` save and quit, `:q!` quit without saving.
+What this does: lists every file in the boxes so you know what you are working
+with (about ten files, in `box/` and `garage/`).
 
-> **Memory hook:** `>` is a **bulldozer** (flattens the file), `>>` is a **stapler** (adds a page).
+## Task 1: build the shop skeleton
+
+Create `~/work/shop` with three subdirectories inside it, `config`, `logs` and
+`backups`, using a single `mkdir` command (lesson 1: `-p` and braces).
 
 [[lab-task:1]]
 
-## Copy, move, rename, delete
+## Task 2: unpack the box
 
-```bash
-cp a.txt b.txt              # copy file
-cp -r dir1 dir2             # copy directory (recursive)
-cp -a src dst               # archive copy: keep permissions, times, links
-mv old.txt new.txt          # rename
-mv file.txt dir/            # move
-rm file.txt                 # delete file
-rm -r dir                   # delete directory and everything inside
-rm -i *.log                 # ask before each delete
-```
-
-```
- cp:  box/recipes ---copy---> shop/config/recipes     (both exist after)
- mv:  box/menu.txt --move---> shop/menu.txt           (only one exists after)
-```
-
-There is **no undo**. `rm -rf /` with a typo in a variable has ended careers. Habits that save you: run `ls` with the same pattern first, use `rm -i` when unsure, never run `rm -rf $DIR/` without checking `$DIR` is set.
-
-**Wildcards (globs)** are expanded by the shell before the command runs:
-
-| Pattern | Matches |
-|---|---|
-| `*` | anything (`*.log`) |
-| `?` | exactly one character (`file?.txt`) |
-| `[abc]` / `[0-9]` | one character from the set |
-| `{a,b}` | brace expansion - not a match, it generates both words |
+Copy the whole `moving/box/recipes` directory to `shop/config/recipes`, and move
+`moving/box/menu.txt` to `shop/menu.txt`. The recipes stay in the box too; the
+menu must leave it.
 
 [[lab-task:2]]
 
-## Finding things
+## Task 3: throw out the junk
 
-```bash
-find /var/log -name "*.log"            # by name (quote the pattern!)
-find . -iname "readme*"                # case-insensitive
-find . -type d -name config            # directories only (f = files)
-find / -size +100M 2>/dev/null         # bigger than 100 MiB
-find . -mtime -1                       # modified in the last 24h
-find . -user labuser                   # by owner
-find . -name "*.bak" -delete           # find and delete
-find . -name "*.sh" -exec chmod +x {} \;   # run a command on each match
-locate nginx.conf                      # fast, uses a prebuilt index (updatedb)
-```
-
-> **Memory hook:** `find WHERE WHAT DO` - *where* to look, *what* to match, what to *do* with it. Always run it once **without** the DO part.
+Delete every file ending in `.bak` anywhere under `moving/`, with one `find`
+command. Every other file must survive. Run it without `-delete` first.
 
 [[lab-task:3]]
 
-## Inodes and links
+## Task 4: two kinds of links
 
-A file name is not the file. The data lives in an **inode** (metadata: size, owner, permissions, where the blocks are). A directory is just a list of `name -> inode number`.
-
-```
-  directory entries          inode 4211            data blocks
-  menu.txt   ---------\     +-------------+       +-----------+
-                       >--> | size, owner |-----> | Espresso  |
-  backups/menu.hard --/     | links: 2    |       | 3.00 ...  |
-                            +-------------+       +-----------+
-  current-menu  -> "/home/labuser/work/shop/menu.txt"   (symlink: just a path)
-```
-
-| | Hard link (`ln`) | Symbolic link (`ln -s`) |
-|---|---|---|
-| What it is | a second name for the same inode | a tiny file containing a path |
-| Original deleted | data survives | link breaks (dangling) |
-| Across filesystems | no | yes |
-| For directories | no | yes |
-
-```bash
-ln -s /etc/nginx/sites-available/shop /etc/nginx/sites-enabled/shop   # classic symlink use
-ls -li                  # first column = inode number
-stat menu.txt           # full inode details
-readlink -f current-menu    # where does the link really point?
-```
-
-> **Memory hook:** a **symlink is a sticky note** with an address on it; a **hard link is a second front door** into the same room.
+Create a symbolic link `shop/current-menu` pointing to
+`/home/labuser/work/shop/menu.txt`, and a hard link `shop/backups/menu.hard` to
+the same `menu.txt`.
 
 [[lab-task:4]]
 
@@ -208,19 +154,22 @@ What you should see from `ls -li shop shop/backups`:
 4211 -rw-r--r-- 2 labuser labuser 41 ... menu.hard
 ```
 
-Same inode (4211) and a link count of 2 - one file, two names.
+Same inode and a link count of 2: one file, two names.
 
-## Sizes and file types
+## Task 5: what is eating the space?
 
-```bash
-du -sh shop             # total size of a directory
-du -ah moving | sort -h | tail -5    # the five biggest things
-ls -lhS                 # list sorted by size
-file beans-inventory.csv    # what kind of data is this, really?
-```
-
-Linux does not care about extensions - `file` looks at the content.
+Find the largest file anywhere under `moving/` and save just its file name (not
+the path) into `~/work/answers/biggest.txt`. Create `answers` if needed.
 
 [[lab-task:5]]
 
-> **End of day 2.** The shop has a home, the junk is gone, and you noticed `beans-inventory.csv` was hogging space. Inside the box you find Tom's next note: "The logs never lie. Read them."
+## Remember
+
+- `mkdir -p dir/{a,b,c}` builds a layout in one go.
+- `cp -r` copies trees, `mv` moves; `find ... -delete` only after a preview.
+- `ln -s` = sticky note, `ln` = second door.
+- `du -ah | sort -h | tail` finds the heavy stuff.
+
+> **End of day 2.** The shop has a home, the junk is gone, and you noticed
+> `beans-inventory.csv` was hogging space. Inside the box you find Tom's next
+> note: "The logs never lie. Read them."
