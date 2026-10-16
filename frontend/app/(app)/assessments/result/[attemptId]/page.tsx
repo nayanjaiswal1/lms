@@ -76,7 +76,7 @@ export default async function ResultPage({ params }: PageProps) {
         )}
 
         <div className="flex flex-col gap-1">
-          <h1 className="section-title tabular-nums">
+          <h1 className="page-title tabular-nums">
             {evaluating
               ? "Evaluating…"
               : pending

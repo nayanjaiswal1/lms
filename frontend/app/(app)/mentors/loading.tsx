@@ -6,7 +6,7 @@ export default function MentorsLoading() {
       <div className="page-header">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-4 w-full sm:w-80" />
+          <Skeleton className="h-5 w-full sm:w-80" />
         </div>
         <Skeleton className="h-11 w-44" />
       </div>

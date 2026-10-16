@@ -10,7 +10,7 @@ export default function SettingsLayout({
       <div className="py-6 lg:py-10">
         <header className="mb-6 space-y-1 lg:mb-8">
           <h1 className="page-title text-foreground">Settings</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="page-description">
             Manage your profile, sign-in security, privacy and connected tools.
           </p>
         </header>

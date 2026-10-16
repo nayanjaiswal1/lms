@@ -7,11 +7,11 @@ import type { Member } from "@/lib/orgs/types";
 import { PERMISSIONS } from "@/lib/auth/permission-codes"
 import ROUTES from "@/lib/routes"
 import { UserFilters } from "@/app/(app)/users/user-filters"
-import { UserSearchInput } from "@/app/(app)/users/user-search-input"
 import { UserTable, type MergedUser, type RoleOption, type UserSummary } from "@/app/(app)/users/user-table"
 import { AddPeoplePanel } from "@/app/(app)/users/add-people-panel";
 import { InviteList } from "@/app/(app)/users/invite-list";
 import { getCurrentOrgId } from "@/lib/server/claims";
+import { PageHeader } from "@/components/shared/page-header";
 
 // Merges the two permission-gated fetches below into one row per person —
 // `members` carries org role/invite data (MANAGE_ORG), `users` carries RBAC
@@ -95,14 +95,7 @@ export default async function UsersPage({
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Users</h1>
-          <p className="text-muted-foreground mt-1">
-            Members of your org, their org role, and the RBAC roles they hold.
-          </p>
-        </div>
-      </div>
+      <PageHeader title="Users" description="Members of your org, their org role, and the RBAC roles they hold." />
 
       {canManageOrg && pendingCount > 0 && (
         <section className="mt-6 card-base p-6">
@@ -122,7 +115,6 @@ export default async function UsersPage({
               filter. The role-icon legend moved to the Roles column header
               itself — that's where the icons needing decoding actually live. */}
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2.5">
-            <UserSearchInput />
             <UserFilters roleOptions={roles} />
             {canManageOrg && (
               <div className="ml-auto">

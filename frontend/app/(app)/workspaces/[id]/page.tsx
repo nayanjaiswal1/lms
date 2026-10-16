@@ -4,6 +4,7 @@ import { ShowcaseStatsCard } from "@/components/workspace/gitlab/showcase-stats-
 import { ProjectStatusMenu } from "@/components/workspace/project-status-menu";
 import { getWorkspace } from "@/lib/workspace/server";
 import { BRIEF_STATUS_LABEL } from "@/lib/workspace/roles";
+import { PageHeader } from "@/components/shared/page-header";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -24,12 +25,12 @@ export default async function WorkspaceHomePage({ params }: PageProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="page-header items-start">
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="section-title">{workspace.title}</h1>
-            <Badge variant="outline">{workspace.key_prefix}</Badge>
-          </div>
+      <PageHeader
+        title={workspace.title}
+        badge={<Badge variant="outline">{workspace.key_prefix}</Badge>}
+        alignStart
+        meta={
+          <>
           {workspace.skills.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {workspace.skills.map((skill) => (
@@ -37,9 +38,9 @@ export default async function WorkspaceHomePage({ params }: PageProps) {
               ))}
             </div>
           )}
-        </div>
+          </>}>
         <ProjectStatusMenu canChange={isOwner} status={workspace.project_status} workspaceId={id} />
-      </div>
+      </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="card-base">

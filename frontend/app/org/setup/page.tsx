@@ -107,7 +107,7 @@ export default async function OrgSetupPage({ searchParams }: OrgSetupPageProps) 
       <div className="mx-auto max-w-2xl">
         <div className="mb-8 flex flex-col gap-2">
           <h1 className="page-title">Set up your organization</h1>
-          <p className="text-muted-foreground">
+          <p className="page-description">
             Complete these steps to get your workspace ready.
           </p>
         </div>

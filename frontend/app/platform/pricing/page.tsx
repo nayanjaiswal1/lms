@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getAdminPricingTiers } from "@/lib/server/pricing";
 import { getAdminPlanLimits, type PlanLimit } from "@/lib/server/entitlements";
 import { PricingTierCard } from "./pricing-tier-card";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Pricing" };
 
@@ -16,14 +17,7 @@ export default async function PlatformPricingPage() {
 
   return (
     <div className="page-container">
-      <header className="page-header">
-        <div>
-          <h1 className="page-title">Pricing</h1>
-          <p className="mt-1 text-muted-foreground">
-            Edit the tiers shown on the / and /org landing pages. Changes go live immediately — no redeploy.
-          </p>
-        </div>
-      </header>
+      <PageHeader title="Pricing" description="Edit the tiers shown on the / and /org landing pages. Changes go live immediately — no redeploy." />
 
       <section className="mt-6">
         <h2 className="section-title">Individual</h2>

@@ -8,6 +8,7 @@ import { getFeatureConfig } from "@/lib/server/features";
 import { getMyUsage } from "@/lib/server/entitlements";
 import { getPublicPricingTiers } from "@/lib/server/pricing";
 import { FEATURE_META, type Feature, type LockedFeatureInfo } from "@/lib/features";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = {
   title: "Billing & Plans",
@@ -30,12 +31,7 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
 
   return (
     <main className="page-container">
-      <header className="page-header">
-        <div className="flex flex-col gap-1">
-          <h1 className="page-title">Billing & Plans</h1>
-          <p className="text-muted-foreground">Your plan, entitlements, and usage.</p>
-        </div>
-      </header>
+      <PageHeader description="Your plan, entitlements, and usage." title="Billing & Plans" />
 
       {highlighted && (
         <IconMessage

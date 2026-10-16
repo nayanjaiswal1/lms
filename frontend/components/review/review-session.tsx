@@ -88,7 +88,7 @@ export function ReviewSession({ cards }: ReviewSessionProps) {
             </span>
             <div className="flex flex-col gap-1">
               <h1 className="page-title">Session complete</h1>
-              <p className="text-muted-foreground">
+              <p className="page-description">
                 You reviewed {reviewed} card{reviewed !== 1 ? "s" : ""}.
               </p>
             </div>

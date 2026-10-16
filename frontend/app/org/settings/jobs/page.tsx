@@ -196,7 +196,7 @@ export default async function JobsPage({
       )}
 
       <div className="card-base p-6">
-        <div className="page-header mb-4">
+        <div className="page-header">
           <div>
             <h2 className="subsection-title text-foreground">Background Jobs</h2>
             <p className="text-sm text-muted-foreground">

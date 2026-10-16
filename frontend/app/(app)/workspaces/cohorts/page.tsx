@@ -12,6 +12,7 @@ import { getCohorts } from "@/lib/workspace/cohort-server";
 import { getBatches } from "@/lib/server/batches";
 import { AssignmentList } from "@/components/workspace/cohort/assignment-list";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = {
   title: "Cohorts",
@@ -28,19 +29,17 @@ export default async function CohortsPage() {
 
   return (
     <main className="page-container">
-      <header className="page-header">
-        <div className="flex flex-col gap-1">
-          <h1 className="page-title">Cohorts</h1>
-          <p className="text-muted-foreground">
+      <PageHeader
+        title="Cohorts"
+        description={<p className="page-description">
             {cohorts.length} cohort{cohorts.length === 1 ? "" : "s"}
-          </p>
-        </div>
+          </p>}>
         <Button asChild>
           <Link href={ROUTES.WORKSPACES_COHORTS_NEW}>
             <Plus /> New cohort
           </Link>
         </Button>
-      </header>
+      </PageHeader>
 
       {cohorts.length === 0 ? (
         <div className="empty-state mt-10">

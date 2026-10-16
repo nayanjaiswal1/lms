@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { listPrepPlans } from "@/lib/server/interview-prep";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata = { title: "Interview Prep" };
 
@@ -86,15 +87,14 @@ async function PlanList() {
 export default function InterviewPrepPage() {
   return (
     <main className="page-container">
-      <div className="page-header">
-        <h1 className="page-title">Interview Prep</h1>
+      <PageHeader title="Interview Prep">
         <Button asChild>
           <Link href={ROUTES.INTERVIEW_PREP_NEW}>
             <Plus aria-hidden className="mr-2 h-4 w-4" />
             New plan
           </Link>
         </Button>
-      </div>
+      </PageHeader>
       <Suspense fallback={<Skeleton className="h-64 rounded-lg" />}>
         <PlanList />
       </Suspense>

@@ -5,6 +5,7 @@ import { getCoupons } from "@/lib/server/coupons";
 import { getCourses } from "@/lib/server/courses";
 import { CreateCouponDialog } from "./create-coupon-dialog";
 import { CouponTable } from "./coupon-table";
+import { PageHeader } from "@/components/shared/page-header";
 
 export default async function CouponsPage() {
   const myPerms = await getMyPermissions();
@@ -19,15 +20,9 @@ export default async function CouponsPage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Coupons</h1>
-          <p className="mt-1 text-muted-foreground">
-            Percent or fixed-amount discount codes for paid courses.
-          </p>
-        </div>
+      <PageHeader title="Coupons" description="Percent or fixed-amount discount codes for paid courses.">
         <CreateCouponDialog courseOptions={courseOptions} />
-      </div>
+      </PageHeader>
 
       {coupons.length === 0 ? (
         <div className="empty-state mt-8">

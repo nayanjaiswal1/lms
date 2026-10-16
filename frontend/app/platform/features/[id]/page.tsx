@@ -7,6 +7,7 @@ import { OrgTierSelector } from "@/app/platform/features/[id]/org-tier-selector"
 import { getPublicPricingTiers } from "@/lib/server/pricing";
 import ROUTES from "@/lib/routes";
 import type { AdminOrgSummary } from "@/lib/orgs/types";
+import { PageHeader } from "@/components/shared/page-header";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -35,15 +36,10 @@ export default async function PlatformOrgFeaturesPage({ params }: PageProps) {
     <div className="page-container">
       <Breadcrumb items={[{ href: ROUTES.PLATFORM_FEATURES, label: "Features" }, { label: org.name }]} />
 
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Features — {org.name}</h1>
-          <p className="text-muted-foreground mt-1">
-            Turning a feature off here hides it for every member of this
-            organisation, regardless of any per-member grant an org admin has set.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        description="Turning a feature off here hides it for every member of this organisation, regardless of any per-member grant an org admin has set."
+        title={`Features — ${org.name}`}
+      />
 
       <section className="mt-8 card-base flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
         <div>

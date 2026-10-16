@@ -13,6 +13,7 @@ import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { getMyPermissions } from "@/lib/server/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -52,13 +53,14 @@ export default async function InstructorCourseDetailPage({ params }: Props) {
     <main className="page-container">
       <Breadcrumb items={[{ label: "Teach", href: ROUTES.TEACH }, { label: tree.title }]} />
 
-      <div className="page-header">
-        <div className="flex items-center gap-3">
-          <h1 className="section-title">{tree.title}</h1>
+      <PageHeader
+        title={tree.title}
+        meta={
+          <>
           {tree.status !== "published" && (
             <Badge variant="secondary">{tree.status}</Badge>
           )}
-        </div>
+          </>}>
         <nav aria-label="Course management" className="flex flex-wrap items-center gap-6 text-sm">
           <Link className="font-semibold text-primary underline underline-offset-4" href={ROUTES.courseEditSettings(slug)}>
             Course settings
@@ -78,7 +80,7 @@ export default async function InstructorCourseDetailPage({ params }: Props) {
           )}
           <CourseDocsToggle courseId={id} courseTitle={tree.title} existingSpaceSlug={docsSpace?.slug ?? null} />
         </nav>
-      </div>
+      </PageHeader>
 
       <div className="flex flex-col gap-8">
         {tree.sections.length === 0 ? (

@@ -17,6 +17,7 @@ import { GroupExpandProvider } from "@/components/sheets/group-expand-context";
 import { NotesPanelProvider } from "@/components/sheets/notes-panel-context";
 import { GroupExpandToggle } from "@/components/sheets/group-expand-toggle";
 import { RevisionSettings } from "@/components/sheets/revision-settings";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Sheet Tracker" };
 
@@ -90,14 +91,12 @@ export default async function SheetDetailPage({ params, searchParams }: SheetDet
 
       <GroupExpandProvider>
         <NotesPanelProvider>
-          <div className="page-header items-start pt-0 pb-6">
-            <div>
-              <h1 className="section-title">{activeSheet.name}</h1>
-              {activeSheet.description && (
-                <p className="text-sm text-muted-foreground">{activeSheet.description}</p>
-              )}
-              {totalCount > 0 && (
-                <div className="mt-3 flex max-w-xs items-center gap-3">
+          <PageHeader
+            alignStart
+            description={activeSheet.description ?? undefined}
+            meta={
+              totalCount > 0 && (
+                <div className="mt-2 flex max-w-xs items-center gap-3">
                   <div className="progress-track">
                     <div
                       className="progress-fill progress-fill-success"
@@ -108,8 +107,10 @@ export default async function SheetDetailPage({ params, searchParams }: SheetDet
                     {solvedCount}/{totalCount} solved
                   </span>
                 </div>
-              )}
-            </div>
+              )
+            }
+            title={activeSheet.name}
+          >
             <div className="flex items-center gap-4 pt-1">
               {!isTableView && groupBy !== "none" && <GroupExpandToggle />}
               <ViewToggle
@@ -144,7 +145,7 @@ export default async function SheetDetailPage({ params, searchParams }: SheetDet
                 </Button>
               )}
             </div>
-          </div>
+          </PageHeader>
           {isTableView ? (
             <SheetGridView items={visibleItems} sheetId={itemsResponse.sheet.id} />
           ) : (

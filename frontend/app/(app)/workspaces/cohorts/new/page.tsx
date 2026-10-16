@@ -42,8 +42,8 @@ export default async function NewCohortPage() {
     <main className="page-container-sm">
       <Breadcrumb items={[{ label: "Cohorts", href: ROUTES.WORKSPACES_COHORTS }, { label: "New" }]} />
       <header className="mb-6 flex flex-col gap-1">
-        <h1 className="section-title">New cohort</h1>
-        <p className="text-muted-foreground">Every team under this cohort forks the same template repo.</p>
+        <h1 className="page-title">New cohort</h1>
+        <p className="page-description">Every team under this cohort forks the same template repo.</p>
       </header>
       <CreateAssignmentForm allowInstallationOverride={allowInstallationOverride} batches={batches} installations={installations} />
     </main>

@@ -10,6 +10,7 @@ import { WikiSidebarTree } from "@/components/wiki/wiki-sidebar-tree";
 import { WikiSearch } from "@/components/wiki/wiki-search";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 interface Props {
   params: Promise<{ spaceSlug: string }>;
@@ -40,12 +41,12 @@ export default async function WikiSpacePage({ params }: Props) {
     <main className="page-container">
       <Breadcrumb items={[{ label: "Wiki", href: ROUTES.WIKI }, { label: space.name }]} />
 
-      <div className="page-header">
-        <div>
-          <h1 className="section-title">{space.name}</h1>
+      <PageHeader
+        title={space.name}
+        meta={
+          <>
           {space.description && <p className="text-sm text-muted-foreground">{space.description}</p>}
-        </div>
-      </div>
+          </>} />
 
       <div className="mb-6 max-w-md">
         <WikiSearch spaceSlug={spaceSlug} />

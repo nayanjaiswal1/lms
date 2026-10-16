@@ -4,6 +4,7 @@ import { LibraryBrowser } from "@/components/library/library-browser";
 import { getLibraryItems } from "@/lib/library/server";
 import { getMyPermissions } from "@/lib/server/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Library" };
 
@@ -19,14 +20,7 @@ export default async function LibraryPage() {
 
   return (
     <main className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Library</h1>
-          <p className="text-sm text-muted-foreground">
-            Browse published labs, quizzes, and notes lessons — try a lab, or add one straight into a course.
-          </p>
-        </div>
-      </div>
+      <PageHeader title="Library" description="Browse published labs, quizzes, and notes lessons — try a lab, or add one straight into a course." />
       <LibraryBrowser initialPage={initialPage} />
     </main>
   );

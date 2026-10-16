@@ -41,7 +41,7 @@ export default async function MentorTicketChatPage({ params }: Props) {
       />
 
       <div className="mb-6 flex-between gap-3">
-        <h1 className="section-title">Mentor chat</h1>
+        <h1 className="page-title">Mentor chat</h1>
         {/* Only the assigned mentor schedules from here, and only through the
             booking flow — the old ad-hoc dialog wrote a calendar event
             directly, skipping availability, the upcoming-session cap, and

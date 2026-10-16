@@ -1,9 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
-import { Search as SearchIcon, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -31,7 +28,6 @@ const ROLE_STATUS_FILTER_LABEL: Record<(typeof ROLE_STATUS_FILTERS)[number], str
 // client-side against that same list, read back out in role-table.tsx via
 // the same URL params so the two stay in sync without prop drilling.
 export function RoleFilters() {
-  const [search, setSearch] = useQueryState("search", { defaultValue: "" });
   const [type, setType] = useQueryState("type", parseAsStringLiteral(ROLE_TYPE_FILTERS).withDefault("all"));
   const [status, setStatus] = useQueryState(
     "status",
@@ -40,31 +36,6 @@ export function RoleFilters() {
 
   return (
     <>
-      <div className="relative w-full sm:max-w-sm">
-        <SearchIcon
-          aria-hidden
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-        />
-        <Input
-          aria-label="Search roles by name or description"
-          className="pl-9 pr-9 [&::-webkit-search-cancel-button]:appearance-none"
-          placeholder="Search roles…"
-          type="search"
-          value={search}
-          onChange={(e) => void setSearch(e.target.value)}
-        />
-        {search && (
-          <Button aria-label="Clear search"
-            className="touch-target absolute right-0 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-            type="button"
-            variant="unstyled"
-            onClick={() => void setSearch("")}
-          >
-            <X aria-hidden className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-
       <Select value={type} onValueChange={(v) => void setType(v as (typeof ROLE_TYPE_FILTERS)[number])}>
         <SelectTrigger aria-label="Filter by type" className="h-9 w-full sm:w-36">
           <SelectValue />

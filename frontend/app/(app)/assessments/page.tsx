@@ -11,6 +11,7 @@ import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import { AssessmentList } from "@/app/(app)/assessments/assessment-list";
 import ROUTES from "@/lib/routes";
 import type { AssignedAssessment } from "@/lib/assessments/types";
+import { PageHeader } from "@/components/shared/page-header";
 
 export async function generateMetadata(): Promise<Metadata> {
   const canManage = await canManageAssessments();
@@ -47,19 +48,17 @@ async function StaffAssessmentsView({ searchParams }: AssessmentsPageProps) {
 
   return (
     <main className="page-container">
-      <header className="page-header">
-        <div className="flex flex-col gap-1">
-          <h1 className="page-title">Assessments</h1>
-          <p className="text-muted-foreground">
+      <PageHeader
+        title="Assessments"
+        description={<p className="page-description">
             {org.total_assessments} assessments · {org.total_attempts} attempts · {Math.round(org.avg_pass_rate)}% avg pass rate
-          </p>
-        </div>
+          </p>}>
         <Button asChild>
           <Link href={ROUTES.ASSESSMENT_NEW}>
             <Plus /> New assessment
           </Link>
         </Button>
-      </header>
+      </PageHeader>
 
       {assessments.length === 0 && !query ? (
         <div className="empty-state mt-10">
@@ -95,12 +94,7 @@ async function StudentAssessmentsView() {
 
   return (
     <main className="page-container">
-      <header className="page-header">
-        <div className="flex flex-col gap-1">
-          <h1 className="page-title">Assessments</h1>
-          <p className="text-muted-foreground">Tests assigned to you across your courses and batches.</p>
-        </div>
-      </header>
+      <PageHeader title="Assessments" description="Tests assigned to you across your courses and batches." />
 
       <section className="grid-stats mt-4 grid gap-4">
         <Stat icon={<ClipboardCheck className="h-5 w-5 text-primary" />} label="Completed" value={String(analytics.completed)} />

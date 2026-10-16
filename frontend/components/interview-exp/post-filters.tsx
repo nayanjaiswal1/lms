@@ -7,16 +7,9 @@ export function PostFilters() {
   const [company, setCompany] = useQueryState("company", parseAsString.withDefault(""));
   const [position, setPosition] = useQueryState("position", parseAsString.withDefault(""));
   const [tag, setTag] = useQueryState("tag", parseAsString.withDefault(""));
-  const [q, setQ] = useQueryState("q", parseAsString.withDefault(""));
 
   return (
     <div className="stack-sm">
-      <Input
-        aria-label="Search title"
-        placeholder="Search title…"
-        value={q}
-        onChange={(e) => setQ(e.target.value || null)}
-      />
       <Input
         aria-label="Filter by company"
         placeholder="Company"

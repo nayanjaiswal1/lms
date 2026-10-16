@@ -33,6 +33,7 @@ import { OwnershipTable } from "@/components/workspace/gitlab/ownership-table";
 import { AssignmentTabs } from "@/components/workspace/cohort/assignment-tabs";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Cohort" };
 
@@ -88,13 +89,13 @@ export default async function CohortPage({ params }: PageProps) {
   return (
     <main className="page-container">
       <Breadcrumb items={[{ label: "Cohorts", href: ROUTES.WORKSPACES_COHORTS }, { label: cohort.title }]} />
-      <header className="page-header items-start">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <h1 className="section-title">{cohort.title}</h1>
-            <Badge variant={STATUS_VARIANT[cohort.status] ?? "outline"}>{cohort.status}</Badge>
-          </div>
-          <p className="text-muted-foreground">{batch.name}</p>
+      <PageHeader
+        title={cohort.title}
+        description={<p className="page-description">{batch.name}</p>}
+        badge={<Badge variant={STATUS_VARIANT[cohort.status] ?? "outline"}>{cohort.status}</Badge>}
+        alignStart
+        meta={
+          <>
           {cohort.description && <p className="max-w-2xl text-sm text-muted-foreground">{cohort.description}</p>}
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span className="capitalize">{cohort.visibility}</span>
@@ -103,14 +104,14 @@ export default async function CohortPage({ params }: PageProps) {
             {cohort.template_project_path && <span>Template: {cohort.template_project_path}</span>}
             {cohort.due_at && <span>Due {new Date(cohort.due_at).toLocaleString()}</span>}
           </div>
-        </div>
+          </>}>
         <div className="flex shrink-0 flex-wrap gap-2">
           {cohort.status === "draft" && <PublishAssignmentButton assignmentId={cohort.id} />}
           {cohort.status === "active" && <TemplateSyncButton assignmentId={cohort.id} />}
           <EditAssignmentPanel assignment={cohort} />
           {cohort.status === "draft" && <DeleteAssignmentButton assignmentId={cohort.id} />}
         </div>
-      </header>
+      </PageHeader>
 
       <AssignmentTabs
         checkpointCount={checkpoints.length}

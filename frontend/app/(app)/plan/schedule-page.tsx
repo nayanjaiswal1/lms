@@ -109,7 +109,7 @@ export function SchedulePage({
     <div className="space-y-6">
       <div className="flex-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Schedule</h1>
+          <h1 className="page-title">Schedule</h1>
           <p className="mt-1 text-sm text-muted-foreground">Manage your time blocks, tasks, and events</p>
         </div>
         <Popover open={isCreating} onOpenChange={setIsCreating}>

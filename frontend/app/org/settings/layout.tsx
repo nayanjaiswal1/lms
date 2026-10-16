@@ -16,7 +16,7 @@ export default async function OrgSettingsLayout({
   return (
     <div className="page-container min-h-dvh">
       <div className="py-6 lg:py-10">
-        <h1 className="text-2xl font-semibold text-foreground mb-6">
+        <h1 className="page-title mb-6">
           Organisation Settings
         </h1>
 

@@ -6,6 +6,7 @@ import { StartRoadmapButton } from "@/components/roadmap/start-roadmap-button";
 import { listPublicRoadmaps } from "@/lib/server/roadmap";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata = { title: "Discover Roadmaps" };
 
@@ -47,9 +48,7 @@ export default function DiscoverRoadmapsPage() {
   return (
     <main className="page-container">
       <Breadcrumb items={[{ href: ROUTES.ROADMAP, label: "Roadmap" }, { label: "Discover" }]} />
-      <div className="page-header">
-        <h1 className="section-title">Discover Roadmaps</h1>
-      </div>
+      <PageHeader title="Discover Roadmaps" />
       <p className="mb-6 text-muted-foreground">
         Browse roadmaps other learners have shared and start one instantly — no wait, no AI call, just a
         ready-made path you can make your own.

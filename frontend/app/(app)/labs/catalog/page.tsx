@@ -31,7 +31,7 @@ export default async function LabCatalogPage({ searchParams }: PageProps) {
     <main className="page-container flex flex-col gap-6">
       <header className="flex flex-col gap-1">
         <h1 className="page-title">Labs</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="page-description">
           Debug realistic broken apps in a browser IDE, level by level or by topic.
         </p>
       </header>

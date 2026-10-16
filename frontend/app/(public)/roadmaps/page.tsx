@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { listPublicRoadmapsAnon } from "@/lib/server/roadmap-public";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata = { title: "Discover Roadmaps" };
 
@@ -46,9 +47,7 @@ async function PublicRoadmapList() {
 export default function PublicRoadmapsPage() {
   return (
     <main className="page-container">
-      <div className="page-header">
-        <h1 className="section-title">Discover Roadmaps</h1>
-      </div>
+      <PageHeader title="Discover Roadmaps" />
       <p className="mb-6 text-muted-foreground">
         Browse structured learning paths shared by the MindForge community — free to view.{" "}
         <Link className="underline" href={ROUTES.REGISTER}>

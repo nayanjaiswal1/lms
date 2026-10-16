@@ -1,11 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Plus, X, Search, BookOpen } from "lucide-react";
+import { Plus, X, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useQueryState } from "nuqs";
 import { assignCourseAction } from "@/lib/batches/actions";
 
 interface CourseOption {
@@ -23,7 +23,8 @@ interface AssignCourseFormProps {
 }
 
 function AssignCourseForm({ batchId, courses, assignedCourseIds, onClose }: AssignCourseFormProps) {
-  const [query, setQuery] = React.useState("");
+  // Top-bar search drives this list (`?q=`).
+  const [query] = useQueryState("q", { defaultValue: "" });
   const [submitting, setSubmitting] = React.useState(false);
 
   const assignedSet = new Set(assignedCourseIds);
@@ -51,18 +52,6 @@ function AssignCourseForm({ batchId, courses, assignedCourseIds, onClose }: Assi
         <Button aria-label="Close assign course panel" size="icon" variant="ghost" onClick={onClose}>
           <X aria-hidden className="h-4 w-4" />
         </Button>
-      </div>
-
-      <div className="relative">
-        <Search aria-hidden className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        <Input
-          aria-label="Search courses by title"
-          className="pl-9"
-          placeholder="Search by title…"
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
       </div>
 
       {eligible.length === 0 ? (

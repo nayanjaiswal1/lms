@@ -10,6 +10,7 @@ import { getCourses, getEnrollments, getRandomTopic } from "@/lib/server/courses
 import { getMyPermissions } from "@/lib/server/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata = { title: "Courses" };
 
@@ -19,12 +20,13 @@ async function RandomTopic() {
 }
 
 interface CourseGridProps {
+  query: string;
   canManage: boolean;
   canEdit: boolean;
   canViewAnalytics: boolean;
 }
 
-async function CourseGrid({ canManage, canEdit, canViewAnalytics }: CourseGridProps) {
+async function CourseGrid({ query, canManage, canEdit, canViewAnalytics }: CourseGridProps) {
   const [courses, enrollments, ownCourses] = await Promise.all([
     getCourses(),
     getEnrollments(),
@@ -36,17 +38,24 @@ async function CourseGrid({ canManage, canEdit, canViewAnalytics }: CourseGridPr
 
   // Own drafts don't appear in the published catalog `courses` already covers
   // — append any owned course not already listed there.
+  const q = query.toLowerCase();
   const merged = [
     ...courses,
     ...ownCourses.filter((c) => !courses.some((pc) => pc.id === c.id)),
-  ];
+  ].filter(
+    (c) =>
+      !q ||
+      [c.title, c.description ?? "", c.instructor_name, ...c.tags].some((f) => f.toLowerCase().includes(q)),
+  );
 
   if (merged.length === 0) {
     return (
       <div className="empty-state py-16">
         <BookOpen aria-hidden className="h-12 w-12 text-muted-foreground" />
-        <p className="mt-3 text-sm text-muted-foreground">No courses are available yet.</p>
-        {canManage && (
+        <p className="mt-3 text-sm text-muted-foreground">
+          {q ? `No courses match “${query}”.` : "No courses are available yet."}
+        </p>
+        {canManage && !q && (
           <Button asChild className="mt-4">
             <Link href={ROUTES.COURSE_NEW}>Create your first course</Link>
           </Button>
@@ -81,7 +90,8 @@ function CourseGridSkeleton() {
   );
 }
 
-export default async function CoursesPage() {
+export default async function CoursesPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const { q = "" } = await searchParams;
   const permissions = await getMyPermissions();
   const canManage = permissions.includes(PERMISSIONS.COURSES.CREATE);
   const canEdit = permissions.includes(PERMISSIONS.COURSES.EDIT);
@@ -89,8 +99,7 @@ export default async function CoursesPage() {
 
   return (
     <main className="page-container">
-      <div className="page-header">
-        <h1 className="page-title">Courses</h1>
+      <PageHeader title="Courses">
         {canManage && (
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
@@ -107,7 +116,7 @@ export default async function CoursesPage() {
             </Button>
           </div>
         )}
-      </div>
+      </PageHeader>
       <div className="mb-6">
         <Suspense fallback={<Skeleton className="h-32 rounded-lg" />}>
           <RandomTopic />
@@ -116,8 +125,8 @@ export default async function CoursesPage() {
       <Suspense fallback={null}>
         <BundleGrid canManage={canManage} />
       </Suspense>
-      <Suspense fallback={<CourseGridSkeleton />}>
-        <CourseGrid canEdit={canEdit} canManage={canManage} canViewAnalytics={canViewAnalytics} />
+      <Suspense fallback={<CourseGridSkeleton />} key={q.trim()}>
+        <CourseGrid query={q.trim()} canEdit={canEdit} canManage={canManage} canViewAnalytics={canViewAnalytics} />
       </Suspense>
     </main>
   );

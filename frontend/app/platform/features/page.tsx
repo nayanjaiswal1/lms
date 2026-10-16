@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { apiGet } from "@/lib/server/api";
-import { OrgSearchInput } from "@/app/platform/features/org-search-input";
 import ROUTES from "@/lib/routes";
 import type { AdminOrgSummary } from "@/lib/orgs/types";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = {
   title: "Features — Platform Console",
@@ -39,18 +39,7 @@ export default async function PlatformFeaturesPage({
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Features</h1>
-          <p className="text-muted-foreground mt-1">
-            Pick an organisation to turn its features on or off.
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-6">
-        <OrgSearchInput />
-      </div>
+      <PageHeader title="Features" description="Pick an organisation to turn its features on or off." />
 
       <section className="mt-6">
         {orgs.length === 0 ? (

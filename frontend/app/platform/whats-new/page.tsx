@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getAdminWhatsNewEntries } from "@/lib/server/whats-new";
 import { EntryFormDialog } from "./entry-form-dialog";
 import { EntryRow } from "./entry-row";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "What's new" };
 
@@ -11,15 +12,12 @@ export default async function PlatformWhatsNewPage() {
 
   return (
     <div className="page-container">
-      <header className="page-header">
-        <div>
-          <h1 className="page-title">What&apos;s new</h1>
-          <p className="mt-1 text-muted-foreground">
-            Entries shown in the sidebar&apos;s sparkle-icon panel. Published entries go live immediately — no redeploy.
-          </p>
-        </div>
+      <PageHeader
+        description="Entries shown in the sidebar's sparkle-icon panel. Published entries go live immediately — no redeploy."
+        title="What's new"
+      >
         <EntryFormDialog />
-      </header>
+      </PageHeader>
 
       {entries.length === 0 ? (
         <p className="empty-state mt-6">No entries yet — add one to populate the sidebar panel.</p>

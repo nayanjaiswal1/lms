@@ -5,8 +5,8 @@ export default function DiscoverWorkspacesLoading() {
     <div className="page-container">
       <div className="page-header">
         <div className="flex flex-col gap-2">
-          <Skeleton className="h-9 w-56" />
-          <Skeleton className="h-4 w-72" />
+          <Skeleton className="h-8 w-56" />
+          <Skeleton className="h-5 w-72" />
         </div>
       </div>
       <div className="card-grid mt-8">

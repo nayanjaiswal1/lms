@@ -40,7 +40,7 @@ export default async function MemberReportPage({ params }: PageProps) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="page-title">{report.person.name}&apos;s report</h1>
-          <p className="text-sm text-muted-foreground">{PROJECT_ROLE_LABEL[report.role]}</p>
+          <p className="page-description">{PROJECT_ROLE_LABEL[report.role]}</p>
         </div>
         <div className="flex items-center gap-2">
           {report.certificate_id && <Badge variant="secondary">Certificate issued</Badge>}

@@ -67,7 +67,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       <Breadcrumb items={[{ href: ROUTES.ORG_SETTINGS_JOBS, label: "Jobs" }, { label: job.handler }]} />
 
       <div className="card-base p-6 space-y-5">
-        <div className="page-header mb-0">
+        <div className="page-header">
           <div>
             <h2 className="subsection-title text-foreground font-mono break-all">{job.handler}</h2>
             <p className="text-xs text-muted-foreground mt-1">ID: <span className="font-mono">{job.id}</span></p>

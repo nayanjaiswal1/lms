@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { JournalCategoryChips } from "@/components/journal/journal-category-chips";
 import { JournalEntryForm } from "@/components/journal/journal-entry-form";
-import { JournalSearchBar } from "@/components/journal/journal-search-bar";
 import { cn } from "@/lib/utils";
 import type { JournalCategoryNode } from "@/lib/server/journal";
 
@@ -184,7 +183,6 @@ export function JournalToolbar({ categories }: JournalToolbarProps) {
     <div className="mb-4 flex flex-col gap-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <JournalCategoryChips categories={categories} />
-        <JournalSearchBar />
       </div>
 
       {minimized ? (

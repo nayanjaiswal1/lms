@@ -1,9 +1,8 @@
 "use client";
 
 import { parseAsString, useQueryState } from "nuqs";
-import { Search, SearchX } from "lucide-react";
+import { SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { MentorDirectoryCard } from "@/components/mentoring/mentor-directory-card";
 import type { MentorDirectoryEntry } from "@/lib/server/mentoring";
 import { cn } from "@/lib/utils";
@@ -55,21 +54,6 @@ export function MentorDirectory({ mentors, chatTicketByMentor }: MentorDirectory
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-3">
-        <div className="relative w-full sm:max-w-md">
-          <Search
-            aria-hidden
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            aria-label="Search mentors by name, role or skill"
-            className="pl-9"
-            placeholder="Search by name, role or skill"
-            type="search"
-            value={query}
-            onChange={(e) => void setQuery(e.target.value || null)}
-          />
-        </div>
-
         {skillChips.length > 0 && (
           <fieldset className="flex min-w-0 flex-wrap gap-2">
             <legend className="sr-only">Filter by expertise</legend>

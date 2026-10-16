@@ -7,8 +7,8 @@ export default function AppLoading() {
     <div className="page-container">
       <div className="page-header">
         <div className="flex flex-col gap-2">
-          <Skeleton className="h-9 w-48" />
-          <Skeleton className="h-4 w-72" />
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-5 w-72" />
         </div>
       </div>
       <div className="mt-8 flex flex-col gap-4">

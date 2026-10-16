@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { UserLink } from "@/components/shared/user-link"
 import ROUTES from "@/lib/routes"
 import { ResponsiveTable } from "@/components/ui/responsive-table";
+import { PageHeader } from "@/components/shared/page-header";
 
 interface LabUsageRow {
   lab_id: string
@@ -84,22 +85,23 @@ export function LabUsageView({
 }) {
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Lab Compute Usage</h1>
-          <p className="text-muted-foreground mt-1 max-w-2xl">
+      <PageHeader
+        title="Lab Compute Usage"
+        description={<p className="text-muted-foreground mt-1 max-w-2xl">
             Container time billed to your org over the last {usage.window_days} days — paused
             sessions don&apos;t count, since idle-pause stops CPU billing.
-          </p>
+          </p>}
+        meta={
+          <>
           <Link
             className="text-sm text-primary underline underline-offset-2 mt-2 inline-block"
             href={ROUTES.ADMIN_LABS_WARM_POOLS}
           >
             View warm pool sizing →
           </Link>
-        </div>
+          </>}>
         <WindowSwitcher days={days} options={windowOptions} />
-      </div>
+      </PageHeader>
 
       <div className="grid-stats mt-8">
         <div className="card-base p-6">

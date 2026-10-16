@@ -10,6 +10,7 @@ import {
 import ROUTES from "@/lib/routes";
 import type { JobStatus, JobRun } from "@/lib/jobs/types";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
+import { PageHeader } from "@/components/shared/page-header";
 
 const STATUS_VARIANT: Record<
   JobStatus,
@@ -64,17 +65,16 @@ export default async function PlatformJobDetailPage({ params }: PageProps) {
     <div className="page-container">
       <Breadcrumb items={[{ href: ROUTES.PLATFORM_JOBS, label: "Jobs" }, { label: job.handler }]} />
 
-      <div className="page-header">
-        <div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="page-title font-mono truncate">{job.handler}</h1>
+      <PageHeader
+        badge={
+          <>
             <Badge variant={STATUS_VARIANT[job.status]}>{job.status}</Badge>
-            {job.job_type === "cron" && (
-              <Badge variant="outline">cron</Badge>
-            )}
-          </div>
-          <p className="text-muted-foreground mt-1 font-mono text-xs">{job.id}</p>
-        </div>
+            {job.job_type === "cron" && <Badge variant="outline">cron</Badge>}
+          </>
+        }
+        description={<p className="page-description font-mono break-all">{job.id}</p>}
+        title={job.handler}
+      >
         <div className="flex items-center gap-2">
           {canRetry && (
             <form action={forceRetryJobAction.bind(null, job.id)}>
@@ -89,7 +89,7 @@ export default async function PlatformJobDetailPage({ params }: PageProps) {
             </form>
           )}
         </div>
-      </div>
+      </PageHeader>
 
       <div className="mt-8 grid gap-6 md:grid-cols-2">
         <div className="card-base p-6 space-y-3">

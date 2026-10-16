@@ -5,6 +5,7 @@ import { apiGet } from "@/lib/server/api"
 import { getMyPermissions } from "@/lib/server/permissions"
 import { PERMISSIONS } from "@/lib/auth/permission-codes"
 import { ResponsiveTable } from "@/components/ui/responsive-table";
+import { PageHeader } from "@/components/shared/page-header";
 
 interface AuditEntry {
   id: number
@@ -70,15 +71,9 @@ export default async function AuditPage({
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Audit Log</h1>
-          <p className="text-muted-foreground mt-1">
-            All RBAC mutations — role changes, permission updates, and user-role assignments.
-          </p>
-        </div>
+      <PageHeader title="Audit Log" description="All RBAC mutations — role changes, permission updates, and user-role assignments.">
         <Badge variant="outline">{total} total entries</Badge>
-      </div>
+      </PageHeader>
 
       <ResponsiveTable className="mt-8">
         <table className="w-full text-sm">

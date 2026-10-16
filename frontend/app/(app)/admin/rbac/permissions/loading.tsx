@@ -6,7 +6,7 @@ export default function PermissionsLoading() {
       <div className="page-header">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-8 w-56" />
-          <Skeleton className="h-4 w-96" />
+          <Skeleton className="h-5 w-96" />
         </div>
         <Skeleton className="h-6 w-28" />
       </div>

@@ -5,6 +5,7 @@ import { TextBlockForm } from "@/components/labs/builder/text-block-form";
 import { getBlock, requireBlockManager, requireLabAuthor } from "@/lib/labs/builder/server";
 import { isTextKind } from "@/lib/labs/builder/text-blocks";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Edit block" };
 
@@ -24,14 +25,10 @@ export default async function EditBlockPage({ params }: EditBlockPageProps) {
   return (
     <main className="page-container-sm flex flex-col gap-6">
       <BackLink href={ROUTES.labBuilderBlock(blockId)} label="Back to block" />
-      <div className="page-header">
-        <div className="min-w-0">
-          <h1 className="page-title">Edit {latest.manifest.title}</h1>
-          <p className="text-sm text-muted-foreground">
-            Based on version {latest.version}. Saving creates the next version; recipes pinned to older ones are unaffected.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        description={`Based on version ${latest.version}. Saving creates the next version; recipes pinned to older ones are unaffected.`}
+        title={`Edit ${latest.manifest.title}`}
+      />
       <TextBlockForm existing={{ blockId, manifest: latest.manifest }} kind={block.kind} />
     </main>
   );

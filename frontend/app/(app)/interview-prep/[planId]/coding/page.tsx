@@ -38,8 +38,8 @@ export default async function InterviewPrepCodingPage({ params, searchParams }: 
         ]}
       />
       <div className="flex flex-col gap-2 mb-6">
-        <h1 className="section-title">Coding Round</h1>
-        <p className="text-sm text-muted-foreground">{plan.job_title}</p>
+        <h1 className="page-title">Coding Round</h1>
+        <p className="page-description">{plan.job_title}</p>
       </div>
 
       <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">

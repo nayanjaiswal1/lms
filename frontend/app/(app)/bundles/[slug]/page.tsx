@@ -46,7 +46,7 @@ export default async function BundlePage({ params }: Props) {
             <Library aria-hidden className="h-4 w-4" />
             <span>Bundle · {bundle.courses.length} course{bundle.courses.length === 1 ? "" : "s"}</span>
           </div>
-          <h1 className="section-title mt-1">
+          <h1 className="page-title mt-1">
             {bundle.title}
             {bundle.status === "draft" && <Badge className="ml-3 align-middle" variant="outline">Draft</Badge>}
           </h1>

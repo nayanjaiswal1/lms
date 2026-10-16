@@ -26,7 +26,7 @@ export function IssuesToolbar({ page, state, density, bulk }: IssuesToolbarProps
     <>
       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="m-headline-xl tracking-tight text-foreground">Issues</h1>
+          <h1 className="page-title">Issues</h1>
           <span className="m-label-md rounded-full bg-muted px-2.5 py-0.5 text-primary">{page.open_count_label}</span>
           <span className="m-label-sm flex items-center gap-1 rounded-lg bg-muted px-2 py-0.5 text-muted-foreground">
             <RefreshCw aria-hidden className="size-3.5 text-success" />
@@ -110,13 +110,7 @@ export function IssuesToolbar({ page, state, density, bulk }: IssuesToolbarProps
                 </Button>
               </span>
             ))}
-            <input
-              aria-label="Search or filter results"
-              className="m-body-sm min-w-36 flex-1 bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none"
-              placeholder="Search or filter results..."
-              type="search"
-            />
-            <Button className="m-label-sm h-auto px-1.5 py-0.5 text-xs" type="button" variant="link">
+            <Button className="m-label-sm ml-auto h-auto px-1.5 py-0.5 text-xs" type="button" variant="link">
               Clear all
             </Button>
           </div>

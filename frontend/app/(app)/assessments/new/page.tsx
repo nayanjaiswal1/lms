@@ -13,8 +13,8 @@ export default function NewAssessmentPage() {
     <main className="page-container">
       <Breadcrumb items={[{ label: "Assessments", href: ROUTES.ASSESSMENTS }, { label: "New" }]} />
       <header className="mb-6 flex flex-col gap-1">
-        <h1 className="section-title">New assessment</h1>
-        <p className="text-muted-foreground">Configure the test, then add questions and assign it.</p>
+        <h1 className="page-title">New assessment</h1>
+        <p className="page-description">Configure the test, then add questions and assign it.</p>
       </header>
       <CreateAssessmentForm />
     </main>

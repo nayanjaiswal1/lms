@@ -4,6 +4,7 @@ import { LayoutGrid } from "lucide-react";
 import { NextPageLink } from "@/components/shared/next-page-link";
 import { DiscoverList } from "@/components/workspace/discover-list";
 import { listDiscoverWorkspaces } from "@/lib/workspace/discover-server";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = {
   title: "Discover projects",
@@ -20,12 +21,7 @@ export default async function DiscoverWorkspacesPage({ searchParams }: DiscoverW
 
   return (
     <main className="page-container">
-      <header className="page-header">
-        <div className="flex flex-col gap-1">
-          <h1 className="page-title">Discover projects</h1>
-          <p className="text-muted-foreground">Workspaces currently recruiting teammates.</p>
-        </div>
-      </header>
+      <PageHeader title="Discover projects" description="Workspaces currently recruiting teammates." />
 
       {items.length === 0 ? (
         <div className="empty-state mt-10">

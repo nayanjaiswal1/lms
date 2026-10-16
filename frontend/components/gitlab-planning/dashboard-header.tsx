@@ -1,4 +1,4 @@
-import { Bell, Plus, Search } from "lucide-react";
+import { Bell, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 interface DashboardHeaderProps {
@@ -24,23 +24,11 @@ export function DashboardHeader({ title, subtitle, initial }: DashboardHeaderPro
       </div>
 
       <div className="hidden lg:block">
-        <h1 className="text-lg font-bold tracking-tight text-foreground">{title}</h1>
+        <h1 className="page-title">{title}</h1>
         <p className="text-xs font-medium text-muted-foreground">{subtitle}</p>
       </div>
 
       <div className="flex items-center gap-1.5 lg:gap-4">
-        <label className="relative hidden w-80 lg:block">
-          <span className="sr-only">Search</span>
-          <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            className="w-full rounded-xl border border-border bg-accent/70 py-1.5 pl-9 pr-4 text-xs text-foreground transition-all placeholder:text-muted-foreground focus:border-(--ae-brand-500) focus:bg-card focus:outline-none focus:ring-2 focus:ring-(--ae-brand-500)/20"
-            placeholder="Search tasks, steps, logs..."
-            type="search"
-          />
-        </label>
-        <Button aria-label="Search" className="flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden" type="button" variant="unstyled">
-          <Search aria-hidden className="size-5" />
-        </Button>
         <Button aria-label="Notifications"
           className="relative flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:size-auto lg:border lg:border-border lg:p-2 lg:hover:bg-accent"
           type="button"

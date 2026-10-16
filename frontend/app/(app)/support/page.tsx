@@ -15,6 +15,7 @@ import { SUPPORT_STATUS_OPTIONS, TICKET_KIND } from "@/lib/constants";
 import type { TicketStatus } from "@/lib/constants";
 import ROUTES from "@/lib/routes";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = {
   title: "Help & Support",
@@ -53,17 +54,16 @@ export default async function SupportPage({ searchParams }: SupportPageProps) {
 
   return (
     <main className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Help & Support</h1>
-          <p className="text-muted-foreground">
-            {view === "queue"
-              ? "Every support ticket raised across the org."
-              : "Raise a ticket for anything — billing, a bug, your account, course content — or track a mentor request."}
-          </p>
-        </div>
+      <PageHeader
+        description={
+          view === "queue"
+            ? "Every support ticket raised across the org."
+            : "Raise a ticket for anything — billing, a bug, your account, course content — or track a mentor request."
+        }
+        title="Help & Support"
+      >
         {view === "mine" && <CreateTicketDialog />}
-      </div>
+      </PageHeader>
 
       <Can permission={PERMISSIONS.SUPPORT.MANAGE}>
         <nav aria-label="Support view" className="mb-6 flex flex-wrap gap-1 border-b border-border">

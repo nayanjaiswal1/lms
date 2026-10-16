@@ -42,7 +42,7 @@ export default async function RoadmapDetailPage({ params }: Props) {
 
       <div className="flex flex-col gap-1 mb-4">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="section-title">{roadmap.title}</h1>
+          <h1 className="page-title">{roadmap.title}</h1>
           <Badge variant="outline">{roadmap.status}</Badge>
         </div>
         <p className="text-sm text-muted-foreground">{roadmap.goal_description}</p>

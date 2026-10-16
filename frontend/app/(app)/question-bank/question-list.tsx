@@ -5,7 +5,6 @@ import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { QuestionSearchInput } from "@/app/(app)/question-bank/question-search-input";
 import type { Category, Question, QuestionUsage } from "@/lib/assessments/types";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
 
@@ -43,7 +42,6 @@ export function QuestionList({ questions, categories, usage }: Props) {
 
   const controls = (
     <div className="flex items-center gap-2 flex-wrap">
-      <QuestionSearchInput />
       <Select value={type} onValueChange={(v) => void setType(v as (typeof TYPE_FILTERS)[number])}>
         <SelectTrigger aria-label="Filter by type" className="h-8 w-36">
           <SelectValue />

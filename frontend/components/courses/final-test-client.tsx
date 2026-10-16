@@ -93,7 +93,7 @@ export function FinalTestClient({ courseId, courseSlug, courseTitle, finalTest }
     <div className="flex flex-col gap-8">
       <div className="page-header sticky top-16 z-sticky rounded-lg border border-border bg-card px-4 py-3">
         <div>
-          <h1 className="text-xl font-semibold">{courseTitle} — Final Test</h1>
+          <h1 className="page-title">{courseTitle} — Final Test</h1>
           <p className="text-xs text-muted-foreground">
             {finalTest.questions.length} question{finalTest.questions.length === 1 ? "" : "s"} · {totalPoints} points ·
             Attempt {finalTest.attempts_used + 1} of {finalTest.max_attempts}

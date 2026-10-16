@@ -3,7 +3,7 @@
 import { useMemo, useSyncExternalStore } from "react"
 import { toast } from "sonner"
 import { createIdeTokenStore, type IdeTokens } from "@/lib/labs/ide-token-store"
-import { buildLabPreviewUrl } from "@/lib/labs/preview-url"
+import { LAB_IDE_PATH_MODE, buildLabIdeUrl, buildLabPreviewUrl } from "@/lib/labs/preview-url"
 
 const SERVER_SNAPSHOT: IdeTokens = { first: null, latest: null, failed: false }
 
@@ -26,6 +26,11 @@ interface UseLabIdeReturn {
 // <ide-origin>/__mf/preview-auth?t=…&next=/__mf/ok, which sets the cookie and
 // answers 204 without touching VS Code.
 export function useLabIde(sessionId: string, idePort: number): UseLabIdeReturn {
+  // Path mode swaps the subdomain handshake for /ide/{sessionId}/{port}/?t=token on the main origin.
+  const ideUrlFor = (token: string, path = "") =>
+    LAB_IDE_PATH_MODE
+      ? buildLabIdeUrl(sessionId, idePort, token, path)
+      : buildLabPreviewUrl(token, idePort, path)
   const store = useMemo(() => createIdeTokenStore(sessionId), [sessionId])
   const tokens = useSyncExternalStore(store.subscribe, store.getSnapshot, () => SERVER_SNAPSHOT)
 
@@ -45,19 +50,18 @@ export function useLabIde(sessionId: string, idePort: number): UseLabIdeReturn {
       toast.error("Your lab session expired. End the lab and start a fresh one.")
       return
     }
-    const url = buildLabPreviewUrl(token, idePort)
-    tab.location.href = url
+    tab.location.href = ideUrlFor(token)
   }
 
   return {
     popOut,
     retry: store.mintNow,
-    ideUrl: tokens.first ? buildLabPreviewUrl(tokens.first, idePort) : null,
+    ideUrl: tokens.first ? ideUrlFor(tokens.first) : null,
     refreshUrl:
       tokens.latest && tokens.latest !== tokens.first
-        ? buildLabPreviewUrl(tokens.latest, idePort, "__mf/ok")
+        ? ideUrlFor(tokens.latest, "__mf/ok")
         : null,
-    popOutUrl: tokens.latest ? buildLabPreviewUrl(tokens.latest, idePort) : null,
+    popOutUrl: tokens.latest ? ideUrlFor(tokens.latest) : null,
     hasError: tokens.failed,
   }
 }

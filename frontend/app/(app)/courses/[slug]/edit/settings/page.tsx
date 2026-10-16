@@ -5,6 +5,7 @@ import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { getMyPermissions } from "@/lib/server/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -49,12 +50,7 @@ export default async function CourseSettingsPage({ params }: Props) {
         ]}
       />
 
-      <div className="page-header mb-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="section-title">Course settings</h1>
-          <p className="text-sm text-muted-foreground">{tree.title}</p>
-        </div>
-      </div>
+      <PageHeader title="Course settings" description={<p className="page-description">{tree.title}</p>} />
       <CourseWizard certificateRule={certificateRule} course={tree} finalTest={finalTest} />
     </main>
   );

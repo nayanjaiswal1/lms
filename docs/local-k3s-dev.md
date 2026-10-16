@@ -222,3 +222,30 @@ Verification uses the locally built `mindforge/lab-debug:1` (`docker build -t mi
 **Resources on a 4-CPU box:** set `LABS_CLEANROOM_MAX_CONCURRENT=2` in `backend/.env` (keep `LAB_VERIFY_PARALLEL_PER_ORG` at 1) and verify with `--parallel 1`. Validation pods request 25% CPU / 50% memory of their limits by default (`LABS_VALIDATION_*_REQUEST_PCT`, docs/infrastructure.md). `make dev-k3s` needs labproxy and piston from the cluster (it port-forwards both), so leave them running. It serves the app from Air + `next dev`, not from the in-cluster `backend`/`frontend` Deployments; if those run against the same database they also run job workers, and scaling them to 0 (`kubectl scale deploy/backend deploy/frontend -n mindforge --replicas=0`) frees CPU, but a Jenkins deploy's `Import labs` stage execs into `deploy/backend`, so scale it back first. Nothing here scales anything for you.
 
 If live reload stops after the page loads, Next is blocking the HMR websocket for your host. Set `NEXT_ALLOWED_DEV_ORIGINS=<your-box>.<tailnet>.ts.net` (comma-separated for more) in `frontend/.env.local` and restart `make dev-k3s`.
+
+## Gotcha: IDE pane blank / "Starting your IDE…" forever (debug labs)
+
+**Symptom:** lab session page loads, IDE iframe stays white / "Starting your IDE…". Rest of UI fine, no JS errors.
+
+**Cause 1 — subdomain IDE origin:** by default the IDE is served on its own origin `p<port>-<sessionId>.<LABPROXY_PREVIEW_DOMAIN>`
+(`GET /preview/<token>/<port>/` only 302s there). Needs wildcard DNS + TLS. Tailscale `*.ts.net` has none, and the base
+configmap placeholder `labs.app.yourdomain.com` never resolves.
+
+**Fix (done):** path-mode IDE. `NEXT_PUBLIC_LAB_IDE_PATH_MODE=1` (frontend/.env.local) makes the IDE iframe use
+`<proxy>/ide/<sessionId>/<port>/?t=<token>` on the main origin; labproxy `ServeIDEPath` (`backend/cmd/labproxy/ide_path.go`)
+auth-cookies the token, proxies only the session's `ide_port`, and rewrites the workbench HTML (asset paths +
+`serverBasePath`) using `LABPROXY_PUBLIC_PATH_PREFIX` (=`/lab-ws`, the prefix `tailscale serve` strips).
+`scripts/dev-k3s.sh` sets that env. Arbitrary preview apps keep the subdomain model. Leave the flag unset on prod
+(wildcard DNS available).
+
+**Cause 2 — wrong labproxy on :18081 (token "revoked or expired"):** dev backend uses Redis from `backend/.env` (Upstash);
+the in-cluster labproxy uses the in-cluster Redis, so it never sees minted tokens. `:18081` must be the NATIVE labproxy that
+`scripts/dev-k3s.sh` starts, not `kubectl port-forward svc/labproxy` (`scripts/port-forward-k3s-infra.sh`). A `make dev-k3s`
+started before the script changed keeps the old behaviour: restart it after editing the script.
+
+**Checks:**
+```
+ss -ltnp | grep 18081            # must be labproxy, not kubectl
+kubectl -n mindforge get cm mindforge-config -o jsonpath='{.data.LABPROXY_PREVIEW_DOMAIN}'
+```
+Restart Next after changing any `NEXT_PUBLIC_*` (inlined at build/dev start).
