@@ -498,7 +498,6 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
     items: [
       ALL_NAV_ITEMS.dashboard,
       ALL_NAV_ITEMS.learn_hub,
-      ALL_NAV_ITEMS.workspaces,
       ALL_NAV_ITEMS.mentors,
       ALL_NAV_ITEMS.support,
       ALL_NAV_ITEMS.calendar,
