@@ -18,10 +18,10 @@ export async function SessionsSection({ currentUserId }: SessionsSectionProps) {
   ]);
 
   return (
-    <section className="mt-10 flex flex-col gap-8" id="sessions">
+    <section className="flex flex-col gap-8" id="sessions">
       <div className="page-header">
         <div>
-          <h2 className="page-title">My Sessions</h2>
+          <h2 className="page-title">My sessions</h2>
           <p className="text-sm text-muted-foreground">Upcoming and past mentor sessions.</p>
         </div>
         {config.require_credits && (
