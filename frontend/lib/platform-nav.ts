@@ -1,4 +1,4 @@
-import { Briefcase, Cpu, Sparkles, Tag, ToggleLeft, type LucideIcon } from "lucide-react";
+import { Briefcase, Cpu, FlaskConical, Sparkles, Tag, ToggleLeft, type LucideIcon } from "lucide-react";
 import ROUTES from "@/lib/routes";
 
 interface PlatformNavItem {
@@ -28,6 +28,7 @@ export const PLATFORM_NAV_GROUPS: PlatformNavGroup[] = [
       { label: "Worker Health", href: ROUTES.PLATFORM_JOBS_WORKERS, icon: Cpu },
       { label: "Features",      href: ROUTES.PLATFORM_FEATURES,     icon: ToggleLeft },
       { label: "Pricing",       href: ROUTES.PLATFORM_PRICING,      icon: Tag },
+      { label: "Platform labs", href: ROUTES.ADMIN_LABS_PLATFORM,   icon: FlaskConical },
       { label: "What's new",    href: ROUTES.PLATFORM_WHATS_NEW,    icon: Sparkles },
     ],
   },
