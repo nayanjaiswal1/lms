@@ -3,11 +3,11 @@ kind: lesson
 id_key: linux/talking-to-the-world/lesson
 course: linux
 section: talking-to-the-world
-section_title: "Chapter 8: Talking to the World"
+section_title: "Chapter 8: Talking to the World - Networking"
 section_position: 8
-title: IP, Ports, DNS, curl, SSH and Firewalls
-position: 0
-estimated_minutes: 50
+title: "Lab: Prove Atlas Is Listening"
+position: 7
+estimated_minutes: 25
 source:
   - ip(8), ss(8), ping(8), dig(1), curl(1), ssh(1), ssh_config(5), ssh-keygen(1), ufw(8) manual pages
   - hosts(5), resolv.conf(5) manual pages
@@ -88,75 +88,55 @@ lab:
         mkdir -p ~/.ssh && chmod 700 ~/.ssh
         printf 'Host atlas\n    HostName 10.0.0.42\n    User deploy\n    Port 2222\n    IdentityFile ~/.ssh/atlas_ed25519\n' > ~/.ssh/config
         chmod 600 ~/.ssh/config
+    - id_key: port-check
+      title: Which doors are open?
+      points: 20
+      is_stateful: true
+      description: >-
+        Test which of the ports 8080, 8081 and 9090 on 127.0.0.1 accept a TCP
+        connection right now, and save the open port numbers, one per line, into
+        /home/labuser/work/answers/open-ports.txt. nc is not installed, so use curl
+        or bash's /dev/tcp.
+      verification_script: |
+        f=/home/labuser/work/answers/open-ports.txt
+        [ -f $f ] || exit 1
+        want=$(for p in 8080 8081 9090; do timeout 2 bash -c "</dev/tcp/127.0.0.1/$p" 2>/dev/null && echo $p; done)
+        [ -n "$want" ] && [ "$(grep -o '[0-9]\+' $f | sort -n | tr '\n' ' ')" = "$(echo $want | tr ' ' '\n' | sort -n | tr '\n' ' ')" ]
+      hint_context: "for p in 8080 8081 9090; do timeout 2 bash -c \"</dev/tcp/127.0.0.1/$p\" 2>/dev/null && echo $p; done > answers/open-ports.txt - the web server from task 1 must still be running."
+      explanation_context: Opening /dev/tcp/HOST/PORT makes bash attempt a TCP connection, so it doubles as a port tester on minimal machines. A refused connection fails at once; a firewalled one would hang until the timeout.
+      solution_script: |
+        for p in 8080 8081 9090; do timeout 2 bash -c "</dev/tcp/127.0.0.1/$p" 2>/dev/null && echo $p; done > /home/labuser/work/answers/open-ports.txt
 ---
 
-> **Tuesday, week 2.** The payment provider emails: *we can't reach your server*. Rhea: "Before you blame them, prove atlas is listening. Every service has an address and a door number." Tom's note: *every door has a number*.
+## Why this matters
 
-## Addresses and ports
+The payment provider says they cannot reach atlas. Before blaming them, you
+prove what is listening, what it answers, and how you would reach it over SSH.
+Each task is checked automatically.
 
-```
-   IP address = the building           port = the door
-   10.0.0.42                            :443  (HTTPS)
-
-   client 203.0.113.5:51522  ------>  atlas 10.0.0.42:443  (nginx)
-```
-
-| Address | Meaning |
-|---|---|
-| `127.0.0.1` / `::1` | **localhost** - this machine, traffic never leaves it |
-| `10.x`, `172.16-31.x`, `192.168.x` | private networks (offices, clouds, home) |
-| `0.0.0.0` (in "listening on") | every interface on this machine |
-| `/24` in `10.0.0.0/24` | subnet mask: the first 24 bits are the network, 256 addresses |
-
-Well-known ports - worth memorising:
-
-| Port | Service | Port | Service |
-|---|---|---|---|
-| 22 | SSH | 443 | HTTPS |
-| 25 | SMTP (mail) | 3306 | MySQL |
-| 53 | DNS | 5432 | PostgreSQL |
-| 80 | HTTP | 6379 | Redis |
-
-Ports below 1024 are **privileged**: only root can listen on them. That is why apps often listen on 8080 behind nginx on 80/443.
-
-> **Memory hook:** the IP is the **street address of the café**, the port is **which door** - front door 80 for walk-ins, the locked side door 22 for staff (SSH).
-
-## Inspecting the network
+## Before you start
 
 ```bash
-ip a                     # interfaces and their IP addresses (old: ifconfig)
-ip r                     # routing table - "default via 10.0.0.1" is the gateway
-ss -tulpn                # listening TCP/UDP ports and which process owns them
-ss -tn                   # current TCP connections
-ping -c 3 10.0.0.1       # is the host reachable? (ICMP, may be blocked)
-traceroute example.com   # every hop on the way (or tracepath / mtr)
-hostname -I              # this machine's IPs
+ls ~/work/site
+ss -tln
 ```
 
-`ss -tulpn` is the most useful networking command on a server:
+What this does: shows the two files you will serve, and confirms nothing listens
+on 8080 yet.
 
-```
-Netid State  Local Address:Port  Process
-tcp   LISTEN 0.0.0.0:22          users:(("sshd",pid=812))
-tcp   LISTEN 127.0.0.1:8080      users:(("brewbot",pid=1040))
-tcp   LISTEN 0.0.0.0:443         users:(("nginx",pid=901))
-```
+## Task 1: open the shop's front door
 
-Note `127.0.0.1:8080` - brewbot only listens on localhost, so nobody outside can reach it directly. That is correct here (nginx forwards to it), but it is also the number one reason for "the app runs but I can't connect".
-
-## Talking HTTP with curl
-
-```bash
-curl http://localhost:8080/             # GET, print the body
-curl -I https://orbit.coffee            # headers only
-curl -v https://orbit.coffee            # verbose: DNS, TLS, request, response
-curl -s URL | jq .                      # quiet + pretty JSON
-curl -X POST -H 'Content-Type: application/json' -d '{"qty":2}' URL
-curl -o file.tar.gz URL                 # save to a file (or wget URL)
-curl -sf URL || echo "DOWN"             # -f: fail on HTTP errors, great in scripts
-```
+Serve `~/work/site` over HTTP on port 8080 with Python's built-in web server,
+in the background so you keep your prompt.
 
 [[lab-task:1]]
+
+Check yourself: `ss -tln | grep 8080` shows a listener.
+
+## Task 2: read the response headers
+
+Save only the HTTP response headers of `http://localhost:8080/` into
+`~/work/answers/headers.txt`.
 
 [[lab-task:2]]
 
@@ -165,83 +145,44 @@ What you should see:
 ```
 $ curl -I http://localhost:8080/
 HTTP/1.0 200 OK
-Server: SimpleHTTP/0.6 Python/3.12.x
+Server: SimpleHTTP/0.6 Python/3.12.3
 Content-type: text/html
 ...
 ```
 
+## Task 3: ask the API a question
+
+Fetch `http://localhost:8080/status.json` with curl and extract only the
+`version` field with jq. Save that value (no quotes) into
+`answers/api-version.txt`.
+
 [[lab-task:3]]
 
-## DNS: names to numbers
+## Task 4: a shortcut for SSH
 
-```
- orbit.coffee  --->  resolver (/etc/resolv.conf)  --->  203.0.113.10
-```
-
-```bash
-dig orbit.coffee +short       # ask DNS (or: nslookup, host)
-dig MX orbit.coffee           # mail servers
-getent hosts orbit.coffee     # resolve the way programs do (includes /etc/hosts)
-cat /etc/resolv.conf          # which DNS server this machine asks
-cat /etc/hosts                # local overrides, checked BEFORE DNS
-```
-
-`/etc/hosts` lets you pin a name to an IP on one machine - great for testing a new server before switching DNS:
-
-```
-127.0.0.1   localhost
-10.0.0.42   atlas atlas.internal
-```
-
-> **Memory hook:** "**It's always DNS.**" When a name fails but the IP works, the problem is name resolution, not the network.
-
-## SSH: the staff door
-
-```bash
-ssh deploy@10.0.0.42                 # log in
-ssh -p 2222 deploy@10.0.0.42         # non-standard port
-ssh-keygen -t ed25519 -C "you@orbit" # make a key pair: private + .pub
-ssh-copy-id deploy@10.0.0.42         # install your public key on the server
-scp backup.tar.gz deploy@atlas:/tmp/ # copy a file over SSH
-ssh -L 5432:localhost:5432 atlas     # tunnel: reach atlas's DB on your localhost:5432
-```
-
-Key-based login: your **private key** (`~/.ssh/id_ed25519`) never leaves your laptop; the **public key** goes into the server's `~/.ssh/authorized_keys`.
-
-> **Memory hook:** the public key is the **lock** you can hand out to every door; the private key is the **only key** - never copy it, never share it.
-
-Permissions matter - SSH silently refuses keys if they are too open: `~/.ssh` **700**, private key and `config` **600**, `authorized_keys` **600**.
-
-A `~/.ssh/config` saves typing:
-
-```
-Host atlas
-    HostName 10.0.0.42
-    User deploy
-    Port 2222
-    IdentityFile ~/.ssh/atlas_ed25519
-```
-
-Now `ssh atlas` and `scp file atlas:/tmp/` just work.
+Create `~/.ssh/config` with a host entry `atlas` for address `10.0.0.42`, user
+`deploy`, port `2222`, key `~/.ssh/atlas_ed25519`. `~/.ssh` must be 700 and
+the config 600. (There is no server to connect to; the check reads your file.)
 
 [[lab-task:4]]
 
-Hardening the server side (`/etc/ssh/sshd_config`, then `sudo systemctl reload ssh`): `PasswordAuthentication no`, `PermitRootLogin no`. Keep a second session open while you test - a typo can lock you out.
+## Task 5: which doors are open?
 
-## Firewalls
+Test which of the ports 8080, 8081 and 9090 on `127.0.0.1` accept a TCP
+connection, and save the open ones, one per line, into
+`answers/open-ports.txt`. `nc` is not installed; lesson 7 showed the bash
+`/dev/tcp` trick.
 
-```bash
-sudo ufw status verbose          # Ubuntu's friendly firewall
-sudo ufw allow 22/tcp            # ALWAYS allow SSH before enabling!
-sudo ufw allow 443/tcp
-sudo ufw allow from 10.0.0.0/24 to any port 5432    # DB only from the office
-sudo ufw enable
-sudo firewall-cmd --list-all     # RHEL's firewalld equivalent
-sudo iptables -L -n              # the low-level rules underneath (nftables on newer systems)
-```
+[[lab-task:5]]
 
-Cloud servers have a second firewall outside the machine (security groups). "Connection timed out" usually means a firewall dropped it; "connection refused" means you reached the machine but nothing listens on that port.
+## Remember
 
-> **Memory hook:** **refused = nobody home** (wrong port or service down). **timed out = the gate is locked** (firewall or routing).
+- A server is a process listening on a port; `ss -tln` proves it.
+- `curl -I` headers, `curl -s | jq -r .field` JSON.
+- `~/.ssh/config` with 700/600 permissions.
+- `bash -c '</dev/tcp/HOST/PORT'` tests a port anywhere.
 
-> **End of day 8.** `ss -tulpn` showed brewbot listening on 127.0.0.1 only, and nginx's config had the wrong upstream port. One fix and the payment provider is happy. Rhea: "You're doing a lot of things by hand. Tomorrow - teach atlas to do them itself." Tom's note: "Lazy admins write scripts."
+> **End of day 8.** `ss -tulpn` showed brewbot listening on 127.0.0.1 only, and
+> nginx's config had the wrong upstream port. One fix and the payment provider
+> is happy. Rhea: "You're doing a lot of things by hand. Tomorrow, teach atlas
+> to do them itself." Tom's note: "Lazy admins write scripts."
