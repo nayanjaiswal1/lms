@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -57,6 +58,7 @@ func main() {
 	defer rdb.Close()
 
 	handler := NewProxyHandler(pool, rdb, jwtSecret, jwtIssuer, previewDomain, allowedOrigins)
+	handler.publicPathPrefix = strings.TrimRight(os.Getenv("LABPROXY_PUBLIC_PATH_PREFIX"), "/")
 
 	srv := &http.Server{
 		Addr:    ":" + port,
@@ -96,6 +98,8 @@ func newRootHandler(handler *ProxyHandler, previewDomain string) http.Handler {
 	// there, every request is dispatched by the host-based router below —
 	// this mux never sees them.
 	mux.HandleFunc("/preview/", handler.ServePreview)
+	// Path-mode IDE for hosts without wildcard preview DNS (see ide_path.go).
+	mux.HandleFunc("/ide/", handler.ServeIDEPath)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// The ws-token rides in /preview/<token>/... — never leak it via Referer.
