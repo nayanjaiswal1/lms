@@ -3,11 +3,11 @@ kind: lesson
 id_key: linux/night-shift/lesson
 course: linux
 section: night-shift
-section_title: "Chapter 6: The Night Shift"
+section_title: "Chapter 6: The Night Shift - systemd, Logs and Schedules"
 section_position: 6
-title: Boot, systemd Services, Logs, cron and Log Rotation
-position: 0
-estimated_minutes: 50
+title: "Lab: The 2am Page"
+position: 6
+estimated_minutes: 30
 source:
   - systemd.unit(5), systemd.service(5), systemctl(1), journalctl(1) manual pages
   - crontab(5), logrotate(8) manual pages
@@ -118,111 +118,59 @@ lab:
       solution_script: |
         mkdir -p /home/labuser/work/logrotate
         printf '/var/log/brewbot/*.log {\n    daily\n    rotate 7\n    compress\n    missingok\n    notifempty\n}\n' > /home/labuser/work/logrotate/brewbot
+    - id_key: timer-unit
+      title: Turn the backup into a systemd timer
+      points: 20
+      is_stateful: true
+      description: >-
+        Create /home/labuser/work/units/brewbot-backup.timer. In a [Timer] section
+        schedule it every day at 02:30 with OnCalendar and make it catch up on missed
+        runs. In an [Install] section hook it into timers.target.
+      verification_script: |
+        f=/home/labuser/work/units/brewbot-backup.timer
+        grep -q '^\[Timer\]' $f && grep -Eq '^OnCalendar=(\*-\*-\* )?0?2:30(:00)?$' $f &&
+        grep -Eiq '^Persistent=(true|yes)$' $f &&
+        grep -q '^\[Install\]' $f && grep -q '^WantedBy=timers.target$' $f
+      hint_context: Copy the timer example from the cron and timers lesson. OnCalendar=*-*-* 02:30:00, Persistent=true and WantedBy=timers.target, one per line.
+      explanation_context: A timer starts the service with the same name (brewbot-backup.service). Persistent=true runs a missed job at the next boot, and its output lands in the journal without any redirection.
+      solution_script: |
+        mkdir -p /home/labuser/work/units
+        printf '[Unit]\nDescription=Run brewbot backup nightly\n\n[Timer]\nOnCalendar=*-*-* 02:30:00\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n' > /home/labuser/work/units/brewbot-backup.timer
 ---
 
-> **Friday night, on call for the first time.** Your phone buzzes at 2:07am: *brewbot is down, no orders are coming in.* Tom's note said "services, logs, and the clock". Tonight you learn who starts programs on atlas, where they write their diary, and how atlas does chores on a schedule.
+## Why this matters
 
-## How atlas boots
+It is 2:07am and brewbot is down. In this lab you write brewbot's unit file,
+read last night's journal to find what crashed, schedule the nightly chores with
+cron and a systemd timer, and stop logs from filling the disk. The lab machine
+has no systemd of its own, so you write the files and read a saved journal; the
+checks look at your files. Each task is checked automatically.
 
-```
- power on
-   |
- [1] BIOS / UEFI        checks hardware, finds a boot disk
-   |
- [2] GRUB (bootloader)  menu, loads the kernel + initramfs from /boot
-   |
- [3] Kernel             detects hardware, mounts the root filesystem
-   |
- [4] systemd (PID 1)    starts every service in dependency order
-   |
- [5] target reached     multi-user.target (server) or graphical.target (desktop)
-   |
- login prompt
-```
-
-> **Memory hook:** "**B**ig **G**reen **K**ettles **S**team" - **B**IOS, **G**RUB, **K**ernel, **S**ystemd.
-
-`dmesg` shows kernel messages from boot (hardware, drivers, disk errors). `systemd-analyze blame` shows which services slowed boot.
-
-## systemd and systemctl
-
-systemd is PID 1 and the manager of **units**. The most common unit types:
-
-| Type | Example | What it is |
-|---|---|---|
-| `.service` | `nginx.service` | a program to keep running |
-| `.timer` | `logrotate.timer` | a schedule (modern cron) |
-| `.target` | `multi-user.target` | a group of units = a "boot state" |
-| `.socket`, `.mount`, `.path` | | start on connection / mount / file change |
+## Before you start
 
 ```bash
-systemctl status brewbot          # running? last log lines? PID?
-sudo systemctl start brewbot      # start now
-sudo systemctl stop brewbot       # stop now
-sudo systemctl restart brewbot    # stop + start
-sudo systemctl reload nginx       # re-read config without dropping connections
-sudo systemctl enable brewbot     # start at every boot
-sudo systemctl enable --now brewbot   # enable AND start
-sudo systemctl disable brewbot    # don't start at boot
-systemctl is-active brewbot       # active / inactive / failed
-systemctl list-units --failed     # what is broken right now?
-sudo systemctl daemon-reload      # after editing a unit file
+cd ~/work
+ls night
+wc -l night/journal.txt
 ```
 
-> **Memory hook:** **start** is *today*, **enable** is *every day*. A service can be started but not enabled (dies at reboot) or enabled but not started (runs from the next boot).
+What this does: `night/journal.txt` is a copy of last night's
+`journalctl` output, about 20 lines.
 
-A unit file is a small INI file. Your own go in `/etc/systemd/system/`; package-provided ones live in `/lib/systemd/system/`.
+## Task 1: write brewbot's unit file
 
-```ini
-# /etc/systemd/system/brewbot.service
-[Unit]
-Description=Orbit Coffee order bot
-# start after networking is up
-After=network.target
-
-[Service]
-ExecStart=/opt/brewbot/bin/brewbot
-# never run apps as root
-User=brewbot
-# come back if it crashes
-Restart=on-failure
-Environment=PORT=8080
-
-[Install]
-# "enable" hooks it into normal boot
-WantedBy=multi-user.target
-```
-
-Comments in unit files must be on their own line - systemd would treat `After=network.target # comment` as part of the value.
+Create `~/work/units/brewbot.service`. `[Unit]`: any `Description`, ordered
+after `network.target`. `[Service]`: run `/opt/brewbot/bin/brewbot` as user
+`brewbot`, restart only on failure. `[Install]`: start in the normal multi-user
+boot target.
 
 [[lab-task:1]]
 
-## Logs: journalctl and /var/log
+## Task 2: what crashed at 2am?
 
-systemd's **journal** collects output from every service:
-
-```bash
-journalctl -u brewbot             # one unit's logs
-journalctl -u brewbot -f          # follow live
-journalctl -u brewbot --since "1 hour ago"
-journalctl -p err -b              # errors (and worse) since this boot
-journalctl -b -1                  # the previous boot (after a crash/reboot)
-journalctl --disk-usage           # how big is the journal?
-```
-
-Classic text logs still live in `/var/log`:
-
-| File | Contains |
-|---|---|
-| `/var/log/syslog` (Debian/Ubuntu) or `/var/log/messages` (RHEL) | general system log |
-| `/var/log/auth.log` or `/var/log/secure` | logins, sudo, SSH |
-| `/var/log/kern.log` | kernel |
-| `/var/log/nginx/`, `/var/log/apache2/` | web servers |
-| `/var/log/dpkg.log`, `/var/log/apt/` | package installs |
-
-Log **priorities** from worst to mildest: `emerg, alert, crit, err, warning, notice, info, debug`.
-
-> **Memory hook:** when a service is down, run the **two S's**: `systemctl status` (what state?) then `journalctl -u` (what did it say?). The answer is almost always in the last 20 lines.
+Save the name of the unit that failed to start into
+`answers/failed-unit.txt`, and the highest restart counter systemd reached into
+`answers/restarts.txt`.
 
 [[lab-task:2]]
 
@@ -235,58 +183,47 @@ Oct 14 02:00:18 atlas systemd[1]: brewbot.service: Scheduled restart job ...
 Oct 14 02:00:19 atlas systemd[1]: brewbot.service: Start request repeated too quickly.
 ```
 
-At 2:15am you run `sudo chmod 640 /etc/brewbot/brewbot.conf && sudo chgrp brewbot /etc/brewbot/brewbot.conf`, then `sudo systemctl reset-failed brewbot && sudo systemctl start brewbot`. Orders flow again.
+On the real atlas, the fix at 2:15am was
+`sudo chgrp brewbot /etc/brewbot/brewbot.conf && sudo chmod 640 /etc/brewbot/brewbot.conf`,
+then `sudo systemctl reset-failed brewbot && sudo systemctl start brewbot`.
 
-## cron: chores on a schedule
+## Task 3: schedule the nightly backup
 
-Each user has a crontab (`crontab -e` edits it, `crontab -l` lists it). System-wide jobs go in `/etc/crontab` and `/etc/cron.d/`, plus drop-in folders `/etc/cron.daily/`, `/etc/cron.weekly/`.
-
-```
- .---------------- minute       (0-59)
- |  .------------- hour         (0-23)
- |  |  .---------- day of month (1-31)
- |  |  |  .------- month        (1-12)
- |  |  |  |  .---- day of week  (0-7, 0 and 7 = Sunday)
- |  |  |  |  |
- 30 2  *  *  *   /opt/brewbot/backup.sh       every day at 02:30
- */15 * * * 1-5  /opt/brewbot/health.sh       every 15 min, Mon-Fri
- 0  9  1  *  *   /opt/report.sh               9am on the 1st of each month
- @reboot         /opt/brewbot/warmup.sh       once at boot
-```
-
-> **Memory hook:** "**M**y **H**amster **D**rinks **M**ilk **W**eekly" - **M**inute, **H**our, **D**ay, **M**onth, **W**eekday.
-
-Cron traps: jobs run with a **tiny PATH** (`/usr/bin:/bin`) and no `.bashrc`, so use full paths. Output is mailed or lost - redirect it: `... >> /var/log/backup.log 2>&1`. Check `grep CRON /var/log/syslog` to see if a job ran. `at 23:00` runs a one-off job; systemd **timers** are the modern alternative with logs in the journal.
+Create `~/work/cron/brewbot.cron` with a crontab line that runs
+`/opt/brewbot/backup.sh` every day at 02:30.
 
 [[lab-task:3]]
 
+## Task 4: health check on weekdays
+
+Add a second line to `cron/brewbot.cron` that runs `/opt/brewbot/health.sh`
+every 15 minutes, Monday to Friday only. Append; keep the backup line.
+
 [[lab-task:4]]
 
-## Log rotation
+## Task 5: stop the logs from eating the disk
 
-Logs grow forever unless something trims them. **logrotate** (run daily) renames `app.log` to `app.log.1`, compresses old ones, and deletes the oldest:
-
-```
-/var/log/brewbot/*.log {
-    daily
-    rotate 7
-    compress
-    missingok
-    notifempty
-}
-```
-
-| Directive | Meaning |
-|---|---|
-| `daily` | rotate every day (or `weekly`, `monthly`, `size 100M`) |
-| `rotate 7` | keep 7 old copies |
-| `compress` | gzip old copies |
-| `missingok` | no error if the log doesn't exist |
-| `notifempty` | don't rotate an empty log |
-| `copytruncate` | copy then empty the live file, for apps that can't reopen logs |
-
-Configs live in `/etc/logrotate.d/`. Test one with `sudo logrotate -d /etc/logrotate.d/brewbot` (dry run).
+Create `~/work/logrotate/brewbot`: a logrotate config for
+`/var/log/brewbot/*.log` that rotates daily, keeps 7 copies, compresses them,
+does not complain if the log is missing, and skips empty logs.
 
 [[lab-task:5]]
 
-> **End of day 6.** Brewbot runs again and its logs will never fill the disk. Rhea, half asleep on the phone: "Nice work. Monday we're getting new disks - and we need some software installed." Tom's next note: "Know your storeroom."
+## Task 6: the modern way, a timer
+
+Create `~/work/units/brewbot-backup.timer` that runs every day at 02:30
+(`OnCalendar`), catches up on missed runs, and is hooked into `timers.target`.
+
+[[lab-task:6]]
+
+## Remember
+
+- Unit file: `[Unit]` After, `[Service]` ExecStart/User/Restart,
+  `[Install]` WantedBy.
+- The app's own log line holds the cause; systemd's lines are the symptom.
+- Cron: minute hour dom month dow; timers: `OnCalendar=` + `Persistent=true`.
+- logrotate keeps logs from filling the disk.
+
+> **End of day 6.** Brewbot runs again and its logs will never fill the disk.
+> Rhea, half asleep on the phone: "Nice work. Monday we're getting new disks,
+> and we need some software installed." Tom's next note: "Know your storeroom."
