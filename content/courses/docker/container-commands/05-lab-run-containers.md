@@ -3,11 +3,11 @@ kind: lesson
 id_key: docker/container-commands/lesson
 course: docker
 section: container-commands
-section_title: Container Commands
+section_title: Running Containers
 section_position: 2
-title: Container Lifecycle & Commands
-position: 0
-estimated_minutes: 45
+title: "Lab: Run, Stop, Exec and Inspect"
+position: 4
+estimated_minutes: 25
 source:
   - Docker Command Cheat Sheet.pdf
   - docker_cheatsheet.pdf (Red Hat CLI & Dockerfile cheat sheet)
@@ -36,7 +36,8 @@ lab:
       points: 10
       description: Start a second container named "tempbox" from alpine:3.20 that sleeps, then stop it and remove it so it no longer appears in "docker ps -a".
       verification_script: |
-        ! docker ps -a --filter name=tempbox --format '{{.Names}}' | grep -q tempbox
+        ! docker ps -a --filter name=tempbox --format '{{.Names}}' | grep -q tempbox \
+          && docker events --since 6h --until "$(( $(date +%s) + 1 ))" --filter type=container --filter event=destroy --format '{{.Actor.Attributes.name}}' | grep -qx tempbox
       hint_context: docker run -d --network host --name tempbox alpine:3.20 sleep 3600 creates it; docker stop and docker rm (or docker rm -f) remove it.
       explanation_context: docker stop sends SIGTERM (then SIGKILL after a grace period); docker rm then deletes the stopped container's filesystem and metadata. docker rm -f does both in one step.
       solution_script: |
@@ -62,119 +63,98 @@ lab:
       solution_script: docker run --rm --network host busybox:1.36 wget -qO- http://127.0.0.1:80
 ---
 
-## Syntax
+## Why this matters
 
-```
-docker [CMD] [OPTS] [CONTAINER]
-```
+Reading about `docker run` is not the same as typing it. This lab makes you use
+the four lessons you just read: start a container, stop and remove one, go
+inside one, and inspect one. Each task is checked automatically.
 
-## Lifecycle at a glance
+## Before you start: one sandbox rule
 
-`create` → `start` → (`pause`/`unpause`, `stop`/`restart`) → `rm`. `run` is `create` +
-`start` in one step. `kill` force-stops and can be combined with removal.
+On a normal machine you would publish a port with `-p 8080:80` and open
+`localhost:8080`. This lab's Docker daemon runs **inside** your sandbox, in its
+own nested network, so `-p` does not reach the terminal you type in.
 
-| Command | Description |
-|---|---|
-| `docker create` | Create a new container (does not start it) |
-| `docker run` | Create **and** start a container from an image |
-| `docker start` | Start one or more stopped containers |
-| `docker stop` | Stop a container (sends `SIGTERM`, then `SIGKILL` after a grace period) |
-| `docker restart` | Restart a container |
-| `docker pause` / `docker unpause` | Freeze / unfreeze all processes in a container |
-| `docker kill` | Kill a running container immediately with `SIGKILL` (or a specified signal) |
-| `docker wait` | Block until one or more containers stop, then print their exit codes |
-| `docker rm` | Remove a container — must be stopped first, or use `-f` to force |
-| `docker update` | Update the resource configuration of one or more containers |
+The workaround used in every lab of this course:
 
-## Inspecting & interacting
-
-| Command | Description |
-|---|---|
-| `docker ps` | List running containers (`docker ps -a` for running **and** stopped) |
-| `docker attach` | Attach your terminal to a running container's main process |
-| `docker exec` | Run a new command inside an already-running container |
-| `docker logs` | Fetch a container's logs (`-f` to follow, like `tail -f`) |
-| `docker inspect` | Full container/image metadata as JSON |
-| `docker top` | Show the running processes inside a container |
-| `docker stats` | Live CPU, memory, and network I/O usage |
-| `docker port` | Show a container's published ports |
-| `docker diff` | Inspect changed files/dirs on a container's filesystem vs. its image |
-| `docker rename` | Rename a container |
-| `docker cp` | Copy files/folders between a container and the local filesystem |
-| `docker commit` | Create a new image from a container's current state |
-| `docker export` | Export a container's filesystem as a `.tar` archive |
-
-## Examples
-
-### Starting containers
+- Start containers with `--network host`. The container then shares the
+  sandbox's network directly; no publishing needed.
+- To check that a server answers, run a **second** throwaway container with
+  `--network host` and fetch `http://127.0.0.1:PORT` from it. Both share one
+  network, so `127.0.0.1` reaches the server.
 
 ```bash
-# Run a container in interactive mode, get a shell
-docker run -it alpine:3.20 sh
+# Pattern: "is the server on port 80 answering?"
+docker run --rm --network host busybox:1.36 wget -qO- http://127.0.0.1:80
+```
 
-# Run a container in detached (background) mode and name it
+Everything else (`ps`, `logs`, `exec`, `inspect`, `stop`, `rm`) works exactly as
+on any machine.
+
+## Task 1: run a detached, named container
+
+Recall lesson 1: `-d` for background, `--name` for a name.
+
+```bash
 docker run --name myserver -d --network host nginx:1.27-alpine
-
-# Run a container in the background with a short flag
-docker run -d <image_name>
-
-# Normally you'd publish a container port to the host with -p <host_port>:<container_port> —
-# this lab's sandbox runs its own Docker daemon inside a nested network, so -p publishing
-# doesn't reach the terminal you're typing in. --network host sidesteps that: the container
-# shares the sandbox's own network directly, no publishing needed. The "Inspecting" section
-# below shows the pattern for actually reaching a --network host container's port.
-docker run --network host <image_name>
+docker ps          # myserver should show "Up ..."
 ```
 
 [[lab-task:1]]
 
-### Stopping & removing
+## Task 2: stop and remove a container
+
+Recall lesson 2: `stop` is polite (SIGTERM, then SIGKILL after a grace period),
+`rm` deletes, `rm -f` does both.
 
 ```bash
-# Stop a container, with a 1-second shutdown timeout
-docker stop myserver
-docker stop -t 1 myserver
+docker run -d --network host --name tempbox alpine:3.20 sleep 3600
+docker stop -t 1 tempbox     # stop with a 1-second grace period
+docker rm tempbox            # delete it
+docker ps -a                 # tempbox is gone
+```
 
-# Remove a stopped container; force stop + remove; remove all containers
-docker rm myserver
-docker rm -f myserver
-docker rm -f $(docker ps -aq)
+Two bulk patterns you will meet in real scripts (careful: they affect **every** container):
 
-# Remove all stopped containers
-docker rm $(docker ps -q -f "status=exited")
+```bash
+docker rm $(docker ps -q -f "status=exited")   # remove all stopped containers
+docker rm -f $(docker ps -aq)                  # force-remove ALL containers
 ```
 
 [[lab-task:2]]
 
-### Interacting with a running container
+## Task 3: go inside and read the logs
+
+Recall lesson 3: `exec` runs an extra process in a running container; `logs`
+shows the main process's stdout/stderr.
 
 ```bash
-# List only active containers, then all containers (including stopped)
-docker ps
-docker ps -a
-docker ps --all
-
-# Open a shell inside a running container
-docker exec -it myserver sh
-
-# Follow the logs of a running container
-docker logs -f myserver
+docker exec -it myserver sh          # interactive shell; type exit to leave
+docker exec myserver sh -c "echo hello > /tmp/hello.txt"   # one-shot command
+docker logs myserver                 # nginx startup lines
 ```
 
 [[lab-task:3]]
 
-### Inspecting
+## Task 4: inspect it and prove it serves
 
 ```bash
-# Inspect a running container
-docker inspect myserver
+docker inspect myserver                          # full JSON
+docker inspect -f '{{.State.Status}}' myserver   # just: running
+docker container stats --no-stream               # live resource usage, one sample
 
-# Live resource usage
-docker container stats
-
-# Confirm myserver is actually serving, using a second throwaway --network host
-# container to reach it via 127.0.0.1 (both share the same network stack)
+# Confirm it is serving, from a second --network host container
 docker run --rm --network host busybox:1.36 wget -qO- http://127.0.0.1:80
 ```
 
+Expected output of the last command: the HTML of the nginx welcome page,
+containing `Welcome to nginx!`.
+
 [[lab-task:4]]
+
+## Remember
+
+- Lab sandbox: `--network host` instead of `-p`; check servers from a second
+  `--network host` container.
+- Real machines: `-p HOST:CONTAINER` and `curl localhost:HOST`.
+- `docker rm -f $(docker ps -aq)` removes **everything**. Use it only in sandboxes.
