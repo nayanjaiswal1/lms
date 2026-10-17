@@ -217,11 +217,9 @@ export async function CatalogPage({
         )}
       </PageHeader>
       {discovery && (
-        <>
-          <Suspense fallback={null}>
-            <ContinueLearning enrollments={enrollments} />
-          </Suspense>
-        </>
+        <Suspense fallback={null}>
+          <ContinueLearning enrollments={enrollments} />
+        </Suspense>
       )}
       <Suspense fallback={<BundleGridSkeleton />}>
         <BundleGrid canManage={canManage} />

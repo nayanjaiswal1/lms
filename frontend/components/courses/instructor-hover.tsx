@@ -20,9 +20,9 @@ export function InstructorHover({ name, instructor }: InstructorHoverProps) {
   return (
     <HoverCard closeDelay={100} openDelay={250}>
       <HoverCardTrigger asChild>
-        <span className="relative z-raised min-w-0 cursor-default truncate hover:text-foreground hover:underline focus-visible:text-foreground" tabIndex={0}>
+        <button className="relative z-raised min-w-0 cursor-default truncate text-left hover:text-foreground hover:underline focus-visible:text-foreground" type="button">
           By {name}
-        </span>
+        </button>
       </HoverCardTrigger>
       <HoverCardContent>
         <div className="flex flex-col gap-3">

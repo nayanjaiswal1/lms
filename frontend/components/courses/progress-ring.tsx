@@ -22,31 +22,37 @@ export function ProgressRing({ pct, completed, total }: ProgressRingProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <svg
+        <button
           aria-label={detail}
-          className="relative z-raised ml-auto h-9 w-9 shrink-0 text-primary"
-          role="img"
-          tabIndex={0}
-          viewBox="0 0 36 36"
+          className="relative z-raised ml-auto h-9 w-9 shrink-0 rounded-full text-primary"
+          type="button"
         >
-          <g className="origin-center -rotate-90">
-            <circle className="stroke-muted" cx="18" cy="18" fill="none" r={r} strokeWidth="3" />
-            <circle
-              cx="18"
-              cy="18"
-              fill="none"
-              r={r}
-              stroke="currentColor"
-              strokeDasharray={c}
-              strokeDashoffset={c * (1 - value / 100)}
-              strokeLinecap="round"
-              strokeWidth="3"
-            />
-          </g>
-          <text className="fill-foreground text-[9px] font-semibold" dominantBaseline="central" textAnchor="middle" x="18" y="18">
-            {value}%
-          </text>
-        </svg>
+          <svg aria-hidden className="h-full w-full" viewBox="0 0 36 36">
+            <g className="origin-center -rotate-90">
+              <circle className="stroke-muted" cx="18" cy="18" fill="none" r={r} strokeWidth="3" />
+              <circle
+                cx="18"
+                cy="18"
+                fill="none"
+                r={r}
+                stroke="currentColor"
+                strokeDasharray={c}
+                strokeDashoffset={c * (1 - value / 100)}
+                strokeLinecap="round"
+                strokeWidth="3"
+              />
+            </g>
+            <text
+              className="fill-foreground text-[9px] font-semibold"
+              dominantBaseline="central"
+              textAnchor="middle"
+              x="18"
+              y="18"
+            >
+              {value}%
+            </text>
+          </svg>
+        </button>
       </TooltipTrigger>
       <TooltipContent>{detail}</TooltipContent>
     </Tooltip>
