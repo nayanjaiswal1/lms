@@ -73,6 +73,7 @@ Each file is self-contained for its domain — features, API endpoints, DB schem
 | [docs/ai-connector.md](docs/ai-connector.md) | AI Connector (MCP) — connect the student's own Claude/ChatGPT via OAuth 2.1+PKCE, course/notes/calendar tools, DB schema, API |
 | [docs/entity-schedules-and-calendar-sync.md](docs/entity-schedules-and-calendar-sync.md) | starts_at/ends_at on batches/courses/lessons, auto-synced read-only into the in-app calendar |
 | [docs/infrastructure.md](docs/infrastructure.md) | Project file structure, all env vars, AI rules, payments, SSRF denylist |
+| [docs/dev-box-runbook.md](docs/dev-box-runbook.md) | Remote dev box (hot reload on k3s) — architecture, one-time setup, 31 problems with cause and fix, MFA/email/lab recipes, open items |
 | [docs/ops-alerts.md](docs/ops-alerts.md) | Admin alerting for dead-letter jobs and job-system health — routing, per-handler rules, dedupe/storm frequency control, ops.health + ops.digest crons, API |
 | [docs/activity.md](docs/activity.md) | Activity tracker — day-by-day timeline aggregating module/course completions, quiz attempts, MCP reflections, sheet progress, lab sessions, SM-2 reviews, API, DB schema |
 | [docs/analytics.md](docs/analytics.md) | Instructor & org analytics — completion funnel, per-lesson drop-off, hardest quiz questions, at-risk students, enrollment trend, API, RBAC, query cost |
