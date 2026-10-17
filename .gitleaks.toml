@@ -1,0 +1,13 @@
+title = "MindForge gitleaks config"
+
+[extend]
+useDefault = true
+
+# Course source frontmatter carries `id_key: <course>/<section>/<slug>`, a stable
+# content identifier that the generic-api-key rule reads as a secret.
+[[allowlists]]
+description = "course frontmatter id_key identifiers"
+targetRules = ["generic-api-key"]
+paths = ['''^content/courses/.*\.md$''']
+regexTarget = "line"
+regexes = ['''^id_key:\s*[\w./-]+\s*$''']
