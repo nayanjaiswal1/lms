@@ -95,10 +95,12 @@ type ProxyHandler struct {
 	jwtSecret     string
 	jwtIssuer     string
 	previewDomain string
-	upgrader      websocket.Upgrader
-	wg            sync.WaitGroup
-	draining      atomic.Bool
-	conns         *connLimiter
+	// publicPathPrefix is the path the edge strips before labproxy (LABPROXY_PUBLIC_PATH_PREFIX, e.g. "/lab-ws"); used only for path-mode IDE URLs.
+	publicPathPrefix string
+	upgrader         websocket.Upgrader
+	wg               sync.WaitGroup
+	draining         atomic.Bool
+	conns            *connLimiter
 }
 
 // NewProxyHandler constructs a ProxyHandler with all dependencies injected.
