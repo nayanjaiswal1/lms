@@ -12,6 +12,7 @@ import { getEnrollments } from "@/lib/server/courses";
 import { getMyBatches } from "@/lib/server/batches";
 import { TICKET_KIND } from "@/lib/constants";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata = { title: "Mentors" };
 
@@ -202,7 +203,7 @@ async function YourMentorsSection() {
           />
         ) : (
           <Button asChild className="min-h-11 lg:min-h-9">
-            <Link href={ROUTES.COURSES}>Browse courses</Link>
+            <Link href={ROUTES.COURSES_BROWSE}>Browse courses</Link>
           </Button>
         )}
       </section>
@@ -233,20 +234,14 @@ export default async function MentorsDirectoryPage() {
 
   return (
     <main className="page-container">
-      <div className="page-header mb-4">
-        <div className="flex min-w-0 flex-col gap-2">
-          <h1 className="page-title">Mentors</h1>
-          <p className="text-muted-foreground">
-            Your assigned mentor, and everyone else available in your organization.
-          </p>
-        </div>
+      <PageHeader title="Mentors" description="Your assigned mentor, and everyone else available in your organization.">
         <Button asChild className="min-h-11 lg:min-h-9" variant="outline">
           <Link href={ROUTES.MENTORING_CONVERSATIONS}>
             <Inbox aria-hidden />
             Your conversations
           </Link>
         </Button>
-      </div>
+      </PageHeader>
 
       <div className="flex flex-col gap-10">
         <div className="flex flex-col gap-6">

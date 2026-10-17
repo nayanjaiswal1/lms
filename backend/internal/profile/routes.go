@@ -4,6 +4,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/ai"
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/certificates"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/storage"
@@ -25,9 +26,11 @@ func New(pool *pgxpool.Pool, cfg *config.Config, store storage.StorageClient, ce
 	return &ProfileHandler{handler: h}
 }
 
-// RegisterRoutes mounts the authenticated profile routes.
+// RegisterRoutes mounts the authenticated profile routes. perms resolves
+// whether a caller may read another member's profile.
 // Must be called inside a group that already has RequireAuth + RequireCSRF applied.
-func (ph *ProfileHandler) RegisterRoutes(r chi.Router) {
+func (ph *ProfileHandler) RegisterRoutes(r chi.Router, perms *authz.Service) {
+	ph.handler.perms = perms
 	r.Get("/api/profile/me", ph.handler.HandleGetMyProfile)
 	r.Get("/api/profile/me/overview", ph.handler.HandleGetMyOverview)
 	r.Patch("/api/profile/me", ph.handler.HandleUpdateProfile)

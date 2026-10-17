@@ -1,3 +1,5 @@
+import { requireAnyPermission } from "@/lib/server/permissions"
+import { ACCESS } from "@/lib/auth/permission-codes"
 import type { Metadata } from "next"
 import { createLoader, type SearchParams } from "nuqs/server"
 import { CatalogCard } from "@/app/(app)/labs/catalog/catalog-card"
@@ -23,6 +25,7 @@ interface PageProps {
 }
 
 export default async function LabCatalogPage({ searchParams }: PageProps) {
+  await requireAnyPermission(ACCESS.LABS)
   const filters = await loadFilters(searchParams)
   const entries = await apiGet<LabCatalogEntry[]>(`/api/labs/catalog${catalogQuery(filters)}`)
   const groups = groupCatalog(entries)
@@ -31,7 +34,7 @@ export default async function LabCatalogPage({ searchParams }: PageProps) {
     <main className="page-container flex flex-col gap-6">
       <header className="flex flex-col gap-1">
         <h1 className="page-title">Labs</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="page-description">
           Debug realistic broken apps in a browser IDE, level by level or by topic.
         </p>
       </header>

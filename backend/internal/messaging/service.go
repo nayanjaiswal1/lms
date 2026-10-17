@@ -33,8 +33,8 @@ func (s *Service) EditMessage(ctx context.Context, orgID, msgID, senderID, body 
 	return s.repo.UpdateMessage(ctx, orgID, msgID, senderID, body)
 }
 
-func (s *Service) DeleteMessage(ctx context.Context, orgID, msgID, userID, orgRole string) error {
-	return s.repo.SoftDeleteMessage(ctx, orgID, msgID, userID, orgRole)
+func (s *Service) DeleteMessage(ctx context.Context, orgID, msgID, userID string, canModerate bool) error {
+	return s.repo.SoftDeleteMessage(ctx, orgID, msgID, userID, canModerate)
 }
 
 func (s *Service) React(ctx context.Context, orgID, msgID, userID string, reaction Reaction) (bool, error) {

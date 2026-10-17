@@ -243,6 +243,11 @@ func (h *Handler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 		writeBatchExtError(w, err)
 		return
 	}
+	// A check made while the user was not yet a member may have cached an
+	// empty permission set for this org.
+	if err := h.authzSvc.InvalidateUser(r.Context(), claims.UserID, orgID); err != nil {
+		slog.Warn("assessment: accept invitation: invalidate permission cache", "user_id", claims.UserID, "org_id", orgID, "error", err)
+	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]string{"batch_id": batchID, "org_id": orgID})
 }
 

@@ -5,7 +5,7 @@ export default function MistakesLoading() {
     <main className="page-container">
       <div className="page-header">
         <Skeleton className="h-8 w-40" />
-        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-5 w-20" />
       </div>
 
       <div className="flex flex-col gap-8">

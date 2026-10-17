@@ -42,7 +42,7 @@ export default async function BatchLayout({ params, children }: Props) {
           <BatchAvatar batchId={batch.id} imageUrl={batch.image_url} name={batch.name} size="md" />
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <h1 className="section-title">{batch.name}</h1>
+              <h1 className="page-title">{batch.name}</h1>
               <Badge variant={batch.status === "active" ? "default" : "secondary"}>
                 {batch.status}
               </Badge>

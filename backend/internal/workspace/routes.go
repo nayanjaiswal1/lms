@@ -27,7 +27,7 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 
 	r.With(authz.RequirePermission(authzSvc, PermProjectsCreate)).Post("/api/workspaces", h.CreateProject)
 	r.Get("/api/workspaces", h.ListProjects)
-	h.registerCohortRoutes(r)
+	h.registerCohortRoutes(r, authzSvc)
 	r.Get("/api/workspaces/invitations", h.ListMyInvitations)
 	// Logged-in discover + apply: org members only (claims carry the org), not
 	// behind the per-project role gate since the caller isn't a member yet.

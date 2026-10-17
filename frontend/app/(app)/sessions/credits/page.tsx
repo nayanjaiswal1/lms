@@ -6,6 +6,7 @@ import { getBookingConfig, getCredits, listPacks, type LedgerReason } from "@/li
 import { CreditPackCard } from "@/components/sessions/credit-pack-card";
 import { cn } from "@/lib/utils";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = {
   title: "Session Credits",
@@ -34,16 +35,13 @@ export default async function SessionCreditsPage() {
 
   return (
     <main className="page-container">
-      <header className="page-header">
-        <div className="flex flex-col gap-1">
-          <h1 className="page-title">Session Credits</h1>
-          <p className="text-muted-foreground">
+      <PageHeader
+        title="Session Credits"
+        description={<p className="page-description">
             {config.require_credits
               ? "Your organization requires a credit to book a mentor session."
               : "Buy credits to book mentor sessions faster, or track your history below."}
-          </p>
-        </div>
-      </header>
+          </p>} />
 
       <section className="card-raised mb-8 flex items-center gap-4">
         <div className="flex-center h-14 w-14 rounded-full bg-primary/10">

@@ -7,6 +7,9 @@ import (
 	"github.com/mindforge/backend/internal/authz"
 )
 
+// PermUse is the permission code gating the learning journal API and its MCP tools.
+const PermUse = "content.learning_journal"
+
 // New builds the fully-wired journal handler.
 func New(pool *pgxpool.Pool, provider ai.LLMProvider) *Handler {
 	return NewHandler(pool, provider)
@@ -17,7 +20,7 @@ func New(pool *pgxpool.Pool, provider ai.LLMProvider) *Handler {
 // frontend nav/UI already checks. The caller is responsible for applying
 // RequireAuth + RequireCSRF before this.
 func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
-	r.With(authz.RequirePermission(authzSvc, "content.learning_journal")).Group(func(r chi.Router) {
+	r.With(authz.RequirePermission(authzSvc, PermUse)).Group(func(r chi.Router) {
 		r.Get("/api/journal", h.ListEntries)
 		r.Get("/api/journal/categories", h.ListCategories)
 		r.Post("/api/journal", h.CreateEntry)

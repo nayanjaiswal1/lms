@@ -1,4 +1,4 @@
-import { Bell, Plus, Search, User } from "lucide-react";
+import { Bell, Plus, User } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 export function IssuesTopbar() {
@@ -10,16 +10,6 @@ export function IssuesTopbar() {
         <span className="m-headline-sm truncate text-foreground">Issues &amp; Tasks</span>
       </div>
       <div className="flex items-center gap-2">
-        <label className="relative hidden w-80 items-center md:flex">
-          <span className="sr-only">Search issues</span>
-          <Search aria-hidden className="pointer-events-none absolute left-2 size-4.5 text-muted-foreground" />
-          <input
-            className="m-body-sm h-8 w-full rounded-lg bg-muted pl-9 pr-10 text-foreground transition-all placeholder:text-muted-foreground focus:bg-muted focus:outline-none"
-            placeholder="Search issues, steps, tags..."
-            type="search"
-          />
-          <kbd className="m-label-sm absolute right-2 rounded bg-accent px-1.5 py-0.5 text-xs text-muted-foreground">⌘K</kbd>
-        </label>
         <Button aria-label="Notifications" className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" type="button" variant="unstyled">
           <Bell aria-hidden className="size-4.5" />
         </Button>

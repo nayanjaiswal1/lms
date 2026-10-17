@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/courses"
-	"github.com/mindforge/backend/internal/middleware"
 )
 
 var (
@@ -32,19 +33,43 @@ func NewService(repo *Repo, coursesRepo *courses.Repo) *Service {
 	return &Service{repo: repo, coursesRepo: coursesRepo}
 }
 
-func isManager(orgRole string) bool {
-	return orgRole == middleware.RoleAdmin || orgRole == middleware.RoleInstructor || orgRole == middleware.RoleMentor
+// Permission codes behind Access.
+const (
+	PermManageSpaces    = "wiki.manage_spaces"
+	PermCreateSpaces    = "wiki.create_spaces"
+	PermModerate        = "content.moderate"
+	PermOverseeProjects = "projects.oversee"
+)
+
+// Access is the caller's wiki-relevant permission set in the org, resolved
+// once per request (ResolveAccess) and passed to every Service method.
+type Access struct {
+	// Manage (wiki.manage_spaces): read every course-linked space, see
+	// drafts, create pages in org/course spaces and templates, edit own pages.
+	Manage bool
+	// CreateSpaces (wiki.create_spaces): create org/course spaces.
+	CreateSpaces bool
+	// Moderate (content.moderate): edit/delete any space, page, comment or
+	// template in the org.
+	Moderate bool
+	// OverseeProjects (projects.oversee): full access to every project-scoped
+	// space regardless of project membership (02 §7.0).
+	OverseeProjects bool
 }
 
-func canCreateSpace(orgRole string) bool {
-	return orgRole == middleware.RoleAdmin || orgRole == middleware.RoleInstructor
-}
-
-// isOrgAdmin is the "org owner/admin" half of the project-scoped space ACL
-// (02 §7.0) — an org owner/admin always reads/writes a project's space
-// regardless of whether they hold a project_members row.
-func isOrgAdmin(orgRole string) bool {
-	return orgRole == middleware.RoleOwner || orgRole == middleware.RoleAdmin
+// ResolveAccess reads the caller's effective permissions in orgID once and
+// maps them onto Access.
+func ResolveAccess(ctx context.Context, perms *authz.Service, userID, orgID string) (Access, error) {
+	codes, err := perms.GetEffectivePermissions(ctx, userID, orgID)
+	if err != nil {
+		return Access{}, fmt.Errorf("wiki: resolve access: %w", err)
+	}
+	return Access{
+		Manage:          slices.Contains(codes, PermManageSpaces),
+		CreateSpaces:    slices.Contains(codes, PermCreateSpaces),
+		Moderate:        slices.Contains(codes, PermModerate),
+		OverseeProjects: slices.Contains(codes, PermOverseeProjects),
+	}, nil
 }
 
 // projectRoleRank mirrors workspace.RoleAtLeast's own ranking without
@@ -58,10 +83,10 @@ func projectRoleAtLeast(role, min string) bool {
 
 // canAccessProjectSpace reports whether the caller may act on a project-
 // scoped wiki space's project at least at project role min ("viewer" for
-// read, "member" for edit, "manager" for delete) — an org owner/admin always
-// may (02 §7.0).
-func (s *Service) canAccessProjectSpace(ctx context.Context, orgRole, userID, projectID, min string) (bool, error) {
-	if isOrgAdmin(orgRole) {
+// read, "member" for edit, "manager" for delete) — a projects.oversee holder
+// always may (02 §7.0).
+func (s *Service) canAccessProjectSpace(ctx context.Context, acc Access, userID, projectID, min string) (bool, error) {
+	if acc.OverseeProjects {
 		return true, nil
 	}
 	role, err := s.repo.getProjectMemberRole(ctx, projectID, userID)
@@ -72,18 +97,15 @@ func (s *Service) canAccessProjectSpace(ctx context.Context, orgRole, userID, pr
 }
 
 // canEditPage mirrors docs/wiki.md's permission table for an org-wide/
-// course-linked page: admin edits any page, instructor/mentor only pages
-// they created, students never. Project-scoped pages go through
+// course-linked page: content.moderate edits any page, wiki.manage_spaces
+// only pages the caller created, everyone else never. Project-scoped pages go through
 // canAccessProjectSpace instead (role >= member to edit, >= manager to
 // delete) — see UpdatePage/MovePage/DeletePage below.
-func canEditPage(orgRole, userID string, p Page) bool {
-	if orgRole == middleware.RoleAdmin {
+func canEditPage(acc Access, userID string, p Page) bool {
+	if acc.Moderate {
 		return true
 	}
-	if orgRole == middleware.RoleInstructor || orgRole == middleware.RoleMentor {
-		return p.CreatedBy == userID
-	}
-	return false
+	return acc.Manage && p.CreatedBy == userID
 }
 
 // ─── Spaces ───────────────────────────────────────────────────────────────────
@@ -94,14 +116,14 @@ func canEditPage(orgRole, userID string, p Page) bool {
 // visible to every org member. Every space goes through canReadSpace rather
 // than a manager-wide shortcut, since a project space's visibility depends on
 // project membership, not the org-level manager roles that shortcut checked.
-func (s *Service) ListSpaces(ctx context.Context, orgID, userID, orgRole string) ([]Space, error) {
+func (s *Service) ListSpaces(ctx context.Context, orgID, userID string, acc Access) ([]Space, error) {
 	all, err := s.repo.ListSpaces(ctx, orgID)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]Space, 0, len(all))
 	for _, sp := range all {
-		visible, err := s.canReadSpace(ctx, orgRole, userID, sp)
+		visible, err := s.canReadSpace(ctx, acc, userID, sp)
 		if err != nil {
 			return nil, err
 		}
@@ -112,11 +134,11 @@ func (s *Service) ListSpaces(ctx context.Context, orgID, userID, orgRole string)
 	return out, nil
 }
 
-func (s *Service) canReadSpace(ctx context.Context, orgRole, userID string, sp Space) (bool, error) {
+func (s *Service) canReadSpace(ctx context.Context, acc Access, userID string, sp Space) (bool, error) {
 	if sp.ProjectID != nil {
-		return s.canAccessProjectSpace(ctx, orgRole, userID, *sp.ProjectID, "viewer")
+		return s.canAccessProjectSpace(ctx, acc, userID, *sp.ProjectID, "viewer")
 	}
-	if sp.CourseID == nil || isManager(orgRole) {
+	if sp.CourseID == nil || acc.Manage {
 		return true, nil
 	}
 	enrolled, err := s.coursesRepo.IsEnrolled(ctx, userID, *sp.CourseID)
@@ -126,8 +148,8 @@ func (s *Service) canReadSpace(ctx context.Context, orgRole, userID string, sp S
 	return enrolled, nil
 }
 
-func (s *Service) CreateSpace(ctx context.Context, orgID, userID, orgRole string, req CreateSpaceRequest) (Space, error) {
-	if !canCreateSpace(orgRole) {
+func (s *Service) CreateSpace(ctx context.Context, orgID, userID string, acc Access, req CreateSpaceRequest) (Space, error) {
+	if !acc.CreateSpaces {
 		return Space{}, ErrForbidden
 	}
 	name := strings.TrimSpace(req.Name)
@@ -150,12 +172,12 @@ func (s *Service) CreateSpace(ctx context.Context, orgID, userID, orgRole string
 	return s.repo.CreateSpace(ctx, orgID, name, slug, req.Description, req.Icon, req.CourseID, visibility, userID)
 }
 
-func (s *Service) GetSpace(ctx context.Context, orgID, userID, orgRole, slug string) (SpaceWithTree, error) {
+func (s *Service) GetSpace(ctx context.Context, orgID, userID string, acc Access, slug string) (SpaceWithTree, error) {
 	sp, err := s.repo.GetSpaceBySlug(ctx, orgID, slug)
 	if err != nil {
 		return SpaceWithTree{}, err
 	}
-	visible, err := s.canReadSpace(ctx, orgRole, userID, sp)
+	visible, err := s.canReadSpace(ctx, acc, userID, sp)
 	if err != nil {
 		return SpaceWithTree{}, err
 	}
@@ -166,7 +188,7 @@ func (s *Service) GetSpace(ctx context.Context, orgID, userID, orgRole, slug str
 	if err != nil {
 		return SpaceWithTree{}, err
 	}
-	if !isManager(orgRole) {
+	if !acc.Manage {
 		tree = filterPublished(tree)
 	}
 	return SpaceWithTree{Space: sp, Tree: tree}, nil
@@ -188,12 +210,12 @@ func filterPublished(nodes []PageTreeNode) []PageTreeNode {
 // GetPageTree returns just the tree for a space already resolved to an ID
 // (the sidebar re-fetches this after a page create/move without re-fetching
 // the whole space+tree payload GetSpace returns).
-func (s *Service) GetPageTree(ctx context.Context, orgID, userID, orgRole, spaceID string) ([]PageTreeNode, error) {
+func (s *Service) GetPageTree(ctx context.Context, orgID, userID string, acc Access, spaceID string) ([]PageTreeNode, error) {
 	sp, err := s.repo.GetSpaceByID(ctx, orgID, spaceID)
 	if err != nil {
 		return nil, err
 	}
-	visible, err := s.canReadSpace(ctx, orgRole, userID, sp)
+	visible, err := s.canReadSpace(ctx, acc, userID, sp)
 	if err != nil {
 		return nil, err
 	}
@@ -204,27 +226,27 @@ func (s *Service) GetPageTree(ctx context.Context, orgID, userID, orgRole, space
 	if err != nil {
 		return nil, err
 	}
-	if !isManager(orgRole) {
+	if !acc.Manage {
 		tree = filterPublished(tree)
 	}
 	return tree, nil
 }
 
-func (s *Service) UpdateSpace(ctx context.Context, orgID, userID, orgRole, id string, req UpdateSpaceRequest) (Space, error) {
+func (s *Service) UpdateSpace(ctx context.Context, orgID, userID string, acc Access, id string, req UpdateSpaceRequest) (Space, error) {
 	sp, err := s.repo.GetSpaceByID(ctx, orgID, id)
 	if err != nil {
 		return Space{}, err
 	}
-	if orgRole != middleware.RoleAdmin && sp.CreatedBy != userID {
+	if !acc.Moderate && sp.CreatedBy != userID {
 		return Space{}, ErrForbidden
 	}
 	return s.repo.UpdateSpace(ctx, orgID, id, req)
 }
 
-// DeleteSpace is additionally gated at the route layer to admin-only via
-// middleware.RequireOrgRole — this check is defense in depth.
-func (s *Service) DeleteSpace(ctx context.Context, orgID, orgRole, id string) error {
-	if orgRole != middleware.RoleAdmin {
+// DeleteSpace is additionally gated at the route layer on content.moderate —
+// this check is defense in depth.
+func (s *Service) DeleteSpace(ctx context.Context, orgID string, acc Access, id string) error {
+	if !acc.Moderate {
 		return ErrForbidden
 	}
 	return s.repo.DeleteSpace(ctx, orgID, id)
@@ -232,20 +254,20 @@ func (s *Service) DeleteSpace(ctx context.Context, orgID, orgRole, id string) er
 
 // ─── Pages ────────────────────────────────────────────────────────────────────
 
-func (s *Service) CreatePage(ctx context.Context, orgID, userID, orgRole, spaceID string, req CreatePageRequest) (Page, error) {
+func (s *Service) CreatePage(ctx context.Context, orgID, userID string, acc Access, spaceID string, req CreatePageRequest) (Page, error) {
 	sp, err := s.repo.GetSpaceByID(ctx, orgID, spaceID)
 	if err != nil {
 		return Page{}, err
 	}
 	if sp.ProjectID != nil {
-		allowed, err := s.canAccessProjectSpace(ctx, orgRole, userID, *sp.ProjectID, "member")
+		allowed, err := s.canAccessProjectSpace(ctx, acc, userID, *sp.ProjectID, "member")
 		if err != nil {
 			return Page{}, err
 		}
 		if !allowed {
 			return Page{}, ErrForbidden
 		}
-	} else if !isManager(orgRole) {
+	} else if !acc.Manage {
 		return Page{}, ErrForbidden
 	}
 	title := strings.TrimSpace(req.Title)
@@ -276,7 +298,7 @@ func (s *Service) CreatePage(ctx context.Context, orgID, userID, orgRole, spaceI
 	return s.repo.CreatePage(ctx, spaceID, title, slug, req.ParentID, req.Emoji, content, searchText, userID)
 }
 
-func (s *Service) GetPage(ctx context.Context, orgID, userID, orgRole, id string) (PageDetail, error) {
+func (s *Service) GetPage(ctx context.Context, orgID, userID string, acc Access, id string) (PageDetail, error) {
 	p, err := s.repo.GetPage(ctx, orgID, id)
 	if err != nil {
 		return PageDetail{}, err
@@ -285,7 +307,7 @@ func (s *Service) GetPage(ctx context.Context, orgID, userID, orgRole, id string
 	if err != nil {
 		return PageDetail{}, err
 	}
-	visible, err := s.canReadSpace(ctx, orgRole, userID, sp)
+	visible, err := s.canReadSpace(ctx, acc, userID, sp)
 	if err != nil {
 		return PageDetail{}, err
 	}
@@ -293,9 +315,9 @@ func (s *Service) GetPage(ctx context.Context, orgID, userID, orgRole, id string
 		return PageDetail{}, ErrForbidden
 	}
 	if p.Status != "published" {
-		canSeeDraft := isManager(orgRole)
+		canSeeDraft := acc.Manage
 		if !canSeeDraft && sp.ProjectID != nil {
-			canSeeDraft, err = s.canAccessProjectSpace(ctx, orgRole, userID, *sp.ProjectID, "member")
+			canSeeDraft, err = s.canAccessProjectSpace(ctx, acc, userID, *sp.ProjectID, "member")
 			if err != nil {
 				return PageDetail{}, err
 			}
@@ -319,23 +341,23 @@ func (s *Service) GetPage(ctx context.Context, orgID, userID, orgRole, id string
 // it: project-scoped spaces use canAccessProjectSpace at min ("member" to
 // edit, "manager" to delete); everything else keeps canEditPage's existing
 // admin/creator rule.
-func (s *Service) canEditOrDeletePage(ctx context.Context, orgID, userID, orgRole string, p Page, min string) (bool, error) {
+func (s *Service) canEditOrDeletePage(ctx context.Context, orgID, userID string, acc Access, p Page, min string) (bool, error) {
 	sp, err := s.repo.GetSpaceByID(ctx, orgID, p.SpaceID)
 	if err != nil {
 		return false, err
 	}
 	if sp.ProjectID != nil {
-		return s.canAccessProjectSpace(ctx, orgRole, userID, *sp.ProjectID, min)
+		return s.canAccessProjectSpace(ctx, acc, userID, *sp.ProjectID, min)
 	}
-	return canEditPage(orgRole, userID, p), nil
+	return canEditPage(acc, userID, p), nil
 }
 
-func (s *Service) UpdatePage(ctx context.Context, orgID, userID, orgRole, id string, req UpdatePageRequest) (Page, error) {
+func (s *Service) UpdatePage(ctx context.Context, orgID, userID string, acc Access, id string, req UpdatePageRequest) (Page, error) {
 	existing, err := s.repo.GetPage(ctx, orgID, id)
 	if err != nil {
 		return Page{}, err
 	}
-	allowed, err := s.canEditOrDeletePage(ctx, orgID, userID, orgRole, existing, "member")
+	allowed, err := s.canEditOrDeletePage(ctx, orgID, userID, acc, existing, "member")
 	if err != nil {
 		return Page{}, err
 	}
@@ -396,12 +418,12 @@ func (s *Service) checkNewParent(ctx context.Context, orgID string, page Page, p
 	return nil
 }
 
-func (s *Service) DeletePage(ctx context.Context, orgID, userID, orgRole, id string) error {
+func (s *Service) DeletePage(ctx context.Context, orgID, userID string, acc Access, id string) error {
 	existing, err := s.repo.GetPage(ctx, orgID, id)
 	if err != nil {
 		return err
 	}
-	allowed, err := s.canEditOrDeletePage(ctx, orgID, userID, orgRole, existing, "manager")
+	allowed, err := s.canEditOrDeletePage(ctx, orgID, userID, acc, existing, "manager")
 	if err != nil {
 		return err
 	}
@@ -413,15 +435,15 @@ func (s *Service) DeletePage(ctx context.Context, orgID, userID, orgRole, id str
 
 // ─── Version history ─────────────────────────────────────────────────────────
 
-func (s *Service) ListVersions(ctx context.Context, orgID, userID, orgRole, pageID string) ([]PageVersionSummary, error) {
-	if _, err := s.GetPage(ctx, orgID, userID, orgRole, pageID); err != nil {
+func (s *Service) ListVersions(ctx context.Context, orgID, userID string, acc Access, pageID string) ([]PageVersionSummary, error) {
+	if _, err := s.GetPage(ctx, orgID, userID, acc, pageID); err != nil {
 		return nil, err
 	}
 	return s.repo.ListVersions(ctx, pageID)
 }
 
-func (s *Service) GetVersion(ctx context.Context, orgID, userID, orgRole, pageID string, version int) (PageVersionDetail, error) {
-	if _, err := s.GetPage(ctx, orgID, userID, orgRole, pageID); err != nil {
+func (s *Service) GetVersion(ctx context.Context, orgID, userID string, acc Access, pageID string, version int) (PageVersionDetail, error) {
+	if _, err := s.GetPage(ctx, orgID, userID, acc, pageID); err != nil {
 		return PageVersionDetail{}, err
 	}
 	return s.repo.GetVersion(ctx, pageID, version)
@@ -430,12 +452,12 @@ func (s *Service) GetVersion(ctx context.Context, orgID, userID, orgRole, pageID
 // RestoreVersion copies an old version's content back onto the live page —
 // itself a content change, so it goes through UpdatePage and appends yet
 // another version row rather than rewriting history.
-func (s *Service) RestoreVersion(ctx context.Context, orgID, userID, orgRole, pageID string, version int) (Page, error) {
+func (s *Service) RestoreVersion(ctx context.Context, orgID, userID string, acc Access, pageID string, version int) (Page, error) {
 	existing, err := s.repo.GetPage(ctx, orgID, pageID)
 	if err != nil {
 		return Page{}, err
 	}
-	if !canEditPage(orgRole, userID, existing) {
+	if !canEditPage(acc, userID, existing) {
 		return Page{}, ErrForbidden
 	}
 	v, err := s.repo.GetVersion(ctx, pageID, version)
@@ -449,15 +471,15 @@ func (s *Service) RestoreVersion(ctx context.Context, orgID, userID, orgRole, pa
 
 // ─── Comments ─────────────────────────────────────────────────────────────────
 
-func (s *Service) ListComments(ctx context.Context, orgID, userID, orgRole, pageID string) ([]CommentThread, error) {
-	if _, err := s.GetPage(ctx, orgID, userID, orgRole, pageID); err != nil {
+func (s *Service) ListComments(ctx context.Context, orgID, userID string, acc Access, pageID string) ([]CommentThread, error) {
+	if _, err := s.GetPage(ctx, orgID, userID, acc, pageID); err != nil {
 		return nil, err
 	}
 	return s.repo.ListComments(ctx, pageID)
 }
 
-func (s *Service) CreateComment(ctx context.Context, orgID, userID, orgRole, pageID string, req CreateCommentRequest) (Comment, error) {
-	if _, err := s.GetPage(ctx, orgID, userID, orgRole, pageID); err != nil {
+func (s *Service) CreateComment(ctx context.Context, orgID, userID string, acc Access, pageID string, req CreateCommentRequest) (Comment, error) {
+	if _, err := s.GetPage(ctx, orgID, userID, acc, pageID); err != nil {
 		return Comment{}, err
 	}
 	content := strings.TrimSpace(req.Content)
@@ -467,7 +489,7 @@ func (s *Service) CreateComment(ctx context.Context, orgID, userID, orgRole, pag
 	return s.repo.CreateComment(ctx, pageID, userID, content, req.ParentID)
 }
 
-func (s *Service) UpdateComment(ctx context.Context, userID, orgRole, id, content string) (Comment, error) {
+func (s *Service) UpdateComment(ctx context.Context, userID string, acc Access, id, content string) (Comment, error) {
 	c, err := s.repo.GetComment(ctx, id)
 	if err != nil {
 		return Comment{}, err
@@ -482,12 +504,12 @@ func (s *Service) UpdateComment(ctx context.Context, userID, orgRole, id, conten
 	return s.repo.UpdateComment(ctx, id, trimmed)
 }
 
-func (s *Service) DeleteComment(ctx context.Context, userID, orgRole, id string) error {
+func (s *Service) DeleteComment(ctx context.Context, userID string, acc Access, id string) error {
 	c, err := s.repo.GetComment(ctx, id)
 	if err != nil {
 		return err
 	}
-	if c.AuthorID != userID && orgRole != middleware.RoleAdmin {
+	if c.AuthorID != userID && !acc.Moderate {
 		return ErrForbidden
 	}
 	return s.repo.DeleteComment(ctx, id)
@@ -499,8 +521,8 @@ func (s *Service) ListTemplates(ctx context.Context, orgID string) ([]Template, 
 	return s.repo.ListTemplates(ctx, orgID)
 }
 
-func (s *Service) CreateTemplate(ctx context.Context, orgID, userID, orgRole string, req CreateTemplateRequest) (Template, error) {
-	if !isManager(orgRole) {
+func (s *Service) CreateTemplate(ctx context.Context, orgID, userID string, acc Access, req CreateTemplateRequest) (Template, error) {
+	if !acc.Manage {
 		return Template{}, ErrForbidden
 	}
 	name := strings.TrimSpace(req.Name)
@@ -510,7 +532,7 @@ func (s *Service) CreateTemplate(ctx context.Context, orgID, userID, orgRole str
 	return s.repo.CreateTemplate(ctx, orgID, name, req.Description, req.Content, userID)
 }
 
-func (s *Service) DeleteTemplate(ctx context.Context, orgID, userID, orgRole, id string) error {
+func (s *Service) DeleteTemplate(ctx context.Context, orgID, userID string, acc Access, id string) error {
 	tpl, err := s.repo.GetTemplate(ctx, id)
 	if err != nil {
 		return err
@@ -519,7 +541,7 @@ func (s *Service) DeleteTemplate(ctx context.Context, orgID, userID, orgRole, id
 		return ErrForbidden // platform template, or another org's — not deletable here
 	}
 	isCreator := tpl.CreatedBy != nil && *tpl.CreatedBy == userID
-	if orgRole != middleware.RoleAdmin && !isCreator {
+	if !acc.Moderate && !isCreator {
 		return ErrForbidden
 	}
 	return s.repo.DeleteTemplate(ctx, id)
@@ -538,8 +560,8 @@ const (
 // the same ground as an existing page — call after creating or updating one
 // so the caller (human or agent) sees likely duplicates immediately, no
 // second round trip needed.
-func (s *Service) FindSimilarToPage(ctx context.Context, orgID, userID, orgRole, pageID string) ([]SimilarPage, error) {
-	pd, err := s.GetPage(ctx, orgID, userID, orgRole, pageID)
+func (s *Service) FindSimilarToPage(ctx context.Context, orgID, userID string, acc Access, pageID string) ([]SimilarPage, error) {
+	pd, err := s.GetPage(ctx, orgID, userID, acc, pageID)
 	if err != nil {
 		return nil, err
 	}
@@ -574,8 +596,8 @@ func (s *Service) Search(ctx context.Context, orgID, query string, spaceSlug *st
 // written through UpdatePageOKF (e.g. by the MCP connector) carries its own
 // producer-declared `generated` in okf_metadata, which ToOKFMarkdown
 // honors instead of this default.
-func (s *Service) GetPageOKF(ctx context.Context, orgID, userID, orgRole, id string) (string, error) {
-	pd, err := s.GetPage(ctx, orgID, userID, orgRole, id)
+func (s *Service) GetPageOKF(ctx context.Context, orgID, userID string, acc Access, id string) (string, error) {
+	pd, err := s.GetPage(ctx, orgID, userID, acc, id)
 	if err != nil {
 		return "", err
 	}
@@ -592,7 +614,7 @@ func (s *Service) GetPageOKF(ctx context.Context, orgID, userID, orgRole, id str
 // `verified`/etc. are preserved verbatim in okf_metadata (see
 // FromOKFMarkdown) — callers that want the edit attributed to an agent
 // rather than the calling user set `generated.by` in the markdown they PUT.
-func (s *Service) UpdatePageOKF(ctx context.Context, orgID, userID, orgRole, id, markdown string) (Page, error) {
+func (s *Service) UpdatePageOKF(ctx context.Context, orgID, userID string, acc Access, id, markdown string) (Page, error) {
 	title, status, okfMeta, content, err := FromOKFMarkdown(markdown)
 	if err != nil {
 		return Page{}, fmt.Errorf("%w: %s", ErrValidation, err)
@@ -605,7 +627,7 @@ func (s *Service) UpdatePageOKF(ctx context.Context, orgID, userID, orgRole, id,
 	if title != "" {
 		req.Title = &title
 	}
-	return s.UpdatePage(ctx, orgID, userID, orgRole, id, req)
+	return s.UpdatePage(ctx, orgID, userID, acc, id, req)
 }
 
 // GetSpaceOKFBundle renders every page a caller can read in a space as an
@@ -613,8 +635,8 @@ func (s *Service) UpdatePageOKF(ctx context.Context, orgID, userID, orgRole, id,
 // carried by index.md's structure per SPEC.md §8, not by subdirectories),
 // plus a bundle index.md and log.md. Returned as a filename->content map so
 // the caller can zip it however it likes.
-func (s *Service) GetSpaceOKFBundle(ctx context.Context, orgID, userID, orgRole, slug string) (map[string]string, error) {
-	swt, err := s.GetSpace(ctx, orgID, userID, orgRole, slug)
+func (s *Service) GetSpaceOKFBundle(ctx context.Context, orgID, userID string, acc Access, slug string) (map[string]string, error) {
+	swt, err := s.GetSpace(ctx, orgID, userID, acc, slug)
 	if err != nil {
 		return nil, err
 	}

@@ -3,6 +3,7 @@ package features
 import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/authz"
 	ent "github.com/mindforge/backend/internal/entitlements"
 	apimiddleware "github.com/mindforge/backend/internal/middleware"
 )
@@ -29,13 +30,14 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 }
 
 // RegisterOrgAdminRoutes mounts the org admin's per-member feature-flags
-// surface: the owner/admin of an org grants or revokes a feature for one
+// surface: a holder of admin.manage_org in the {id} org grants or revokes a feature for one
 // member, scoped to features the org itself already has enabled. Distinct
 // path segment ("user-features") from internal/orgs's own "/members/..."
 // routes so this package needs no dependency on internal/orgs.
-func (rt *Router) RegisterOrgAdminRoutes(r chi.Router) {
+func (rt *Router) RegisterOrgAdminRoutes(r chi.Router, perms *authz.Service) {
 	r.Route("/api/orgs/{id}/user-features/{memberID}", func(r chi.Router) {
 		r.Use(apimiddleware.RequireOrgMember(rt.pool))
+		r.Use(authz.RequireOrgCtxPermission(perms, "admin.manage_org"))
 
 		r.Get("/", rt.handler.ListMemberFeatureFlags)
 		r.Patch("/{key}", rt.handler.SetMemberFeatureFlag)

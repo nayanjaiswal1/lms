@@ -60,7 +60,7 @@ export function DemoShell({ activeTab, courseSlug, labKind, nonce }: DemoShellPr
     <div className="app-shell">
       <aside aria-label="Demo navigation" className="app-sidebar">
         <div className="flex items-center gap-2 border-b border-sidebar-border px-5 py-4">
-          <BrandMark iconClassName="h-6 w-6" />
+          <BrandMark />
           <Badge className="text-xs" variant="secondary">Demo</Badge>
         </div>
         <nav className="flex flex-1 flex-col gap-1 p-3">

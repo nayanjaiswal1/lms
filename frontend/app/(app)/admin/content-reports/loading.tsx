@@ -6,7 +6,7 @@ export default function ContentReportsLoading() {
       <div className="page-header">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-8 w-44" />
-          <Skeleton className="h-4 w-80" />
+          <Skeleton className="h-5 w-80" />
         </div>
       </div>
 

@@ -26,7 +26,7 @@ export default async function PublicRoadmapDetailPage({ params }: Props) {
     <main className="page-container">
       <div className="mb-4 flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="section-title">{roadmap.title}</h1>
+          <h1 className="page-title">{roadmap.title}</h1>
           {roadmap.target_role && <Badge variant="outline">{roadmap.target_role}</Badge>}
           {roadmap.skill_level && <Badge variant="outline">{roadmap.skill_level}</Badge>}
         </div>

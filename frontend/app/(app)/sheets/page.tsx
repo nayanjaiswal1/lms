@@ -8,6 +8,7 @@ import { DiscoverSheetRow } from "@/components/sheets/discover-sheet-row";
 import { SheetCardMenu } from "@/components/sheets/sheet-card-menu";
 import { SheetsToolbar } from "@/components/sheets/sheets-toolbar";
 import { ProgressRing } from "@/components/shared/progress-ring";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Sheet Tracker" };
 
@@ -27,15 +28,9 @@ export default async function SheetsPage() {
 
   return (
     <main className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Sheet Tracker</h1>
-          <p className="text-sm text-muted-foreground">
-            Create your own problem list or start with a built-in one, and track your progress.
-          </p>
-        </div>
+      <PageHeader title="Sheet Tracker" description="Create your own problem list or start with a built-in one, and track your progress.">
         <SheetsToolbar />
-      </div>
+      </PageHeader>
 
       {userSheets.length === 0 ? (
         <div className="empty-state">

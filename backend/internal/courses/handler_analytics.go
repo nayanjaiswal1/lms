@@ -149,7 +149,8 @@ func (h *Handler) CourseStudentRisk(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"students": students, "total": total, "limit": f.Limit, "offset": f.Offset})
 }
 
-// OrgCourseAnalytics returns one summary row per course in the caller's org.
+// OrgCourseAnalytics returns one summary row per course in the caller's org;
+// ?mine=true limits it to courses the caller created.
 func (h *Handler) OrgCourseAnalytics(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -158,15 +159,23 @@ func (h *Handler) OrgCourseAnalytics(w http.ResponseWriter, r *http.Request) {
 	errs := map[string]string{}
 	limit := boundedInt(r, "limit", defaultCoursesLimit, 1, maxAnalyticsLimit, errs)
 	offset := boundedInt(r, "offset", 0, 0, maxOffset, errs)
+	var creatorID *string
+	switch httputil.QueryStr(r, "mine") {
+	case "", "false":
+	case "true":
+		creatorID = &claims.UserID
+	default:
+		errs["mine"] = "mine must be true or false."
+	}
 	if rejectInvalid(w, errs) {
 		return
 	}
-	cs, total, err := h.repo.CourseSummaries(r.Context(), claims.OrgID, limit, offset)
+	cs, total, err := h.repo.CourseSummaries(r.Context(), claims.OrgID, creatorID, limit, offset)
 	if err != nil {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{"courses": cs, "total": total, "limit": limit, "offset": offset})
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"courses": cs, "total": total, "limit": limit, "offset": offset, "mine": creatorID != nil})
 }
 
 // OrgEnrollmentTrend returns org-wide daily enrollments.

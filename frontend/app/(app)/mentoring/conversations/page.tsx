@@ -20,7 +20,7 @@ export default async function MentorConversationsPage() {
     <main className="page-container-sm">
       <div className="mb-8 flex flex-col gap-2">
         <h1 className="page-title">Conversations</h1>
-        <p className="text-muted-foreground">Direct messages with mentors, independent of any ticket.</p>
+        <p className="page-description">Direct messages with mentors, independent of any ticket.</p>
       </div>
 
       {conversations.length === 0 ? (

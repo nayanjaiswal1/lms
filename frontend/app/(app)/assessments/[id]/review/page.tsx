@@ -9,6 +9,7 @@ import { getAssessment, getReviewQueue } from "@/lib/assessments/server";
 import ROUTES from "@/lib/routes";
 import type { ReviewQueueItem } from "@/lib/assessments/types";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Flagged Attempts — Review Queue" };
 
@@ -36,15 +37,9 @@ export default async function ReviewQueuePage({ params }: PageProps) {
           { label: "Review Queue" },
         ]}
       />
-      <div className="page-header">
-        <div>
-          <h1 className="section-title">Review Queue</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Attempts flagged for potential injection or anomalous scores.
-          </p>
-        </div>
+      <PageHeader title="Review Queue" description="Attempts flagged for potential injection or anomalous scores.">
         <Badge variant="secondary">{items.length} flagged</Badge>
-      </div>
+      </PageHeader>
 
       {items.length === 0 ? (
         <div className="empty-state">

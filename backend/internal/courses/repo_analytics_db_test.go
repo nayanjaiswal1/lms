@@ -224,7 +224,7 @@ func TestCourseAnalytics(t *testing.T) {
 	})
 
 	t.Run("course summaries", func(t *testing.T) {
-		got, total, err := repo.CourseSummaries(ctx, orgA, 10, 0)
+		got, total, err := repo.CourseSummaries(ctx, orgA, nil, 10, 0)
 		if err != nil || total != 2 || len(got) != 2 {
 			t.Fatalf("len=%d total=%d err=%v, want 2", len(got), total, err)
 		}
@@ -235,6 +235,24 @@ func TestCourseAnalytics(t *testing.T) {
 			if c.CourseID == course2 && (c.Enrolled != 1 || c.Completed != 0) {
 				t.Errorf("course2 summary = %+v", c)
 			}
+		}
+	})
+
+	t.Run("course summaries mine", func(t *testing.T) {
+		var other, course3 string
+		f.one(&other, `INSERT INTO users (email, name) VALUES ('other-author@`+testdomain.Domain+`', 'Other') RETURNING id`)
+		f.one(&course3, `INSERT INTO courses (org_id, creator_id, title, slug) VALUES ($1, $2, 'Three', 'three') RETURNING id`, orgA, other)
+		defer f.exec(`DELETE FROM courses WHERE id = $1`, course3)
+
+		if got, total, err := repo.CourseSummaries(ctx, orgA, &creator, 10, 0); err != nil || total != 2 || len(got) != 2 {
+			t.Fatalf("creator: len=%d total=%d err=%v, want 2", len(got), total, err)
+		}
+		got, total, err := repo.CourseSummaries(ctx, orgA, &other, 10, 0)
+		if err != nil || total != 1 || len(got) != 1 || got[0].CourseID != course3 {
+			t.Fatalf("other: %+v total=%d err=%v, want only course3", got, total, err)
+		}
+		if all, total, err := repo.CourseSummaries(ctx, orgA, nil, 10, 0); err != nil || total != 3 || len(all) != 3 {
+			t.Fatalf("org-wide: len=%d total=%d err=%v, want 3", len(all), total, err)
 		}
 	})
 
@@ -254,7 +272,7 @@ func TestCourseAnalytics(t *testing.T) {
 		if _, err := repo.EnrollmentTrend(ctx, orgB, &course1, 7); !errors.Is(err, ErrNotFound) {
 			t.Errorf("trend: %v, want ErrNotFound", err)
 		}
-		if cs, total, err := repo.CourseSummaries(ctx, orgB, 10, 0); err != nil || len(cs) != 0 || total != 0 {
+		if cs, total, err := repo.CourseSummaries(ctx, orgB, nil, 10, 0); err != nil || len(cs) != 0 || total != 0 {
 			t.Errorf("summaries for empty org: %v %d %v", cs, total, err)
 		}
 		pts, err := repo.EnrollmentTrend(ctx, orgB, nil, 7)

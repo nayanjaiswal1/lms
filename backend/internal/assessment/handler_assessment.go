@@ -496,7 +496,7 @@ func (h *Handler) ListBatches(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ids, scoped, err := mentorScopeIDs(r.Context(), h.pool, claims)
+	ids, scoped, err := mentorScopeIDs(r.Context(), h.pool, h.authzSvc, claims)
 	if err != nil {
 		httputil.WriteError(w, http.StatusInternalServerError, "Could not verify access.")
 		return

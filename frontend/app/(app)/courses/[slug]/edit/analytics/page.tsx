@@ -27,6 +27,7 @@ import { FunnelChart } from "@/components/courses/analytics/funnel-chart";
 import { HardestQuestionsTable } from "@/components/courses/analytics/hardest-questions-table";
 import { LessonDropoffTable } from "@/components/courses/analytics/lesson-dropoff-table";
 import { StatTile } from "@/components/courses/analytics/stat-tile";
+import { PageHeader } from "@/components/shared/page-header";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -79,10 +80,9 @@ export default async function CourseAnalyticsPage({ params, searchParams }: Prop
         ]}
       />
 
-      <div className="page-header">
-        <h1 className="section-title">{course.title} — Analytics</h1>
+      <PageHeader title={`${course.title} — Analytics`}>
         <AnalyticsFilters />
-      </div>
+      </PageHeader>
 
       <div className="grid-stats mb-8">
         <StatTile icon={Users} label="Enrolled" value={funnel.enrolled} />

@@ -12,7 +12,7 @@ export default function RefundPolicyPage() {
     // eslint-disable-next-line no-restricted-syntax -- standalone public page outside the (app) shell, no .app-content ancestor to supply vertical padding
     <main className="page-container-sm py-12">
       <h1 className="page-title">Refund &amp; Cancellation Policy</h1>
-      <p className="text-sm text-muted-foreground">Last updated: {LAST_UPDATED}</p>
+      <p className="page-description">Last updated: {LAST_UPDATED}</p>
 
       <div className="prose-content mt-8">
         <p>

@@ -8,6 +8,9 @@ import (
 	"github.com/mindforge/backend/internal/courses"
 )
 
+// PermUse is the permission code gating the system design attempt/chat API and its MCP tools.
+const PermUse = "content.system_design"
+
 // Router wires the systemdesign domain into the main chi router. Service is
 // exported so mcpconnect can reuse the exact same attempt/scene/feedback/chat
 // logic for its AI Connector tools instead of a second implementation.
@@ -31,7 +34,7 @@ func New(pool *pgxpool.Pool, coursesRepo *courses.Repo, provider ai.LLMProvider)
 // code the frontend's nav entry and <AccessGate> already check, enforced
 // again here since UI gates are UX, not security.
 func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
-	r.With(authz.RequirePermission(authzSvc, "content.system_design")).Group(func(r chi.Router) {
+	r.With(authz.RequirePermission(authzSvc, PermUse)).Group(func(r chi.Router) {
 		r.Get("/api/modules/{moduleID}/design/attempts", rt.handler.ListAttempts)
 		r.Post("/api/modules/{moduleID}/design/attempts", rt.handler.CreateAttempt)
 		r.Get("/api/modules/{moduleID}/design/attempts/{attemptID}", rt.handler.GetAttempt)

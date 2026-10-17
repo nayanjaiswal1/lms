@@ -30,8 +30,8 @@ export default async function InterviewPrepReportPage({ params }: Props) {
         ]}
       />
       <div className="flex flex-col gap-1 mb-6">
-        <h1 className="section-title">Readiness Report</h1>
-        <p className="text-sm text-muted-foreground">{plan.job_title}</p>
+        <h1 className="page-title">Readiness Report</h1>
+        <p className="page-description">{plan.job_title}</p>
       </div>
 
       {report ? (

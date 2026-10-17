@@ -8,6 +8,7 @@ import "@/components/habits/journal-theme.css";
 import { getHabitMonth } from "@/lib/server/habits";
 import { cn } from "@/lib/utils";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata = { title: "Habit Tracker" };
 
@@ -46,8 +47,8 @@ export default async function HabitsPage({ searchParams }: HabitsPageProps) {
             <Compass aria-hidden className="h-5 w-5" />
           </Link>
         </div>
-        <div className="page-header py-2 print:hidden">
-          <h1 className="page-title text-xl">Habit Tracker</h1>
+        <div className="print:hidden">
+          <PageHeader title="Habit Tracker" />
         </div>
         {/* Keyed by month so switching months remounts with fresh state instead
             of a stale local edit from the previous month leaking through. */}

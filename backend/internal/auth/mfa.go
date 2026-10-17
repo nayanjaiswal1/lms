@@ -46,14 +46,21 @@ type mfaChallenge struct {
 
 func challengeKey(token string) string { return "mfa:ch:" + HashToken(token) }
 
-// isPrivileged reports whether the account holds a role for which MFA is mandatory.
+// isPrivileged reports whether MFA is mandatory for the account: a platform
+// super_admin, or a holder of admin.manage_org or admin.manage_roles in any
+// org (effective_permissions view — auth cannot import authz, which imports
+// auth).
 func (h *Handler) isPrivileged(ctx context.Context, userID string) (bool, error) {
 	var p bool
 	err := h.pool.QueryRow(ctx,
 		`SELECT EXISTS(SELECT 1 FROM users WHERE id = $1 AND platform_role = 'super_admin')
-		     OR EXISTS(SELECT 1 FROM org_members WHERE user_id = $1 AND status = 'active' AND role IN ('owner','admin'))`,
+		     OR EXISTS(SELECT 1 FROM effective_permissions
+		               WHERE user_id = $1 AND code IN ('admin.manage_org', 'admin.manage_roles'))`,
 		userID).Scan(&p)
-	return p, err
+	if err != nil {
+		return false, fmt.Errorf("auth: mfa privileged check: %w", err)
+	}
+	return p, nil
 }
 
 func (h *Handler) mfaEnabled(ctx context.Context, userID string) (bool, error) {

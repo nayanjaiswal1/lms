@@ -68,66 +68,122 @@ needed between requests.
 
 Tools, each a thin wrapper over an existing domain service (no new business
 logic, no new authorization rules beyond what the student-facing API already
-enforces):
+enforces; see "Permission gate" below):
 
-| Tool | Scope | Delegates to |
+| Tool | Scope | Permission | Delegates to |
+|---|---|---|---|
+| `list_my_courses` | `courses:read` | any active member | `courses.Repo.GetMyEnrollments` |
+| `get_lesson` | `courses:read` | any active member | `courses.Service.GetModuleContent` |
+| `get_my_lesson_note` | `notes:write` | any active member | `courses.Service.GetMyLessonNote` |
+| `save_my_lesson_note` | `notes:write` | any active member | `courses.Service.SaveLessonNote` (source="ai") |
+| `log_understanding` | `signals:write` | any active member | `courses.Service.LogUnderstanding` → `lesson_reflections` (source="ai") |
+| `list_calendar_events` | `calendar:manage` | any active member | `calendar.Service.ListRange` |
+| `create_calendar_event` | `calendar:manage` | any active member | `calendar.Service.CreateEvent` |
+| `update_calendar_event` | `calendar:manage` | any active member | `calendar.Service.GetEvent` + `UpdateEvent` (merges patch onto the current row — a bare partial struct would silently wipe `batch_id`/`course_id`/`entity_type` etc., since `Repo.Update` overwrites every column it touches) |
+| `delete_calendar_event` | `calendar:manage` | any active member | `calendar.Service.DeleteEvent` |
+| `get_random_topic` | `courses:read` | any active member | `courses.Service.GetRandomTopic` — one published course the student hasn't tried yet, weighted toward `user_profiles.topics_interest` |
+| `get_learning_context` | `courses:read` | any active member | `courses.Service.GetLearningContext` — enrolled courses + progress and recent reflections, all in one call |
+| `log_mistake` | `signals:write` | `practice.use` | `mistakes.Service.LogMistake` (revert: `mistakes.Repo.Delete`) |
+| `get_mistake_history` | `signals:write` | `practice.use` | `mistakes.Repo.List` — newest first, optional category/context_tag filter |
+| `get_progress_summary` | `signals:write` | `practice.use` | `mistakes.Repo.Summary` — per-category counts and trend |
+| `get_due_revisions` | `signals:write` | `content.srs` | `srs.Repo.GetDueCardsBySource` (source="mistake") |
+| `mark_revision_result` | `signals:write` | `content.srs` | `srs.ReviewCard` — SM-2 reschedule from a correct/wrong flag |
+| `list_interview_prep_plans` | `interview_prep:manage` | `practice.use` | `interviewprep.Service.ListPlans` |
+| `get_interview_prep_plan` | `interview_prep:manage` | `practice.use` | `interviewprep.Service.GetPlan` — plan + rounds, but not a conceptual/behavioral round's question text (see `get_interview_prep_round`) |
+| `create_interview_prep_plan` | `interview_prep:manage` | `practice.use` | `interviewprep.Service.CreatePlan` — quick or targeted, same validation and 5/day rate limit (`interviewprep.MaxPlansPerDay`) as the in-app form, since both go through the same `Service.CreatePlan` |
+| `get_interview_prep_round` | `interview_prep:manage` | `practice.use` | `interviewprep.Service.GetRoundSession` → `practice.Service.GetSession` — every plan's round 1 (conceptual or behavioral) is a practice session; this is the only way to read its actual question text/answers/AI feedback, since `get_interview_prep_plan` only returns the opaque `practice_session_id` |
+| `submit_interview_prep_round_answer` | `interview_prep:manage` | `practice.use` | `interviewprep.Service.SubmitRoundAnswer` → `practice.Service.SubmitAnswer` |
+| `submit_interview_prep_coding_item` | `interview_prep:manage` | `practice.use` | `interviewprep.Service.SubmitCodingItem` — round 2 (technical targeted plans only) |
+| `get_interview_prep_report` | `interview_prep:manage` | `practice.use` | `interviewprep.Service.GetReport` |
+| `list_system_design_attempts` | `system_design:manage` | `content.system_design` | `systemdesign.Service.ListAttempts` |
+| `create_system_design_attempt` | `system_design:manage` | `content.system_design` | `systemdesign.Service.CreateAttempt` — blank-canvas attempt; earlier attempts are kept, not overwritten |
+| `get_system_design_attempt` | `system_design:manage` | `content.system_design` | `systemdesign.Service.GetAttempt` — scene (Excalidraw elements/appState) plus any saved feedback |
+| `save_system_design_scene` | `system_design:manage` | `content.system_design` | `systemdesign.Service.SaveScene` — replaces the whole scene; the connected AI can draw/edit the whiteboard directly |
+| `generate_system_design_feedback` | `system_design:manage` | `content.system_design` | `systemdesign.Service.GenerateFeedback` |
+| `list_system_design_chat` | `system_design:manage` | `content.system_design` | `systemdesign.Service.ListChat` |
+| `send_system_design_chat_message` | `system_design:manage` | `content.system_design` | `systemdesign.Service.SendChatMessage` |
+| `list_public_sheets` | `sheets:manage` | `content.sheets` | `sheets.Repo.ListPublicSheets` — the system-seeded catalog (Striver's A2Z, NeetCode 150, Blind 75, Grind 169) |
+| `list_my_sheets` | `sheets:manage` | `content.sheets` | `sheets.Repo.ListUserSheets` — the connection's tab bar (owned + subscribed), with per-sheet solved counts |
+| `get_sheet_preview` | `sheets:manage` | `content.sheets` | `sheets.Repo.GetSheetPreview` — metadata by slug, plus whether the connection already tracks it |
+| `get_sheet_items` | `sheets:manage` | `content.sheets` | `sheets.Repo.GetSheetBySlug` + `UserHasAccess` + `ListItemsWithProgress` — same access check `GetSheetItems` enforces |
+| `create_sheet` | `sheets:manage` | `content.sheets` | `sheets.Repo.CreateSheet` |
+| `update_sheet` | `sheets:manage` | `content.sheets` | `sheets.Repo.UpdateSheet` — ownership checked via `IsOwner` first, same as the HTTP handler |
+| `delete_sheet` | `sheets:manage` | `content.sheets` | `sheets.Repo.DeleteSheet` — cascades to the sheet's items and every subscriber's `user_sheets` row |
+| `combine_sheets` | `sheets:manage` | `content.sheets` | `sheets.Repo.CombineSheets` — every source sheet id is access-checked first; the new sheet is a snapshot, not linked back to its sources |
+| `add_sheet_item` | `sheets:manage` | `content.sheets` | `sheets.Repo.AddItem` |
+| `update_sheet_item` | `sheets:manage` | `content.sheets` | `sheets.Repo.UpdateItem` |
+| `delete_sheet_item` | `sheets:manage` | `content.sheets` | `sheets.Repo.DeleteItem` |
+| `subscribe_to_sheet` | `sheets:manage` | `content.sheets` | `sheets.Repo.Subscribe` |
+| `unsubscribe_from_sheet` | `sheets:manage` | `content.sheets` | `sheets.Repo.Unsubscribe` |
+| `get_sheet_settings` | `sheets:manage` | `content.sheets` | `sheets.Repo.GetSheetSettings` — the connection's per-sheet spaced-repetition config |
+| `update_sheet_settings` | `sheets:manage` | `content.sheets` | `sheets.Repo.UpsertSheetSettings` |
+| `update_problem_progress` | `sheets:manage` | `content.sheets` | `sheets.Repo.UpsertProgress` — keyed by `topic_tag`, shared across every sheet containing it; `sheet_id` resolves the revision schedule when marking `done` |
+| `mark_problem_reviewed` | `sheets:manage` | `content.sheets` | `sheets.Repo.MarkReviewed` — the "I still remember this" action, advances to the next interval |
+| `update_problem_revision` | `sheets:manage` | `content.sheets` | `sheets.Repo.UpdateRevision` — direct reschedule, bypassing the growth scheme |
+| `update_problem_notes` | `sheets:manage` | `content.sheets` | `sheets.Repo.UpsertNotes` — TipTap doc JSON, same shape as `lesson_notes`/`wiki_pages.content` |
+| `toggle_problem_starred` | `sheets:manage` | `content.sheets` | `sheets.Repo.SetStarred` |
+| `list_journal_entries` | `journal:manage` | `content.learning_journal` | `journal.Repo.ListEntries` — the connection's own learning journal, newest day first, optional category/search filter |
+| `find_similar_journal_entries` | `journal:manage` | `content.learning_journal` | `journal.Repo.FindSimilarEntries` — pg_trgm title match against the connection's own entries, same `> 0.3` threshold `internal/roadmap/matcher.go` uses |
+| `create_journal_entry` | `journal:manage` | `content.learning_journal` | `journal.Repo.CreateEntry`, then `FindSimilarEntries` — the response's `similar_entries` surfaces a likely-duplicate topic without blocking or merging the new entry |
+| `update_journal_entry` | `journal:manage` | `content.learning_journal` | `journal.Repo.UpdateEntry` |
+| `delete_journal_entry` | `journal:manage` | `content.learning_journal` | `journal.Repo.DeleteEntry` |
+| `list_habits` | `habits:manage` | any active member | `habit.Service.MonthView` — the connection's own habits plus every completion for one month, `month` defaults to the current one |
+| `create_habit` | `habits:manage` | any active member | `habit.Service.Create` |
+| `update_habit` | `habits:manage` | any active member | `habit.Service.Get` + `Update` — color/icon/tags only, the only attributes changeable after creation |
+| `delete_habit` | `habits:manage` | any active member | `habit.Service.Delete` |
+| `set_habit_completion` | `habits:manage` | any active member | `habit.Service.SetCompletion` — checks off one period, capped at `target_count` for an "any N times a week" habit |
+| `clear_habit_completion` | `habits:manage` | any active member | `habit.Service.ClearCompletion` |
+| `list_wiki_spaces` | `wiki:read` | `content.wiki` or project-workspace member | `wiki.Service.ListSpaces` — spaces the caller can see under the per-space ACL |
+| `get_wiki_space` | `wiki:read` | `content.wiki` or project-workspace member | `wiki.Service.GetSpace` — metadata plus the nested page tree (titles/slugs only) |
+| `search_wiki` | `wiki:read` | `content.wiki` or project-workspace member | `wiki.Service.Search` — full-text over published pages, optional space filter |
+| `find_similar_wiki_pages` | `wiki:read` | `content.wiki` or project-workspace member | `wiki.Service.FindSimilarByText` — duplicate check before `create_wiki_page` |
+| `get_wiki_page` | `wiki:read` | `content.wiki` or project-workspace member | `wiki.Service.GetPageOKF` — the page as an OKF markdown document |
+| `get_wiki_knowledge_graph` | `wiki:read` | `content.wiki` or project-workspace member | `wiki.Service.GetSpace` + `GetPageOKF` per page — nodes are pages, edges are in-space markdown links |
+| `create_wiki_page` | `wiki:write` | `content.wiki` or project-workspace member | `wiki.Service.CreatePage` from an OKF document (revert: `DeletePage`) |
+| `update_wiki_page` | `wiki:write` | `content.wiki` or project-workspace member | `wiki.Service.UpdatePage` — replaces content from an OKF document (revert restores the before-state) |
+| `move_wiki_page` | `wiki:write` | `content.wiki` or project-workspace member | `wiki.Service.UpdatePage` — parent/position only (revert restores the before-state) |
+
+### Permission gate (RBAC)
+
+A scope is what the student granted the client; it never widens what the
+student's role allows. Every tool also declares `Permission` next to its
+registration in `internal/mcpconnect/tools.go` — the same permission code
+that gates its REST equivalent — and one gate (`Router.toolPermitted`) runs
+for both `tools/call` and `tools/list`:
+
+1. The caller must still be an active member of the token's org
+   (`org_members.status = 'active'`); otherwise every call fails with
+   "not an active member of this org".
+2. Their effective permissions in that org come from `authz.Service.GetEffectivePermissions`
+   (the `effective_permissions` view, Redis-cached), once per request.
+3. `tools/call` on a tool whose code they lack returns a tool error
+   (`isError: true`, "your role in this organization does not allow this tool")
+   before any handler, before-state capture, or action-log write.
+4. `tools/list` returns only tools whose scope the connection holds **and**
+   whose permission the caller passes, so the model is never offered a tool
+   that would always fail.
+
+| Tools (by scope) | Permission | REST equivalent gate |
 |---|---|---|
-| `list_my_courses` | `courses:read` | `courses.Repo.GetMyEnrollments` |
-| `get_lesson` | `courses:read` | `courses.Service.GetModuleContent` |
-| `get_my_lesson_note` | `notes:write` | `courses.Service.GetMyLessonNote` |
-| `save_my_lesson_note` | `notes:write` | `courses.Service.SaveLessonNote` (source="ai") |
-| `log_understanding` | `signals:write` | `courses.Service.LogUnderstanding` → `lesson_reflections` (source="ai") |
-| `get_learning_context` | `courses:read` | `courses.Service.GetLearningContext` — enrolled courses + progress and recent reflections, all in one call |
-| `get_random_topic` | `courses:read` | `courses.Service.GetRandomTopic` — one published course the student hasn't tried yet, weighted toward `user_profiles.topics_interest` |
-| `list_calendar_events` | `calendar:manage` | `calendar.Service.ListRange` |
-| `create_calendar_event` | `calendar:manage` | `calendar.Service.CreateEvent` |
-| `update_calendar_event` | `calendar:manage` | `calendar.Service.GetEvent` + `UpdateEvent` (merges patch onto the current row — a bare partial struct would silently wipe `batch_id`/`course_id`/`entity_type` etc., since `Repo.Update` overwrites every column it touches) |
-| `delete_calendar_event` | `calendar:manage` | `calendar.Service.DeleteEvent` |
-| `list_interview_prep_plans` | `interview_prep:manage` | `interviewprep.Service.ListPlans` |
-| `get_interview_prep_plan` | `interview_prep:manage` | `interviewprep.Service.GetPlan` — plan + rounds, but not a conceptual/behavioral round's question text (see `get_interview_prep_round`) |
-| `create_interview_prep_plan` | `interview_prep:manage` | `interviewprep.Service.CreatePlan` — quick or targeted, same validation and 5/day rate limit (`interviewprep.MaxPlansPerDay`) as the in-app form, since both go through the same `Service.CreatePlan` |
-| `get_interview_prep_round` | `interview_prep:manage` | `interviewprep.Service.GetRoundSession` → `practice.Service.GetSession` — every plan's round 1 (conceptual or behavioral) is a practice session; this is the only way to read its actual question text/answers/AI feedback, since `get_interview_prep_plan` only returns the opaque `practice_session_id` |
-| `submit_interview_prep_round_answer` | `interview_prep:manage` | `interviewprep.Service.SubmitRoundAnswer` → `practice.Service.SubmitAnswer` |
-| `submit_interview_prep_coding_item` | `interview_prep:manage` | `interviewprep.Service.SubmitCodingItem` — round 2 (technical targeted plans only) |
-| `get_interview_prep_report` | `interview_prep:manage` | `interviewprep.Service.GetReport` |
-| `list_system_design_attempts` | `system_design:manage` | `systemdesign.Service.ListAttempts` |
-| `create_system_design_attempt` | `system_design:manage` | `systemdesign.Service.CreateAttempt` — blank-canvas attempt; earlier attempts are kept, not overwritten |
-| `get_system_design_attempt` | `system_design:manage` | `systemdesign.Service.GetAttempt` — scene (Excalidraw elements/appState) plus any saved feedback |
-| `save_system_design_scene` | `system_design:manage` | `systemdesign.Service.SaveScene` — replaces the whole scene; the connected AI can draw/edit the whiteboard directly |
-| `generate_system_design_feedback` | `system_design:manage` | `systemdesign.Service.GenerateFeedback` |
-| `list_system_design_chat` | `system_design:manage` | `systemdesign.Service.ListChat` |
-| `send_system_design_chat_message` | `system_design:manage` | `systemdesign.Service.SendChatMessage` |
-| `list_public_sheets` | `sheets:manage` | `sheets.Repo.ListPublicSheets` — the system-seeded catalog (Striver's A2Z, NeetCode 150, Blind 75, Grind 169) |
-| `list_my_sheets` | `sheets:manage` | `sheets.Repo.ListUserSheets` — the connection's tab bar (owned + subscribed), with per-sheet solved counts |
-| `get_sheet_preview` | `sheets:manage` | `sheets.Repo.GetSheetPreview` — metadata by slug, plus whether the connection already tracks it |
-| `get_sheet_items` | `sheets:manage` | `sheets.Repo.GetSheetBySlug` + `UserHasAccess` + `ListItemsWithProgress` — same access check `GetSheetItems` enforces |
-| `create_sheet` | `sheets:manage` | `sheets.Repo.CreateSheet` |
-| `update_sheet` | `sheets:manage` | `sheets.Repo.UpdateSheet` — ownership checked via `IsOwner` first, same as the HTTP handler |
-| `delete_sheet` | `sheets:manage` | `sheets.Repo.DeleteSheet` — cascades to the sheet's items and every subscriber's `user_sheets` row |
-| `combine_sheets` | `sheets:manage` | `sheets.Repo.CombineSheets` — every source sheet id is access-checked first; the new sheet is a snapshot, not linked back to its sources |
-| `add_sheet_item` | `sheets:manage` | `sheets.Repo.AddItem` |
-| `update_sheet_item` | `sheets:manage` | `sheets.Repo.UpdateItem` |
-| `delete_sheet_item` | `sheets:manage` | `sheets.Repo.DeleteItem` |
-| `subscribe_to_sheet` | `sheets:manage` | `sheets.Repo.Subscribe` |
-| `unsubscribe_from_sheet` | `sheets:manage` | `sheets.Repo.Unsubscribe` |
-| `get_sheet_settings` | `sheets:manage` | `sheets.Repo.GetSheetSettings` — the connection's per-sheet spaced-repetition config |
-| `update_sheet_settings` | `sheets:manage` | `sheets.Repo.UpsertSheetSettings` |
-| `update_problem_progress` | `sheets:manage` | `sheets.Repo.UpsertProgress` — keyed by `topic_tag`, shared across every sheet containing it; `sheet_id` resolves the revision schedule when marking `done` |
-| `mark_problem_reviewed` | `sheets:manage` | `sheets.Repo.MarkReviewed` — the "I still remember this" action, advances to the next interval |
-| `update_problem_revision` | `sheets:manage` | `sheets.Repo.UpdateRevision` — direct reschedule, bypassing the growth scheme |
-| `update_problem_notes` | `sheets:manage` | `sheets.Repo.UpsertNotes` — TipTap doc JSON, same shape as `lesson_notes`/`wiki_pages.content` |
-| `toggle_problem_starred` | `sheets:manage` | `sheets.Repo.SetStarred` |
-| `list_journal_entries` | `journal:manage` | `journal.Repo.ListEntries` — the connection's own learning journal, newest day first, optional category/search filter |
-| `find_similar_journal_entries` | `journal:manage` | `journal.Repo.FindSimilarEntries` — pg_trgm title match against the connection's own entries, same `> 0.3` threshold `internal/roadmap/matcher.go` uses |
-| `create_journal_entry` | `journal:manage` | `journal.Repo.CreateEntry`, then `FindSimilarEntries` — the response's `similar_entries` surfaces a likely-duplicate topic without blocking or merging the new entry |
-| `update_journal_entry` | `journal:manage` | `journal.Repo.UpdateEntry` |
-| `delete_journal_entry` | `journal:manage` | `journal.Repo.DeleteEntry` |
-| `list_habits` | `habits:manage` | `habit.Service.MonthView` — the connection's own habits plus every completion for one month, `month` defaults to the current one |
-| `create_habit` | `habits:manage` | `habit.Service.Create` |
-| `update_habit` | `habits:manage` | `habit.Service.Get` + `Update` — color/icon/tags only, the only attributes changeable after creation |
-| `delete_habit` | `habits:manage` | `habit.Service.Delete` |
-| `set_habit_completion` | `habits:manage` | `habit.Service.SetCompletion` — checks off one period, capped at `target_count` for an "any N times a week" habit |
-| `clear_habit_completion` | `habits:manage` | `habit.Service.ClearCompletion` |
+| `courses:read`, `notes:write`, `log_understanding` | any active member | learner course routes (`/api/enrollments/me`, `/api/modules/{id}`, notes, reflection) have no code |
+| `calendar:manage` | any active member | `/api/calendar/events` has no code |
+| `habits:manage` | any active member | `/api/habits` has no code |
+| `log_mistake`, `get_mistake_history`, `get_progress_summary` | `practice.use` | `/api/mistakes*` |
+| `get_due_revisions`, `mark_revision_result` | `content.srs` | `/api/srs/*` |
+| `interview_prep:manage` | `practice.use` | `/api/interview-prep*` |
+| `system_design:manage` | `content.system_design` | `/api/modules/{id}/design/*` |
+| `sheets:manage` | `content.sheets` | `/api/sheets*`, `/api/user/sheets`, `/api/progress/*` |
+| `journal:manage` | `content.learning_journal` | `/api/journal*` |
+| `wiki:read`, `wiki:write` | `content.wiki`, or membership of any project workspace in the org | `requireWikiOrProjectAccess` (shared `wiki.IsProjectMember`); the per-space ACL still applies inside each tool |
+
+"Any active member" tools use the `permActiveMember` sentinel; an empty
+`Permission` is a registration bug and is denied, and
+`TestToolPermissionsAreLiveCodes` fails on a code missing from `permissions`.
+So after migration 010 a `tenant_admin` without the `member` role sees no
+journal, sheets, SRS, mistake or interview-prep tools, the same as the REST
+API. The org's `ai_connector` setting is still checked first, in `requireMCPAuth`. No other
+feature flag gates these REST routes server-side, so none gates the tools.
+Tests: `internal/mcpconnect/permissions_db_test.go`.
 
 ### `interview_prep:manage` — one combined scope, no revert on generation
 

@@ -71,7 +71,7 @@ export function CheckoutStatusPoller({ courseId, courseSlug, courseTitle }: Prop
       <div className="card-base flex flex-col items-center gap-4 p-8 text-center">
         <CheckCircle2 aria-hidden className="h-12 w-12 text-success" />
         <div>
-          <h1 className="section-title">You&apos;re enrolled!</h1>
+          <h1 className="page-title">You&apos;re enrolled!</h1>
           <p className="mt-1 text-muted-foreground">Payment confirmed for {courseTitle}.</p>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-3">
@@ -93,7 +93,7 @@ export function CheckoutStatusPoller({ courseId, courseSlug, courseTitle }: Prop
       <div className="card-base flex flex-col items-center gap-4 p-8 text-center">
         <XCircle aria-hidden className="h-12 w-12 text-destructive" />
         <div>
-          <h1 className="section-title">Payment failed</h1>
+          <h1 className="page-title">Payment failed</h1>
           <p className="mt-1 text-muted-foreground">Your payment for {courseTitle} could not be completed.</p>
         </div>
         <Button asChild size="lg" variant="outline">
@@ -108,7 +108,7 @@ export function CheckoutStatusPoller({ courseId, courseSlug, courseTitle }: Prop
       <div className="card-base flex flex-col items-center gap-4 p-8 text-center">
         <Loader2 aria-hidden className="h-12 w-12 animate-spin text-muted-foreground" />
         <div>
-          <h1 className="section-title">Still confirming…</h1>
+          <h1 className="page-title">Still confirming…</h1>
           <p className="mt-1 text-muted-foreground">
             Your payment was received but confirmation is taking longer than usual. Refresh in a moment.
           </p>
@@ -124,7 +124,7 @@ export function CheckoutStatusPoller({ courseId, courseSlug, courseTitle }: Prop
     <div className="card-base flex flex-col items-center gap-4 p-8 text-center">
       <Loader2 aria-hidden className="h-12 w-12 animate-spin text-muted-foreground" />
       <div>
-        <h1 className="section-title">Confirming your payment…</h1>
+        <h1 className="page-title">Confirming your payment…</h1>
         <p className="mt-1 text-muted-foreground">This usually takes just a few seconds.</p>
       </div>
     </div>

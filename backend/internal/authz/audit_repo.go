@@ -98,9 +98,11 @@ func (r *AuditRepo) List(ctx context.Context, params ListAuditParams) ([]AuditEn
 	args = append(args, limit, params.Offset)
 	listQ := fmt.Sprintf(`
 		SELECT al.id, al.org_id, al.actor_user_id, al.action, al.target_type, al.target_id,
-			al.before_state, al.after_state, al.created_at, u.name, u.email
+			al.before_state, al.after_state, al.created_at, u.name, u.email,
+			host(al.ip_address), o.name
 		FROM audit_logs al
 		LEFT JOIN users u ON u.id = al.actor_user_id
+		LEFT JOIN organizations o ON o.id = al.org_id
 		%s
 		ORDER BY al.created_at DESC
 		LIMIT $%d OFFSET $%d`, where, len(args)-1, len(args))
@@ -131,6 +133,8 @@ func (r *AuditRepo) List(ctx context.Context, params ListAuditParams) ([]AuditEn
 			&e.CreatedAt,
 			&e.ActorName,
 			&e.ActorEmail,
+			&e.IPAddress,
+			&e.OrgName,
 		); err != nil {
 			return nil, 0, fmt.Errorf("audit: list: scan: %w", err)
 		}

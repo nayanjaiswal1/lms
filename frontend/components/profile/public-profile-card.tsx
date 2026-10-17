@@ -74,10 +74,10 @@ export function PublicProfileCard({ profile }: Props) {
         <ProfileAvatar avatarUrl={avatar_url} editable={false} name={name} size="lg" />
 
         <div className="flex flex-col items-center sm:items-start gap-1 min-w-0">
-          <h1 className="text-xl font-bold">{name}</h1>
+          <h1 className="page-title">{name}</h1>
 
           {display_name && (
-            <p className="text-sm text-muted-foreground">@{display_name}</p>
+            <p className="page-description">@{display_name}</p>
           )}
 
           {bio && (

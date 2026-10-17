@@ -1,6 +1,7 @@
 import { getHighlightAnalytics } from "@/lib/server/highlights";
 import { HighlightsTabs } from "@/components/platform/highlights-tabs";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata = { title: "Confusing Content — Platform Console" };
 
@@ -18,14 +19,7 @@ export default async function PlatformHighlightsPage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Confusing Content</h1>
-          <p className="text-muted-foreground mt-1">
-            Text snippets students ask AI to explain most often, across all organisations.
-          </p>
-        </div>
-      </div>
+      <PageHeader title="Confusing Content" description="Text snippets students ask AI to explain most often, across all organisations." />
 
       <HighlightsTabs active="all" />
 

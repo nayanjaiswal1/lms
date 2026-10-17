@@ -5,6 +5,7 @@ import { PERMISSIONS } from "@/lib/auth/permission-codes"
 import { CreateRoleDialog } from "./create-role-dialog"
 import { RoleFilters } from "./role-filters"
 import { RoleTable, type Role } from "./role-table"
+import { PageHeader } from "@/components/shared/page-header";
 
 async function fetchRoles(): Promise<{ roles: Role[]; total: number }> {
   try {
@@ -25,15 +26,9 @@ export default async function RolesPage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Roles</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage permission bundles. System roles are read-only; create custom roles for your org.
-          </p>
-        </div>
+      <PageHeader title="Roles" description="Manage permission bundles. System roles are read-only; create custom roles for your org.">
         <CreateRoleDialog />
-      </div>
+      </PageHeader>
 
       {roles.length === 0 ? (
         <div className="empty-state mt-8">

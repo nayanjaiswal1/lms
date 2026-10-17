@@ -1,5 +1,6 @@
 import { getHighlightAnalytics } from "@/lib/server/highlights";
 import { HighlightsTabs } from "@/components/platform/highlights-tabs";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata = { title: "Highlights by Model — Platform Console" };
 
@@ -33,14 +34,7 @@ export default async function PlatformHighlightsByModelPage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Highlights by Model</h1>
-          <p className="text-muted-foreground mt-1">
-            Which AI model is generating cached explanations, and how much reuse each gets.
-          </p>
-        </div>
-      </div>
+      <PageHeader title="Highlights by Model" description="Which AI model is generating cached explanations, and how much reuse each gets." />
 
       <HighlightsTabs active="by-model" />
 

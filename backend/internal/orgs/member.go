@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/authz/sysrole"
+	"github.com/mindforge/backend/internal/middleware"
 	"github.com/mindforge/backend/internal/pagination"
 	"github.com/mindforge/backend/internal/session"
 )
@@ -57,7 +59,7 @@ func outranks(actorRole, targetRole, actorUserID, targetUserID string) bool {
 	if actorUserID == targetUserID || actorRole == RoleOwner {
 		return true
 	}
-	return roleRank[actorRole] > roleRank[targetRole]
+	return middleware.OrgRoleRank[actorRole] > middleware.OrgRoleRank[targetRole]
 }
 
 // List returns cursor-paginated members with user info joined.
@@ -121,13 +123,21 @@ func (s *MemberService) List(ctx context.Context, orgID, cursor string, limit in
 
 // Update changes role or status of a member. Enforces role hierarchy and last-owner guard.
 func (s *MemberService) Update(ctx context.Context, orgID, actorUserID, actorRole, memberID string, req UpdateMemberRequest) (*Member, error) {
-	// Fetch target member.
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("orgs: update member: begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	// Fetch and lock the target member: target.Role is the previous label the
+	// RBAC sync below revokes, so it must not change under us.
 	var target Member
-	err := s.pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`SELECT m.id, m.user_id, u.name, u.email, u.avatar_url, m.role, m.status, m.created_at
 		 FROM org_members m
 		 JOIN users u ON u.id = m.user_id
-		 WHERE m.id = $1 AND m.org_id = $2`,
+		 WHERE m.id = $1 AND m.org_id = $2
+		 FOR UPDATE OF m`,
 		memberID, orgID,
 	).Scan(&target.ID, &target.UserID, &target.Name, &target.Email, &target.AvatarURL, &target.Role, &target.Status, &target.JoinedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -151,7 +161,7 @@ func (s *MemberService) Update(ctx context.Context, orgID, actorUserID, actorRol
 			return nil, ErrForbidden
 		}
 		// Cannot assign the same or higher role than own (except owner assigns owner).
-		if actorRole != RoleOwner && roleRank[*req.Role] >= roleRank[actorRole] {
+		if actorRole != RoleOwner && middleware.OrgRoleRank[*req.Role] >= middleware.OrgRoleRank[actorRole] {
 			return nil, ErrForbidden
 		}
 	}
@@ -187,7 +197,7 @@ func (s *MemberService) Update(ctx context.Context, orgID, actorUserID, actorRol
 	)
 
 	var updated Member
-	err = s.pool.QueryRow(ctx, query, args...).Scan(
+	err = tx.QueryRow(ctx, query, args...).Scan(
 		&updated.ID, &updated.UserID, &updated.Role, &updated.Status, &updated.JoinedAt,
 	)
 	if err != nil {
@@ -203,25 +213,32 @@ func (s *MemberService) Update(ctx context.Context, orgID, actorUserID, actorRol
 	// the frontend gated on it. Bumping session_version retires those tokens on
 	// the next request instead of letting them run out the clock.
 	//
-	// RequireOrgRole reads the live role from the database, so this is not what
+	// Permission checks read live grants from the database, so this is not what
 	// keeps the API safe — it is what stops the member from seeing a UI built
 	// for privileges they no longer have, and what makes a suspension take
 	// effect immediately rather than at token expiry.
 	roleChanged := req.Role != nil && *req.Role != target.Role
 	statusChanged := req.Status != nil && *req.Status != target.Status
 	if roleChanged {
-		if err := syncTenantAdminRole(ctx, s.pool, orgID, updated.UserID, updated.Role); err != nil {
-			return nil, fmt.Errorf("orgs: update member: sync tenant_admin role: %w", err)
+		if err := sysrole.Sync(ctx, tx, orgID, updated.UserID, updated.Role, target.Role); err != nil {
+			return nil, fmt.Errorf("orgs: update member: %w", err)
 		}
 	}
 
 	if roleChanged || statusChanged {
-		if _, err := s.pool.Exec(ctx,
+		if _, err := tx.Exec(ctx,
 			`UPDATE users SET session_version = session_version + 1 WHERE id = $1`,
 			updated.UserID,
 		); err != nil {
 			return nil, fmt.Errorf("orgs: update member: bump session_version: %w", err)
 		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("orgs: update member: commit: %w", err)
+	}
+
+	if roleChanged || statusChanged {
 		s.invalidateSession(ctx, updated.UserID)
 		s.invalidatePermissions(ctx, updated.UserID, orgID)
 	}
@@ -289,18 +306,19 @@ func (s *MemberService) Remove(ctx context.Context, orgID, actorUserID, actorRol
 		return err
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("orgs: remove member: commit: %w", err)
-	}
-
 	// Revoke every RBAC role and direct permission grant in this org, not just
-	// tenant_admin: a future re-add (e.g. as a plain learner) must not silently
-	// inherit custom-role or override permissions that predate the removal.
-	if _, err := s.pool.Exec(ctx, `DELETE FROM user_roles WHERE user_id = $1 AND org_id = $2`, target.UserID, orgID); err != nil {
+	// the label-mapped system role: a future re-add (e.g. as a plain learner)
+	// must not silently inherit custom-role or override permissions that
+	// predate the removal.
+	if _, err := tx.Exec(ctx, `DELETE FROM user_roles WHERE user_id = $1 AND org_id = $2`, target.UserID, orgID); err != nil {
 		return fmt.Errorf("orgs: remove member: revoke roles: %w", err)
 	}
-	if _, err := s.pool.Exec(ctx, `DELETE FROM user_permission_overrides WHERE user_id = $1 AND org_id = $2`, target.UserID, orgID); err != nil {
+	if _, err := tx.Exec(ctx, `DELETE FROM user_permission_overrides WHERE user_id = $1 AND org_id = $2`, target.UserID, orgID); err != nil {
 		return fmt.Errorf("orgs: remove member: revoke permission overrides: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("orgs: remove member: commit: %w", err)
 	}
 	s.invalidatePermissions(ctx, target.UserID, orgID)
 
@@ -406,10 +424,10 @@ func removeFromOrgWorkspaces(ctx context.Context, tx pgx.Tx, orgID, userID strin
 	// dependency into MemberService for one cross-cutting admin action.
 	if _, err := tx.Exec(ctx,
 		`INSERT INTO work_item_events (project_id, item_id, source, kind, field, from_value, reason)
-		 SELECT w.project_id, w.id, 'system', 'unassign', 'owner', $2, 'member removed from organization'
+		 SELECT w.project_id, w.id, 'system', 'unassign', 'owner', $2::uuid::text, 'member removed from organization'
 		   FROM work_item_assignees wia
 		   JOIN work_items w ON w.id = wia.item_id
-		  WHERE wia.user_id = $2 AND wia.role = 'owner'
+		  WHERE wia.user_id = $2::uuid AND wia.role = 'owner'
 		    AND w.project_id IN (SELECT id FROM workspace_projects WHERE org_id = $1)
 		    AND w.archived_at IS NULL AND w.status NOT IN ('done','wont_do')`,
 		orgID, userID,

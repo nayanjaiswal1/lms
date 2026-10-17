@@ -4,6 +4,7 @@ import { apiGet } from "@/lib/server/api";
 import { getMyPermissions } from "@/lib/server/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import { ContentReportsTable, type ContentReport } from "@/app/(app)/admin/content-reports/content-reports-table";
+import { PageHeader } from "@/components/shared/page-header";
 
 interface SearchParams {
   status?: string;
@@ -38,14 +39,7 @@ export default async function ContentReportsPage({
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Content Reports</h1>
-          <p className="text-muted-foreground mt-1">
-            Reports of illegal, infringing, or abusive content flagged by members.
-          </p>
-        </div>
-      </div>
+      <PageHeader title="Content Reports" description="Reports of illegal, infringing, or abusive content flagged by members." />
 
       <div className="mt-8">
         <ContentReportsTable reports={reports} />

@@ -86,28 +86,12 @@ func (h *Handler) AdminClearOrgFeatureFlag(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// ─── Org admin (owner/admin org role): per-member feature flags ──────────────
-
-// requireOrgAdmin re-derives the org-membership role check handleUpdateMember
-// (internal/orgs) already applies to member mutations — kept local to this
-// package rather than importing internal/orgs for two string constants.
-func requireOrgAdmin(w http.ResponseWriter, r *http.Request) (*apimiddleware.OrgCtx, bool) {
-	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
-		return nil, false
-	}
-	if orgCtx.CallerRole != "owner" && orgCtx.CallerRole != "admin" {
-		httputil.WriteError(w, http.StatusForbidden, "Insufficient permissions.")
-		return nil, false
-	}
-	return orgCtx, true
-}
+// ─── Org admin (admin.manage_org): per-member feature flags ──────────────
 
 // ListMemberFeatureFlags returns every user-toggleable feature the org has
 // enabled, resolved for the member in the {memberID} URL param.
 func (h *Handler) ListMemberFeatureFlags(w http.ResponseWriter, r *http.Request) {
-	orgCtx, ok := requireOrgAdmin(w, r)
+	orgCtx, ok := apimiddleware.OrgCtxOr403(w, r)
 	if !ok {
 		return
 	}
@@ -126,7 +110,7 @@ func (h *Handler) ListMemberFeatureFlags(w http.ResponseWriter, r *http.Request)
 // SetMemberFeatureFlag turns a feature on/off for the member in the
 // {memberID} URL param.
 func (h *Handler) SetMemberFeatureFlag(w http.ResponseWriter, r *http.Request) {
-	orgCtx, ok := requireOrgAdmin(w, r)
+	orgCtx, ok := apimiddleware.OrgCtxOr403(w, r)
 	if !ok {
 		return
 	}
@@ -154,7 +138,7 @@ func (h *Handler) SetMemberFeatureFlag(w http.ResponseWriter, r *http.Request) {
 // ClearMemberFeatureFlag reverts a feature back to the org's default
 // entitlement for the member in the {memberID} URL param.
 func (h *Handler) ClearMemberFeatureFlag(w http.ResponseWriter, r *http.Request) {
-	orgCtx, ok := requireOrgAdmin(w, r)
+	orgCtx, ok := apimiddleware.OrgCtxOr403(w, r)
 	if !ok {
 		return
 	}

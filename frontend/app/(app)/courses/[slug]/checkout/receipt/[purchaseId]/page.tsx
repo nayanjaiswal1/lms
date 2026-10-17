@@ -33,8 +33,8 @@ export default async function ReceiptPage({ params }: Props) {
       <div className="card-base p-8 space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="section-title">Receipt</h1>
-            <p className="text-sm text-muted-foreground">{course.title}</p>
+            <h1 className="page-title">Receipt</h1>
+            <p className="page-description">{course.title}</p>
           </div>
           <p className="font-mono text-sm text-muted-foreground">
             {receipt.receipt_number ?? "—"}

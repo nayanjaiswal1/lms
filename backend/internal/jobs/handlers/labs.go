@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/labs"
 	"github.com/mindforge/backend/internal/notifications"
@@ -356,24 +357,11 @@ func (h *LabExpireHandler) notifyRepeatedProvisionFailures(ctx context.Context, 
 		return
 	}
 
-	rows, err := h.pool.Query(ctx,
-		`SELECT user_id FROM org_members WHERE org_id=$1 AND role IN ('owner', 'admin')`, orgID,
-	)
+	recipients, err := authz.NewRepo(h.pool).OrgPermissionHolders(ctx, orgID, "admin.manage_org")
 	if err != nil {
 		slog.Error("lab.expire_sessions: get org admins", "org_id", orgID, "error", err)
 		return
 	}
-	var recipients []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			rows.Close()
-			slog.Error("lab.expire_sessions: scan org admin", "error", err)
-			return
-		}
-		recipients = append(recipients, id)
-	}
-	rows.Close()
 	if len(recipients) == 0 {
 		return
 	}

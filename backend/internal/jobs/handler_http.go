@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/httputil"
 	apimiddleware "github.com/mindforge/backend/internal/middleware"
@@ -27,11 +28,11 @@ func NewHTTPHandler(pool *pgxpool.Pool, rdb *redis.Client, cfg *config.Config, r
 
 // RegisterRoutes mounts all job routes. The parent router must already have
 // RequireAuth and RequireCSRF applied.
-func (h *HTTPHandler) RegisterRoutes(r chi.Router) {
+func (h *HTTPHandler) RegisterRoutes(r chi.Router, perms *authz.Service) {
 	// ── Org admin routes ─────────────────────────────────────────────────────
 	r.Route("/api/orgs/{id}/jobs", func(r chi.Router) {
 		r.Use(apimiddleware.RequireOrgMember(h.pool))
-		r.Use(apimiddleware.RequireOrgRole(h.pool, apimiddleware.RoleOwner, apimiddleware.RoleAdmin, apimiddleware.RoleInstructor))
+		r.Use(authz.RequireAnyPermission(perms, "admin.manage_org", "courses.edit"))
 
 		r.Get("/", h.handleOrgListJobs)
 		r.Get("/stats", h.handleOrgStats)

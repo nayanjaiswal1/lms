@@ -24,13 +24,6 @@ var (
 	ErrInvalidThreshold    = errors.New("certificates: threshold must be between 1 and 100")
 )
 
-// roleMentor mirrors middleware.RoleMentor's DB/JWT value. Certificates
-// takes it as a plain string (rather than importing the middleware package)
-// so the domain layer stays decoupled from the HTTP-role constant — the
-// handler is what actually resolves the caller's live org role (see
-// middleware.LiveOrgRole).
-const roleMentor = "mentor"
-
 // MentorAuthChecker is the narrow capability certificates needs from the
 // mentoring package to gate manual issuance: a mentor may only award a
 // certificate to a student they have actually been assigned to, past or
@@ -290,12 +283,13 @@ func (s *Service) VerifyCertificate(ctx context.Context, certUUID string) (Certi
 // ─── Mentor manual issuance ────────────────────────────────────────────────────
 
 // IssueByMentor lets a mentor (for their own assigned student), or an
-// instructor/admin (for any enrolled student), directly award a
+// unscoped caller — one holding courses.edit — (for any enrolled student),
+// directly award a
 // certificate — a deliberate human override that bypasses the final-test
 // and threshold gates entirely. Idempotent: a student who already has a
 // certificate for this course gets the existing one back rather than a
 // second row.
-func (s *Service) IssueByMentor(ctx context.Context, orgID, callerID, callerRole, studentID, courseID string) (Certificate, error) {
+func (s *Service) IssueByMentor(ctx context.Context, orgID, callerID string, unscoped bool, studentID, courseID string) (Certificate, error) {
 	if _, err := s.coursesRepo.GetCourse(ctx, orgID, courseID); err != nil {
 		if errors.Is(err, courses.ErrNotFound) {
 			return Certificate{}, ErrCourseNotFound
@@ -309,7 +303,7 @@ func (s *Service) IssueByMentor(ctx context.Context, orgID, callerID, callerRole
 	if !enrolled {
 		return Certificate{}, ErrNotEnrolled
 	}
-	if callerRole == roleMentor {
+	if !unscoped {
 		assigned, err := s.mentorAuth.HasBeenMentoredBy(ctx, orgID, studentID, callerID)
 		if err != nil {
 			return Certificate{}, fmt.Errorf("certificates: check mentor assignment: %w", err)

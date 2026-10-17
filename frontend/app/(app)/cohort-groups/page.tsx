@@ -10,6 +10,7 @@ import { CohortGroupTree } from "@/components/cohorts/cohort-group-tree";
 import { CohortGroupsPanel } from "@/app/(app)/cohort-groups/cohort-groups-panel";
 import { BatchesPanel } from "@/app/(app)/batches/batches-panel";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = {
   title: "Batches",
@@ -32,18 +33,16 @@ export default async function CohortGroupsPage() {
 
   return (
     <main className="page-container">
-      <header className="page-header">
-        <div className="flex flex-col gap-1">
-          <h1 className="page-title">{t.classPlural}</h1>
-          <p className="text-muted-foreground">
+      <PageHeader
+        title={t.classPlural}
+        description={<p className="page-description">
             Drag a {t.class_.toLowerCase()} onto a group to move it, or open one to edit or manage it directly.
-          </p>
-        </div>
+          </p>}>
         <div className="flex gap-2">
           <BatchesPanel />
           <CohortGroupsPanel groups={groups} />
         </div>
-      </header>
+      </PageHeader>
 
       <section>
         {batches.length === 0 && groups.length === 0 ? (

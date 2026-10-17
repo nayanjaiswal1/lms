@@ -6,8 +6,8 @@ export default function WorkspaceLoading() {
       <Skeleton className="h-4 w-40" />
       <div className="page-header items-start mt-4">
         <div className="flex flex-col gap-2">
-          <Skeleton className="h-9 w-64" />
-          <Skeleton className="h-4 w-56" />
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-5 w-56" />
         </div>
         <Skeleton className="h-9 w-32" />
       </div>

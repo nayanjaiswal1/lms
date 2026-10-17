@@ -13,6 +13,7 @@ import { listMyWorkspaceInvitations, listWorkspaces } from "@/lib/workspace/serv
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import { PROJECT_STATUS_LABEL, PROJECT_STATUS_VARIANT, PROJECT_ROLE_LABEL } from "@/lib/workspace/roles";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = {
   title: "Workspaces",
@@ -29,11 +30,7 @@ export default async function WorkspacesPage() {
 
   return (
     <main className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Workspaces</h1>
-          <p className="text-muted-foreground">Corporate-style projects — briefs, teams, tracks, and delivery.</p>
-        </div>
+      <PageHeader title="Workspaces" description="Corporate-style projects — briefs, teams, tracks, and delivery.">
         <div className="flex flex-wrap gap-2">
           <Button asChild className="gap-2" variant="outline">
             <Link href={ROUTES.WORKSPACES_DISCOVER}>
@@ -50,7 +47,7 @@ export default async function WorkspacesPage() {
             </Button>
           )}
         </div>
-      </div>
+      </PageHeader>
 
       <InvitationList invitations={invitations} />
 

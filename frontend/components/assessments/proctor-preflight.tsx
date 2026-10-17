@@ -171,7 +171,7 @@ export function ProctorPreflight({
 
         <div className="flex flex-col gap-1">
           <h1 className="page-title leading-tight">{meta.title}</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="page-description">
             {proctoring.require_camera || proctoring.allow_secondary_camera
               ? "Complete setup before starting. Your session will be monitored."
               : "Review the rules below, then begin your test."}

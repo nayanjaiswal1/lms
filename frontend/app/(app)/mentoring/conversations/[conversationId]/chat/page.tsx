@@ -33,7 +33,7 @@ export default async function MentorConversationChatPage({ params }: Props) {
       />
 
       <div className="mb-6">
-        <h1 className="section-title">Conversation</h1>
+        <h1 className="page-title">Conversation</h1>
       </div>
 
       <div className="mb-6">

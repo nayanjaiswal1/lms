@@ -5,7 +5,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/jobs"
+	"github.com/mindforge/backend/internal/practice"
 )
 
 // New wires the roadmap package: a self-serve "state a goal, get an AI
@@ -19,7 +21,10 @@ func New(pool *pgxpool.Pool, jobsRegistry *jobs.Registry) *Handler {
 	return &Handler{service: service, repo: repo}
 }
 
-func (h *Handler) RegisterRoutes(r chi.Router) {
+// RegisterRoutes mounts the signed-in roadmap API, gated on practice.use —
+// generation and replanning spend LLM quota.
+func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
+	r = r.With(authz.RequirePermission(authzSvc, practice.PermUse))
 	r.Post("/api/roadmaps", h.CreateRoadmap)
 	r.Get("/api/roadmaps", h.ListRoadmaps)
 	r.Post("/api/roadmaps/{roadmapID}/regenerate", h.RegenerateRoadmap)

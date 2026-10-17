@@ -34,6 +34,7 @@ type Role struct {
 type AuditEntry struct {
 	ID         int64           `json:"id"`
 	OrgID      *string         `json:"org_id"`
+	OrgName    *string         `json:"org_name"`
 	ActorID    *string         `json:"actor_id"`
 	ActorName  *string         `json:"actor_name"`
 	ActorEmail *string         `json:"actor_email"`
@@ -41,7 +42,10 @@ type AuditEntry struct {
 	EntityType *string         `json:"entity_type"`
 	EntityID   string          `json:"entity_id"`
 	Diff       json.RawMessage `json:"diff"`
-	CreatedAt  time.Time       `json:"created_at"`
+	// IPAddress is the client IP recorded by writers that capture it
+	// (the orgs domain's audit writer); nil for RBAC-admin writes, which do not.
+	IPAddress *string   `json:"ip_address"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // UserRoleAssignment is a row from user_roles, scoped to an org.

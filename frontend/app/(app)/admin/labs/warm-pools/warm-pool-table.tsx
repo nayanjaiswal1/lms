@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { WARM_POOL_MODE } from "@/lib/constants";
 import ROUTES from "@/lib/routes";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
+import { PageHeader } from "@/components/shared/page-header";
 
 export interface WarmPoolRowData {
   image: string;
@@ -60,26 +61,21 @@ export function WarmPoolTable({ images }: { images: WarmPoolRowData[] }) {
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Warm Pool Sizing</h1>
-          <p className="text-muted-foreground mt-1 max-w-2xl">
-            Sandboxes are pooled per image, not per lab — every lab on the same image draws
-            from the same pool. The platform sizes each pool automatically from arrival rate
-            and measured warm-start time; the Target and Why columns show what it decided and
-            on what evidence.
-          </p>
+      <PageHeader
+        title="Warm Pool Sizing"
+        description="Sandboxes are pooled per image, not per lab — every lab on the same image draws from the same pool. The platform sizes each pool automatically from arrival rate and measured warm-start time; the Target and Why columns show what it decided and on what evidence."
+        meta={
           <Link
             className="text-sm text-primary underline underline-offset-2 mt-2 inline-block"
             href={ROUTES.ADMIN_LABS_USAGE}
           >
             View compute usage →
           </Link>
-        </div>
+        }>
         <Badge className="badge-muted" variant="outline">
           {images.length} image{images.length === 1 ? "" : "s"}
         </Badge>
-      </div>
+      </PageHeader>
 
       <ResponsiveTable className="mt-8 card-base">
         <table className="w-full text-sm">

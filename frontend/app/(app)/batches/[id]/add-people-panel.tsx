@@ -2,13 +2,12 @@
 
 import { PLACEHOLDER_DOMAIN } from "@/lib/constants";
 import * as React from "react";
-import { ArrowLeft, History, Plus, Search, UserPlus } from "lucide-react";
+import { ArrowLeft, History, Plus, UserPlus } from "lucide-react";
 import { parseAsBoolean, parseAsStringEnum, useQueryState } from "nuqs";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { addBatchMembersAction, importValidateAction, confirmImportAction } from "@/app/(app)/batches/actions";
@@ -47,7 +46,8 @@ interface AddPeoplePanelProps {
 // role, and submit-in-flight — kept in one hook so the component stays
 // within the 2-useState limit.
 function useAddPeopleForm() {
-  const [query, setQuery] = React.useState("");
+  // Top-bar search drives this list (`?q=`).
+  const [query, setQuery] = useQueryState("q", { defaultValue: "" });
   const [submitting, setSubmitting] = React.useState(false);
   const [roleByUser, setRoleByUser] = React.useState<Record<string, Role>>({});
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
@@ -157,18 +157,24 @@ export function AddPeoplePanel({ batchId, orgMembers, currentMemberIds, currentM
       return;
     }
     toast.success(`${parsedInvite.fullName} invited as student.`);
-    setQuery("");
+    void setQuery(null);
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog modal={false} open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm">
           <UserPlus aria-hidden className="mr-1.5 h-4 w-4" />
           Add people
         </Button>
       </DialogTrigger>
-      <DialogContent className="modal-responsive max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent
+        className="modal-responsive max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+        // Non-modal: the top-bar search must stay usable while this is open.
+        onInteractOutside={(e) => {
+          if ((e.target as HTMLElement).closest("search")) e.preventDefault();
+        }}
+      >
         <DialogHeader className="flex-row items-center gap-2 pr-16 space-y-0">
           {view === "history" ? (
             <>
@@ -206,23 +212,9 @@ export function AddPeoplePanel({ batchId, orgMembers, currentMemberIds, currentM
         ) : (
         <div className="flex w-full flex-col gap-4 min-w-0">
           <div className="flex items-center gap-2">
-            <div className="relative flex-1 min-w-0">
-              <Search aria-hidden className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              <Input
-                aria-label={`Search org members by name or email, or type 'Name email@${PLACEHOLDER_DOMAIN}' to invite someone new`}
-                className="pl-9"
-                placeholder={`Search, or type “Name email@${PLACEHOLDER_DOMAIN}” to invite someone new…`}
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && parsedInvite) {
-                    e.preventDefault();
-                    void inviteNew();
-                  }
-                }}
-              />
-            </div>
+            <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+              Use the search bar above to find people, or type “Name email@{PLACEHOLDER_DOMAIN}” to invite someone new.
+            </p>
             <Button className="shrink-0" disabled={selected.size === 0 || submitting} onClick={() => void addSelected()}>
               <Plus aria-hidden className="mr-1.5 h-4 w-4" />
               Add{selected.size > 0 ? ` (${selected.size})` : ""}

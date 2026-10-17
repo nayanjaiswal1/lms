@@ -4,6 +4,7 @@ import { apiGet } from "@/lib/server/api"
 import { getMyPermissions } from "@/lib/server/permissions"
 import { PERMISSIONS } from "@/lib/auth/permission-codes"
 import { ResponsiveTable } from "@/components/ui/responsive-table";
+import { PageHeader } from "@/components/shared/page-header";
 
 interface Permission {
   id: string
@@ -45,15 +46,9 @@ export default async function PermissionsPage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Permission Catalogue</h1>
-          <p className="text-muted-foreground mt-1">
-            Platform-wide permission codes. Read-only — assigned to roles, not users directly.
-          </p>
-        </div>
+      <PageHeader title="Permission Catalogue" description="Platform-wide permission codes. Read-only — assigned to roles, not users directly.">
         <Badge variant="outline">{permissions.length} permissions</Badge>
-      </div>
+      </PageHeader>
 
       <div className="mt-8 space-y-8">
         {modules.map((module) => (

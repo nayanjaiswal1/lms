@@ -80,7 +80,7 @@ export function ItemHeader({ workspaceId, item }: ItemHeaderProps) {
         </div>
       ) : (
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold">{item.title}</h1>
+          <h1 className="page-title">{item.title}</h1>
           {item.can_edit && (
             <Button aria-label="Edit title" size="icon" variant="ghost" onClick={() => setEditing(true)}>
               <Pencil aria-hidden className="h-4 w-4" />

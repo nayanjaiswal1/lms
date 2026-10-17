@@ -8,7 +8,10 @@ import ROUTES from "@/lib/routes";
 
 export async function createSupportTicketAction(subject: string, message: string): Promise<ActionResult<Ticket>> {
   const result = await apiAction<Ticket>("POST", "/api/tickets", { subject, message });
-  if (result.ok) revalidatePath(ROUTES.SUPPORT);
+  if (result.ok) {
+    revalidatePath(ROUTES.SUPPORT);
+    revalidatePath(ROUTES.SUPPORT_QUEUE);
+  }
   return result;
 }
 
@@ -18,13 +21,19 @@ export async function updateSupportTicketPropertiesAction(
   priority: TicketPriority,
 ): Promise<ActionResult<Ticket>> {
   const result = await apiAction<Ticket>("PATCH", `/api/tickets/${ticketId}/properties`, { category, priority });
-  if (result.ok) revalidatePath(ROUTES.SUPPORT);
+  if (result.ok) {
+    revalidatePath(ROUTES.SUPPORT);
+    revalidatePath(ROUTES.SUPPORT_QUEUE);
+  }
   return result;
 }
 
 export async function updateSupportTicketStatusAction(ticketId: string, status: TicketStatus): Promise<ActionResult<Ticket>> {
   const result = await apiAction<Ticket>("PATCH", `/api/tickets/${ticketId}/status`, { status });
-  if (result.ok) revalidatePath(ROUTES.SUPPORT);
+  if (result.ok) {
+    revalidatePath(ROUTES.SUPPORT);
+    revalidatePath(ROUTES.SUPPORT_QUEUE);
+  }
   return result;
 }
 

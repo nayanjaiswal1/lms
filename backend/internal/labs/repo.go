@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/mindforge/backend/internal/authz"
 )
 
 // Repo executes direct pgx/v5 queries against the labs schema.
@@ -585,30 +587,14 @@ func (r *Repo) UpdateSessionFailed(ctx context.Context, sessionID, endReason str
 	return nil
 }
 
-// OrgOwnersAndAdmins returns the user IDs of every 'owner'/'admin' member of
-// orgID — the recipients for a lab-provisioning-circuit-breaker notification
-// (mirrors mentor_escalation.go's orgMentors query shape, scoped to the two
-// roles who can actually act on a broken lab image/setup_script).
+// OrgOwnersAndAdmins returns the user IDs of every admin.manage_org holder
+// in orgID — the recipients for a lab-provisioning-circuit-breaker
+// notification, the people who can actually act on a broken lab
+// image/setup_script.
 func (r *Repo) OrgOwnersAndAdmins(ctx context.Context, orgID string) ([]string, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT user_id FROM org_members WHERE org_id=$1 AND role IN ('owner', 'admin')`,
-		orgID,
-	)
+	ids, err := authz.NewRepo(r.pool).OrgPermissionHolders(ctx, orgID, "admin.manage_org")
 	if err != nil {
 		return nil, fmt.Errorf("labs.Repo.OrgOwnersAndAdmins: %w", err)
-	}
-	defer rows.Close()
-
-	var ids []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("labs.Repo.OrgOwnersAndAdmins: scan: %w", err)
-		}
-		ids = append(ids, id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("labs.Repo.OrgOwnersAndAdmins: rows: %w", err)
 	}
 	return ids, nil
 }

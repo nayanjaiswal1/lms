@@ -34,7 +34,7 @@ export default async function PlanPage({ searchParams }: PlanPageProps) {
       <main className="page-container">
         <div className="mb-6 flex flex-col gap-1">
           <h1 className="page-title">Plan Day</h1>
-          <p className="text-muted-foreground">Rank what matters, then block time for it.</p>
+          <p className="page-description">Rank what matters, then block time for it.</p>
         </div>
         <div className="mb-6">
           <TimeBlockingGuide />

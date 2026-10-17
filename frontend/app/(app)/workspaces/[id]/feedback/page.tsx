@@ -30,7 +30,7 @@ export default async function WorkspaceFeedbackPage({ params }: PageProps) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="page-title">Feedback</h1>
         {feedback.window_closes_at && (
-          <p className="text-sm text-muted-foreground">
+          <p className="page-description">
             {feedback.open
               ? `Open until ${new Date(feedback.window_closes_at).toLocaleDateString()}`
               : `Closed on ${new Date(feedback.window_closes_at).toLocaleDateString()}`}

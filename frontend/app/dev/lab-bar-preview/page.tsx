@@ -17,7 +17,7 @@ export default function LabBarPreviewPage() {
   return (
     <div className="min-h-dvh bg-background p-8">
       <h1 className="page-title">Lab bar style preview</h1>
-      <p className="text-muted-foreground">Temporary dev-only route to iterate on ActiveLabsBar styling.</p>
+      <p className="page-description">Temporary dev-only route to iterate on ActiveLabsBar styling.</p>
       <LabProvisioningProvider initialSession={RUNNING_SESSION}>
         <ActiveLabsBar />
       </LabProvisioningProvider>

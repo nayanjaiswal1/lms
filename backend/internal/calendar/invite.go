@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -146,6 +147,9 @@ func (s *Service) AcceptInvite(ctx context.Context, rawToken string) (Event, err
 	userID, err := auth.FindOrCreateUserByEmail(ctx, s.repo.pool, event.OrgID, inv.Email, nameFromEmail(inv.Email))
 	if err != nil {
 		return Event{}, fmt.Errorf("calendar: accept invite: provision user: %w", err)
+	}
+	if err := s.authzSvc.InvalidateUser(ctx, userID, event.OrgID); err != nil {
+		slog.Warn("calendar: accept invite: invalidate permission cache", "user_id", userID, "org_id", event.OrgID, "error", err)
 	}
 
 	err = s.repo.tx(ctx, func(tx pgx.Tx) error {

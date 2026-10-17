@@ -365,3 +365,21 @@ export interface Batch {
   image_url: string | null;
   cohort_group_id: string | null;
 }
+
+// GradingQueueItem mirrors GET /api/assessments/grading-queue items (oldest first).
+export interface GradingQueueItem {
+  attempt_id: string;
+  assessment_id: string;
+  assessment_title: string;
+  user_id: string | null;
+  user_name: string | null;
+  status: string;
+  submitted_at: string | null;
+  ungraded_answers: number;
+}
+
+export interface GradingQueue {
+  total: number;
+  limit: number;
+  items: GradingQueueItem[];
+}

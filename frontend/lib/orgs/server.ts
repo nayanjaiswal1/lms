@@ -58,12 +58,8 @@ export async function getOrgInvites(
   return apiGet<InvitePage>(`/api/orgs/${orgId}/invites${params}`);
 }
 
-export async function getAuditLogs(
-  orgId: string,
-  cursor?: string,
-): Promise<AuditLogPage> {
-  const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-  return apiGet<AuditLogPage>(`/api/orgs/${orgId}/audit-logs${params}`);
+export async function getAuditLogs(offset: number, limit: number): Promise<AuditLogPage> {
+  return apiGet<AuditLogPage>(`/api/admin/rbac/audit?limit=${limit}&offset=${offset}`);
 }
 
 export async function getOrgDomains(orgId: string): Promise<Domain[]> {

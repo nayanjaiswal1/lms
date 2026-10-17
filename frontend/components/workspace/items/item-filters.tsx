@@ -2,7 +2,6 @@
 
 import { parseAsString, parseAsStringEnum, useQueryStates } from "nuqs";
 
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ITEM_STATUS_LABEL } from "@/lib/workspace/items-constants";
 import type { ItemStatus, ItemType, Track } from "@/lib/workspace/types";
@@ -36,14 +35,6 @@ export function ItemFilters({ tracks, members, showStatus }: ItemFiltersProps) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Input
-        aria-label="Search items"
-        className="w-full sm:w-56"
-        placeholder="Search title…"
-        value={filters.q ?? ""}
-        onChange={(e) => void setFilters({ q: e.target.value || null })}
-      />
-
       <Select value={filters.type ?? "all"} onValueChange={(v) => void setFilters({ type: v === "all" ? null : (v as ItemType) })}>
         <SelectTrigger className="w-full sm:w-[140px]"><SelectValue placeholder="Type" /></SelectTrigger>
         <SelectContent>

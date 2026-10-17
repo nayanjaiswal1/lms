@@ -346,9 +346,9 @@
 
   /* ── Typography scale ──────────────────────────────────────────── */
   /* Use clamp() for fluid headings — avoids breakpoint jumps */
+  /* Same scale as .page-title so a bare <h1> never differs from a classed one between pages */
   h1 {
-    font-size: clamp(1.75rem, 4vw, 2.25rem);
-    @apply font-bold tracking-tight leading-tight;
+    @apply text-xl sm:text-2xl font-semibold tracking-tight leading-tight;
   }
   h2 {
     font-size: clamp(1.375rem, 3vw, 1.875rem);
@@ -446,9 +446,16 @@
   /* ── Page shells ──────────────────────────────────────────────── */
   .page-container    { @apply mx-auto w-full max-w-7xl px-6 sm:px-8 lg:px-12; }
   .page-container-sm { @apply mx-auto w-full max-w-3xl  px-6 sm:px-8; }
+  /* .app-content already pads and the TopBar breadcrumb is left-aligned:
+     no doubled padding, no centering gutter pushing content away from the sidebar */
+  .app-content .page-container,
+  .app-content .page-container-sm { @apply px-0 mx-0; }
+  /* .app-content already pads the top; header's own py-6 stacked on it (~56px under the TopBar) */
+  .app-content .page-header { @apply pt-0; }
   .page-header       { @apply flex items-center justify-between py-6 gap-4 flex-wrap; }
-  .page-title        { @apply text-3xl font-bold tracking-tight; }
-  .section-title     { @apply text-2xl font-semibold tracking-tight; }
+  .page-title        { @apply text-xl sm:text-2xl font-semibold tracking-tight; }
+  .page-description  { @apply text-sm text-muted-foreground; }
+  .section-title     { @apply text-lg font-semibold tracking-tight; }
   .subsection-title  { @apply text-lg  font-semibold; }
 
   /* ── Cards ─────────────────────────────────────────────────────── */

@@ -7,6 +7,7 @@ import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { getBatches } from "@/lib/server/batches";
 import { BatchAvatar } from "@/components/batches/batch-avatar";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata = { title: "My Batches" };
 
@@ -56,9 +57,7 @@ export default function MentorBatchesPage() {
   return (
     <main className="page-container">
       <Breadcrumb items={[{ label: "Mentoring", href: ROUTES.MENTORING }, { label: "Batches" }]} />
-      <div className="page-header">
-        <h1 className="section-title">My Batches</h1>
-      </div>
+      <PageHeader title="My Batches" />
       <Suspense fallback={<Skeleton className="h-64 rounded-lg" />}>
         <BatchList />
       </Suspense>

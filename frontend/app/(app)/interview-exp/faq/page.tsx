@@ -6,6 +6,7 @@ import { FaqFilters } from "@/components/interview-exp/faq-filters";
 import { FaqRow } from "@/components/interview-exp/faq-row";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Frequently Asked Questions" };
 
@@ -58,15 +59,7 @@ export default async function FaqPage({ searchParams }: FaqPageProps) {
   return (
     <main className="page-container-sm">
       <Breadcrumb items={[{ href: ROUTES.INTERVIEW_EXP, label: "Interview Experiences" }, { label: "FAQ" }]} />
-      <div className="page-header">
-        <div>
-          <h1 className="section-title">Frequently Asked Questions</h1>
-          <p className="text-sm text-muted-foreground">
-            Every question asked across every interview experience, ranked by upvotes. Track your own progress
-            like a sheet — mark solved, flag for revision, star the important ones.
-          </p>
-        </div>
-      </div>
+      <PageHeader title="Frequently Asked Questions" description="Every question asked across every interview experience, ranked by upvotes. Track your own progress like a sheet — mark solved, flag for revision, star the important ones." />
 
       {items.length > 0 && <ProgressBar done={totalDone} total={items.length} />}
 

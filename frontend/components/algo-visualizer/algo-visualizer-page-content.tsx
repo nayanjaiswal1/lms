@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CodeEditor } from "@/components/shared/code-editor";
+import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { narrateStep } from "@/lib/algo-visualizer/core/narrate";
@@ -59,12 +60,11 @@ export function AlgoVisualizerPageContent() {
 
   return (
     <div className="page-container flex flex-col gap-6">
-      <div className="page-header">
-        <h1 className="page-title">Algorithm Visualizer</h1>
+      <PageHeader title="Algorithm Visualizer">
         <p className="text-sm text-muted-foreground">
           Paste or write Python or JavaScript, then step through execution line by line.
         </p>
-      </div>
+      </PageHeader>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">

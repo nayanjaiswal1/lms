@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/authz/sysrole"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/secrets"
 )
@@ -90,8 +91,10 @@ func (s *OrgService) Create(ctx context.Context, actorUserID string, req CreateO
 		return nil, fmt.Errorf("orgs: create: insert owner member: %w", err)
 	}
 
-	if err := syncTenantAdminRole(ctx, tx, org.ID, actorUserID, RoleOwner); err != nil {
-		return nil, fmt.Errorf("orgs: create: sync tenant_admin role: %w", err)
+	// The org was created in this tx, so no permission cache entry can exist
+	// for it yet — nothing to invalidate after commit.
+	if err := sysrole.Sync(ctx, tx, org.ID, actorUserID, RoleOwner, ""); err != nil {
+		return nil, fmt.Errorf("orgs: create: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -228,11 +231,9 @@ func (s *OrgService) ListAllOrgs(ctx context.Context, search, afterID string, li
 	return orgs, nil
 }
 
-// Update patches allowed fields on an org. actorRole must be owner or admin.
-func (s *OrgService) Update(ctx context.Context, orgID, actorUserID, actorRole string, req UpdateOrgRequest) (*Org, error) {
-	if actorRole != RoleOwner && actorRole != RoleAdmin {
-		return nil, ErrForbidden
-	}
+// Update patches allowed fields on an org. The route guard requires
+// admin.manage_org in orgID.
+func (s *OrgService) Update(ctx context.Context, orgID, actorUserID string, req UpdateOrgRequest) (*Org, error) {
 
 	setClauses := []string{"updated_at = now()"}
 	args := []any{}

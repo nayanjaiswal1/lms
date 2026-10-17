@@ -8,6 +8,7 @@ import { getWikiSpaces } from "@/lib/server/wiki";
 import { WikiSearch } from "@/components/wiki/wiki-search";
 import { WikiNewSpaceTrigger } from "@/components/wiki/wiki-new-space-trigger";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Wiki" };
 
@@ -17,13 +18,9 @@ export default async function WikiIndexPage() {
 
   return (
     <main className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Wiki</h1>
-          <p className="text-sm text-muted-foreground">Spaces of nested pages your org writes and shares together.</p>
-        </div>
+      <PageHeader title="Wiki" description="Spaces of nested pages your org writes and shares together.">
         <WikiNewSpaceTrigger />
-      </div>
+      </PageHeader>
 
       <div className="mb-6 max-w-md">
         <WikiSearch />

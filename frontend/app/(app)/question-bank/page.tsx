@@ -4,6 +4,7 @@ import { FileQuestion } from "lucide-react";
 import { getCategories, getQuestions, getQuestionUsage } from "@/lib/assessments/server";
 import { QuestionBankPanel } from "@/app/(app)/question-bank/question-bank-panel";
 import { QuestionList } from "@/app/(app)/question-bank/question-list";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = {
   title: "Question Bank",
@@ -27,13 +28,9 @@ export default async function QuestionBankPage({ searchParams }: QuestionBankPag
 
   return (
     <main className="page-container">
-      <header className="page-header">
-        <div className="flex flex-col gap-1">
-          <h1 className="page-title">Question Bank</h1>
-          <p className="text-muted-foreground">{total} reusable questions across your organisation.</p>
-        </div>
+      <PageHeader title="Question Bank" description={<p className="page-description">{total} reusable questions across your organisation.</p>}>
         <QuestionBankPanel categories={categories} />
-      </header>
+      </PageHeader>
 
       {questions.length === 0 && !query ? (
         <div className="empty-state mt-10">

@@ -14,7 +14,7 @@ export default async function MentorAvailabilityPage() {
     <main className="page-container">
       <div className="mb-8 flex flex-col gap-2">
         <h1 className="page-title">My Availability</h1>
-        <p className="text-muted-foreground">
+        <p className="page-description">
           Students book into these windows — set your weekly hours, then add one-off overrides for
           holidays or extra open days.
         </p>

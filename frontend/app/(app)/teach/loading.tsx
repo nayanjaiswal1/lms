@@ -6,7 +6,7 @@ export default function TeachLoading() {
       <div className="page-header">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-8 w-28" />
-          <Skeleton className="h-4 w-72" />
+          <Skeleton className="h-5 w-72" />
         </div>
       </div>
 

@@ -34,7 +34,7 @@ export default async function LegalAcceptPage({ searchParams }: LegalAcceptPageP
       <div className="w-full max-w-md space-y-6">
         <div className="space-y-2 text-center">
           <h1 className="page-title">We&apos;ve updated our policies</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="page-description">
             Please review and accept before continuing to MindForge.
           </p>
         </div>

@@ -117,8 +117,10 @@ export function getCourseStudents(courseID: string, q: StudentQuery): Promise<Co
   return apiGet<CourseStudents>(`/api/courses/${courseID}/analytics/students?${params}`);
 }
 
-export function getOrgCourseSummaries(limit: number): Promise<OrgCourseSummaries> {
+// mine=true restricts to courses the caller owns/instructs; false is org-wide.
+export function getOrgCourseSummaries(limit: number, mine = false): Promise<OrgCourseSummaries> {
   const params = new URLSearchParams({ limit: String(limit) });
+  if (mine) params.set("mine", "true");
   return apiGet<OrgCourseSummaries>(`/api/analytics/courses?${params}`);
 }
 

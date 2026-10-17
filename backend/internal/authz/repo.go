@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -17,28 +18,13 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }
 
-// GetEffectivePermissions returns all active permission codes held by userID
-// within orgID, resolved by walking user_roles → roles → role_permissions → permissions,
-// unioned with any direct grants in user_permission_overrides (bypasses roles
-// entirely — see docs/rbac.md §1 for why this exception exists).
+// GetEffectivePermissions returns all permission codes userID holds within
+// orgID, read from the effective_permissions view (migration 009): active role
+// grants unioned with direct user_permission_overrides (see docs/rbac.md §1),
+// limited to active roles, active permissions and an active org membership.
 // Returns an empty (non-nil) slice when the user holds no permissions.
 func (r *Repo) GetEffectivePermissions(ctx context.Context, userID, orgID string) ([]string, error) {
-	const q = `
-		SELECT DISTINCT p.code
-		FROM user_roles ur
-		JOIN roles r ON r.id = ur.role_id AND r.is_active = true
-		JOIN role_permissions rp ON rp.role_id = r.id
-		JOIN permissions p ON p.id = rp.permission_id AND p.is_active = true
-		WHERE ur.user_id = $1
-		  AND ur.org_id = $2
-		  AND EXISTS (SELECT 1 FROM org_members om WHERE om.org_id = $2 AND om.user_id = $1 AND om.status = 'active')
-		UNION
-		SELECT p.code
-		FROM user_permission_overrides upo
-		JOIN permissions p ON p.id = upo.permission_id AND p.is_active = true
-		WHERE upo.user_id = $1
-		  AND upo.org_id = $2
-		  AND EXISTS (SELECT 1 FROM org_members om WHERE om.org_id = $2 AND om.user_id = $1 AND om.status = 'active')`
+	const q = `SELECT code FROM effective_permissions WHERE user_id = $1 AND org_id = $2`
 
 	rows, err := r.pool.Query(ctx, q, userID, orgID)
 	if err != nil {
@@ -58,6 +44,22 @@ func (r *Repo) GetEffectivePermissions(ctx context.Context, userID, orgID string
 		return nil, fmt.Errorf("authz repo: get effective permissions: %w", err)
 	}
 	return codes, nil
+}
+
+// OrgPermissionHolders returns the IDs of every user who holds code in orgID,
+// from the same effective_permissions view per-user checks use — the one
+// answer to "who should be notified / may act on this in the org".
+func (r *Repo) OrgPermissionHolders(ctx context.Context, orgID, code string) ([]string, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT DISTINCT user_id FROM effective_permissions WHERE org_id = $1 AND code = $2`, orgID, code)
+	if err != nil {
+		return nil, fmt.Errorf("authz repo: org permission holders: %w", err)
+	}
+	userIDs, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return nil, fmt.Errorf("authz repo: org permission holders: %w", err)
+	}
+	return userIDs, nil
 }
 
 // GetAssignmentsForRole returns every (user_id, org_id) pair that holds roleID.

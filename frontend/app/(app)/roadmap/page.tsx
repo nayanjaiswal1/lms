@@ -1,3 +1,5 @@
+import { requireAnyPermission } from "@/lib/server/permissions";
+import { ACCESS } from "@/lib/auth/permission-codes";
 import { Suspense } from "react";
 import Link from "next/link";
 import { Compass, Plus, Map } from "lucide-react";
@@ -6,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { listRoadmaps } from "@/lib/server/roadmap";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata = { title: "Roadmap" };
 
@@ -73,11 +76,11 @@ async function RoadmapList() {
   );
 }
 
-export default function RoadmapPage() {
+export default async function RoadmapPage() {
+  await requireAnyPermission(ACCESS.PRACTICE);
   return (
     <main className="page-container">
-      <div className="page-header">
-        <h1 className="page-title">Roadmap</h1>
+      <PageHeader title="Roadmap">
         <div className="flex gap-2">
           <Button asChild variant="outline">
             <Link href={ROUTES.ROADMAP_DISCOVER}>
@@ -92,7 +95,7 @@ export default function RoadmapPage() {
             </Link>
           </Button>
         </div>
-      </div>
+      </PageHeader>
       <Suspense fallback={<Skeleton className="h-64 rounded-lg" />}>
         <RoadmapList />
       </Suspense>
