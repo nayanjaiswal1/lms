@@ -1,3 +1,5 @@
+import { requireAnyPermission } from "@/lib/server/permissions";
+import { ACCESS } from "@/lib/auth/permission-codes";
 import { Suspense } from "react";
 import Link from "next/link";
 import { Compass, Plus, Map } from "lucide-react";
@@ -74,7 +76,8 @@ async function RoadmapList() {
   );
 }
 
-export default function RoadmapPage() {
+export default async function RoadmapPage() {
+  await requireAnyPermission(ACCESS.PRACTICE);
   return (
     <main className="page-container">
       <PageHeader title="Roadmap">

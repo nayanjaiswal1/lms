@@ -1,3 +1,5 @@
+import { requireAnyPermission } from "@/lib/server/permissions"
+import { ACCESS } from "@/lib/auth/permission-codes"
 import type { Metadata } from "next"
 import { createLoader, type SearchParams } from "nuqs/server"
 import { CatalogCard } from "@/app/(app)/labs/catalog/catalog-card"
@@ -23,6 +25,7 @@ interface PageProps {
 }
 
 export default async function LabCatalogPage({ searchParams }: PageProps) {
+  await requireAnyPermission(ACCESS.LABS)
   const filters = await loadFilters(searchParams)
   const entries = await apiGet<LabCatalogEntry[]>(`/api/labs/catalog${catalogQuery(filters)}`)
   const groups = groupCatalog(entries)

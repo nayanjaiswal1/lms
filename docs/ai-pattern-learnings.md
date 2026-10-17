@@ -418,3 +418,15 @@ Patterns found across the backend and frontend during the audit pass. Each entry
 ### Column read but never written
 **Found in:** `enrollments.completed_at` is read by activity/certificates code but no code path sets it.
 **Rule:** before relying on a column, grep for its writer; derive state from the source of truth (all modules completed) when no writer exists.
+
+### Role-string authorization beside RBAC
+**Found in:** ~61 `CallerRole`/`org_members.role` comparisons and 19 `RequireOrgRole` routes ran next to permission checks; owner was missing from several (`messaging`, `wiki`), and two recipient queries ignored overrides, inactive roles and suspended members.
+**Rule:** authorize with permission codes only (`authz.RequirePermission`, one shared `OrgPermissionHolders`); a label is for display and rank. A new membership path must go through `sysrole.Sync`.
+
+### Membership insert without its role
+**Found in:** six `org_members` insert sites never assigned a `member` role, so invited, social and batch-imported learners had an empty permission set (dev seed hid it by assigning roles by hand).
+**Rule:** one writer for membership plus role, in the caller's transaction; a test per creation path asserts the `user_roles` row.
+
+### Hidden in the UI, open on the API
+**Found in:** Labs, Roadmap, Highlights, Calendar and Algo-viz nav items had no permission, and the matching backend routes had none either.
+**Rule:** gate the route first, then derive the nav item from the same permission set (`ACCESS.*`) so they cannot disagree.

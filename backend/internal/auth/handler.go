@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/authevents"
+	"github.com/mindforge/backend/internal/authz/sysrole"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/ratelimit"
@@ -432,6 +433,12 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		h.cfg.DefaultOrgID, userID,
 	); err != nil {
 		slog.Error("auth: register insert org_member", "error", err)
+		httputil.WriteError(w, http.StatusInternalServerError, "Registration failed.")
+		return
+	}
+	// Brand-new user ID, so no permission cache entry can exist to invalidate.
+	if err := sysrole.Sync(r.Context(), tx, h.cfg.DefaultOrgID, userID, "learner", ""); err != nil {
+		slog.Error("auth: register sync member role", "error", err)
 		httputil.WriteError(w, http.StatusInternalServerError, "Registration failed.")
 		return
 	}

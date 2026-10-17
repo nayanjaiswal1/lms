@@ -3,6 +3,7 @@ const ROUTES = {
   HOME:                "/",
   ORG_LANDING:         "/org",
   COURSES:             "/courses",
+  COURSES_BROWSE:      "/courses/browse",
   DEMO:                "/demo",
   DEMO_TOUR:           "/demo/tour",
   LEGAL_TERMS:         "/legal/terms",
@@ -49,7 +50,6 @@ const ROUTES = {
   MISTAKES:            "/mistakes",
   SHEETS:              "/sheets",
   SHEETS_NEW:          "/sheets/new",
-  SHEETS_COMPARE:      "/sheets/compare",
   JOURNAL:             "/journal",
   JOURNAL_NEW:         "/journal/new",
   CAPTURES:            "/captures",
@@ -129,10 +129,10 @@ const ROUTES = {
   // Highlights (AI-assisted text selection + saved revision)
   HIGHLIGHTS:          "/highlights",
 
-  // Support — general-purpose helpdesk tickets. Staff queue is a ?view=queue
-  // tab on the same page (frontend/app/(app)/support/page.tsx), not a
-  // separate route — it and "my tickets" share one page shell.
+  // Support — general-purpose helpdesk tickets. /support is the learner's own
+  // tickets; /support/queue is the staff queue (support.manage).
   SUPPORT:             "/support",
+  SUPPORT_QUEUE:       "/support/queue",
 
   // Focus Wall — personal sticky-note corkboard
   FOCUS_WALL:          "/focus-wall",
@@ -150,7 +150,6 @@ const ROUTES = {
   // Admin — RBAC
   ADMIN_RBAC_ROLES:        "/admin/rbac/roles",
   ADMIN_RBAC_PERMISSIONS:  "/admin/rbac/permissions",
-  ADMIN_RBAC_AUDIT:        "/admin/rbac/audit",
   USERS:                   "/users",
   userDetail:              (id: string)                        => `/users/${id}`,
 

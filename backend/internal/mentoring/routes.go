@@ -7,7 +7,6 @@ import (
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/courses"
-	"github.com/mindforge/backend/internal/middleware"
 	"github.com/mindforge/backend/internal/payments"
 	"github.com/mindforge/backend/internal/tickets"
 )
@@ -19,7 +18,6 @@ import (
 type Router struct {
 	handler *Handler
 	Service *Service
-	pool    *pgxpool.Pool
 }
 
 // New wires the mentoring package's repo/service/handler dependency graph.
@@ -41,7 +39,6 @@ func New(pool *pgxpool.Pool, ticketsRepo *tickets.Repo, providers *payments.Regi
 	return &Router{
 		handler: &Handler{service: service, authzSvc: authzSvc},
 		Service: service,
-		pool:    pool,
 	}
 }
 
@@ -60,7 +57,7 @@ func (rt *Router) RegisterPublicRoutes(r chi.Router) {
 // the mentor-specific lifecycle verbs (request/claim/assign/close/change-
 // request) plus the directory, reports, and ticket-independent DM routes.
 func (rt *Router) RegisterRoutes(r chi.Router) {
-	mentorOnly := middleware.RequireOrgRole(rt.pool, middleware.RoleMentor)
+	claimTickets := authz.RequirePermission(rt.handler.authzSvc, PermissionClaimTickets)
 	assignTickets := authz.RequirePermission(rt.handler.authzSvc, PermissionAssignTickets)
 	manageReports := authz.RequirePermission(rt.handler.authzSvc, PermissionManageReports)
 	verifyMentors := authz.RequirePermission(rt.handler.authzSvc, PermissionVerifyMentors)
@@ -70,9 +67,9 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 	// active ticket.
 	r.Post("/api/mentor-tickets/request", rt.handler.RequestMentor)
 
-	// Self-claim — any mentor-role org member.
+	// Self-claim — mentoring.claim_tickets (default: mentor only).
 	r.Group(func(r chi.Router) {
-		r.Use(mentorOnly)
+		r.Use(claimTickets)
 		r.Post("/api/mentor-tickets/{ticketID}/claim", rt.handler.ClaimTicket)
 	})
 

@@ -88,6 +88,12 @@ export default function InterviewPrepPage() {
   return (
     <main className="page-container">
       <PageHeader title="Interview Prep">
+        <Button asChild variant="outline">
+          <Link href={ROUTES.INTERVIEW_PROGRESS}>Progress</Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href={ROUTES.INTERVIEW_SKILLS}>Skills</Link>
+        </Button>
         <Button asChild>
           <Link href={ROUTES.INTERVIEW_PREP_NEW}>
             <Plus aria-hidden className="mr-2 h-4 w-4" />

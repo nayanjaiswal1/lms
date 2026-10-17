@@ -6,6 +6,9 @@ import (
 	"github.com/mindforge/backend/internal/authz"
 )
 
+// PermUse is the permission code gating the SRS card API and its MCP tools.
+const PermUse = "content.srs"
+
 func New(pool *pgxpool.Pool) *Handler {
 	return NewHandler(pool)
 }
@@ -16,7 +19,7 @@ func New(pool *pgxpool.Pool) *Handler {
 // security. The caller is responsible for applying RequireAuth + RequireCSRF
 // before this.
 func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
-	r.With(authz.RequirePermission(authzSvc, "content.srs")).Group(func(r chi.Router) {
+	r.With(authz.RequirePermission(authzSvc, PermUse)).Group(func(r chi.Router) {
 		r.Get("/api/srs/due", h.GetDueCards)
 		r.Get("/api/srs/drill", h.GetDrillCards)
 		r.Post("/api/srs/review", h.ReviewCard)

@@ -1,8 +1,11 @@
 package assessment
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/jobs"
@@ -31,27 +34,24 @@ func New(pool *pgxpool.Pool, cfg *config.Config, jobRegistry *jobs.Registry, rew
 
 // RegisterRoutes mounts the assessment API onto the given router. The caller is
 // responsible for applying RequireAuth + RequireCSRF before this; here we add
-// per-group org-role guards on top.
+// per-group permission guards on top.
 //
-// Staff-author group — owner / admin / instructor: creates, edits, publishes,
-// deletes, or otherwise mutates assessments, questions, categories, test
-// templates, cohort groups, and batches (incl. batch authoring, bulk
-// import/invite, and grading overrides). Mentor does NOT get this group: the
-// seeded mentor role only holds assessments.view_results, mentoring.manage_batches,
-// mentoring.view_students, and admin.view_members — none of the
-// create/edit/publish/delete/manage_questions/manage_batches (assessment-batch
-// authoring) permissions. See docs/rbac.md §3.
-// Staff-all group — owner / admin / instructor / mentor: read-only results,
-// progress, and analytics views, plus batch-roster membership management,
-// which is what mentor's granted permissions actually cover.
+// Authoring groups — assessments.manage_questions (categories, question bank),
+// assessments.manage_batches (batch/cohort authoring, batch mentors and
+// courses, bulk invite/import, offline test scores and templates),
+// assessments.create/edit/publish (assessment lifecycle, assignments, grading
+// overrides). The seeded mentor role holds none of these.
+// Results group — assessments.view_results: read-only results, progress, and
+// analytics views, plus batch-roster membership management; mentors without
+// assessments.manage_batches are scoped to batches they mentor.
 // Student group — any authenticated org member: take tests, view own results.
-func (h *Handler) RegisterRoutes(r chi.Router) {
-	staffAuthor := middleware.RequireOrgRole(h.pool, middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor)
-	staffAll := middleware.RequireOrgRole(h.pool, middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor, middleware.RoleMentor)
+func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
+	h.authzSvc = authzSvc
+	need := func(code string) func(http.Handler) http.Handler { return authz.RequirePermission(authzSvc, code) }
 
-	// ─── Staff: authoring (owner/admin/instructor only) ───────────────────────
+	// ─── Question bank (assessments.manage_questions) ─────────────────────────
 	r.Group(func(r chi.Router) {
-		r.Use(staffAuthor)
+		r.Use(need("assessments.manage_questions"))
 
 		// Question categories
 		r.Post("/api/categories", h.CreateCategory)
@@ -65,9 +65,14 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Get("/api/questions/{questionID}", h.GetQuestion)
 		r.Patch("/api/questions/{questionID}", h.UpdateQuestion)
 		r.Delete("/api/questions/{questionID}", h.ArchiveQuestion)
+	})
+
+	// ─── Batch authoring (assessments.manage_batches) ─────────────────────────
+	r.Group(func(r chi.Router) {
+		r.Use(need(PermManageBatches))
 
 		// Batches — authoring (creation/edit/cover image). Roster membership
-		// (add/remove members) lives in the staff-all group below since that's
+		// (add/remove members) lives in the results group below since that's
 		// the "manage mentoring-batch rosters" mentor is granted.
 		r.Post("/api/batches", h.CreateBatch)
 		r.Patch("/api/batches/{batchID}", h.UpdateBatch)
@@ -113,36 +118,37 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		// Offline test templates — reusable name + default max score
 		r.Post("/api/test-templates", h.CreateTestTemplate)
 		r.Get("/api/test-templates", h.ListTestTemplates)
+	})
 
-		// Assessments — full CRUD, structure, and publish lifecycle. GET routes
-		// here return assessment definitions (incl. question/answer content),
-		// which mentor's view_results (results, not definitions) doesn't cover.
-		r.Post("/api/assessments", h.CreateAssessment)
+	// ─── Assessment lifecycle (assessments.create / edit / publish) ───────────
+	r.With(need("assessments.create")).Post("/api/assessments", h.CreateAssessment)
+	r.With(need("assessments.publish")).Post("/api/assessments/{assessmentID}/status", h.SetAssessmentStatus)
+	r.Group(func(r chi.Router) {
+		r.Use(need("assessments.edit"))
+
+		// GET routes here return assessment definitions (incl. question/answer
+		// content), which view_results (results, not definitions) doesn't cover.
 		r.Get("/api/assessments", h.ListAssessments)
 		r.Get("/api/assessments/{assessmentID}", h.GetAssessment)
 		r.Patch("/api/assessments/{assessmentID}", h.UpdateAssessment)
 		r.Post("/api/assessments/{assessmentID}/questions", h.AddAssessmentQuestion)
 		r.Post("/api/assessments/{assessmentID}/questions/auto-select", h.AutoSelectAssessmentQuestions)
 		r.Delete("/api/assessments/{assessmentID}/questions/{aqID}", h.RemoveAssessmentQuestion)
-		r.Post("/api/assessments/{assessmentID}/status", h.SetAssessmentStatus)
 
 		// Assignment (who takes the assessment) — authoring, not results review
 		r.Post("/api/assessments/{assessmentID}/assignments", h.CreateAssignment)
 		r.Get("/api/assessments/{assessmentID}/assignments", h.ListAssignments)
 		r.Delete("/api/assessments/{assessmentID}/assignments/{assignmentID}", h.DeleteAssignment)
 
-		// Grading-outcome overrides — mutate a score/answer verdict, not a view;
-		// mentor's assessments.view_results is view-only by name.
+		// Grading-outcome overrides — mutate a score/answer verdict, not a view.
 		r.Patch("/api/assessments/{assessmentID}/candidates/{candidateID}/override", h.OverridePublicCandidateScore)
 		r.Patch("/api/attempts/{attemptID}/answers/{answerID}/override", h.OverrideAnswerScore)
 	})
 
-	// ─── Staff: read/view + mentoring-roster management ───────────────────────
-	// Matches what the seeded mentor role actually holds: assessments.view_results,
-	// mentoring.manage_batches (roster), mentoring.view_students, admin.view_members.
+	// ─── Results: read/view + mentoring-roster management ─────────────────────
 	r.Group(func(r chi.Router) {
-		r.Use(staffAll)
-		mentorScope := mentorBatchScope(h.pool)
+		r.Use(need("assessments.view_results"))
+		mentorScope := mentorBatchScope(h.pool, authzSvc)
 
 		// Batches — viewing, and roster membership (mentor's "manage batches"
 		// permission is about the student roster of batches they mentor).
@@ -160,15 +166,19 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.With(mentorScope).Get("/api/batches/{batchID}/offline-tests/{testID}", h.GetOfflineTest)
 
 		// Analytics + results review (view-only)
-		assessmentScope := mentorAssessmentScope(h.pool)
+		assessmentScope := mentorAssessmentScope(h.pool, authzSvc)
 		r.With(assessmentScope).Get("/api/assessments/{assessmentID}/analytics", h.AssessmentAnalytics)
 		r.With(assessmentScope).Get("/api/assessments/{assessmentID}/attempts", h.ListAssessmentAttempts)
 		r.With(assessmentScope).Get("/api/assessments/{assessmentID}/candidates", h.GetPublicCandidates)
-		r.With(mentorAttemptScope(h.pool)).Get("/api/attempts/{attemptID}/proctoring", h.AttemptProctoringLog)
+		r.With(mentorAttemptScope(h.pool, authzSvc)).Get("/api/attempts/{attemptID}/proctoring", h.AttemptProctoringLog)
 		r.Get("/api/analytics/overview", h.OrgAnalytics)
 
-		// Interview evaluation — staff review queue
+		// Interview evaluation — staff review queue (mentor-scoped inside the handler)
 		r.Get("/api/interview/review-queue", h.HandleReviewQueue)
+
+		// Dashboard: attempts with answers still awaiting a staff grade
+		// (mentor-scoped inside the handler).
+		r.Get("/api/assessments/grading-queue", h.GetGradingQueue)
 	})
 
 	// ─── Student: take tests ──────────────────────────────────────────────────

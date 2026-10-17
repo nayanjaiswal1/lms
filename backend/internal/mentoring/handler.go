@@ -15,6 +15,8 @@ const (
 	PermissionManageReports = "mentoring.manage_reports"
 	// PermissionVerifyMentors mirrors 006_mentor_verification.sql.
 	PermissionVerifyMentors = "mentoring.verify_mentors"
+	// PermissionClaimTickets mirrors 009_staff_permission_codes.sql.
+	PermissionClaimTickets = "mentoring.claim_tickets"
 )
 
 type Handler struct {

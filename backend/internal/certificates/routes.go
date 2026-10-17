@@ -7,7 +7,6 @@ import (
 	"github.com/mindforge/backend/internal/assessment"
 	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/courses"
-	"github.com/mindforge/backend/internal/middleware"
 )
 
 // Router wires the certificates domain into the main chi router.
@@ -36,15 +35,17 @@ func (rt *Router) Service() *Service { return rt.handler.service }
 // PermCertificates gates the student-facing certificate routes.
 const PermCertificates = "content.certificates"
 
+// PermCoursesEdit gates certificate authoring and unscoped manual awards, the
+// same code courses' own module CRUD uses.
+const PermCoursesEdit = "courses.edit"
+
 // RegisterRoutes mounts the authenticated routes under the caller's group.
-// Authoring is role-gated the same way courses' own module CRUD is (courses
-// doesn't use permission codes for authoring); student-facing reads/writes
-// are gated on content.certificates — the same permission code the
-// frontend's nav entry and <AccessGate> already check.
+// Authoring is gated on courses.edit; student-facing reads/writes are gated
+// on content.certificates — the same permission code the frontend's nav
+// entry and <AccessGate> already check.
 func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 	rt.handler.authzSvc = authzSvc
-	instructor := middleware.RequireOrgRole(rt.pool, middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor)
-	r.With(instructor).Group(func(r chi.Router) {
+	r.With(authz.RequirePermission(authzSvc, PermCoursesEdit)).Group(func(r chi.Router) {
 		r.Put("/api/courses/{courseID}/final-test", rt.handler.UpsertFinalTest)
 		r.Get("/api/courses/{courseID}/certificate-threshold", rt.handler.GetCertificateThreshold)
 		r.Put("/api/courses/{courseID}/certificate-threshold", rt.handler.UpsertCertificateThreshold)
@@ -52,9 +53,8 @@ func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 
 	// Manual award — a mentor may only issue for their own assigned student
 	// (enforced in the service, since middleware can't see the mentor/student
-	// pairing); instructor/admin may issue for anyone enrolled.
-	mentorOrStaff := middleware.RequireOrgRole(rt.pool, middleware.RoleMentor, middleware.RoleInstructor, middleware.RoleAdmin, middleware.RoleOwner)
-	r.With(mentorOrStaff).Group(func(r chi.Router) {
+	// pairing); courses.edit holders may issue for anyone enrolled.
+	r.With(authz.RequireAnyPermission(authzSvc, PermCoursesEdit, "mentoring.view_students")).Group(func(r chi.Router) {
 		r.Post("/api/courses/{courseID}/certificates/issue", rt.handler.IssueCertificate)
 	})
 

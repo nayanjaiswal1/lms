@@ -345,8 +345,10 @@ type ReviewQueueItem struct {
 	CreatedAt       time.Time `json:"created_at"`
 }
 
-// GetReviewQueue returns attempts with at least one review_required=true evaluation.
-func (r *Repo) GetReviewQueue(ctx context.Context, orgID string, limit, offset int) ([]ReviewQueueItem, error) {
+// GetReviewQueue returns attempts with at least one review_required=true
+// evaluation. When batchIDs is non-nil only attempts by members of those
+// batches are returned (the mentor scope); an empty non-nil slice yields none.
+func (r *Repo) GetReviewQueue(ctx context.Context, orgID string, batchIDs []string, limit, offset int) ([]ReviewQueueItem, error) {
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -359,9 +361,12 @@ func (r *Repo) GetReviewQueue(ctx context.Context, orgID string, limit, offset i
 		 JOIN assessments a ON a.id = aa.assessment_id AND a.org_id = $1
 		 JOIN users u ON u.id = aa.user_id
 		 WHERE ie.review_required = true
+		   AND ($4::text[] IS NULL OR EXISTS (
+		         SELECT 1 FROM batch_members bm
+		         WHERE bm.user_id = aa.user_id AND bm.batch_id::text = ANY($4)))
 		 ORDER BY aa.id, ie.created_at DESC
 		 LIMIT $2 OFFSET $3`,
-		orgID, limit, offset)
+		orgID, limit, offset, batchIDs)
 	if err != nil {
 		return nil, fmt.Errorf("eval repo: review queue: %w", err)
 	}

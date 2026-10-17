@@ -42,7 +42,7 @@ const dnsLookupTimeout = 5 * time.Second
 // resolves the hostname and rejects it if any answer lands in
 // netguard's denylist (private/loopback/link-local/metadata ranges).
 //
-// This is authenticated admin input (RequireOrgRole("admin")), not an
+// This is authenticated admin input (admin.manage_org), not an
 // unauthenticated/student-facing fetch target — but the denylist check is
 // applied anyway: a hostname that resolves safely right now can be
 // re-pointed at an internal address by the time this app actually connects

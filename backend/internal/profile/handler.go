@@ -11,20 +11,26 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mindforge/backend/internal/auth"
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/httputil"
-	"github.com/mindforge/backend/internal/middleware"
 )
 
 // Handler exposes the profile domain over HTTP.
 type Handler struct {
 	service *Service
 	pool    *pgxpool.Pool
+	perms   *authz.Service
 }
 
 // newHandler constructs a Handler from a Service.
 func newHandler(svc *Service, pool *pgxpool.Pool) *Handler {
 	return &Handler{service: svc, pool: pool}
 }
+
+// permViewMemberProfile lets a caller read the full profile of any active
+// member of their org — the member-management permission, since this is the
+// private profile an org admin reviews when managing members.
+const permViewMemberProfile = "admin.manage_members"
 
 // ─── shared helpers ──────────────────────────────────────────────────────────
 
@@ -232,8 +238,8 @@ func (h *Handler) HandleRemoveSkill(w http.ResponseWriter, r *http.Request) {
 // ─── HandleGetUserProfile ─────────────────────────────────────────────────────
 
 // HandleGetUserProfile handles GET /api/profile/user/{userID}.
-// Requires authentication. Admins and super_admins can view any user's profile;
-// regular users can only view their own.
+// Requires authentication. Holders of admin.manage_members can view the profile
+// of an active member of their org; everyone else can only view their own.
 func (h *Handler) HandleGetUserProfile(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -250,19 +256,19 @@ func (h *Handler) HandleGetUserProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Live-looked-up org role, not claims.OrgRole: the JWT claim is minted at
-	// sign-in and can outlive a demotion, which would otherwise let a
-	// just-demoted admin keep viewing any user's profile until their token
-	// expires (see middleware.LiveOrgRole).
-	liveRole, _ := middleware.LiveOrgRole(r.Context(), h.pool, claims.UserID, claims.OrgID)
+	// Resolved live from effective_permissions (Redis-cached, invalidated on
+	// every role change), never from the JWT: a just-demoted admin loses
+	// access immediately.
+	canViewMembers, err := h.perms.HasPermission(r.Context(), claims.UserID, claims.OrgID, permViewMemberProfile)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to load profile.")
+		return
+	}
 
-	// platform_role is a DB-level concept not stored in the JWT.
-	// Pass empty string; only org-role admin and self-access paths apply here.
 	prof, err := h.service.GetUserProfile(
 		r.Context(),
 		claims.UserID,
-		"", // platform_role — not available in JWT Claims
-		liveRole,
+		canViewMembers,
 		claims.OrgID,
 		targetUserID,
 	)

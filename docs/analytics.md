@@ -23,7 +23,7 @@ All GET, JSON, snake_case. Require `courses.view_analytics` and are rate limited
 | `/api/courses/{courseID}/analytics` | `days` (30, 7-180) | `{course_id, generated_at, funnel, lessons, trend}` |
 | `/api/courses/{courseID}/analytics/questions` | `limit` (10, 1-200), `offset` (0), `min_answers` (5, 1-1000) | `{questions, total, limit, offset}` |
 | `/api/courses/{courseID}/analytics/students` | `risk` (`at_risk`\|`all`, at_risk), `inactive_days` (14, 1-365), `max_progress_pct` (25, 0-100), `limit` (25, 1-200), `offset` | `{students, total, limit, offset}` |
-| `/api/analytics/courses` | `limit` (20, 1-200), `offset` | `{courses, total, limit, offset}` |
+| `/api/analytics/courses` | `limit` (20, 1-200), `offset`, `mine` (`true`\|`false`, false: `true` limits to courses the caller created) | `{courses, total, limit, offset, mine}` |
 | `/api/analytics/enrollment-trend` | `days` (30, 7-180) | `{points}` |
 
 Out-of-range or malformed params return 422 with field errors. A non-UUID or other-org `courseID` returns 404.

@@ -10,6 +10,7 @@ import (
 	"github.com/mindforge/backend/internal/courses"
 	ent "github.com/mindforge/backend/internal/entitlements"
 	"github.com/mindforge/backend/internal/notifications"
+	"github.com/mindforge/backend/internal/practice"
 	"github.com/mindforge/backend/internal/storage"
 	"github.com/redis/go-redis/v9"
 )
@@ -44,10 +45,15 @@ func New(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, pistonURL 
 // RegisterRoutes mounts all student-facing lab endpoints onto the given router.
 // The caller is responsible for applying RequireAuth and RequireCSRF middleware
 // before this; session ownership (IDOR) is enforced inside each handler.
-func (h *Handler) RegisterRoutes(r chi.Router) {
+// Browsing the catalog and starting a session spend sandbox compute, so they
+// are gated on practice.use, or courses.edit so course authors (tenant_admin
+// holds no learner codes) can QA the labs they place in courses; lab content
+// reached through a course module is not.
+func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
+	usePractice := authz.RequireAnyPermission(authzSvc, practice.PermUse, "courses.edit")
 	r.Get("/api/labs/{labID}", h.HandleGetLab)
 	r.Get("/api/modules/{moduleID}/lab", h.HandleGetLabByModule)
-	r.Post("/api/labs/{labID}/sessions", h.HandleStartSession)
+	r.With(usePractice).Post("/api/labs/{labID}/sessions", h.HandleStartSession)
 	r.Get("/api/labs/sessions/active", h.HandleListActiveSessions)
 	r.Get("/api/labs/sessions/{sessionID}", h.HandleGetSession)
 	r.Get("/api/labs/sessions/{sessionID}/events", h.HandleSessionEvents)
@@ -59,7 +65,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/api/labs/run", h.HandleRunSnippet)
 
 	// Pluggable lab kinds (backend/internal/labkinds): generic across kinds.
-	r.Get("/api/labs/catalog", h.HandleCatalog)
+	r.With(usePractice).Get("/api/labs/catalog", h.HandleCatalog)
 	r.Get("/api/labs/sessions/{sessionID}/debrief", h.HandleDebrief)
 	r.Post("/api/labs/sessions/{sessionID}/writeup-review", h.HandleWriteupReview)
 

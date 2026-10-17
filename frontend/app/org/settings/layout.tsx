@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { OrgSettingsMobileNav, OrgSettingsDesktopNav } from "@/app/org/settings/settings-nav";
 import ROUTES from "@/lib/routes";
+import { requireAnyPermission } from "@/lib/server/permissions";
+import { ORG_SETTINGS_ACCESS } from "@/lib/org-settings-nav";
 import { getCurrentOrgId } from "@/lib/server/claims";
 
 
@@ -12,6 +14,8 @@ export default async function OrgSettingsLayout({
 }) {
   const orgId = await getCurrentOrgId();
   if (!orgId) redirect(ROUTES.ORG_SELECT);
+
+  await requireAnyPermission(ORG_SETTINGS_ACCESS);
 
   return (
     <div className="page-container min-h-dvh">

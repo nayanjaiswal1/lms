@@ -3,7 +3,6 @@ package assessment
 import (
 	"context"
 	"fmt"
-	"github.com/mindforge/backend/internal/testdomain"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -11,12 +10,18 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
+
 	"github.com/mindforge/backend/internal/auth"
+	"github.com/mindforge/backend/internal/authz"
+	"github.com/mindforge/backend/internal/authz/sysrole"
 	"github.com/mindforge/backend/internal/testdb"
+	"github.com/mindforge/backend/internal/testdomain"
 )
 
 type mentorFixture struct {
 	pool                         *pgxpool.Pool
+	perms                        *authz.Service
 	orgID                        string
 	mentorA, mentorB, instructor string
 	batchA, batchB, batchViaMem  string
@@ -32,6 +37,9 @@ func mentorSeedUser(t *testing.T, pool *pgxpool.Pool, orgID, role, tag string) s
 	}
 	if _, err := pool.Exec(ctx, `INSERT INTO org_members (org_id, user_id, role) VALUES ($1, $2, $3)`, orgID, id, role); err != nil {
 		t.Fatalf("seed member %s: %v", tag, err)
+	}
+	if err := sysrole.Sync(ctx, pool, orgID, id, role, ""); err != nil {
+		t.Fatalf("sync role %s: %v", tag, err)
 	}
 	return id
 }
@@ -53,7 +61,9 @@ func newMentorFixture(t *testing.T) mentorFixture {
 	t.Helper()
 	pool := testdb.New(t)
 	ctx := context.Background()
-	f := mentorFixture{pool: pool}
+	// Unreachable Redis: the permission cache misses and falls through to the DB.
+	rdb := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1", MaxRetries: -1})
+	f := mentorFixture{pool: pool, perms: authz.NewService(authz.NewRepo(pool), authz.NewCache(rdb))}
 	if err := pool.QueryRow(ctx, `INSERT INTO organizations (name, slug) VALUES ('Mentor Scope Org', 'mentor-scope-org') RETURNING id`).Scan(&f.orgID); err != nil {
 		t.Fatalf("seed org: %v", err)
 	}
@@ -100,11 +110,11 @@ func TestMentorBatchIDs_OnlyOwnBatches(t *testing.T) {
 
 func TestMentorScopeIDs_NonMentorUnscoped(t *testing.T) {
 	f := newMentorFixture(t)
-	ids, scoped, err := mentorScopeIDs(context.Background(), f.pool, &auth.Claims{UserID: f.instructor, OrgID: f.orgID})
+	ids, scoped, err := mentorScopeIDs(context.Background(), f.pool, f.perms, &auth.Claims{UserID: f.instructor, OrgID: f.orgID})
 	if err != nil || scoped || ids != nil {
 		t.Fatalf("instructor: ids=%v scoped=%v err=%v, want unscoped", ids, scoped, err)
 	}
-	_, scoped, err = mentorScopeIDs(context.Background(), f.pool, &auth.Claims{UserID: f.mentorA, OrgID: f.orgID})
+	_, scoped, err = mentorScopeIDs(context.Background(), f.pool, f.perms, &auth.Claims{UserID: f.mentorA, OrgID: f.orgID})
 	if err != nil || !scoped {
 		t.Fatalf("mentor: scoped=%v err=%v, want scoped", scoped, err)
 	}
@@ -113,7 +123,7 @@ func TestMentorScopeIDs_NonMentorUnscoped(t *testing.T) {
 func TestMentorBatchScope_Middleware(t *testing.T) {
 	f := newMentorFixture(t)
 	r := chi.NewRouter()
-	r.With(mentorBatchScope(f.pool)).Get("/batches/{batchID}", func(w http.ResponseWriter, _ *http.Request) {
+	r.With(mentorBatchScope(f.pool, f.perms)).Get("/batches/{batchID}", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -161,7 +171,7 @@ func TestMentorAssessmentScope_OnlyAssignedToOwnBatches(t *testing.T) {
 	}
 
 	r := chi.NewRouter()
-	r.With(mentorAssessmentScope(f.pool)).Get("/assessments/{assessmentID}", func(w http.ResponseWriter, _ *http.Request) {
+	r.With(mentorAssessmentScope(f.pool, f.perms)).Get("/assessments/{assessmentID}", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 	call := func(userID string) int {

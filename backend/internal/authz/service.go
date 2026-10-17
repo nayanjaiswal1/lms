@@ -97,6 +97,16 @@ func (s *Service) HasAllPermissions(ctx context.Context, userID, tenantID string
 	return true, nil
 }
 
+// OrgPermissionHolders returns every user holding code in orgID. Uncached:
+// it serves recipient lists, not per-request guards.
+func (s *Service) OrgPermissionHolders(ctx context.Context, orgID, code string) ([]string, error) {
+	userIDs, err := s.repo.OrgPermissionHolders(ctx, orgID, code)
+	if err != nil {
+		return nil, fmt.Errorf("authz service: org permission holders: %w", err)
+	}
+	return userIDs, nil
+}
+
 // InvalidateUser flushes the permission cache for a single (userID, tenantID) pair.
 func (s *Service) InvalidateUser(ctx context.Context, userID, tenantID string) error {
 	if err := s.cache.Invalidate(ctx, tenantID, userID); err != nil {

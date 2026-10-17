@@ -2,6 +2,7 @@ package mcpconnect
 
 import (
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/calendar"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/courses"
@@ -36,6 +37,7 @@ type Router struct {
 	journalRepo      *journal.Repo
 	habitSvc         *habit.Service
 	wikiSvc          *wiki.Service
+	perms            *authz.Service
 }
 
 // New builds the mcpconnect Router with its full dependency graph.
@@ -47,8 +49,9 @@ type Router struct {
 // the same pool rather than the shared sheets.Handler's instance — sheets.Repo
 // is a stateless pool wrapper (no service-layer state to diverge from), the
 // same choice cmd/server/main.go already makes for its own standalone
-// assessment.Handler and secrets vault instances.
-func New(cfg *config.Config, pool *pgxpool.Pool, coursesRepo *courses.Repo, coursesSvc *courses.Service, calendarSvc *calendar.Service, mistakesRepo *mistakes.Repo, mistakesSvc *mistakes.Service, srsRepo *srs.Repo, interviewPrepSvc *interviewprep.Service, systemDesignSvc *systemdesign.Service) *Router {
+// assessment.Handler and secrets vault instances. perms resolves the wiki
+// tools' Access from the caller's live permission set.
+func New(cfg *config.Config, pool *pgxpool.Pool, coursesRepo *courses.Repo, coursesSvc *courses.Service, calendarSvc *calendar.Service, mistakesRepo *mistakes.Repo, mistakesSvc *mistakes.Service, srsRepo *srs.Repo, interviewPrepSvc *interviewprep.Service, systemDesignSvc *systemdesign.Service, perms *authz.Service) *Router {
 	return &Router{
 		cfg: cfg, pool: pool, repo: NewRepo(pool),
 		coursesRepo: coursesRepo, coursesSvc: coursesSvc, calendarSvc: calendarSvc,
@@ -58,5 +61,6 @@ func New(cfg *config.Config, pool *pgxpool.Pool, coursesRepo *courses.Repo, cour
 		journalRepo: journal.NewRepo(pool),
 		habitSvc:    habit.NewService(habit.NewRepo(pool)),
 		wikiSvc:     wiki.NewService(wiki.NewRepo(pool), coursesRepo),
+		perms:       perms,
 	}
 }

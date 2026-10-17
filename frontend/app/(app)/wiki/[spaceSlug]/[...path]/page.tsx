@@ -5,7 +5,9 @@ import { Pencil } from "lucide-react";
 
 import { requireAccess } from "@/lib/server/features";
 import { FEATURES } from "@/lib/features";
-import { getOrgRole, getCurrentUser } from "@/lib/server/auth";
+import { getCurrentUser } from "@/lib/server/auth";
+import { getMyPermissions } from "@/lib/server/permissions";
+import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import { getWikiSpace, getWikiPage, getWikiTemplates, resolvePageIdFromPath } from "@/lib/server/wiki";
 import { WikiSidebarTree } from "@/components/wiki/wiki-sidebar-tree";
 import { WikiSidebarDrawer } from "@/components/wiki/wiki-sidebar-drawer";
@@ -30,13 +32,13 @@ export default async function WikiPagePage({ params }: Props) {
   await requireAccess(FEATURES.WIKI);
   const { spaceSlug, path } = await params;
 
-  const [space, templates, orgRole, currentUser] = await Promise.all([
+  const [space, templates, perms, currentUser] = await Promise.all([
     getWikiSpace(spaceSlug),
     getWikiTemplates(),
-    getOrgRole(),
+    getMyPermissions(),
     getCurrentUser(),
   ]);
-  const canManage = orgRole === "admin" || orgRole === "instructor" || orgRole === "mentor";
+  const canManage = perms.includes(PERMISSIONS.WIKI.MANAGE_SPACES);
 
   const pageId = resolvePageIdFromPath(space.tree, path);
   if (!pageId) notFound();
@@ -95,7 +97,7 @@ export default async function WikiPagePage({ params }: Props) {
           <WikiEditor editable={false} initialContent={page.content} initialTitle={page.title} pageId={page.id} />
 
           <WikiCommentsPanel
-            canModerate={orgRole === "admin"}
+            canModerate={perms.includes(PERMISSIONS.MODERATION.MANAGE)}
             currentUserId={currentUser?.id ?? ""}
             initialThreads={page.comments}
             pageId={page.id}

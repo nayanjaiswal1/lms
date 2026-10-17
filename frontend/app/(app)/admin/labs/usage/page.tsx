@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation"
 import { getMyPermissions } from "@/lib/server/permissions"
 import { PERMISSIONS } from "@/lib/auth/permission-codes"
-import { apiGet } from "@/lib/server/api"
-import { LabUsageView, type LabUsageResponse } from "./lab-usage-view"
+import { getLabUsage } from "@/lib/server/lab-usage"
+import { LabUsageView } from "./lab-usage-view"
 
 interface SearchParams {
   days?: string
@@ -27,7 +27,7 @@ export default async function LabUsagePage({
     ? parsedDays
     : DEFAULT_DAYS
 
-  const usage = await apiGet<LabUsageResponse>(`/api/admin/labs/usage?days=${days}`)
+  const usage = await getLabUsage(days)
 
   return (
     <div className="page-container">

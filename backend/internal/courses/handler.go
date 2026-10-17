@@ -23,6 +23,15 @@ const PermissionManageRefunds = "payments.manage_refunds"
 // PermissionViewAnalytics gates the instructor/org analytics endpoints.
 const PermissionViewAnalytics = "courses.view_analytics"
 
+// Course authoring codes. PermissionEdit also gates the drafts view of
+// bundles and the full tree of unpublished courses.
+const (
+	PermissionCreate  = "courses.create"
+	PermissionEdit    = "courses.edit"
+	PermissionPublish = "courses.publish"
+	PermissionDelete  = "courses.delete"
+)
+
 const maxUploadSize = 500 << 20 // 500 MB
 
 // CheckoutRequest is what the courses handler asks a CoursePurchaser to

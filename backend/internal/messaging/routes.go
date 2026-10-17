@@ -3,23 +3,21 @@ package messaging
 import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/mindforge/backend/internal/middleware"
+	"github.com/mindforge/backend/internal/authz"
 )
 
 type Router struct {
 	handler *Handler
-	pool    *pgxpool.Pool
 }
 
-func New(pool *pgxpool.Pool) *Router {
+func New(pool *pgxpool.Pool, perms *authz.Service) *Router {
 	repo := NewRepo(pool)
 	service := NewService(repo)
-	return &Router{handler: &Handler{service: service, repo: repo, pool: pool}, pool: pool}
+	return &Router{handler: &Handler{service: service, repo: repo, perms: perms}}
 }
 
 func (rt *Router) RegisterRoutes(r chi.Router) {
-	staff := middleware.RequireOrgRole(rt.pool, middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor, middleware.RoleMentor)
-	adminInstructor := middleware.RequireOrgRole(rt.pool, middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor)
+	perms := rt.handler.perms
 
 	// Batch messages — any authenticated member can list and post
 	r.Get("/api/batches/{batchID}/messages", rt.handler.ListMessages)
@@ -28,9 +26,9 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 	r.Delete("/api/messages/{msgID}", rt.handler.DeleteMessage)
 	r.Post("/api/messages/{msgID}/reactions", rt.handler.React)
 
-	// Moderation — staff only
+	// Moderation — messaging.moderate
 	r.Group(func(r chi.Router) {
-		r.Use(staff)
+		r.Use(authz.RequirePermission(perms, PermModerate))
 		r.Post("/api/messages/{msgID}/resolve", rt.handler.ResolveMessage)
 		r.Post("/api/messages/{msgID}/pin", rt.handler.PinMessage)
 		r.Post("/api/messages/{msgID}/promote-faq", rt.handler.PromoteToFAQ)
@@ -41,9 +39,9 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 	r.Get("/api/courses/{courseID}/faqs", rt.handler.ListFAQs)
 	r.Get("/api/courses/{courseID}/faqs/similar", rt.handler.GetSimilarFAQs)
 
-	// FAQ management — admin/instructor only
+	// FAQ management — course authors (courses.edit)
 	r.Group(func(r chi.Router) {
-		r.Use(adminInstructor)
+		r.Use(authz.RequirePermission(perms, "courses.edit"))
 		r.Post("/api/courses/{courseID}/faqs", rt.handler.CreateFAQ)
 		r.Patch("/api/faqs/{faqID}", rt.handler.UpdateFAQ)
 		r.Delete("/api/faqs/{faqID}", rt.handler.DeleteFAQ)

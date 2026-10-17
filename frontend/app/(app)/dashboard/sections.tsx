@@ -8,13 +8,14 @@ import { LeaderboardTable, MyRewardSummary } from "@/components/rewards/leaderbo
 import { ScopeTabs } from "@/components/rewards/scope-tabs";
 import type { LeaderboardScope } from "@/components/rewards/scope-tabs";
 import { CourseCard } from "@/components/courses/course-card";
+import { RandomTopicCard } from "@/components/courses/random-topic-card";
 import { AIConnectorNudge } from "@/components/settings/ai-connector-nudge";
 import { DashboardReviewWidget } from "@/components/review/dashboard-review-widget";
 import { DashboardEmptyState } from "./_components/empty-state";
 import { DashboardSectionHeader } from "./_components/section-header";
 import { DashboardUpcomingRow } from "./_components/upcoming-row";
 import ROUTES from "@/lib/routes";
-import { getEnrollments } from "@/lib/server/courses";
+import { getEnrollments, getRandomTopic } from "@/lib/server/courses";
 import { getMyAssessments } from "@/lib/assessments/server";
 import { getMyRewardProfile, getLeaderboard } from "@/lib/server/rewards";
 import { listEventsAction } from "@/lib/server/calendar";
@@ -206,7 +207,7 @@ export async function CoursesSection() {
   if (coursesWithProgress.length === 0) {
     return (
       <DashboardEmptyState
-        action={{ href: ROUTES.COURSES, label: "Browse courses" }}
+        action={{ href: ROUTES.COURSES_BROWSE, label: "Browse courses" }}
         icon={BookOpen}
         message="You haven't enrolled in any courses yet."
       />
@@ -297,7 +298,7 @@ export async function StandingSection({ userId, scope, scopeId }: StandingSectio
       : ROUTES.LEADERBOARD;
 
   return (
-    <section className="card-base flex flex-col gap-4 p-5">
+    <section className="flex flex-col gap-4">
       <DashboardSectionHeader
         link={{ href: standingHref, label: "View all" }}
         size="subsection"
@@ -385,4 +386,9 @@ function AssessmentRow({ assessment }: AssessmentRowProps) {
       title={assessment.title}
     />
   );
+}
+
+export async function RandomTopicSection() {
+  const topic = await getRandomTopic();
+  return <RandomTopicCard initialTopic={topic} />;
 }

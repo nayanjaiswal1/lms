@@ -45,27 +45,30 @@ var validDifficulties = map[string]bool{
 func IsValidDifficulty(d string) bool { return validDifficulties[d] }
 
 type Course struct {
-	ID                          string     `json:"id"`
-	OrgID                       string     `json:"org_id"`
-	CreatorID                   string     `json:"creator_id"`
-	Title                       string     `json:"title"`
-	Slug                        string     `json:"slug"`
-	Description                 *string    `json:"description"`
-	CoverURL                    *string    `json:"cover_url"`
-	Difficulty                  string     `json:"difficulty"`
-	Tags                        []string   `json:"tags"`
-	Status                      string     `json:"status"`
-	ForkedFromID                *string    `json:"forked_from_id"`
-	PriceCents                  int        `json:"price_cents"`
-	IsFree                      bool       `json:"is_free"`
-	IsPublic                    bool       `json:"is_public"`
-	EstimatedHours              *float64   `json:"estimated_hours"`
-	InstructorName              string     `json:"instructor_name"`
-	AvgRating                   *float64   `json:"avg_rating"`
-	ReviewCount                 int        `json:"review_count"`
-	StartsAt                    *time.Time `json:"starts_at"`
-	EndsAt                      *time.Time `json:"ends_at"`
-	CertificateThresholdPercent *int       `json:"certificate_threshold_percent,omitempty"`
+	ID             string   `json:"id"`
+	OrgID          string   `json:"org_id"`
+	CreatorID      string   `json:"creator_id"`
+	Title          string   `json:"title"`
+	Slug           string   `json:"slug"`
+	Description    *string  `json:"description"`
+	CoverURL       *string  `json:"cover_url"`
+	Difficulty     string   `json:"difficulty"`
+	Tags           []string `json:"tags"`
+	Status         string   `json:"status"`
+	ForkedFromID   *string  `json:"forked_from_id"`
+	PriceCents     int      `json:"price_cents"`
+	IsFree         bool     `json:"is_free"`
+	IsPublic       bool     `json:"is_public"`
+	EstimatedHours *float64 `json:"estimated_hours"`
+	InstructorName string   `json:"instructor_name"`
+	// Instructor is the hover-card preview; only set by the catalog and
+	// enrollment list queries, omitted elsewhere.
+	Instructor                  *InstructorPreview `json:"instructor,omitempty"`
+	AvgRating                   *float64           `json:"avg_rating"`
+	ReviewCount                 int                `json:"review_count"`
+	StartsAt                    *time.Time         `json:"starts_at"`
+	EndsAt                      *time.Time         `json:"ends_at"`
+	CertificateThresholdPercent *int               `json:"certificate_threshold_percent,omitempty"`
 	// DisableCodeRun locks the in-lesson code runner for every code block in
 	// this course — the instructor's kill switch when a language's Piston
 	// execution isn't appropriate for the material (e.g. security exercises
@@ -406,4 +409,15 @@ type BundleRef struct {
 type BundleEnrollResult struct {
 	EnrolledCourseIDs         []string `json:"enrolled_course_ids"`
 	RequiresPurchaseCourseIDs []string `json:"requires_purchase_course_ids"`
+}
+
+// InstructorPreview is the student-safe slice of an instructor shown in the
+// course-card hover. Headline/Bio/ProfileSlug are nil unless the instructor
+// enabled a public profile.
+type InstructorPreview struct {
+	AvatarURL   *string `json:"avatar_url"`
+	Headline    *string `json:"headline"`
+	Bio         *string `json:"bio"`
+	ProfileSlug *string `json:"profile_slug"`
+	CourseCount int     `json:"course_count"`
 }

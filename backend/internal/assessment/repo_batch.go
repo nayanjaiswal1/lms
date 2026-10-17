@@ -11,6 +11,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/mindforge/backend/internal/authz/sysrole"
+	"github.com/mindforge/backend/internal/middleware"
 )
 
 func (r *Repo) CreateBatch(ctx context.Context, b Batch) (Batch, error) {
@@ -638,10 +641,19 @@ func (r *Repo) AcceptInvitation(ctx context.Context, rawToken, userID, userEmail
 		if time.Now().After(expiresAt) {
 			return ErrInvitationExpired
 		}
-		if _, err := tx.Exec(ctx,
+		var newMember bool
+		if err := tx.QueryRow(ctx,
 			`INSERT INTO org_members (org_id, user_id, role) VALUES ($1, $2, 'learner')
-			 ON CONFLICT (org_id, user_id) DO NOTHING`, orgID, userID); err != nil {
+			 ON CONFLICT (org_id, user_id) DO NOTHING
+			 RETURNING true`, orgID, userID).Scan(&newMember); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("assessment: add org member: %w", err)
+		}
+		// Only a new membership gets the mapped role; an existing one keeps
+		// whatever label and roles it already has.
+		if newMember {
+			if err := sysrole.Sync(ctx, tx, orgID, userID, middleware.RoleLearner, ""); err != nil {
+				return fmt.Errorf("assessment: add org member: %w", err)
+			}
 		}
 		if _, err := tx.Exec(ctx,
 			`INSERT INTO batch_members (batch_id, user_id) VALUES ($1, $2)

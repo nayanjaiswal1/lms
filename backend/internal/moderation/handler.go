@@ -69,6 +69,22 @@ func (h *Handler) ListReports(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"reports": reports})
 }
 
+// ReportCounts returns the org's report count per status and the open
+// (pending + reviewing) total — a cheap badge/dashboard read. Staff-only —
+// gated by content.moderate in routes.go.
+func (h *Handler) ReportCounts(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	counts, open, err := h.service.ReportCounts(r.Context(), claims.OrgID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"counts": counts, "open": open})
+}
+
 // Resolve transitions a report's status, and takes down the underlying
 // content if the resolution is 'removed'. Staff-only — gated by
 // content.moderate in routes.go. Body: {"status": "...", "resolution_note": "..."}.

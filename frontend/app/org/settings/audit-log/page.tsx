@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
-import { redirect, notFound } from "next/navigation";
-import { NextPageLink } from "@/components/shared/next-page-link";
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { UserLink } from "@/components/shared/user-link";
-import { getAuditLogs, getOrgById } from "@/lib/orgs/server";
+import { getAuditLogs } from "@/lib/orgs/server";
 import type { AuditLog } from "@/lib/orgs/types";
 import { getMyPermissions } from "@/lib/server/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
-import ROUTES from "@/lib/routes";
-import { getCurrentOrgId } from "@/lib/server/claims";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 25;
 
 export const metadata: Metadata = {
   title: "Audit Log — Organisation Settings",
@@ -45,12 +46,7 @@ function actionLabel(action: string): string {
   return action.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function AuditLogEntry({ log, orgId, orgName }: { log: AuditLog; orgId: string; orgName: string }) {
-  // The org entity in this org-scoped log is always the current org — no
-  // per-row lookup needed, just show its name with the id on hover instead
-  // of a raw truncated UUID (same "name first, id on hover" idea as UserLink).
-  const isCurrentOrg = log.target_type === "org" && log.target_id === orgId;
-
+function AuditLogEntry({ log }: { log: AuditLog }) {
   return (
     <div className="flex gap-4 py-4 border-b border-border last:border-0">
       <div className="flex flex-col items-center gap-1 flex-shrink-0 pt-0.5">
@@ -63,15 +59,11 @@ function AuditLogEntry({ log, orgId, orgName }: { log: AuditLog; orgId: string; 
           <Badge variant={actionBadgeVariant(log.action)}>
             {actionLabel(log.action)}
           </Badge>
-          {log.target_type && (
+          {log.entity_type && (
             <span className="text-xs text-muted-foreground">
-              {log.target_type}
-              {log.target_id && (
-                isCurrentOrg ? (
-                  <span className="ml-1 text-foreground" title={log.target_id}>{orgName}</span>
-                ) : (
-                  <span className="font-mono ml-1 text-foreground">#{log.target_id.slice(0, 8)}</span>
-                )
+              {log.entity_type}
+              {log.entity_id && (
+                <span className="font-mono ml-1 text-foreground">#{log.entity_id.slice(0, 8)}</span>
               )}
             </span>
           )}
@@ -80,16 +72,15 @@ function AuditLogEntry({ log, orgId, orgName }: { log: AuditLog; orgId: string; 
         <div className="flex flex-wrap items-center gap-3 mt-1">
           <span className="text-xs text-muted-foreground">
             Actor:{" "}
-            {log.actor_user_id ? (
-              <UserLink className="text-foreground font-medium" userId={log.actor_user_id}>
-                {log.actor_user_id.slice(0, 8)}
+            {log.actor_id ? (
+              <UserLink className="text-foreground font-medium" userId={log.actor_id}>
+                {log.actor_name ?? log.actor_email ?? log.actor_id.slice(0, 8)}
               </UserLink>
             ) : (
               <span className="text-foreground font-medium">System</span>
             )}
           </span>
           <span className="text-xs text-muted-foreground">
-            {log.ip_address && `IP: ${log.ip_address} ·`}{" "}
             {formatRelativeTime(log.created_at)}
           </span>
         </div>
@@ -101,22 +92,16 @@ function AuditLogEntry({ log, orgId, orgName }: { log: AuditLog; orgId: string; 
 export default async function AuditLogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cursor?: string }>;
+  searchParams: Promise<{ offset?: string }>;
 }) {
   const myPerms = await getMyPermissions();
   if (!myPerms.includes(PERMISSIONS.ADMIN.VIEW_AUDIT_LOG)) {
     notFound();
   }
 
-  const orgId = await getCurrentOrgId();
-  if (!orgId) redirect(ROUTES.ORG_SELECT);
-
-  const { cursor } = await searchParams;
-  const [logPage, org] = await Promise.all([
-    getAuditLogs(orgId, cursor),
-    getOrgById(orgId),
-  ]);
-  const { logs, next_cursor } = logPage;
+  const { offset: rawOffset } = await searchParams;
+  const offset = Math.max(0, Number(rawOffset) || 0);
+  const { entries: logs, total } = await getAuditLogs(offset, PAGE_SIZE);
 
   return (
     <div className="space-y-6">
@@ -137,10 +122,21 @@ export default async function AuditLogPage({
         ) : (
           <div>
             {logs.map((log) => (
-              <AuditLogEntry key={log.id} log={log} orgId={orgId} orgName={org.name} />
+              <AuditLogEntry key={log.id} log={log} />
             ))}
 
-            <NextPageLink nextCursor={next_cursor} />
+            <div className="flex justify-center gap-2 pt-4">
+              {offset > 0 && (
+                <Button asChild variant="outline">
+                  <Link href={`?offset=${Math.max(0, offset - PAGE_SIZE)}`}>Newer</Link>
+                </Button>
+              )}
+              {offset + PAGE_SIZE < total && (
+                <Button asChild variant="outline">
+                  <Link href={`?offset=${offset + PAGE_SIZE}`}>Older</Link>
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </div>

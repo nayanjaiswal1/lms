@@ -30,6 +30,7 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		r.Use(authz.RequirePermission(rt.handler.authzSvc, PermissionModerate))
 		r.Get("/api/content-reports", rt.handler.ListReports)
+		r.Get("/api/content-reports/counts", rt.handler.ReportCounts)
 		r.Patch("/api/content-reports/{reportID}", rt.handler.Resolve)
 	})
 }

@@ -133,8 +133,9 @@ func (h *Handler) HandleSkillTrends(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"skill_trends": trends})
 }
 
-// HandleReviewQueue returns the paginated list of flagged attempts for staff.
-// Requires admin/instructor/mentor role (enforced by the staff router group).
+// HandleReviewQueue returns the paginated list of flagged attempts for staff
+// (assessments.view_results). Callers without assessments.manage_batches see
+// only attempts by members of batches they mentor.
 func (h *Handler) HandleReviewQueue(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -145,7 +146,15 @@ func (h *Handler) HandleReviewQueue(w http.ResponseWriter, r *http.Request) {
 	if limit > 200 {
 		limit = 200
 	}
-	items, err := h.repo.GetReviewQueue(r.Context(), claims.OrgID, limit, offset)
+	batchIDs, scoped, err := mentorScopeIDs(r.Context(), h.pool, h.authzSvc, claims)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Could not verify access.")
+		return
+	}
+	if !scoped {
+		batchIDs = nil
+	}
+	items, err := h.repo.GetReviewQueue(r.Context(), claims.OrgID, batchIDs, limit, offset)
 	if err != nil {
 		writeDomainError(w, err)
 		return

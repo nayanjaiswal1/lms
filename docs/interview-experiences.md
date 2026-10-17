@@ -12,7 +12,7 @@ Users post an interview experience (company, position, language/framework tags).
 
 **LinkedIn ingestion:** manual, not automated. User pastes LinkedIn post text into Claude Code chat; Claude parses it and creates/updates the relevant experience via the API (same pattern as the `fold-in-notes` skill). No in-app parser.
 
-**Naming note:** this is unrelated to `docs/interview.md` (live mock-interview board / Yjs coding pad). Tables and permission code are named `interview_exp*` / `content.interview_exp` to avoid collision with that feature's `interview_sessions` / `content.interview_board`.
+**Naming note:** this is unrelated to `docs/interview.md` (live mock-interview board / Yjs coding pad). Tables and permission code are named `interview_exp*` / `content.interview_exp` to avoid collision with that feature's `interview_sessions` table (its old `content.interview_board` permission code was deleted in migration 010).
 
 ---
 
