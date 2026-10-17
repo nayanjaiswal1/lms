@@ -40,7 +40,9 @@ func (r *Repo) tx(ctx context.Context, fn func(pgx.Tx) error) error {
 	return nil
 }
 
-func (r *Repo) ListMessages(ctx context.Context, orgID, batchID, userID string, f ListMessagesFilter) ([]BatchMessage, error) {
+// ListMessages lists a batch's top-level messages for a batch member, or for
+// any caller with canModerate (messaging.moderate).
+func (r *Repo) ListMessages(ctx context.Context, orgID, batchID, userID string, canModerate bool, f ListMessagesFilter) ([]BatchMessage, error) {
 	limit := f.Limit
 	if limit <= 0 || limit > 100 {
 		limit = 20
@@ -51,10 +53,10 @@ func (r *Repo) ListMessages(ctx context.Context, orgID, batchID, userID string, 
 		"m.parent_id IS NULL",
 		"m.deleted_at IS NULL",
 		"EXISTS(SELECT 1 FROM batches b WHERE b.id = $1 AND b.org_id = $2)",
-		"(EXISTS(SELECT 1 FROM batch_members bm WHERE bm.batch_id = $1 AND bm.user_id = $3) OR EXISTS(SELECT 1 FROM org_members om WHERE om.org_id = $2 AND om.user_id = $3 AND om.role IN ('admin','instructor','mentor')))",
+		"($4::boolean OR EXISTS(SELECT 1 FROM batch_members bm WHERE bm.batch_id = $1 AND bm.user_id = $3))",
 	}
-	args := []any{batchID, orgID, userID}
-	idx := 4
+	args := []any{batchID, orgID, userID, canModerate}
+	idx := 5
 
 	if f.Before != "" {
 		conds = append(conds, fmt.Sprintf("(m.created_at, m.id) < (SELECT created_at, id FROM batch_messages WHERE id = $%d)", idx))
@@ -227,7 +229,7 @@ func (r *Repo) UpdateMessage(ctx context.Context, orgID, msgID, senderID, body s
 	return m, nil
 }
 
-func (r *Repo) SoftDeleteMessage(ctx context.Context, orgID, msgID, userID, orgRole string) error {
+func (r *Repo) SoftDeleteMessage(ctx context.Context, orgID, msgID, userID string, canModerate bool) error {
 	var senderID string
 	var deletedAt *string
 	err := r.pool.QueryRow(ctx,
@@ -244,8 +246,7 @@ func (r *Repo) SoftDeleteMessage(ctx context.Context, orgID, msgID, userID, orgR
 	if deletedAt != nil {
 		return ErrNotFound
 	}
-	isStaff := orgRole == "admin" || orgRole == "instructor" || orgRole == "mentor"
-	if senderID != userID && !isStaff {
+	if senderID != userID && !canModerate {
 		return ErrForbidden
 	}
 	_, err = r.pool.Exec(ctx,

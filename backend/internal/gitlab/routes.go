@@ -4,9 +4,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/ai"
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/jobs"
-	"github.com/mindforge/backend/internal/middleware"
 	"github.com/mindforge/backend/internal/notifications"
 	"github.com/mindforge/backend/internal/secrets"
 )
@@ -45,9 +45,9 @@ func (h *Handler) Service() *Service {
 // the projects/teams provisioning surface (Batch 2) is staff (admin or
 // instructor) — these are day-to-day teaching operations, not admin-only
 // org configuration, per kind-herding-cookie.md §2's routes table.
-func (h *Handler) RegisterRoutes(r chi.Router) {
+func (h *Handler) RegisterRoutes(r chi.Router, perms *authz.Service) {
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.RequireOrgRole(h.service.pool, middleware.RoleOwner, middleware.RoleAdmin))
+		r.Use(authz.RequirePermission(perms, "admin.manage_org"))
 
 		r.Get("/api/gitlab/installations", h.InstallationsList)
 		r.Post("/api/gitlab/installations", h.InstallationsCreate)
@@ -69,7 +69,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	// workspace/handler_planning.go, workspace/routes.go).
 
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.RequireOrgRole(h.service.pool, middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor))
+		r.Use(authz.RequirePermission(perms, "projects.manage"))
 
 		r.Post("/api/workspace-cohorts", h.CreateAssignment)
 		r.Get("/api/workspace-cohorts", h.ListAssignments)
@@ -114,11 +114,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	// Batch 4: dashboards — staff+mentor, per kind-herding-cookie.md §2's
 	// routes table. Day-to-day teaching visibility (who's contributing, is
 	// anyone free-riding), not admin-only org configuration, so mentors get
-	// it too — same three-role set courses/messaging/assessment already use
-	// for their own "staff+mentor" surfaces (see e.g.
-	// internal/courses/routes.go:12, internal/assessment/routes.go:39).
+	// it too (mentoring.view_students).
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.RequireOrgRole(h.service.pool, middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor, middleware.RoleMentor))
+		r.Use(authz.RequireAnyPermission(perms, "projects.manage", "mentoring.view_students"))
 
 		r.Get("/api/workspace-cohorts/{assignmentID}/dashboard", h.GetAssignmentDashboard)
 		r.Get("/api/workspace-cohorts/{assignmentID}/burndown", h.GetAssignmentBurndown)

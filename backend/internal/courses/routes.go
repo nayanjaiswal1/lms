@@ -9,18 +9,17 @@ import (
 // RegisterRoutes mounts the courses API onto the given router.
 // Caller has already applied RequireAuth + RequireCSRF middleware.
 func (h *Handler) RegisterRoutes(r chi.Router) {
-	instructor := middleware.RequireOrgRole(h.repo.Pool(), middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor)
-	staff := middleware.RequireOrgRole(h.repo.Pool(), middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor, middleware.RoleMentor)
+	// ─── Course/section/module authoring ──────────────────────────────────────
+	create := authz.RequirePermission(h.authzSvc, PermissionCreate)
+	r.With(create).Post("/api/courses", h.CreateCourse)
+	r.With(create).Post("/api/courses/{courseID}/fork", h.ForkCourse)
+	r.With(authz.RequirePermission(h.authzSvc, PermissionPublish)).Post("/api/courses/{courseID}/publish", h.PublishCourse)
+	r.With(authz.RequirePermission(h.authzSvc, PermissionDelete)).Delete("/api/courses/{courseID}", h.DeleteCourse)
 
-	// ─── Instructor: course/section/module authoring ──────────────────────────
 	r.Group(func(r chi.Router) {
-		r.Use(instructor)
+		r.Use(authz.RequirePermission(h.authzSvc, PermissionEdit))
 
-		r.Post("/api/courses", h.CreateCourse)
 		r.Patch("/api/courses/{courseID}", h.UpdateCourse)
-		r.Post("/api/courses/{courseID}/publish", h.PublishCourse)
-		r.Delete("/api/courses/{courseID}", h.DeleteCourse)
-		r.Post("/api/courses/{courseID}/fork", h.ForkCourse)
 
 		r.Post("/api/courses/{courseID}/sections", h.CreateSection)
 		r.Put("/api/courses/{courseID}/sections/order", h.ReorderSections)
@@ -46,11 +45,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Put("/api/bundles/{bundleID}/courses", h.SetBundleCourses)
 	})
 
-	// ─── Staff + Mentor: progress overview ────────────────────────────────────
-	r.Group(func(r chi.Router) {
-		r.Use(staff)
-		r.Get("/api/courses/{courseID}/progress", h.GetAllProgress)
-	})
+	// ─── Authors + mentors: progress overview ─────────────────────────────────
+	r.With(authz.RequireAnyPermission(h.authzSvc, PermissionEdit, "mentoring.view_students")).
+		Get("/api/courses/{courseID}/progress", h.GetAllProgress)
 
 	// ─── Permission-gated: issue a refund ─────────────────────────────────────
 	// payments.manage_refunds, not an org role — admin-triggered only, never

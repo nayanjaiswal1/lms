@@ -1,3 +1,5 @@
+import { requireAnyPermission } from "@/lib/server/permissions";
+import { ACCESS } from "@/lib/auth/permission-codes";
 import type { Metadata } from "next";
 import { listEventsAction } from "@/lib/server/calendar";
 import { getCurrentUser } from "@/lib/server/auth";
@@ -25,10 +27,16 @@ const CALENDAR_TAB = "calendar";
 const SESSIONS_TAB = "sessions";
 const VALID_VIEWS = new Set<string>(Object.values(CALENDAR_VIEW));
 
+// Outside the component so the render stays pure (react-hooks/purity).
+function parseAnchor(date?: string): Date {
+  return date && !Number.isNaN(Date.parse(date)) ? new Date(date) : new Date();
+}
+
 export default async function CalendarPage({ searchParams }: CalendarPageProps) {
+  await requireAnyPermission(ACCESS.CALENDAR);
   const params = await searchParams;
   const view: CalendarView = VALID_VIEWS.has(params.view ?? "") ? (params.view as CalendarView) : CALENDAR_VIEW.MONTH;
-  const anchor = params.date && !Number.isNaN(Date.parse(params.date)) ? new Date(params.date) : new Date();
+  const anchor = parseAnchor(params.date);
 
   const { from, to } = rangeForView(view, anchor);
   const [eventsResult, currentUser, features] = await Promise.all([

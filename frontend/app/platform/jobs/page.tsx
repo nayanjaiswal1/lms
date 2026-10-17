@@ -5,6 +5,7 @@ import { fetchAdminJobs, fetchPlatformStats } from "@/lib/jobs/admin-server";
 import { OrgStatsTable } from "@/app/platform/jobs/org-stats-table";
 import { JobsTable } from "@/app/platform/jobs/jobs-table";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 interface PageProps {
   searchParams: Promise<{
@@ -35,14 +36,7 @@ export default async function PlatformJobsPage({ searchParams }: PageProps) {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Platform Jobs</h1>
-          <p className="text-muted-foreground mt-1">
-            Monitor and manage background jobs across all organisations.
-          </p>
-        </div>
-      </div>
+      <PageHeader title="Platform Jobs" description="Monitor and manage background jobs across all organisations." />
 
       <section className="mt-8">
         <h2 className="section-title mb-4">Organisation Stats</h2>

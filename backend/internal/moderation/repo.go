@@ -162,6 +162,32 @@ func (r *Repo) ListReports(ctx context.Context, orgID string, status, contentTyp
 	return out, rows.Err()
 }
 
+// StatusCounts returns orgID's report count per status, every status
+// present (zero-filled) — one GROUP BY over idx_content_reports_org_status.
+func (r *Repo) StatusCounts(ctx context.Context, orgID string) (map[string]int, error) {
+	rows, err := r.pool.Query(ctx, `SELECT status, count(*)::int FROM content_reports WHERE org_id = $1 GROUP BY status`, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("moderation: report counts: %w", err)
+	}
+	defer rows.Close()
+	out := make(map[string]int, len(validStatuses))
+	for s := range validStatuses {
+		out[s] = 0
+	}
+	for rows.Next() {
+		var status string
+		var n int
+		if err := rows.Scan(&status, &n); err != nil {
+			return nil, fmt.Errorf("moderation: scan report count: %w", err)
+		}
+		out[status] = n
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("moderation: report counts: %w", err)
+	}
+	return out, nil
+}
+
 // Resolve transitions a report's status within orgID and records who
 // resolved it and why.
 func (r *Repo) Resolve(ctx context.Context, orgID, reportID, status, resolvedBy string, note *string) (Report, error) {

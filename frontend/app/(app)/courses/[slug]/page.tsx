@@ -133,7 +133,7 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
 
       <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
         <div className="min-w-0 flex-1">
-          <h1 className="section-title">{course.title}</h1>
+          <h1 className="page-title">{course.title}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             {course.instructor_name && <span>By {course.instructor_name}</span>}
             {course.avg_rating !== null && (

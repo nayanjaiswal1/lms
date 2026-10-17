@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { NavHubGrid } from "@/components/shared/nav-hub-grid";
 import ROUTES from "@/lib/routes";
 import { getLearnHubStats, type HubStats } from "@/lib/server/learn-hub";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Learn" };
 
@@ -53,12 +54,7 @@ export default async function LearnHubPage() {
 
   return (
     <main className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Learn</h1>
-          <p className="text-sm text-muted-foreground">Courses, assessments, practice, teaching tools, and every learning tool in one place.</p>
-        </div>
-      </div>
+      <PageHeader title="Learn" description="Courses, assessments, practice, teaching tools, and every learning tool in one place." />
 
       <NavHubGrid catalogue="learn" stats={stats} />
     </main>

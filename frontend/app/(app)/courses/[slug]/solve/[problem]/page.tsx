@@ -53,7 +53,7 @@ export default async function ProblemSolvePage({ params, searchParams }: Props) 
         <section className="card-base flex w-full flex-col gap-4 p-6 lg:w-80 lg:shrink-0">
           <div className="flex flex-col gap-2">
             <Badge className="w-fit" variant="secondary">DSA Practice</Badge>
-            <h1 className="text-xl font-semibold tracking-tight">{displayTitle}</h1>
+            <h1 className="page-title">{displayTitle}</h1>
           </div>
           <p className="text-sm text-muted-foreground">
             Read the problem statement on LeetCode, then write and run your solution here.

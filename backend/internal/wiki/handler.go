@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mindforge/backend/internal/auth"
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/middleware"
 )
@@ -22,29 +23,32 @@ const maxOKFBodyBytes = 5 << 20 // 5 MiB
 type Handler struct {
 	service *Service
 	pool    *pgxpool.Pool
+	perms   *authz.Service
 }
 
 func newHandler(service *Service, pool *pgxpool.Pool) *Handler {
 	return &Handler{service: service, pool: pool}
 }
 
-// requireMember is auth.RequireClaims with the org role re-read from the
-// database. The JWT's OrgRole is minted at sign-in and outlives a demotion or
-// removal, and every wiki permission check keys off it, so the live role
-// replaces it and a user who is no longer an active member is refused.
-func (h *Handler) requireMember(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
+// requireMember is auth.RequireClaims plus a live check that the caller is
+// still an active member of their JWT org, and their wiki Access resolved
+// from live permissions — never from the JWT's org_role claim, which
+// outlives a demotion or removal.
+func (h *Handler) requireMember(w http.ResponseWriter, r *http.Request) (*auth.Claims, Access, bool) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
-		return nil, false
+		return nil, Access{}, false
 	}
-	role, member := middleware.LiveOrgRole(r.Context(), h.pool, claims.UserID, claims.OrgID)
-	if !member {
+	if _, member := middleware.LiveOrgRole(r.Context(), h.pool, claims.UserID, claims.OrgID); !member {
 		httputil.WriteError(w, http.StatusForbidden, "You are not a member of this organization.")
-		return nil, false
+		return nil, Access{}, false
 	}
-	live := *claims
-	live.OrgRole = role
-	return &live, true
+	acc, err := ResolveAccess(r.Context(), h.perms, claims.UserID, claims.OrgID)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Permission check failed.")
+		return nil, Access{}, false
+	}
+	return claims, acc, true
 }
 
 // ─── shared helpers ───────────────────────────────────────────────────────────
@@ -70,11 +74,11 @@ func optionalQueryParam(r *http.Request, key string) *string {
 // ─── Spaces ───────────────────────────────────────────────────────────────────
 
 func (h *Handler) ListSpaces(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
-	spaces, err := h.service.ListSpaces(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole)
+	spaces, err := h.service.ListSpaces(r.Context(), claims.OrgID, claims.UserID, acc)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -83,7 +87,7 @@ func (h *Handler) ListSpaces(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateSpace(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -91,7 +95,7 @@ func (h *Handler) CreateSpace(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	sp, err := h.service.CreateSpace(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, req)
+	sp, err := h.service.CreateSpace(r.Context(), claims.OrgID, claims.UserID, acc, req)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -100,12 +104,12 @@ func (h *Handler) CreateSpace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetSpace(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
 	slug := chi.URLParam(r, "slug")
-	sp, err := h.service.GetSpace(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, slug)
+	sp, err := h.service.GetSpace(r.Context(), claims.OrgID, claims.UserID, acc, slug)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -114,7 +118,7 @@ func (h *Handler) GetSpace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateSpace(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -122,7 +126,7 @@ func (h *Handler) UpdateSpace(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	sp, err := h.service.UpdateSpace(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id"), req)
+	sp, err := h.service.UpdateSpace(r.Context(), claims.OrgID, claims.UserID, acc, chi.URLParam(r, "id"), req)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -131,11 +135,11 @@ func (h *Handler) UpdateSpace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteSpace(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
-	if err := h.service.DeleteSpace(r.Context(), claims.OrgID, claims.OrgRole, chi.URLParam(r, "id")); err != nil {
+	if err := h.service.DeleteSpace(r.Context(), claims.OrgID, acc, chi.URLParam(r, "id")); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -145,11 +149,11 @@ func (h *Handler) DeleteSpace(w http.ResponseWriter, r *http.Request) {
 // ─── Page tree ────────────────────────────────────────────────────────────────
 
 func (h *Handler) GetPageTree(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
-	tree, err := h.service.GetPageTree(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "spaceID"))
+	tree, err := h.service.GetPageTree(r.Context(), claims.OrgID, claims.UserID, acc, chi.URLParam(r, "spaceID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -160,7 +164,7 @@ func (h *Handler) GetPageTree(w http.ResponseWriter, r *http.Request) {
 // ─── Pages ────────────────────────────────────────────────────────────────────
 
 func (h *Handler) CreatePage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -168,7 +172,7 @@ func (h *Handler) CreatePage(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	p, err := h.service.CreatePage(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "spaceID"), req)
+	p, err := h.service.CreatePage(r.Context(), claims.OrgID, claims.UserID, acc, chi.URLParam(r, "spaceID"), req)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -177,11 +181,11 @@ func (h *Handler) CreatePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetPage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
-	p, err := h.service.GetPage(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id"))
+	p, err := h.service.GetPage(r.Context(), claims.OrgID, claims.UserID, acc, chi.URLParam(r, "id"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -190,7 +194,7 @@ func (h *Handler) GetPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdatePage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -198,7 +202,7 @@ func (h *Handler) UpdatePage(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	p, err := h.service.UpdatePage(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id"), req)
+	p, err := h.service.UpdatePage(r.Context(), claims.OrgID, claims.UserID, acc, chi.URLParam(r, "id"), req)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -207,11 +211,11 @@ func (h *Handler) UpdatePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeletePage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
-	if err := h.service.DeletePage(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id")); err != nil {
+	if err := h.service.DeletePage(r.Context(), claims.OrgID, claims.UserID, acc, chi.URLParam(r, "id")); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -221,11 +225,11 @@ func (h *Handler) DeletePage(w http.ResponseWriter, r *http.Request) {
 // ─── Version history ─────────────────────────────────────────────────────────
 
 func (h *Handler) ListVersions(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
-	versions, err := h.service.ListVersions(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id"))
+	versions, err := h.service.ListVersions(r.Context(), claims.OrgID, claims.UserID, acc, chi.URLParam(r, "id"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -234,7 +238,7 @@ func (h *Handler) ListVersions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetVersion(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -243,7 +247,7 @@ func (h *Handler) GetVersion(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteError(w, http.StatusBadRequest, "Invalid version number.")
 		return
 	}
-	v, err := h.service.GetVersion(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id"), version)
+	v, err := h.service.GetVersion(r.Context(), claims.OrgID, claims.UserID, acc, chi.URLParam(r, "id"), version)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -252,7 +256,7 @@ func (h *Handler) GetVersion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) RestoreVersion(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -261,7 +265,7 @@ func (h *Handler) RestoreVersion(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteError(w, http.StatusBadRequest, "Invalid version number.")
 		return
 	}
-	p, err := h.service.RestoreVersion(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id"), version)
+	p, err := h.service.RestoreVersion(r.Context(), claims.OrgID, claims.UserID, acc, chi.URLParam(r, "id"), version)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -272,11 +276,11 @@ func (h *Handler) RestoreVersion(w http.ResponseWriter, r *http.Request) {
 // ─── Comments ─────────────────────────────────────────────────────────────────
 
 func (h *Handler) ListComments(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
-	comments, err := h.service.ListComments(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id"))
+	comments, err := h.service.ListComments(r.Context(), claims.OrgID, claims.UserID, acc, chi.URLParam(r, "id"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -285,7 +289,7 @@ func (h *Handler) ListComments(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -293,7 +297,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	c, err := h.service.CreateComment(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id"), req)
+	c, err := h.service.CreateComment(r.Context(), claims.OrgID, claims.UserID, acc, chi.URLParam(r, "id"), req)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -302,7 +306,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -310,7 +314,7 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	c, err := h.service.UpdateComment(r.Context(), claims.UserID, claims.OrgRole, chi.URLParam(r, "id"), req.Content)
+	c, err := h.service.UpdateComment(r.Context(), claims.UserID, acc, chi.URLParam(r, "id"), req.Content)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -319,11 +323,11 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
-	if err := h.service.DeleteComment(r.Context(), claims.UserID, claims.OrgRole, chi.URLParam(r, "id")); err != nil {
+	if err := h.service.DeleteComment(r.Context(), claims.UserID, acc, chi.URLParam(r, "id")); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -333,7 +337,7 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 // ─── Templates ────────────────────────────────────────────────────────────────
 
 func (h *Handler) ListTemplates(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, _, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -346,7 +350,7 @@ func (h *Handler) ListTemplates(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateTemplate(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -354,7 +358,7 @@ func (h *Handler) CreateTemplate(w http.ResponseWriter, r *http.Request) {
 	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	t, err := h.service.CreateTemplate(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, req)
+	t, err := h.service.CreateTemplate(r.Context(), claims.OrgID, claims.UserID, acc, req)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -363,11 +367,11 @@ func (h *Handler) CreateTemplate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
-	if err := h.service.DeleteTemplate(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id")); err != nil {
+	if err := h.service.DeleteTemplate(r.Context(), claims.OrgID, claims.UserID, acc, chi.URLParam(r, "id")); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -377,11 +381,11 @@ func (h *Handler) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
 // ─── OKF export/import ────────────────────────────────────────────────────────
 
 func (h *Handler) GetPageOKF(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
-	md, err := h.service.GetPageOKF(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id"))
+	md, err := h.service.GetPageOKF(r.Context(), claims.OrgID, claims.UserID, acc, chi.URLParam(r, "id"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -392,7 +396,7 @@ func (h *Handler) GetPageOKF(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdatePageOKF(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
@@ -401,7 +405,7 @@ func (h *Handler) UpdatePageOKF(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteError(w, http.StatusBadRequest, "Could not read request body.")
 		return
 	}
-	p, err := h.service.UpdatePageOKF(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id"), string(body))
+	p, err := h.service.UpdatePageOKF(r.Context(), claims.OrgID, claims.UserID, acc, chi.URLParam(r, "id"), string(body))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -410,12 +414,12 @@ func (h *Handler) UpdatePageOKF(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetSpaceOKF(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, acc, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}
 	slug := chi.URLParam(r, "slug")
-	files, err := h.service.GetSpaceOKFBundle(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, slug)
+	files, err := h.service.GetSpaceOKFBundle(r.Context(), claims.OrgID, claims.UserID, acc, slug)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -448,7 +452,7 @@ func (h *Handler) GetSpaceOKF(w http.ResponseWriter, r *http.Request) {
 // ─── Search ───────────────────────────────────────────────────────────────────
 
 func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.requireMember(w, r)
+	claims, _, ok := h.requireMember(w, r)
 	if !ok {
 		return
 	}

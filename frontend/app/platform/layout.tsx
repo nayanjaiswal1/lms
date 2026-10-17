@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/server/auth";
-import { PlatformSidebar } from "@/components/layout/platform-sidebar";
-import { PlatformMobileNav } from "@/components/layout/platform-mobile-nav";
+import { Sidebar } from "@/components/layout/sidebar";
+import { MobileNav } from "@/components/layout/mobile-nav";
+import { TopBar } from "@/components/layout/top-bar";
 import ROUTES from "@/lib/routes";
 
 export default async function PlatformLayout({ children }: { children: React.ReactNode }) {
@@ -10,9 +11,10 @@ export default async function PlatformLayout({ children }: { children: React.Rea
 
   return (
     <div className="app-shell">
-      <PlatformSidebar user={user} />
+      <Sidebar user={user} />
       <div className="app-main">
-        <PlatformMobileNav user={user} />
+        <MobileNav user={user} />
+        <TopBar />
         <main className="app-content">{children}</main>
       </div>
     </div>

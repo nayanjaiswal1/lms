@@ -4,6 +4,7 @@ import ROUTES from "@/lib/routes";
 import { getJournalCategories, getJournalEntry } from "@/lib/server/journal";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { JournalEntryForm } from "@/components/journal/journal-entry-form";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Edit Entry" };
 
@@ -18,11 +19,7 @@ export default async function EditJournalEntryPage({ params }: EditJournalEntryP
   return (
     <main className="page-container-sm">
       <Breadcrumb items={[{ label: "Learning Journal", href: ROUTES.JOURNAL }, { label: "Edit" }]} />
-      <div className="page-header">
-        <div>
-          <h1 className="section-title">Edit Entry</h1>
-        </div>
-      </div>
+      <PageHeader title="Edit Entry" />
 
       <JournalEntryForm categories={categories} entry={entry} />
     </main>

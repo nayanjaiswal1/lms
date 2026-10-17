@@ -9,6 +9,7 @@ import { BlockLibraryFilters } from "@/components/labs/builder/block-library-fil
 import { BLOCKS_ALL, blockLibraryParsers } from "@/lib/labs/builder/library-params";
 import { canManageBlocks, getBlocks, requireLabAuthor } from "@/lib/labs/builder/server";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Block library" };
 
@@ -33,8 +34,7 @@ export default async function BlockLibraryPage({ searchParams }: BlockLibraryPag
   return (
     <main className="page-container flex flex-col gap-4">
       <BackLink href={ROUTES.LAB_BUILDER} label="All debug labs" />
-      <div className="page-header py-2">
-        <h1 className="page-title">Block library</h1>
+      <PageHeader title="Block library">
         <div className="flex flex-wrap items-center gap-2">
           <BlockLibraryFilters />
           {canManage && (
@@ -46,7 +46,7 @@ export default async function BlockLibraryPage({ searchParams }: BlockLibraryPag
             </Button>
           )}
         </div>
-      </div>
+      </PageHeader>
       {blocks.length === 0 ? (
         <div className="empty-state">
           <Blocks aria-hidden className="empty-state-icon" />

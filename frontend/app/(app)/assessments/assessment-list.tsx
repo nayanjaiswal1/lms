@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { AssessmentSearchInput } from "@/app/(app)/assessments/assessment-search-input";
 import { AssessmentCardMenu } from "@/app/(app)/assessments/assessment-card-menu";
 import { ASSESSMENT_PARENT_TYPE, ASSESSMENT_STATUS_OPTIONS } from "@/lib/constants";
 import type { Assessment, Batch } from "@/lib/assessments/types";
@@ -51,7 +50,6 @@ export function AssessmentList({ assessments, batches }: Props) {
 
   const controls = (
     <div className="flex items-center gap-2 flex-wrap">
-      <AssessmentSearchInput />
       <Select value={status} onValueChange={(v) => void setStatus(v as (typeof STATUS_FILTERS)[number])}>
         <SelectTrigger aria-label="Filter by status" className="h-8 w-36">
           <SelectValue />

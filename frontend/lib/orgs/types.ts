@@ -104,20 +104,18 @@ export interface Domain {
 
 export interface AuditLog {
   id: number;
-  org_id: string;
-  actor_user_id: string | null;
+  actor_id: string | null;
+  actor_name: string | null;
+  actor_email: string | null;
   action: string;
-  target_type: string | null;
-  target_id: string | null;
-  before_state: unknown;
-  after_state: unknown;
-  ip_address: string | null;
+  entity_type: string | null;
+  entity_id: string;
   created_at: string;
 }
 
 export interface AuditLogPage {
-  logs: AuditLog[];
-  next_cursor?: string;
+  entries: AuditLog[];
+  total: number;
 }
 
 export interface OrgAuthConfig {

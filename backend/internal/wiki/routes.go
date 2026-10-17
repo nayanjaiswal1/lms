@@ -1,6 +1,8 @@
 package wiki
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -9,7 +11,6 @@ import (
 	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/httputil"
-	"github.com/mindforge/backend/internal/middleware"
 )
 
 type Router struct {
@@ -24,6 +25,25 @@ func New(pool *pgxpool.Pool, coursesRepo *courses.Repo) *Router {
 	repo := NewRepo(pool)
 	service := NewService(repo, coursesRepo)
 	return &Router{handler: newHandler(service, pool), pool: pool}
+}
+
+// PermAccess is the wiki's front-gate permission code (REST and MCP tools).
+const PermAccess = "content.wiki"
+
+// IsProjectMember reports whether userID is an active or invited member of
+// at least one Project Workspace in orgID — the second way past the wiki's
+// front gate (see requireWikiOrProjectAccess), shared with the MCP tool gate.
+func IsProjectMember(ctx context.Context, pool *pgxpool.Pool, userID, orgID string) (bool, error) {
+	var member bool
+	err := pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM project_members pm JOIN workspace_projects p ON p.id = pm.project_id
+		  WHERE pm.user_id = $1 AND pm.status IN ('active','invited') AND p.org_id = $2)`,
+		userID, orgID,
+	).Scan(&member)
+	if err != nil {
+		return false, fmt.Errorf("wiki.IsProjectMember: %w", err)
+	}
+	return member, nil
 }
 
 // requireWikiOrProjectAccess admits a caller who either holds content.wiki
@@ -43,17 +63,11 @@ func requireWikiOrProjectAccess(authzSvc *authz.Service, pool *pgxpool.Pool) fun
 				httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
 				return
 			}
-			if has, err := authzSvc.HasPermission(r.Context(), claims.UserID, claims.OrgID, "content.wiki"); err == nil && has {
+			if has, err := authzSvc.HasPermission(r.Context(), claims.UserID, claims.OrgID, PermAccess); err == nil && has {
 				next.ServeHTTP(w, r)
 				return
 			}
-			var member bool
-			err := pool.QueryRow(r.Context(),
-				`SELECT EXISTS(SELECT 1 FROM project_members pm JOIN workspace_projects p ON p.id = pm.project_id
-				  WHERE pm.user_id = $1 AND pm.status IN ('active','invited') AND p.org_id = $2)`,
-				claims.UserID, claims.OrgID,
-			).Scan(&member)
-			if err == nil && member {
+			if member, err := IsProjectMember(r.Context(), pool, claims.UserID, claims.OrgID); err == nil && member {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -65,15 +79,16 @@ func requireWikiOrProjectAccess(authzSvc *authz.Service, pool *pgxpool.Pool) fun
 // RegisterRoutes mounts wiki endpoints under the caller's authenticated
 // group, gated on content.wiki or active project-workspace membership (see
 // requireWikiOrProjectAccess) — enforced again here since UI gates are UX,
-// not security. Space deletion is additionally restricted to org admins at
-// the route layer (defense in depth on top of the service check).
+// not security. Space deletion is additionally restricted to content.moderate
+// holders at the route layer (defense in depth on top of the service check).
 func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
+	rt.handler.perms = authzSvc
 	r.With(requireWikiOrProjectAccess(authzSvc, rt.pool)).Group(func(r chi.Router) {
 		r.Get("/api/wiki/spaces", rt.handler.ListSpaces)
 		r.Post("/api/wiki/spaces", rt.handler.CreateSpace)
 		r.Get("/api/wiki/spaces/{slug}", rt.handler.GetSpace)
 		r.Patch("/api/wiki/spaces/{id}", rt.handler.UpdateSpace)
-		r.With(middleware.RequireOrgRole(rt.pool, middleware.RoleOwner, middleware.RoleAdmin)).Delete("/api/wiki/spaces/{id}", rt.handler.DeleteSpace)
+		r.With(authz.RequirePermission(authzSvc, PermModerate)).Delete("/api/wiki/spaces/{id}", rt.handler.DeleteSpace)
 
 		r.Get("/api/wiki/spaces/{spaceID}/pages", rt.handler.GetPageTree)
 		r.Post("/api/wiki/spaces/{spaceID}/pages", rt.handler.CreatePage)

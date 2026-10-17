@@ -50,6 +50,7 @@ fwd -n mindforge svc/minio 19000:9000 &
   origin="$(grep -m1 '^NEXT_ALLOWED_DEV_ORIGINS=' "$root/frontend/.env.local" 2>/dev/null | cut -d= -f2- || true)"
   export LABPROXY_PORT="$LABPROXY_LOCAL_PORT" LABPROXY_DB_URL="$DATABASE_URL" LABPROXY_REDIS_URL="$REDIS_URL" \
          LABPROXY_JWT_ISSUER=mindforge-labproxy LABPROXY_PREVIEW_DOMAIN=localhost \
+         LABPROXY_PUBLIC_PATH_PREFIX=/lab-ws \
          LABPROXY_ALLOWED_ORIGINS="${origin:+https://$origin}"
   cd "$root/backend" && until (exec 3<>/dev/tcp/127.0.0.1/"$PG_LOCAL_PORT") 2>/dev/null; do sleep 1; done
   exec go run ./cmd/labproxy
@@ -60,5 +61,6 @@ fwd -n mindforge svc/minio 19000:9000 &
   cd "$root/backend" && until (exec 3<>/dev/tcp/127.0.0.1/"$PG_LOCAL_PORT") 2>/dev/null; do sleep 1; done
   exec go run github.com/air-verse/air@latest -c .air.toml
 ) &
-(cd "$root/frontend" && bun install --frozen-lockfile && bun run dev -H 127.0.0.1) &
+# Wait for the backend (air rebuild takes a while) so first page loads do not hit ECONNREFUSED on :8090.
+(cd "$root/frontend" && bun install --frozen-lockfile && until (exec 3<>/dev/tcp/127.0.0.1/8090) 2>/dev/null; do sleep 1; done && bun run dev -H 127.0.0.1) &
 wait

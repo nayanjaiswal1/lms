@@ -10,6 +10,7 @@ import { AssignAction } from "@/app/(app)/assessments/[id]/edit/assign-action";
 import { StatusAction } from "@/app/(app)/assessments/[id]/edit/status-action";
 import { HeaderStats } from "@/app/(app)/assessments/[id]/edit/header-stats";
 import { getAssessment } from "@/lib/assessments/server";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = {
   title: "Edit Assessment",
@@ -35,24 +36,21 @@ export default async function AssessmentBuilderLayout({ params, children }: Layo
   return (
     <main className="page-container">
       <AssessmentBreadcrumb assessmentId={id} title={assessment.title} />
-      <header className="page-header">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <h1 className="section-title">{assessment.title}</h1>
-            <Badge variant={isDraft ? "outline" : "default"}>{assessment.status}</Badge>
-          </div>
+      <PageHeader
+        title={assessment.title}
+        badge={<Badge variant={isDraft ? "outline" : "default"}>{assessment.status}</Badge>}
+        meta={
           <HeaderStats
             durationMinutes={assessment.duration_minutes}
             questionCount={questions.length}
             totalPoints={assessment.total_points}
-          />
-        </div>
+          />}>
         <div className="flex items-center gap-2">
           <StatusAction assessmentId={id} status={assessment.status} />
           <PublishAction assessmentId={id} attachedCount={questions.length} isDraft={isDraft} />
           <AssignAction assessmentId={id} />
         </div>
-      </header>
+      </PageHeader>
 
       <AssessmentTabsNav assessmentId={id} />
 

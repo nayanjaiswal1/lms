@@ -42,8 +42,8 @@ export function BoardApp({ initialTasks, initialTemplates, initialProjects, init
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-10">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Board</h1>
-        <p className="text-sm text-muted-foreground">Everything in one place — check it off, it stays here.</p>
+        <h1 className="page-title">Board</h1>
+        <p className="page-description">Everything in one place — check it off, it stays here.</p>
       </div>
 
       <Input

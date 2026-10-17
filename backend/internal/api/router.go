@@ -197,7 +197,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 	assessmentHandler := assessment.New(pool, cfg, jobsRegistry, rewardsSvc, coursesSvc, store, labsRuntime)
 	rewardsHandler := rewards.New(pool, rdb)
-	messagingRouter := messaging.New(pool)
+	messagingRouter := messaging.New(pool, authzHandler.Service())
 	feedbackRouter := feedback.New(pool, mentoringRouter.Service)
 	practiceRouter := practice.New(pool, aiProvider)
 	interviewPrepRouter := interviewprep.New(pool, cfg, aiProvider, practiceRouter.Service)
@@ -265,7 +265,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// systemDesignRouter.Service so its tools share the exact same
 	// enrollment/authorization rules and daily plan rate limit as the
 	// student-facing API.
-	mcpConnectRouter := mcpconnect.New(cfg, pool, coursesRepo, coursesSvc, calendarRouter.Service, mistakesRepo, mistakesSvc, srsRepo, interviewPrepRouter.Service, systemDesignRouter.Service)
+	mcpConnectRouter := mcpconnect.New(cfg, pool, coursesRepo, coursesSvc, calendarRouter.Service, mistakesRepo, mistakesSvc, srsRepo, interviewPrepRouter.Service, systemDesignRouter.Service, authzHandler.Service())
 
 	// Notifications — generic, dependency-free in-app notification domain
 	// (Batch 5). Built before gitlabRouter below so its *notifications.Service
@@ -453,10 +453,10 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// Assessment & Evaluation Management System — question bank, assessments,
 		// batches, assignment, attempts, anti-cheat, and analytics. Role guards are
 		// applied per sub-group inside RegisterRoutes.
-		assessmentHandler.RegisterRoutes(r)
+		assessmentHandler.RegisterRoutes(r, authzHandler.Service())
 
 		// Profile — authenticated routes (me, skills, avatar, admin user lookup).
-		profileHandler.RegisterRoutes(r)
+		profileHandler.RegisterRoutes(r, authzHandler.Service())
 
 		// Courses — course CRUD, sections, modules, enrollment, progress, AI outline.
 		coursesRouter.RegisterRoutes(r)
@@ -553,7 +553,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// Org admin (owner/admin org role) grants/revokes a feature for one
 		// member; platform admin (super_admin) turns a feature on/off for a
 		// whole org.
-		featuresRouter.RegisterOrgAdminRoutes(r)
+		featuresRouter.RegisterOrgAdminRoutes(r, authzHandler.Service())
 		featuresRouter.RegisterPlatformRoutes(r)
 
 		// Entitlements — current account's quota usage (My Plan page), plus
@@ -586,14 +586,14 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 		// Job Management System — org job list/cancel/retry, admin stats, worker view.
 		jobsHandler := jobs.NewHTTPHandler(pool, rdb, cfg, jobsRegistry)
-		jobsHandler.RegisterRoutes(r)
+		jobsHandler.RegisterRoutes(r, authzHandler.Service())
 		opsalert.NewHTTPHandler(pool, opsalert.NewService(pool, notifications.NewService(pool, jobsRegistry))).RegisterRoutes(r)
 
 		// Rewards — XP, badges, leaderboard.
 		rewardsHandler.RegisterRoutes(r)
 
 		// Highlights — in-content text selection, AI explain, revision saves, analytics.
-		highlightsRouter.RegisterRoutes(r)
+		highlightsRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// Focus Wall — personal sticky-note corkboard.
 		focusWallRouter.RegisterRoutes(r)
@@ -619,7 +619,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// installation; it's still a nil-safe optional dependency to labs
 		// itself (empty script -> skip) when no installation/connection exists.
 		labsHandler := labs.New(pool, rdb, cfg.LabTokenSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout, cfg.LabSnippetDailyLimit, coursesSvc, labsRuntime, gitlabRouter.Service(), notificationsRouter.Service, entitlementsRouter.Service, aiProvider, labsPrivateStore, cfg.LabsGradeTimeout)
-		labsHandler.RegisterRoutes(r)
+		labsHandler.RegisterRoutes(r, authzHandler.Service())
 		labsHandler.RegisterAdminRoutes(r, authzHandler.Service())
 
 		// Lab authoring — block library, recipe CRUD, composition validator and
@@ -634,7 +634,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// wrapper over the same pool (assessment.Repo carries no state of its
 		// own beyond the pool, same as coursesRepo/labsRepo).
 		libraryRouter := library.New(pool, coursesRepo, labsHandler.Repo(), labsHandler.Service(), assessment.NewRepo(pool))
-		libraryRouter.RegisterRoutes(r, pool)
+		libraryRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// Build/verify/preview/publish endpoints of the same API; the render and
 		// verify jobs themselves run in the worker (cmd/server/main.go).
@@ -656,7 +656,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// Roadmap — AI personalized learning paths: state a goal, get an AI
 		// generated phase -> milestone -> module roadmap linked into the real
 		// course/lab/question catalog where possible.
-		roadmapRouter.RegisterRoutes(r)
+		roadmapRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// Revision plan — AI-ranked weak topics built from a learner's actual
 		// knowledge-check accuracy and lesson reflections in a completed course.
@@ -668,7 +668,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 		// GitLab integration — installation management (admin-only) and
 		// per-user connect/status/disconnect (any org member).
-		gitlabRouter.RegisterRoutes(r)
+		gitlabRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// Project Workspaces — every route resolves the caller's project role
 		// live (workspace.RequireProjectRole); creation needs projects.create.

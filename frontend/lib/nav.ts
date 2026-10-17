@@ -32,12 +32,18 @@ import {
   PenLine,
   Binary,
   BarChart3,
+  RefreshCw,
+  Library,
+  Presentation,
+  CreditCard,
   type LucideIcon,
 } from "lucide-react";
 import ROUTES from "@/lib/routes";
 import { FEATURES, type Feature } from "@/lib/features";
-import { PERMISSIONS } from "@/lib/auth/permission-codes";
+import { ACCESS, PERMISSIONS } from "@/lib/auth/permission-codes";
 import { usePermissions } from "@/lib/auth/permissions";
+import { isPermitted } from "@/lib/auth/permission-filter";
+import { PLATFORM_NAV_GROUPS } from "@/lib/platform-nav";
 import { useTerminology } from "@/lib/terminology-context";
 import { type Terminology } from "@/lib/terminology";
 
@@ -48,9 +54,12 @@ import { type Terminology } from "@/lib/terminology";
 //                       holds it. An array is an any-of check (e.g. a hub
 //                       entry that should show if the user can reach any one
 //                       of the pages it links to).
-// `hideForPermission`  — inverse of the above; item hidden if user DOES hold it
-//                       (e.g. hide the learner-facing mentor directory from
-//                       admins, who already have the full Users page for that).
+// `hideForPermission`  — inverse of the above; item hidden if user holds it (or,
+//                       for an array, ANY of them) — e.g. the learner-facing
+//                       mentor directory is hidden from instructors, mentors
+//                       and admins, who have their own mentoring surfaces.
+// `hub`              — entry point to a hub page: visible only if at least one
+//                       of the hub's own items is visible to the user.
 // `mode`             — how to gate: badge (show with badge), hide (remove entirely).
 // `hideFromBottomNav` — item stays in the sidebar/drawer but never occupies
 //                       one of the 4 mobile bottom-nav slots (e.g. Help &
@@ -63,7 +72,8 @@ interface NavItem {
   icon:                LucideIcon;
   feature?:            Feature;
   requiredPermission?: string | string[];
-  hideForPermission?:  string;
+  hideForPermission?:  string | string[];
+  hub?:                () => NavGroup[];
   mode?:               "badge" | "hide";
   exact?:              boolean;
   hideFromBottomNav?:  boolean;
@@ -73,11 +83,6 @@ export interface NavGroup {
   label?: string;
   items:  NavItem[];
 }
-
-// ─────────────────────────────────────────────
-// TOP NAVBAR (public + auth-aware)
-// ─────────────────────────────────────────────
-
 
 // ─────────────────────────────────────────────
 // SETTINGS SIDEBAR
@@ -91,6 +96,8 @@ export const SETTINGS_NAV: NavGroup[] = [
       { label: "Security",     href: ROUTES.SETTINGS_SECURITY,     icon: Shield, exact: true },
       { label: "Privacy",      href: ROUTES.SETTINGS_PRIVACY,      icon: Lock,   exact: true },
       { label: "Integrations", href: ROUTES.SETTINGS_INTEGRATIONS, icon: Bot,    exact: true },
+      // public: every signed-in user sees their own plan, entitlements and usage.
+      { label: "Billing",      href: ROUTES.BILLING,               icon: CreditCard, exact: true },
     ],
   },
 ];
@@ -105,6 +112,7 @@ export const SETTINGS_NAV: NavGroup[] = [
 // ─────────────────────────────────────────────
 
 export const ALL_NAV_ITEMS: Record<string, NavItem> = {
+  // public: every signed-in user lands here; it only shows what they can access.
   dashboard: {
     label: "Dashboard",
     href:  ROUTES.DASHBOARD,
@@ -128,14 +136,16 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     mode:                "badge",
   },
   labs: {
-    label: "Labs",
-    href:  ROUTES.LABS_CATALOG,
-    icon:  Bug,
+    label:              "Labs",
+    href:               ROUTES.LABS_CATALOG,
+    icon:               Bug,
+    requiredPermission: [...ACCESS.LABS],
   },
   roadmap: {
-    label: "Roadmap",
-    href:  ROUTES.ROADMAP,
-    icon:  Map,
+    label:              "Roadmap",
+    href:               ROUTES.ROADMAP,
+    icon:               Map,
+    requiredPermission: [...ACCESS.PRACTICE],
   },
   assessments: {
     label:               "Assessments",
@@ -149,29 +159,58 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     label:              "Mentors",
     href:               ROUTES.MENTORS,
     icon:               UserCheck,
-    hideForPermission:  PERMISSIONS.ADMIN.VIEW_MEMBERS,
+    requiredPermission: PERMISSIONS.MENTORING.CHAT,
+    // Learner directory only: instructors, mentors and admins have their own
+    // mentoring surfaces.
+    hideForPermission:  [
+      PERMISSIONS.MENTORING.VIEW_TICKETS,
+      PERMISSIONS.MENTORING.MANAGE_BATCHES,
+      PERMISSIONS.ADMIN.MANAGE_ROLES,
+    ],
   },
-
+  // public: every signed-in user can raise a ticket.
   support: {
     label:  "Help & Support",
     href:   ROUTES.SUPPORT,
     icon:   LifeBuoy,
     hideFromBottomNav: true,
+    exact: true,
+  },
+  support_queue: {
+    label:              "Support Queue",
+    href:               ROUTES.SUPPORT_QUEUE,
+    icon:               Inbox,
+    requiredPermission: PERMISSIONS.SUPPORT.MANAGE,
   },
   learn_hub: {
     label: "Learn",
     href:  ROUTES.LEARN,
     icon:  BookOpen,
+    hub:   () => LEARN_HUB_GROUPS,
+  },
+  teach_hub: {
+    label:              "Instructor",
+    href:               ROUTES.TEACH,
+    icon:               Presentation,
+    requiredPermission: [...ACCESS.TEACH_HUB],
   },
   calendar: {
-    label: "Calendar",
-    href:  ROUTES.CALENDAR,
-    icon:  Calendar,
+    label:              "Calendar",
+    href:               ROUTES.CALENDAR,
+    icon:               Calendar,
+    requiredPermission: [...ACCESS.CALENDAR],
   },
   highlights: {
-    label: "Saved Highlights",
-    href:  ROUTES.HIGHLIGHTS,
-    icon:  BookmarkCheck,
+    label:              "Saved Highlights",
+    href:               ROUTES.HIGHLIGHTS,
+    icon:               BookmarkCheck,
+    requiredPermission: [...ACCESS.PRACTICE],
+  },
+  review: {
+    label:              "Revision",
+    href:               ROUTES.REVIEW,
+    icon:               RefreshCw,
+    requiredPermission: PERMISSIONS.CONTENT.SRS,
   },
   mistakes: {
     label:              "My Mistakes",
@@ -180,9 +219,10 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     requiredPermission: PERMISSIONS.PRACTICE.USE,
   },
   algo_visualizer: {
-    label: "Algorithm Visualizer",
-    href:  ROUTES.ALGO_VISUALIZER,
-    icon:  Binary,
+    label:              "Algorithm Visualizer",
+    href:               ROUTES.ALGO_VISUALIZER,
+    icon:               Binary,
+    requiredPermission: [...ACCESS.PRACTICE],
   },
   sheet_tracker: {
     label:               "Sheet Tracker",
@@ -265,14 +305,14 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     requiredPermission:  PERMISSIONS.PROJECTS.MANAGE,
     mode:                "hide",
   },
-  // Not gated on projects.create: creating a workspace needs that permission,
-  // but any org member can be *invited into* someone else's workspace as a
-  // member/viewer, so the nav entry itself has to stay visible to everyone —
-  // the create button on /workspaces is what's gated instead.
+  // Gated on projects.view, not projects.create: creating a workspace needs
+  // create, but anyone who can view can be invited into someone else's
+  // workspace — the create button on /workspaces is what's gated on create.
   workspaces: {
-    label: "Workspaces",
-    href:  ROUTES.WORKSPACES,
-    icon:  Briefcase,
+    label:              "Workspaces",
+    href:               ROUTES.WORKSPACES,
+    icon:               Briefcase,
+    requiredPermission: PERMISSIONS.PROJECTS.VIEW,
   },
   mentor_dashboard: {
     label:               "Overview",
@@ -286,6 +326,14 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:                ROUTES.MENTORING_TICKETS,
     icon:                Ticket,
     requiredPermission:  PERMISSIONS.MENTORING.VIEW_TICKETS,
+  },
+  // Sidebar copy of the ticket queue, for mentors (manage_batches). Instructors
+  // hold view_tickets but not manage_batches and reach the queue via the Teach hub.
+  mentor_tickets_nav: {
+    label:               "Ticket Queue",
+    href:                ROUTES.MENTORING_TICKETS,
+    icon:                Ticket,
+    requiredPermission:  PERMISSIONS.MENTORING.MANAGE_BATCHES,
   },
 
   admin_rbac: {
@@ -343,26 +391,24 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     requiredPermission:  PERMISSIONS.LABAUTHOR.COMPOSE,
   },
   lab_library: {
-    label:               "Existing Labs",
+    label:               "Lab library",
     href:                ROUTES.LABS_CATALOG,
     icon:                Bug,
     requiredPermission:  PERMISSIONS.LABAUTHOR.COMPOSE,
   },
+  library: {
+    label:               "Library",
+    href:                ROUTES.LIBRARY,
+    icon:                Library,
+    requiredPermission:  PERMISSIONS.COURSES.EDIT,
+  },
 };
-
-// ─────────────────────────────────────────────
-// MAIN NAV GROUPS — full sidebar structure.
-//
-// The Sidebar component filters out items whose `requiredPermission` the
-// current user does not hold, then drops any group that becomes empty.
-// Groups and items are defined once here; no role names appear anywhere.
-// ─────────────────────────────────────────────
 
 // ─────────────────────────────────────────────
 // VISIBLE NAV GROUPS — shared filtering logic.
 //
-// Used by both the desktop sidebar and the mobile drawer/bottom-nav so
-// permission filtering lives in exactly one place.
+// Used by the desktop sidebar, the mobile drawer/bottom-nav and both hub pages
+// so permission filtering lives in exactly one place.
 // ─────────────────────────────────────────────
 
 // Nav items whose label carries the word "Batch"/"Batches" — the org-flavored
@@ -378,24 +424,18 @@ function applyTerminology(label: string, t: Terminology): string {
   return label.replace(/\bBatches\b/g, t.classPlural).replace(/\bBatch\b/g, t.class_);
 }
 
-// Shared by the sidebar (MAIN_NAV_GROUPS) and the Learn hub page
-// (LEARN_HUB_GROUPS) so permission filtering, the admin mentor-directory
-// exclusion, and batch terminology only need to be correct in one place.
-export function useVisibleNavGroups(groups: NavGroup[] = MAIN_NAV_GROUPS): NavGroup[] {
-  const perms = usePermissions();
-  const t = useTerminology();
-
+// Pure: permission + hub + terminology filtering, then drops empty groups.
+export function filterNavGroups(
+  groups: NavGroup[],
+  perms: ReadonlySet<string>,
+  t: Terminology,
+): NavGroup[] {
   return groups
     .map((group) => ({
       ...group,
       items: group.items
-        .filter((item) => {
-          if (!item.requiredPermission) return true;
-          return Array.isArray(item.requiredPermission)
-            ? item.requiredPermission.some((p) => perms.has(p))
-            : perms.has(item.requiredPermission);
-        })
-        .filter((item) => !item.hideForPermission || !perms.has(item.hideForPermission))
+        .filter((item) => isPermitted(item, perms))
+        .filter((item) => !item.hub || filterNavGroups(item.hub(), perms, t).length > 0)
         .map((item) =>
           BATCH_LABEL_HREFS.has(item.href) ? { ...item, label: applyTerminology(item.label, t) } : item,
         ),
@@ -403,9 +443,33 @@ export function useVisibleNavGroups(groups: NavGroup[] = MAIN_NAV_GROUPS): NavGr
     .filter((group) => group.items.length > 0);
 }
 
+// Platform (super_admin) groups sit on a separate axis from org RBAC, so they
+// are appended after filtering. Used by the sidebar, mobile nav and tests.
+export function withPlatformGroups(
+  groups: NavGroup[],
+  user: { platform_role?: string | null } | null | undefined,
+): NavGroup[] {
+  return user?.platform_role === "super_admin" ? [...groups, ...PLATFORM_NAV_GROUPS] : groups;
+}
+
+export function useVisibleNavGroups(groups: NavGroup[] = MAIN_NAV_GROUPS): NavGroup[] {
+  return filterNavGroups(groups, usePermissions(), useTerminology());
+}
+
+// Every nav destination the user can reach (sidebar + both hubs), first label
+// per href wins. Used for breadcrumbs and page search so hub-only pages
+// (Revision, Journal, Question Bank, ...) resolve like sidebar ones.
+const ALL_GROUPS = () => [MAIN_NAV_GROUPS, LEARN_HUB_GROUPS, TEACHING_HUB_GROUPS].flat();
+
+export function useAllVisibleNavItems(): NavItem[] {
+  const visible = useVisibleNavGroups(ALL_GROUPS());
+  const seen = new Set<string>();
+  return visible.flatMap((g) => g.items).filter((i) => !seen.has(i.href) && seen.add(i.href));
+}
+
 // ─────────────────────────────────────────────
 // LEARN HUB — every content-type destination (courses, assessments, practice,
-// wiki, the design/interview/load-test tools, ...) lives behind one sidebar
+// wiki, ...) lives behind one sidebar
 // entry (ALL_NAV_ITEMS.learn_hub → /learn) instead of each having its own
 // permanent slot. Rendered as cards on that page via useVisibleNavGroups
 // (frontend/app/(app)/learn/page.tsx), so it's gated exactly like the sidebar.
@@ -425,28 +489,17 @@ export const LEARN_HUB_GROUPS: NavGroup[] = [
   {
     label: "Library",
     items: [
+      ALL_NAV_ITEMS.review,
+      ALL_NAV_ITEMS.mistakes,
       ALL_NAV_ITEMS.highlights,
       ALL_NAV_ITEMS.sheet_tracker,
+      ALL_NAV_ITEMS.learning_journal,
+      ALL_NAV_ITEMS.diary,
       ALL_NAV_ITEMS.captures,
       ALL_NAV_ITEMS.wiki,
       ALL_NAV_ITEMS.interview_exp,
       ALL_NAV_ITEMS.algo_visualizer,
-    ],
-  },
-  // Instructor tools. Each item keeps its own requiredPermission, so learners never see
-  // this group (useVisibleNavGroups drops it when empty). Labels are
-  // overridden where they'd collide with the learner-side cards above.
-  {
-    label: "Teaching",
-    items: [
-      { ...ALL_NAV_ITEMS.manage_courses,         label: "Create Course" },
-      ALL_NAV_ITEMS.lab_builder,
-      ALL_NAV_ITEMS.lab_library,
-      { ...ALL_NAV_ITEMS.instructor_assessments, label: "Manage Assessments" },
-      ALL_NAV_ITEMS.question_bank,
-      { ...ALL_NAV_ITEMS.mentor_dashboard,       label: "Mentoring" },
-      ALL_NAV_ITEMS.mentor_tickets,
-      ALL_NAV_ITEMS.cohorts,
+      ALL_NAV_ITEMS.workspaces,
     ],
   },
   // "Tools" group (System Design, Interview Board, Load Test) removed: those
@@ -454,13 +507,11 @@ export const LEARN_HUB_GROUPS: NavGroup[] = [
 ];
 
 // ─────────────────────────────────────────────
-// TEACH HUB — course authoring, assessment authoring, question bank, and
-// mentoring for the /teach page (reached via breadcrumbs). The same items also
-// appear in the Learn hub's "Teaching" group; there's no separate sidebar
-// entry. Batches (cohort_groups) stays a direct
-// sidebar link — it's a delivery/roster tool used constantly, not a
-// destination someone browses to occasionally like the hub cards. Rendered
-// as cards on /teach via useVisibleNavGroups (frontend/app/(app)/teach/page.tsx).
+// TEACH HUB — course/lab/assessment authoring, question bank, mentoring and
+// delivery for the /teach page, reached via the "Instructor" sidebar entry
+// (ALL_NAV_ITEMS.teach_hub). Batches (cohort_groups) is also a direct sidebar
+// link — a roster tool used constantly. Rendered as cards on /teach via
+// useVisibleNavGroups (frontend/app/(app)/teach/page.tsx).
 // ─────────────────────────────────────────────
 
 export const TEACHING_HUB_GROUPS: NavGroup[] = [
@@ -471,6 +522,7 @@ export const TEACHING_HUB_GROUPS: NavGroup[] = [
       ALL_NAV_ITEMS.course_analytics,
       ALL_NAV_ITEMS.lab_builder,
       ALL_NAV_ITEMS.lab_library,
+      ALL_NAV_ITEMS.library,
     ],
   },
   {
@@ -487,28 +539,47 @@ export const TEACHING_HUB_GROUPS: NavGroup[] = [
       ALL_NAV_ITEMS.mentor_tickets,
     ],
   },
+  {
+    label: "Delivery",
+    items: [
+      ALL_NAV_ITEMS.cohort_groups,
+      ALL_NAV_ITEMS.cohorts,
+    ],
+  },
 ];
 
 export const MAIN_NAV_GROUPS: NavGroup[] = [
   {
-    // No label: this group already contains a "Learn" link (learn_hub)
-    // alongside Dashboard/Mentors/Calendar, which aren't Learn sub-items —
-    // a "Learn" header over that mix duplicated the child item and misnamed
-    // the rest.
     items: [
       ALL_NAV_ITEMS.dashboard,
-      ALL_NAV_ITEMS.learn_hub,
-      ALL_NAV_ITEMS.mentors,
-      ALL_NAV_ITEMS.support,
       ALL_NAV_ITEMS.calendar,
+      ALL_NAV_ITEMS.support,
     ],
   },
   {
-    // No label: instructor tools now live in the Learn hub's "Teaching"
-    // group; Batches stays a direct link since it's used constantly.
+    label: "Learn",
     items: [
+      ALL_NAV_ITEMS.learn_hub,
+      ALL_NAV_ITEMS.mentors,
+    ],
+  },
+  {
+    label: "Teach",
+    items: [
+      ALL_NAV_ITEMS.teach_hub,
       ALL_NAV_ITEMS.cohort_groups,
     ],
+  },
+  {
+    label: "Mentoring",
+    items: [
+      ALL_NAV_ITEMS.mentor_dashboard,
+      ALL_NAV_ITEMS.mentor_tickets_nav,
+    ],
+  },
+  {
+    label: "Support",
+    items: [ALL_NAV_ITEMS.support_queue],
   },
   {
     label: "Administration",
@@ -516,6 +587,7 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
       ALL_NAV_ITEMS.admin_rbac,
       ALL_NAV_ITEMS.admin_users,
       ALL_NAV_ITEMS.admin_coupons,
+      ALL_NAV_ITEMS.admin_content_reports,
       ALL_NAV_ITEMS.org_settings,
     ],
   },

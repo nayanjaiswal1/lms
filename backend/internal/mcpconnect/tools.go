@@ -16,13 +16,22 @@ import (
 	"github.com/mindforge/backend/internal/journal"
 	"github.com/mindforge/backend/internal/middleware"
 	"github.com/mindforge/backend/internal/mistakes"
+	"github.com/mindforge/backend/internal/practice"
 	"github.com/mindforge/backend/internal/sheets"
 	"github.com/mindforge/backend/internal/srs"
 	"github.com/mindforge/backend/internal/systemdesign"
 	"github.com/mindforge/backend/internal/wiki"
 )
 
-var errMissingScope = errors.New("mcpconnect: connection is missing a required scope")
+var (
+	errMissingScope      = errors.New("mcpconnect: connection is missing a required scope")
+	errMissingPermission = errors.New("mcpconnect: your role in this organization does not allow this tool")
+	errNotOrgMember      = errors.New("mcpconnect: not an active member of this org")
+)
+
+// permActiveMember is the Permission of a tool whose REST equivalent is open
+// to every active org member (learner course routes, calendar, habits).
+const permActiveMember = "active_member"
 
 // mcpTool bundles a tool's MCP-facing definition with its handler, so
 // tools/list and tools/call always agree on name/schema/required-scope in one
@@ -31,6 +40,13 @@ type mcpTool struct {
 	Name        string
 	Description string
 	Scope       string
+	// Permission is the permission code the caller must hold in the
+	// connection's org — the same code that gates this tool's REST
+	// equivalent, so a tool is never reachable over MCP when its REST route
+	// would 403. permActiveMember marks tools whose REST equivalent has no
+	// permission gate (any active member). An empty value is a registration
+	// bug and is denied (see toolPermitted).
+	Permission  string
 	InputSchema map[string]any
 	Call        func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error)
 	// TargetType labels the kind of thing this tool acts on, for the action
@@ -231,6 +247,7 @@ var tools = []mcpTool{
 		Name:        "list_my_courses",
 		Description: "List the courses the connected student is enrolled in.",
 		Scope:       ScopeCoursesRead,
+		Permission:  permActiveMember,
 		InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
 		Call: func(ctx context.Context, rt *Router, id mcpIdentity, _ map[string]any) (any, error) {
 			return rt.coursesRepo.GetMyEnrollments(ctx, id.UserID, id.OrgID)
@@ -240,6 +257,7 @@ var tools = []mcpTool{
 		Name:        "get_lesson",
 		Description: "Read a lesson module's content (title, body, knowledge checks) the student is enrolled to see.",
 		Scope:       ScopeCoursesRead,
+		Permission:  permActiveMember,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"module_id": map[string]any{"type": "string"}},
@@ -258,6 +276,7 @@ var tools = []mcpTool{
 		Name:        "get_my_lesson_note",
 		Description: "Read the student's personal note for a lesson module, if they have one.",
 		Scope:       ScopeNotesWrite,
+		Permission:  permActiveMember,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"module_id": map[string]any{"type": "string"}},
@@ -280,6 +299,7 @@ var tools = []mcpTool{
 		Name:        "save_my_lesson_note",
 		Description: "Write or replace the student's personal note for a lesson module — use this when the student asks you to save an explanation or summary to their notes.",
 		Scope:       ScopeNotesWrite,
+		Permission:  permActiveMember,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -327,6 +347,7 @@ var tools = []mcpTool{
 		Name:        "log_understanding",
 		Description: "Record what the student said they understood or struggled with about a lesson — use this after helping them work through a concept, so MindForge can weight it into their revision plan.",
 		Scope:       ScopeSignals,
+		Permission:  permActiveMember,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -376,6 +397,7 @@ var tools = []mcpTool{
 		Name:        "list_calendar_events",
 		Description: "List the student's calendar events within a date range.",
 		Scope:       ScopeCalendarManage,
+		Permission:  permActiveMember,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -400,6 +422,7 @@ var tools = []mcpTool{
 		Name:        "create_calendar_event",
 		Description: "Create a new event on the student's calendar (e.g. a study reminder or deadline).",
 		Scope:       ScopeCalendarManage,
+		Permission:  permActiveMember,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -449,6 +472,7 @@ var tools = []mcpTool{
 		Name:        "update_calendar_event",
 		Description: "Update an existing calendar event the student owns or can edit. For a recurring event this updates the whole series.",
 		Scope:       ScopeCalendarManage,
+		Permission:  permActiveMember,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -522,6 +546,7 @@ var tools = []mcpTool{
 		Name:        "delete_calendar_event",
 		Description: "Delete a calendar event the student owns or can edit. For a recurring event this deletes the whole series.",
 		Scope:       ScopeCalendarManage,
+		Permission:  permActiveMember,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"event_id": map[string]any{"type": "string"}},
@@ -555,6 +580,7 @@ var tools = []mcpTool{
 		Name:        "get_random_topic",
 		Description: "Pick one published course from the student's org catalog they haven't tried yet — a \"surprise me\" suggestion for when they don't know what to learn next. Weighted toward their stated topic interests when possible; falls back to any unstarted course, then (only if they've enrolled in everything) any course at all.",
 		Scope:       ScopeCoursesRead,
+		Permission:  permActiveMember,
 		InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
 		Call: func(ctx context.Context, rt *Router, id mcpIdentity, _ map[string]any) (any, error) {
 			return rt.coursesSvc.GetRandomTopic(ctx, id.OrgID, id.UserID)
@@ -564,6 +590,7 @@ var tools = []mcpTool{
 		Name:        "get_learning_context",
 		Description: "Call this FIRST, before anything else, at the start of any conversation about the student's courses, practice, or progress — including English practice. Returns their enrolled courses with completion percentages and their most recent lesson reflections (what they recently understood or struggled with, across every course). This exists so the student never has to re-explain their level, recent mistakes, or what they were last working on — check here before asking them to recap.",
 		Scope:       ScopeCoursesRead,
+		Permission:  permActiveMember,
 		InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
 		Call: func(ctx context.Context, rt *Router, id mcpIdentity, _ map[string]any) (any, error) {
 			return rt.coursesSvc.GetLearningContext(ctx, id.OrgID, id.UserID)
@@ -573,6 +600,7 @@ var tools = []mcpTool{
 		Name:        "log_mistake",
 		Description: "Record a distinct mistake the student made (grammar, concept, spelling, etc.) as a structured, timestamped event. Call this once per distinct error after correcting any piece of student writing or work — never explain a mistake in chat and let it disappear, and never create a course module just to store one; this is the only place mistakes are recorded. Before re-explaining a rule, check get_mistake_history first — if the student has seen it 3+ times with no improvement, change the example or analogy instead of repeating the same explanation.",
 		Scope:       ScopeSignals,
+		Permission:  practice.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -623,6 +651,7 @@ var tools = []mcpTool{
 		Name:        "get_mistake_history",
 		Description: "List the student's past mistakes in chronological order (newest first), optionally filtered by category and/or context_tag — use this to see the pattern behind a mistake before re-explaining a rule.",
 		Scope:       ScopeSignals,
+		Permission:  practice.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -641,6 +670,7 @@ var tools = []mcpTool{
 		Name:        "get_progress_summary",
 		Description: "Get the student's mistake counts and trend (worsening/stable/improving) per category — call this to answer \"what am I actually struggling with\" or to pick which weak area to focus a session on.",
 		Scope:       ScopeSignals,
+		Permission:  practice.PermUse,
 		InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
 		Call: func(ctx context.Context, rt *Router, id mcpIdentity, _ map[string]any) (any, error) {
 			return rt.mistakesRepo.Summary(ctx, id.UserID)
@@ -650,6 +680,7 @@ var tools = []mcpTool{
 		Name:        "get_due_revisions",
 		Description: "Get the student's mistakes that are due for spaced revision right now. Call this FIRST, before starting any new practice or writing session, and surface anything due before jumping into new content.",
 		Scope:       ScopeSignals,
+		Permission:  srs.PermUse,
 		InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
 		Call: func(ctx context.Context, rt *Router, id mcpIdentity, _ map[string]any) (any, error) {
 			return rt.srsRepo.GetDueCardsBySource(ctx, id.UserID, "mistake")
@@ -659,6 +690,7 @@ var tools = []mcpTool{
 		Name:        "mark_revision_result",
 		Description: "Record whether the student got a due revision right or wrong just now, and reschedule it — the interval grows on a correct answer and shortens/resets on a wrong one. card_id comes from get_due_revisions.",
 		Scope:       ScopeSignals,
+		Permission:  srs.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -680,6 +712,7 @@ var tools = []mcpTool{
 		Name:        "list_interview_prep_plans",
 		Description: "List the student's interview-prep plans — quick practice drills and job-targeted mock tests — newest first.",
 		Scope:       ScopeInterviewPrep,
+		Permission:  practice.PermUse,
 		InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
 		Call: func(ctx context.Context, rt *Router, id mcpIdentity, _ map[string]any) (any, error) {
 			return rt.interviewPrepSvc.ListPlans(ctx, id.UserID)
@@ -689,6 +722,7 @@ var tools = []mcpTool{
 		Name:        "get_interview_prep_plan",
 		Description: "Get one interview-prep plan by id, including its rounds (conceptual/behavioral/coding) and their status/score — use this to check whether a round is ready to take or what's left before a report can be generated. This does NOT include the actual question text for a conceptual/behavioral round — call get_interview_prep_round with that round's practice_session_id for the questions themselves.",
 		Scope:       ScopeInterviewPrep,
+		Permission:  practice.PermUse,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"plan_id": map[string]any{"type": "string"}},
@@ -707,6 +741,7 @@ var tools = []mcpTool{
 		Name:        "create_interview_prep_plan",
 		Description: "Start a new interview-prep plan for the student — either a 'quick' practice drill on one technology, or a 'targeted' mock test derived from a job title/description (conceptual + coding rounds, scored readiness report once both are completed). Capped at 5 new plans per day, same as the in-app form.",
 		Scope:       ScopeInterviewPrep,
+		Permission:  practice.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -749,6 +784,7 @@ var tools = []mcpTool{
 		Name:        "get_interview_prep_round",
 		Description: "Get the actual questions, any answers already given, and AI feedback for an interview-prep plan's conceptual or behavioral round (round_type is 'conceptual' or 'behavioral' on get_interview_prep_plan/list_interview_prep_plans — every plan has exactly one such round; a targeted technical plan also has a separate coding round, which uses submit_interview_prep_coding_item instead). Pass the round's practice_session_id, not the round_id or plan_id.",
 		Scope:       ScopeInterviewPrep,
+		Permission:  practice.PermUse,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"session_id": map[string]any{"type": "string", "description": "The round's practice_session_id, from get_interview_prep_plan."}},
@@ -767,6 +803,7 @@ var tools = []mcpTool{
 		Name:        "submit_interview_prep_round_answer",
 		Description: "Submit the student's answer to one question of an interview-prep plan's conceptual or behavioral round (from get_interview_prep_round). Grades it with AI feedback (score, strengths, gaps, a suggested answer) the same as the in-app round UI — call get_interview_prep_round again afterward to see it.",
 		Scope:       ScopeInterviewPrep,
+		Permission:  practice.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -800,6 +837,7 @@ var tools = []mcpTool{
 		Name:        "submit_interview_prep_coding_item",
 		Description: "Submit the student's code for one item of an interview-prep plan's coding round — runs it against the item's test cases and grades it, the same as the in-app code editor's submit button.",
 		Scope:       ScopeInterviewPrep,
+		Permission:  practice.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -844,6 +882,7 @@ var tools = []mcpTool{
 		Name:        "get_interview_prep_report",
 		Description: "Get the aggregate readiness report for a job-targeted interview-prep plan — readiness score, conceptual/coding scores, strong and weak skills, a summary, and next steps. Only available once both rounds are completed; quick plans never generate a report.",
 		Scope:       ScopeInterviewPrep,
+		Permission:  practice.PermUse,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"plan_id": map[string]any{"type": "string"}},
@@ -862,6 +901,7 @@ var tools = []mcpTool{
 		Name:        "list_system_design_attempts",
 		Description: "List the student's whiteboard attempts at a system-design question (a course module of type system_design), newest first — use this to see whether they've already started before creating a new attempt.",
 		Scope:       ScopeSystemDesign,
+		Permission:  systemdesign.PermUse,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"module_id": map[string]any{"type": "string"}},
@@ -880,6 +920,7 @@ var tools = []mcpTool{
 		Name:        "create_system_design_attempt",
 		Description: "Start a fresh, blank-canvas attempt at a system-design question. Earlier attempts (and their feedback) are kept, not overwritten — call list_system_design_attempts first if the student may already have one in progress.",
 		Scope:       ScopeSystemDesign,
+		Permission:  systemdesign.PermUse,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"module_id": map[string]any{"type": "string"}},
@@ -901,6 +942,7 @@ var tools = []mcpTool{
 		Name:        "get_system_design_attempt",
 		Description: "Read one system-design attempt — its current Excalidraw scene (elements/appState) and any AI feedback already generated for it.",
 		Scope:       ScopeSystemDesign,
+		Permission:  systemdesign.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -926,6 +968,7 @@ var tools = []mcpTool{
 		Name:        "save_system_design_scene",
 		Description: "Replace an attempt's whole Excalidraw canvas with a new scene — use this to draw or edit the diagram on the student's behalf (e.g. add a component, connect two boxes, label an edge). scene must be the full canvas content, not a partial patch: {\"elements\": [...], \"appState\": {...}}. Call get_system_design_attempt first to see the current scene's exact element shape before editing it, so existing elements aren't dropped.",
 		Scope:       ScopeSystemDesign,
+		Permission:  systemdesign.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -987,6 +1030,7 @@ var tools = []mcpTool{
 		Name:        "generate_system_design_feedback",
 		Description: "Ask MindForge's AI to critique this attempt's current whiteboard against the question's guidance — reads back any text/labels already on the canvas and returns feedback, which is also saved on the attempt.",
 		Scope:       ScopeSystemDesign,
+		Permission:  systemdesign.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1015,6 +1059,7 @@ var tools = []mcpTool{
 		Name:        "list_system_design_chat",
 		Description: "List the clarifying-question thread for a system-design question, oldest first.",
 		Scope:       ScopeSystemDesign,
+		Permission:  systemdesign.PermUse,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"module_id": map[string]any{"type": "string"}},
@@ -1033,6 +1078,7 @@ var tools = []mcpTool{
 		Name:        "send_system_design_chat_message",
 		Description: "Ask a clarifying question about a system-design question on the student's behalf — answered with the question's guidance as grounding context plus recent thread history, the same as the in-app chat panel. Returns both the sent message and the AI's reply.",
 		Scope:       ScopeSystemDesign,
+		Permission:  systemdesign.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1061,6 +1107,7 @@ var tools = []mcpTool{
 		Name:        "list_public_sheets",
 		Description: "List MindForge's system-seeded problem sheets (Striver's A2Z, NeetCode 150, Blind 75, Grind 169) — the starting catalog a student can subscribe to or fork.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
 		Call: func(ctx context.Context, rt *Router, id mcpIdentity, _ map[string]any) (any, error) {
 			return rt.sheetsRepo.ListPublicSheets(ctx)
@@ -1070,6 +1117,7 @@ var tools = []mcpTool{
 		Name:        "list_my_sheets",
 		Description: "List every sheet the student owns or subscribes to — their tab bar — with item counts and how many they've solved in each. Call this before create_sheet/subscribe_to_sheet if unsure whether the student is already tracking a given sheet.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
 		Call: func(ctx context.Context, rt *Router, id mcpIdentity, _ map[string]any) (any, error) {
 			return rt.sheetsRepo.ListUserSheets(ctx, id.UserID)
@@ -1079,6 +1127,7 @@ var tools = []mcpTool{
 		Name:        "get_sheet_preview",
 		Description: "Look up a sheet's metadata by slug (name, description, item count, whether the student already tracks it) — use this before subscribing, or to resolve a slug to a sheet_id for the other sheet tools.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"slug": map[string]any{"type": "string"}},
@@ -1096,6 +1145,7 @@ var tools = []mcpTool{
 		Name:        "get_sheet_items",
 		Description: "Read every item in a sheet the student has access to (system-seeded, owned, or subscribed), joined with their own solve status/revision schedule/star for each, plus has_notes (whether a note exists — the note text itself isn't included here since a sheet can run to hundreds of items; call update_problem_notes to write one, or read it in the app). Fails if the student hasn't subscribed to or forked a non-system sheet yet.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"slug": map[string]any{"type": "string"}},
@@ -1125,6 +1175,7 @@ var tools = []mcpTool{
 		Name:        "create_sheet",
 		Description: "Create a new, empty problem sheet owned by the student — a private tracker for a custom problem list. Use add_sheet_item afterward to populate it, or combine_sheets to build one from existing sheets instead.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1152,6 +1203,7 @@ var tools = []mcpTool{
 		Name:        "update_sheet",
 		Description: "Rename or redescribe a sheet the student owns. Only the given fields change.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1181,6 +1233,7 @@ var tools = []mcpTool{
 		Name:        "delete_sheet",
 		Description: "Permanently delete a sheet the student owns, along with its items and everyone's subscriptions to it. Cannot delete a system-seeded sheet.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"sheet_id": map[string]any{"type": "string"}},
@@ -1207,6 +1260,7 @@ var tools = []mcpTool{
 		Name:        "combine_sheets",
 		Description: "Create a new owned sheet whose items are the union of two or more sheets the student has access to, deduped by topic_tag (first occurrence wins). A snapshot at combine time — later changes to the source sheets don't flow in. exclude_topic_tags optionally drops specific problems from the result.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1243,6 +1297,7 @@ var tools = []mcpTool{
 		Name:        "add_sheet_item",
 		Description: "Add a new problem/topic to a sheet the student owns.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1283,6 +1338,7 @@ var tools = []mcpTool{
 		Name:        "update_sheet_item",
 		Description: "Edit the title/category/difficulty/external_url of an item in a sheet the student owns.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1346,6 +1402,7 @@ var tools = []mcpTool{
 		Name:        "delete_sheet_item",
 		Description: "Remove an item from a sheet the student owns.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1380,6 +1437,7 @@ var tools = []mcpTool{
 		Name:        "subscribe_to_sheet",
 		Description: "Pin a sheet (typically a system sheet) as one the student tracks, adding it to their tab bar.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"sheet_id": map[string]any{"type": "string"}},
@@ -1405,6 +1463,7 @@ var tools = []mcpTool{
 		Name:        "unsubscribe_from_sheet",
 		Description: "Stop tracking a sheet the student subscribes to. Does not affect sheets the student owns.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"sheet_id": map[string]any{"type": "string"}},
@@ -1426,6 +1485,7 @@ var tools = []mcpTool{
 		Name:        "get_sheet_settings",
 		Description: "Get the student's spaced-repetition settings (base interval, growth scheme) for one sheet — defaults to a 7-day doubling schedule if never customized.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"sheet_id": map[string]any{"type": "string"}},
@@ -1443,6 +1503,7 @@ var tools = []mcpTool{
 		Name:        "update_sheet_settings",
 		Description: "Set the student's revision-scheduling settings for one sheet: base_revision_days is the interval (1-365 days) used after first marking an item done, and growth_scheme controls how the interval grows on each successful review — 'doubling' (default, doubles each time), 'ladder' (fixed 1/3/7/14/30/90-day steps), or 'linear' (base × review count).",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1502,6 +1563,7 @@ var tools = []mcpTool{
 		Name:        "update_problem_progress",
 		Description: "Set a problem's solve status by topic_tag — shared across every sheet containing it, so marking \"two-sum\" done updates it everywhere it appears. status is one of: todo, done, revisit. sheet_id is required when status is \"done\", to resolve which sheet's revision schedule sets the next review date.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1547,6 +1609,7 @@ var tools = []mcpTool{
 		Name:        "mark_problem_reviewed",
 		Description: "Record \"I still remember this\" for an already-solved problem — keeps it marked done but advances its revision date to the next, longer interval per the given sheet's growth scheme. No-ops if the problem isn't currently marked done.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1574,6 +1637,7 @@ var tools = []mcpTool{
 		Name:        "update_problem_revision",
 		Description: "Directly reschedule an already-solved or revisit problem's next revision date, bypassing the growth scheme. No-ops on a \"todo\" problem.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1601,6 +1665,7 @@ var tools = []mcpTool{
 		Name:        "update_problem_notes",
 		Description: "Write the student's free-form note for a problem by topic_tag, independent of solve status. notes_markdown is plain markdown — it's converted to the in-app note editor's TipTap format server-side, so write prose, not JSON.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1639,6 +1704,7 @@ var tools = []mcpTool{
 		Name:        "toggle_problem_starred",
 		Description: "Set or clear the student's personal bookmark on a problem by topic_tag, independent of solve status.",
 		Scope:       ScopeSheets,
+		Permission:  sheets.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1663,6 +1729,7 @@ var tools = []mcpTool{
 		Name:        "list_journal_entries",
 		Description: "List the student's personal learning journal entries, most recent day first, each with its full content. Optionally filter by category, subcategory, or a free-text search over title/content. Defaults to the 20 most recent entries — pass limit for more (up to 1000); don't raise it just to browse, since every entry's full text counts against context.",
 		Scope:       ScopeJournal,
+		Permission:  journal.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1685,6 +1752,7 @@ var tools = []mcpTool{
 		Name:        "find_similar_journal_entries",
 		Description: "Check whether the student has already logged something with a closely-matching title in their learning journal — call this before create_journal_entry to avoid logging a near-duplicate under a slightly different title.",
 		Scope:       ScopeJournal,
+		Permission:  journal.PermUse,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"title": map[string]any{"type": "string"}},
@@ -1702,6 +1770,7 @@ var tools = []mcpTool{
 		Name:        "create_journal_entry",
 		Description: "Add a new entry to the student's personal learning journal — what they learned, under a free-typed category -> subcategory path (e.g. \"Backend\" / \"Redis\", \"DSA\" / \"Graphs\", \"English\" / \"Modal Verbs\"). entry_date defaults to today if omitted. The response includes similar_entries — any of the student's own past entries with a closely-matching title — mention it to the student rather than logging a silent duplicate.",
 		Scope:       ScopeJournal,
+		Permission:  journal.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1751,6 +1820,7 @@ var tools = []mcpTool{
 		Name:        "update_journal_entry",
 		Description: "Edit an existing journal entry the student owns. Only the given fields change.",
 		Scope:       ScopeJournal,
+		Permission:  journal.PermUse,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1800,6 +1870,7 @@ var tools = []mcpTool{
 		Name:        "delete_journal_entry",
 		Description: "Permanently delete a journal entry the student owns.",
 		Scope:       ScopeJournal,
+		Permission:  journal.PermUse,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"entry_id": map[string]any{"type": "string"}},
@@ -1842,6 +1913,7 @@ var tools = []mcpTool{
 		Name:        "list_habits",
 		Description: "List the student's habits and their check-off history for one calendar month, including the weekly rows that span into the prior month. month defaults to the current month.",
 		Scope:       ScopeHabits,
+		Permission:  permActiveMember,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"month": map[string]any{"type": "string", "description": "YYYY-MM, defaults to the current month."}},
@@ -1855,6 +1927,7 @@ var tools = []mcpTool{
 		Name:        "create_habit",
 		Description: "Create a new habit for the student to track. cadence is one of: daily, weekly, monthly. For a weekly habit, either set target_count above 1 (\"any N times a week\") or weekdays (specific days, Sunday=0..Saturday=6) — not both.",
 		Scope:       ScopeHabits,
+		Permission:  permActiveMember,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1912,6 +1985,7 @@ var tools = []mcpTool{
 		Name:        "update_habit",
 		Description: "Change an existing habit's color, icon, and/or tags — the only attributes changeable after creation. Only the given fields change.",
 		Scope:       ScopeHabits,
+		Permission:  permActiveMember,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1963,6 +2037,7 @@ var tools = []mcpTool{
 		Name:        "delete_habit",
 		Description: "Permanently delete a habit the student owns, including its full check-off history.",
 		Scope:       ScopeHabits,
+		Permission:  permActiveMember,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"habit_id": map[string]any{"type": "string"}},
@@ -2007,6 +2082,7 @@ var tools = []mcpTool{
 		Name:        "set_habit_completion",
 		Description: "Check off a habit for one period (a day, or the Monday of a week for weekly habits). Calling this again on an already-checked \"any N times a week\" habit adds another check-in, capped at its target_count.",
 		Scope:       ScopeHabits,
+		Permission:  permActiveMember,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -2037,6 +2113,7 @@ var tools = []mcpTool{
 		Name:        "clear_habit_completion",
 		Description: "Unmark a habit's check-off for one period.",
 		Scope:       ScopeHabits,
+		Permission:  permActiveMember,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -2067,19 +2144,21 @@ var tools = []mcpTool{
 		Name:        "list_wiki_spaces",
 		Description: "List the org's wiki spaces (topic containers) visible to the connected user.",
 		Scope:       ScopeWikiRead,
+		Permission:  wiki.PermAccess,
 		InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
 		Call: func(ctx context.Context, rt *Router, id mcpIdentity, _ map[string]any) (any, error) {
-			orgRole, err := resolveOrgRole(ctx, rt, id)
+			acc, err := resolveWikiAccess(ctx, rt, id)
 			if err != nil {
 				return nil, err
 			}
-			return rt.wikiSvc.ListSpaces(ctx, id.OrgID, id.UserID, orgRole)
+			return rt.wikiSvc.ListSpaces(ctx, id.OrgID, id.UserID, acc)
 		},
 	},
 	{
 		Name:        "get_wiki_space",
 		Description: "Get a wiki space's metadata plus its full nested page tree (titles/slugs only, no content) by slug.",
 		Scope:       ScopeWikiRead,
+		Permission:  wiki.PermAccess,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"slug": map[string]any{"type": "string"}},
@@ -2091,17 +2170,18 @@ var tools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			orgRole, err := resolveOrgRole(ctx, rt, id)
+			acc, err := resolveWikiAccess(ctx, rt, id)
 			if err != nil {
 				return nil, err
 			}
-			return rt.wikiSvc.GetSpace(ctx, id.OrgID, id.UserID, orgRole, slug)
+			return rt.wikiSvc.GetSpace(ctx, id.OrgID, id.UserID, acc, slug)
 		},
 	},
 	{
 		Name:        "search_wiki",
 		Description: "Full-text search published wiki pages, optionally scoped to one space by slug.",
 		Scope:       ScopeWikiRead,
+		Permission:  wiki.PermAccess,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -2122,6 +2202,7 @@ var tools = []mcpTool{
 		Name:        "find_similar_wiki_pages",
 		Description: "Check whether existing wiki pages already cover a topic, by title/summary text similarity — call this BEFORE create_wiki_page when starting a new page from scratch, to avoid writing a duplicate of something that already exists. (create_wiki_page and update_wiki_page already run this check on their own result, so you don't need to call this again right after using them.)",
 		Scope:       ScopeWikiRead,
+		Permission:  wiki.PermAccess,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -2141,6 +2222,7 @@ var tools = []mcpTool{
 		Name:        "get_wiki_page",
 		Description: "Read a wiki page as an OKF (Open Knowledge Format) markdown document — YAML frontmatter (title, status, and any provenance/trust fields the page carries) followed by the page body in markdown. To edit it, copy this output, change what's needed, and pass the whole document back to update_wiki_page.",
 		Scope:       ScopeWikiRead,
+		Permission:  wiki.PermAccess,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"page_id": map[string]any{"type": "string"}},
@@ -2152,11 +2234,11 @@ var tools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			orgRole, err := resolveOrgRole(ctx, rt, id)
+			acc, err := resolveWikiAccess(ctx, rt, id)
 			if err != nil {
 				return nil, err
 			}
-			md, err := rt.wikiSvc.GetPageOKF(ctx, id.OrgID, id.UserID, orgRole, pageID)
+			md, err := rt.wikiSvc.GetPageOKF(ctx, id.OrgID, id.UserID, acc, pageID)
 			if err != nil {
 				return nil, err
 			}
@@ -2167,6 +2249,7 @@ var tools = []mcpTool{
 		Name:        "get_wiki_knowledge_graph",
 		Description: "Build a knowledge graph for one wiki space: every page as a node, and a directed edge for every markdown link from one page to another within the space (OKF SPEC.md §6.1 treats any link between concepts as an untyped relationship edge). Use this to see how a space's pages relate before deciding where new content belongs, or to find orphaned/isolated pages.",
 		Scope:       ScopeWikiRead,
+		Permission:  wiki.PermAccess,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"space_slug": map[string]any{"type": "string"}},
@@ -2178,11 +2261,11 @@ var tools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			orgRole, err := resolveOrgRole(ctx, rt, id)
+			acc, err := resolveWikiAccess(ctx, rt, id)
 			if err != nil {
 				return nil, err
 			}
-			swt, err := rt.wikiSvc.GetSpace(ctx, id.OrgID, id.UserID, orgRole, spaceSlug)
+			swt, err := rt.wikiSvc.GetSpace(ctx, id.OrgID, id.UserID, acc, spaceSlug)
 			if err != nil {
 				return nil, err
 			}
@@ -2200,7 +2283,7 @@ var tools = []mcpTool{
 			// ever grows large enough for this to show up in latency.
 			var edges []map[string]any
 			for _, n := range flat {
-				md, err := rt.wikiSvc.GetPageOKF(ctx, id.OrgID, id.UserID, orgRole, n.ID)
+				md, err := rt.wikiSvc.GetPageOKF(ctx, id.OrgID, id.UserID, acc, n.ID)
 				if err != nil {
 					continue // a page that became unreadable mid-walk shouldn't fail the whole graph
 				}
@@ -2220,6 +2303,7 @@ var tools = []mcpTool{
 		Name:        "create_wiki_page",
 		Description: "Create a new wiki page from an OKF markdown document (frontmatter + body — see get_wiki_page's output for the shape). Requires manager permissions on the space (admin/instructor/mentor). The response includes possible_duplicates — other existing pages that look like they already cover this topic; check it before assuming this page is the only one on the subject.",
 		Scope:       ScopeWikiWrite,
+		Permission:  wiki.PermAccess,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -2244,11 +2328,11 @@ var tools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			orgRole, err := resolveOrgRole(ctx, rt, id)
+			acc, err := resolveWikiAccess(ctx, rt, id)
 			if err != nil {
 				return nil, err
 			}
-			p, err := rt.wikiSvc.CreatePage(ctx, id.OrgID, id.UserID, orgRole, spaceID, wiki.CreatePageRequest{
+			p, err := rt.wikiSvc.CreatePage(ctx, id.OrgID, id.UserID, acc, spaceID, wiki.CreatePageRequest{
 				Title: title, ParentID: optString(args, "parent_id"),
 			})
 			if err != nil {
@@ -2260,7 +2344,7 @@ var tools = []mcpTool{
 			// markdown submission leaves a stray empty page behind in the
 			// space instead of the call cleanly failing as a whole.
 			fail := func(err error) (any, error) {
-				_ = rt.wikiSvc.DeletePage(ctx, id.OrgID, id.UserID, orgRole, p.ID)
+				_ = rt.wikiSvc.DeletePage(ctx, id.OrgID, id.UserID, acc, p.ID)
 				return nil, err
 			}
 
@@ -2272,26 +2356,27 @@ var tools = []mcpTool{
 			if err != nil {
 				return fail(err)
 			}
-			saved, err := rt.wikiSvc.UpdatePage(ctx, id.OrgID, id.UserID, orgRole, p.ID, wiki.UpdatePageRequest{
+			saved, err := rt.wikiSvc.UpdatePage(ctx, id.OrgID, id.UserID, acc, p.ID, wiki.UpdatePageRequest{
 				Content: &content, Status: status, OKFMetadata: &stamped,
 			})
 			if err != nil {
 				return fail(err)
 			}
-			return withDuplicateCheck(ctx, rt, id.OrgID, id.UserID, orgRole, saved), nil
+			return withDuplicateCheck(ctx, rt, id.OrgID, id.UserID, acc, saved), nil
 		},
 		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
-			orgRole, err := resolveOrgRole(ctx, rt, id)
+			acc, err := resolveWikiAccess(ctx, rt, id)
 			if err != nil {
 				return err
 			}
-			return rt.wikiSvc.DeletePage(ctx, id.OrgID, id.UserID, orgRole, entry.TargetID)
+			return rt.wikiSvc.DeletePage(ctx, id.OrgID, id.UserID, acc, entry.TargetID)
 		},
 	},
 	{
 		Name:        "update_wiki_page",
 		Description: "Replace a wiki page's content with a new OKF markdown document (frontmatter + body — start from get_wiki_page's output, edit it, and pass the whole thing back). Requires manager permissions and, for instructor/mentor, page ownership. The response includes possible_duplicates — other existing pages that look like they already cover this topic.",
 		Scope:       ScopeWikiWrite,
+		Permission:  wiki.PermAccess,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -2306,11 +2391,11 @@ var tools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			orgRole, err := resolveOrgRole(ctx, rt, id)
+			acc, err := resolveWikiAccess(ctx, rt, id)
 			if err != nil {
 				return nil, err
 			}
-			return rt.wikiSvc.GetPage(ctx, id.OrgID, id.UserID, orgRole, pageID)
+			return rt.wikiSvc.GetPage(ctx, id.OrgID, id.UserID, acc, pageID)
 		},
 		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
 			pageID, err := argString(args, "page_id")
@@ -2321,7 +2406,7 @@ var tools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			orgRole, err := resolveOrgRole(ctx, rt, id)
+			acc, err := resolveWikiAccess(ctx, rt, id)
 			if err != nil {
 				return nil, err
 			}
@@ -2337,24 +2422,24 @@ var tools = []mcpTool{
 			if title != "" {
 				req.Title = &title
 			}
-			saved, err := rt.wikiSvc.UpdatePage(ctx, id.OrgID, id.UserID, orgRole, pageID, req)
+			saved, err := rt.wikiSvc.UpdatePage(ctx, id.OrgID, id.UserID, acc, pageID, req)
 			if err != nil {
 				return nil, err
 			}
-			return withDuplicateCheck(ctx, rt, id.OrgID, id.UserID, orgRole, saved), nil
+			return withDuplicateCheck(ctx, rt, id.OrgID, id.UserID, acc, saved), nil
 		},
 		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
 			var before wiki.PageDetail
 			if err := decodeBeforeState(entry, &before); err != nil {
 				return err
 			}
-			orgRole, err := resolveOrgRole(ctx, rt, id)
+			acc, err := resolveWikiAccess(ctx, rt, id)
 			if err != nil {
 				return err
 			}
 			content := before.Content
 			meta := before.OKFMetadata
-			_, err = rt.wikiSvc.UpdatePage(ctx, id.OrgID, id.UserID, orgRole, entry.TargetID, wiki.UpdatePageRequest{
+			_, err = rt.wikiSvc.UpdatePage(ctx, id.OrgID, id.UserID, acc, entry.TargetID, wiki.UpdatePageRequest{
 				Title: &before.Title, Content: &content, Status: &before.Status, OKFMetadata: &meta,
 			})
 			return err
@@ -2364,6 +2449,7 @@ var tools = []mcpTool{
 		Name:        "move_wiki_page",
 		Description: "Reparent a wiki page — nest it under a new parent, move it back to the space root, or reorder it among its siblings. Use this to organize already-created pages into a folder-like hierarchy (create_wiki_page only accepts parent_id at creation time; this is how to fix it up afterward, e.g. grouping several flat top-level pages on the same topic under one of them).",
 		Scope:       ScopeWikiWrite,
+		Permission:  wiki.PermAccess,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -2379,18 +2465,18 @@ var tools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			orgRole, err := resolveOrgRole(ctx, rt, id)
+			acc, err := resolveWikiAccess(ctx, rt, id)
 			if err != nil {
 				return nil, err
 			}
-			return rt.wikiSvc.GetPage(ctx, id.OrgID, id.UserID, orgRole, pageID)
+			return rt.wikiSvc.GetPage(ctx, id.OrgID, id.UserID, acc, pageID)
 		},
 		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
 			pageID, err := argString(args, "page_id")
 			if err != nil {
 				return nil, err
 			}
-			orgRole, err := resolveOrgRole(ctx, rt, id)
+			acc, err := resolveWikiAccess(ctx, rt, id)
 			if err != nil {
 				return nil, err
 			}
@@ -2399,7 +2485,7 @@ var tools = []mcpTool{
 			if parentID := optString(args, "parent_id"); parentID != nil && *parentID != "" {
 				req.ParentID, req.ClearParent = parentID, false
 			}
-			saved, err := rt.wikiSvc.UpdatePage(ctx, id.OrgID, id.UserID, orgRole, pageID, req)
+			saved, err := rt.wikiSvc.UpdatePage(ctx, id.OrgID, id.UserID, acc, pageID, req)
 			if err != nil {
 				return nil, err
 			}
@@ -2410,11 +2496,11 @@ var tools = []mcpTool{
 			if err := decodeBeforeState(entry, &before); err != nil {
 				return err
 			}
-			orgRole, err := resolveOrgRole(ctx, rt, id)
+			acc, err := resolveWikiAccess(ctx, rt, id)
 			if err != nil {
 				return err
 			}
-			_, err = rt.wikiSvc.UpdatePage(ctx, id.OrgID, id.UserID, orgRole, entry.TargetID, wiki.UpdatePageRequest{
+			_, err = rt.wikiSvc.UpdatePage(ctx, id.OrgID, id.UserID, acc, entry.TargetID, wiki.UpdatePageRequest{
 				ParentID: before.ParentID, ClearParent: before.ParentID == nil, OrderIndex: &before.OrderIndex,
 			})
 			return err
@@ -2463,9 +2549,9 @@ func newWikiPageResult(p wiki.Page) wikiPageResult {
 // duplicates in the same round trip instead of requiring a follow-up call
 // to find_similar_wiki_pages. A lookup failure here is logged away, not
 // fatal — the save itself already succeeded.
-func withDuplicateCheck(ctx context.Context, rt *Router, orgID, userID, orgRole string, p wiki.Page) any {
+func withDuplicateCheck(ctx context.Context, rt *Router, orgID, userID string, acc wiki.Access, p wiki.Page) any {
 	result := newWikiPageResult(p)
-	dupes, err := rt.wikiSvc.FindSimilarToPage(ctx, orgID, userID, orgRole, p.ID)
+	dupes, err := rt.wikiSvc.FindSimilarToPage(ctx, orgID, userID, acc, p.ID)
 	if err != nil {
 		return result
 	}
@@ -2473,16 +2559,19 @@ func withDuplicateCheck(ctx context.Context, rt *Router, orgID, userID, orgRole 
 	return result
 }
 
-// resolveOrgRole looks up the connected user's live org role — mcpIdentity
-// carries only OrgID/UserID (see mcp_auth.go), so wiki tools that gate on
-// role (admin/instructor/mentor vs. plain member) resolve it fresh here
-// rather than trusting a cached claim.
-func resolveOrgRole(ctx context.Context, rt *Router, id mcpIdentity) (string, error) {
-	role, ok := middleware.LiveOrgRole(ctx, rt.pool, id.UserID, id.OrgID)
-	if !ok {
-		return "", fmt.Errorf("mcpconnect: not an active member of this org")
+// resolveWikiAccess resolves the connected user's wiki Access from their live
+// permission set — mcpIdentity carries only OrgID/UserID (see mcp_auth.go),
+// so nothing cached in a token is trusted. A caller who is no longer an
+// active member is refused.
+func resolveWikiAccess(ctx context.Context, rt *Router, id mcpIdentity) (wiki.Access, error) {
+	if _, ok := middleware.LiveOrgRole(ctx, rt.pool, id.UserID, id.OrgID); !ok {
+		return wiki.Access{}, fmt.Errorf("mcpconnect: not an active member of this org")
 	}
-	return role, nil
+	acc, err := wiki.ResolveAccess(ctx, rt.perms, id.UserID, id.OrgID)
+	if err != nil {
+		return wiki.Access{}, fmt.Errorf("mcpconnect: %w", err)
+	}
+	return acc, nil
 }
 
 // mcpSheetItem is sheets.SheetItem with the full Notes TipTap JSON blob
@@ -2561,7 +2650,48 @@ func findTool(name string) (mcpTool, bool) {
 	return mcpTool{}, false
 }
 
-// callTool enforces the connection's granted scope before invoking a tool —
+// callerPermissions returns the caller's effective permission codes in the
+// connection's org (authz.Service, Redis-cached), refusing a caller who is no
+// longer an active member — so a removed member's still-valid token cannot
+// reach even the permActiveMember tools.
+func (rt *Router) callerPermissions(ctx context.Context, id mcpIdentity) (map[string]bool, error) {
+	if _, ok := middleware.LiveOrgRole(ctx, rt.pool, id.UserID, id.OrgID); !ok {
+		return nil, errNotOrgMember
+	}
+	list, err := rt.perms.GetEffectivePermissions(ctx, id.UserID, id.OrgID)
+	if err != nil {
+		return nil, fmt.Errorf("mcpconnect.callerPermissions: %w", err)
+	}
+	codes := make(map[string]bool, len(list))
+	for _, c := range list {
+		codes[c] = true
+	}
+	return codes, nil
+}
+
+// toolPermitted is the single permission gate for every tool: tools/call
+// and tools/list both route through it. Wiki tools mirror the REST front
+// gate exactly — content.wiki, or membership of any project workspace in the
+// org (wiki.IsProjectMember); the wiki service's per-space ACL still applies
+// inside the tool.
+func (rt *Router) toolPermitted(ctx context.Context, id mcpIdentity, codes map[string]bool, t mcpTool) (bool, error) {
+	switch {
+	case t.Permission == "":
+		return false, nil
+	case t.Permission == permActiveMember, codes[t.Permission]:
+		return true, nil
+	case t.Permission == wiki.PermAccess:
+		member, err := wiki.IsProjectMember(ctx, rt.pool, id.UserID, id.OrgID)
+		if err != nil {
+			return false, fmt.Errorf("mcpconnect.toolPermitted: %w", err)
+		}
+		return member, nil
+	}
+	return false, nil
+}
+
+// callTool enforces the connection's granted scope and the caller's
+// permission code (toolPermitted) before invoking a tool —
 // the single choke point every /mcp tools/call request passes through. This
 // is also where every call gets logged to mcp_action_log (before-state
 // captured first, so a later revert can restore it) — one instrumentation
@@ -2573,6 +2703,17 @@ func (rt *Router) callTool(ctx context.Context, id mcpIdentity, name string, arg
 	}
 	if !id.hasScope(tool.Scope) {
 		return nil, errMissingScope
+	}
+	codes, err := rt.callerPermissions(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	ok, err = rt.toolPermitted(ctx, id, codes, tool)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, errMissingPermission
 	}
 
 	var before any

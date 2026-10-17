@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/mindforge/backend/internal/authz/sysrole"
 	"github.com/mindforge/backend/internal/httputil"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
@@ -526,6 +527,10 @@ func (h *Handler) findOrCreateSocialUser(ctx context.Context, provider string, p
 		h.cfg.DefaultOrgID, userID,
 	); err != nil {
 		return "", false, fmt.Errorf("insert org_member: %w", err)
+	}
+	// Brand-new user ID, so no permission cache entry can exist to invalidate.
+	if err = sysrole.Sync(ctx, tx, h.cfg.DefaultOrgID, userID, "learner", ""); err != nil {
+		return "", false, fmt.Errorf("social user: %w", err)
 	}
 
 	if _, err = tx.Exec(ctx,

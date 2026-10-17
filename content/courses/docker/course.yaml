@@ -1,16 +1,19 @@
 title: "Docker Essentials"
 description: >-
-  A command-reference-driven Docker course covering the container architecture
-  (client, daemon, registry), the full container and image lifecycle, Dockerfile
-  authoring, networking, volumes, Docker Compose, Docker Hub, and monitoring/
-  cleanup commands — capped off with two worked, runnable examples (a WildFly
-  app server and a simple Python web server) that string the commands together
-  end to end.
+  Learn Docker from first principles to production in short, one-idea lessons:
+  what a container really is (namespaces, cgroups), images and layers, running
+  and debugging containers, writing fast and small Dockerfiles (build cache,
+  multi-stage builds, BuildKit), networking and volumes, Docker Compose and
+  registries, then security, healthchecks and resource limits, a troubleshooting
+  playbook and cleanup. Every lesson ends with self-check questions, every
+  section with a quiz, and hands-on labs run real Docker commands in a sandbox.
 difficulty: beginner
 tags:
   - docker
   - containers
   - devops
   - cli
+  - dockerfile
+  - docker-compose
 is_free: true
 cover_url: "/course-covers/docker.svg"

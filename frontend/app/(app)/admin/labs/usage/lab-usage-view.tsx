@@ -2,44 +2,9 @@ import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { UserLink } from "@/components/shared/user-link"
 import ROUTES from "@/lib/routes"
+import type { LabUsageResponse } from "@/lib/server/lab-usage"
 import { ResponsiveTable } from "@/components/ui/responsive-table";
-
-interface LabUsageRow {
-  lab_id: string
-  lab_title: string
-  image: string
-  sessions: number
-  container_seconds: number
-}
-
-interface CourseLabUsageRow {
-  course_id: string
-  course_title: string
-  sessions: number
-  student_count: number
-  container_seconds: number
-}
-
-interface StudentLabUsageRow {
-  user_id: string
-  name: string
-  email: string
-  sessions: number
-  container_seconds: number
-}
-
-interface OrgLabUsage {
-  total_container_seconds: number
-  total_sessions: number
-  by_lab: LabUsageRow[]
-}
-
-export interface LabUsageResponse {
-  window_days: number
-  org: OrgLabUsage
-  by_course: CourseLabUsageRow[]
-  by_student: StudentLabUsageRow[]
-}
+import { PageHeader } from "@/components/shared/page-header";
 
 // Compute cost is billed in seconds (lab_usage_events.quantity), but nobody
 // reading this page thinks in seconds — h/m matches how the rest of the app
@@ -84,22 +49,22 @@ export function LabUsageView({
 }) {
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Lab Compute Usage</h1>
-          <p className="text-muted-foreground mt-1 max-w-2xl">
+      <PageHeader
+        title="Lab Compute Usage"
+        description={<p className="text-muted-foreground mt-1 max-w-2xl">
             Container time billed to your org over the last {usage.window_days} days — paused
             sessions don&apos;t count, since idle-pause stops CPU billing.
-          </p>
+          </p>}
+        meta={
           <Link
             className="text-sm text-primary underline underline-offset-2 mt-2 inline-block"
             href={ROUTES.ADMIN_LABS_WARM_POOLS}
           >
             View warm pool sizing →
           </Link>
-        </div>
+        }>
         <WindowSwitcher days={days} options={windowOptions} />
-      </div>
+      </PageHeader>
 
       <div className="grid-stats mt-8">
         <div className="card-base p-6">

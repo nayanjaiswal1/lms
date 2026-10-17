@@ -6,6 +6,7 @@ import { getMyPermissions } from "@/lib/server/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
 import { InviteManager } from "./invite-manager";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Invite Members" };
 
@@ -89,15 +90,12 @@ export default async function OrgInvitesPage({ searchParams }: Props) {
     <main className="page-container">
       <Breadcrumb items={[{ label: "Organisation Settings", href: ROUTES.ORG_SETTINGS }, { label: "Invites" }]} />
 
-      <div className="page-header">
-        <div>
-          <h1 className="section-title">Invite Members</h1>
-          <p className="text-muted-foreground mt-1">
+      <PageHeader
+        title="Invite Members"
+        description={<p className="text-muted-foreground mt-1">
             Send invitations and manage pending, accepted, and revoked invites for{" "}
             <span className="font-medium text-foreground">{activeOrg.name}</span>.
-          </p>
-        </div>
-      </div>
+          </p>} />
 
       <InviteManager
         currentStatus={status}

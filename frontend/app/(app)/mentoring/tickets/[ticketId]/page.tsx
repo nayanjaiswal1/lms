@@ -79,8 +79,8 @@ export default async function TicketDetailPage({ params }: Props) {
 
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <h1 className="section-title">Ticket {truncateId(ticket.id)}</h1>
-          <p className="text-muted-foreground">
+          <h1 className="page-title">Ticket {truncateId(ticket.id)}</h1>
+          <p className="page-description">
             Student{" "}
             <UserLink className="hover:text-foreground hover:underline" userId={ticket.requester_id}>
               {truncateId(ticket.requester_id)}

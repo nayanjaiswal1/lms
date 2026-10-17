@@ -44,8 +44,8 @@ export default async function ResultsPage({ params }: PageProps) {
         ]}
       />
       <header className="mb-6 flex flex-col gap-1">
-        <h1 className="section-title">{detail.assessment.title}</h1>
-        <p className="text-muted-foreground">Results &amp; analytics</p>
+        <h1 className="page-title">{detail.assessment.title}</h1>
+        <p className="page-description">Results &amp; analytics</p>
       </header>
 
       <section className="grid-stats grid gap-4">

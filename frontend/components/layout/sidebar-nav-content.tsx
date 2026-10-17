@@ -4,8 +4,7 @@ import { HoverPrefetchLink } from "@/components/layout/hover-prefetch-link";
 import { usePathname } from "next/navigation";
 import { AccessGate } from "@/components/shared/access-gate";
 import { NavLinkHint } from "@/components/layout/nav-link-hint";
-import { useVisibleNavGroups, type NavGroup } from "@/lib/nav";
-import { PLATFORM_NAV_GROUPS } from "@/lib/platform-nav";
+import { useVisibleNavGroups, withPlatformGroups } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/lib/server/auth";
 
@@ -26,10 +25,7 @@ export function SidebarNavContent({ onNavigate, collapsed = false, user }: Props
   const groups = useVisibleNavGroups();
   const pathname = usePathname();
 
-  const visibleGroups: NavGroup[] =
-    user?.platform_role === "super_admin"
-      ? [...groups, ...PLATFORM_NAV_GROUPS]
-      : groups;
+  const visibleGroups = withPlatformGroups(groups, user);
 
   return (
     <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-y-auto px-3 py-6 mr-1">

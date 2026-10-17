@@ -49,7 +49,7 @@ export function Sidebar({ user }: Props) {
       >
         <div className={cn("flex items-center px-5 py-4 border-b border-sidebar-border overflow-hidden", collapsed && "justify-center px-3")}>
           <Link aria-label="Go to your home page" href={user?.default_landing_page || ROUTES.DASHBOARD}>
-            <BrandMark iconClassName="h-6 w-6" showName={!collapsed} />
+            <BrandMark showName={!collapsed} />
           </Link>
           {user && !collapsed && (
             <div className="ml-auto flex items-center">

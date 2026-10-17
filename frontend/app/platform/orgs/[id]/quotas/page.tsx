@@ -4,6 +4,7 @@ import { fetchPlatformStats } from "@/lib/jobs/admin-server";
 import { QuotaForm } from "@/app/platform/orgs/[id]/quotas/quota-form";
 import ROUTES from "@/lib/routes";
 import type { OrgJobStats } from "@/lib/jobs/types";
+import { PageHeader } from "@/components/shared/page-header";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -28,15 +29,12 @@ export default async function PlatformOrgQuotasPage({ params }: PageProps) {
         ]}
       />
 
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Edit Quota</h1>
-          <p className="text-muted-foreground mt-1">
+      <PageHeader
+        title="Edit Quota"
+        description={<p className="text-muted-foreground mt-1">
             Adjust job throughput limits for{" "}
             <strong>{orgStats.org_name}</strong>.
-          </p>
-        </div>
-      </div>
+          </p>} />
 
       <section className="mt-8">
         <h2 className="section-title mb-4">Current Usage</h2>

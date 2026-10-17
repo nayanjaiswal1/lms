@@ -23,7 +23,7 @@ export default async function MenteeProgressPage({ params }: MenteeProgressPageP
     <main className="page-container">
       <div className="mb-8 flex flex-col gap-2">
         <h1 className="page-title">{progress.student_name ?? "Mentee"}</h1>
-        <p className="text-muted-foreground">
+        <p className="page-description">
           What this mentee has done so far — open this before your next session together.
         </p>
       </div>

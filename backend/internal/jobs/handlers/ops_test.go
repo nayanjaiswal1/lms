@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/authz/sysrole"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/notifications"
@@ -118,6 +119,7 @@ func TestOpsDigest_SkipsWhenEmptyAndSummarisesOtherwise(t *testing.T) {
 	var admin string
 	require.NoError(t, pool.QueryRow(ctx, `INSERT INTO users (email, name) VALUES ('oa@ops.test','oa') RETURNING id`).Scan(&admin))
 	opsExec(t, pool, `INSERT INTO org_members (org_id, user_id, role) VALUES ($1,$2,'admin')`, org, admin)
+	require.NoError(t, sysrole.Sync(ctx, pool, org, admin, "admin", ""))
 	opsExec(t, pool, `INSERT INTO jobs (handler, status, org_id) VALUES ('retention.purge', 'dead', $1)`, org)
 	opsExec(t, pool, `INSERT INTO jobs (handler, status) VALUES ('email.send', 'dead')`)
 

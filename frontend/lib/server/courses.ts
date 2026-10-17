@@ -3,6 +3,14 @@ import "server-only";
 import { apiAction, apiGet, apiGetPublic, apiPost } from "@/lib/server/api";
 import type { BundleRef } from "@/lib/server/bundles";
 
+export interface InstructorPreview {
+  avatar_url: string | null;
+  headline: string | null;
+  bio: string | null;
+  profile_slug: string | null;
+  course_count: number;
+}
+
 export interface Course {
   id: string;
   org_id: string;
@@ -20,6 +28,7 @@ export interface Course {
   is_public: boolean;
   estimated_hours: number | null;
   instructor_name: string;
+  instructor?: InstructorPreview;
   avg_rating: number | null;
   review_count: number;
   disable_code_run: boolean;

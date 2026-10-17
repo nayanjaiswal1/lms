@@ -4,12 +4,14 @@ import { FileText } from "lucide-react";
 
 import { requireAccess } from "@/lib/server/features";
 import { FEATURES } from "@/lib/features";
-import { getOrgRole } from "@/lib/server/auth";
+import { getMyPermissions } from "@/lib/server/permissions";
+import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import { getWikiSpace, getWikiTemplates } from "@/lib/server/wiki";
 import { WikiSidebarTree } from "@/components/wiki/wiki-sidebar-tree";
 import { WikiSearch } from "@/components/wiki/wiki-search";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 interface Props {
   params: Promise<{ spaceSlug: string }>;
@@ -24,12 +26,12 @@ export default async function WikiSpacePage({ params }: Props) {
   await requireAccess(FEATURES.WIKI);
   const { spaceSlug } = await params;
 
-  const [space, templates, orgRole] = await Promise.all([
+  const [space, templates, perms] = await Promise.all([
     getWikiSpace(spaceSlug),
     getWikiTemplates(),
-    getOrgRole(),
+    getMyPermissions(),
   ]);
-  const canManage = orgRole === "admin" || orgRole === "instructor" || orgRole === "mentor";
+  const canManage = perms.includes(PERMISSIONS.WIKI.MANAGE_SPACES);
 
   const firstPage = firstNode(space.tree);
   if (firstPage) {
@@ -40,12 +42,12 @@ export default async function WikiSpacePage({ params }: Props) {
     <main className="page-container">
       <Breadcrumb items={[{ label: "Wiki", href: ROUTES.WIKI }, { label: space.name }]} />
 
-      <div className="page-header">
-        <div>
-          <h1 className="section-title">{space.name}</h1>
+      <PageHeader
+        title={space.name}
+        meta={
+          <>
           {space.description && <p className="text-sm text-muted-foreground">{space.description}</p>}
-        </div>
-      </div>
+          </>} />
 
       <div className="mb-6 max-w-md">
         <WikiSearch spaceSlug={spaceSlug} />

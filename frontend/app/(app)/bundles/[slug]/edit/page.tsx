@@ -5,6 +5,7 @@ import { getManagedBundleBySlug, getPickableCourses } from "@/lib/server/bundles
 import { getMyPermissions } from "@/lib/server/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata = { title: "Edit Bundle" };
 
@@ -29,9 +30,7 @@ export default async function EditBundlePage({ params }: Props) {
           { label: "Edit" },
         ]}
       />
-      <div className="page-header mb-6">
-        <h1 className="section-title">Edit Bundle</h1>
-      </div>
+      <PageHeader title="Edit Bundle" />
       <BundleEditor bundle={bundle} courses={courses} />
     </main>
   );

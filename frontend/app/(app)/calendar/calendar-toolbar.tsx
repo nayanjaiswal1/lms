@@ -1,8 +1,7 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Download, ListChecks, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, ListChecks, Plus, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -18,13 +17,11 @@ import { cn } from "@/lib/utils";
 interface CalendarToolbarProps {
   view: CalendarView;
   rangeLabel: string;
-  search: string;
   activeLayers: CalendarLayer[];
   tasksOnly: boolean;
   onViewChange: (view: CalendarView) => void;
   onNavigate: (direction: 1 | -1) => void;
   onToday: () => void;
-  onSearchChange: (value: string) => void;
   onToggleLayer: (layer: CalendarLayer) => void;
   onToggleTasksOnly: () => void;
   onNewEvent: () => void;
@@ -34,13 +31,11 @@ interface CalendarToolbarProps {
 export function CalendarToolbar({
   view,
   rangeLabel,
-  search,
   activeLayers,
   tasksOnly,
   onViewChange,
   onNavigate,
   onToday,
-  onSearchChange,
   onToggleLayer,
   onToggleTasksOnly,
   onNewEvent,
@@ -81,18 +76,6 @@ export function CalendarToolbar({
           />
 
           <div className="flex min-w-0 items-center gap-2 md:ml-auto">
-            <div className="relative min-w-0 flex-1 md:w-48 md:flex-none">
-              <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                aria-label="Search events by title or notes"
-                className="pl-9"
-                placeholder="Search…"
-                type="search"
-                value={search}
-                onChange={(e) => onSearchChange(e.target.value)}
-              />
-            </div>
-
             <DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>

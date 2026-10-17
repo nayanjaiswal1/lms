@@ -1,3 +1,5 @@
+import { requireAnyPermission } from "@/lib/server/permissions"
+import { ACCESS } from "@/lib/auth/permission-codes"
 import Link from "next/link"
 import { BookmarkCheck, ExternalLink, FileX, Sparkles } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -8,6 +10,7 @@ import type { Highlight } from "@/lib/server/highlights"
 import { getCurrentUser } from "@/lib/server/auth"
 import ROUTES from "@/lib/routes"
 import { cn } from "@/lib/utils"
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata = { title: "Saved Highlights" }
 
@@ -143,6 +146,7 @@ interface SavedHighlightsPageProps {
 }
 
 export default async function SavedHighlightsPage({ searchParams }: SavedHighlightsPageProps) {
+  await requireAnyPermission(ACCESS.PRACTICE)
   const { cursor } = await searchParams
   const [{ items: highlights, next_cursor: nextCursor }, user] = await Promise.all([
     getSavedHighlights(cursor),
@@ -152,16 +156,12 @@ export default async function SavedHighlightsPage({ searchParams }: SavedHighlig
 
   return (
     <main className="page-container-sm">
-      <div className="page-header">
-        <div className="flex items-center gap-3">
-          <BookmarkCheck aria-hidden className="size-6 text-primary" />
-          <h1 className="page-title">Saved Highlights</h1>
-        </div>
+      <PageHeader icon={<BookmarkCheck aria-hidden className="size-6 text-primary" />} title="Saved Highlights">
         <span className="text-sm text-muted-foreground">
           {highlights.length}
           {nextCursor ? "+" : ""} saved
         </span>
-      </div>
+      </PageHeader>
 
       {isSuperAdmin && (
         <div aria-label="Highlights view" className="flex gap-1 border-b border-border mb-6" role="tablist">

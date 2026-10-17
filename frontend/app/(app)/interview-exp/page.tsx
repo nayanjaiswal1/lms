@@ -7,6 +7,7 @@ import { listPosts } from "@/lib/server/interview-exp";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PostFilters } from "@/components/interview-exp/post-filters";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Interview Experiences" };
 
@@ -20,13 +21,11 @@ export default async function InterviewExpPage({ searchParams }: InterviewExpPag
 
   return (
     <main className="page-container-sm">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Interview Experiences</h1>
-          <p className="text-sm text-muted-foreground">
+      <PageHeader
+        title="Interview Experiences"
+        description={<p className="page-description">
             Company and position-tagged interview write-ups, Q&amp;A, and discussion — shared across every org.
-          </p>
-        </div>
+          </p>}>
         <div className="flex gap-2">
           <Button asChild variant="outline">
             <Link href={ROUTES.INTERVIEW_EXP_FAQ}>Frequently asked</Link>
@@ -35,7 +34,7 @@ export default async function InterviewExpPage({ searchParams }: InterviewExpPag
             <Link href={ROUTES.INTERVIEW_EXP_NEW}>Share an experience</Link>
           </Button>
         </div>
-      </div>
+      </PageHeader>
 
       <PostFilters />
 

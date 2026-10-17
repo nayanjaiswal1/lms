@@ -9,7 +9,6 @@ import (
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/httputil"
-	"github.com/mindforge/backend/internal/middleware"
 )
 
 type Handler struct {
@@ -68,8 +67,12 @@ func (h *Handler) GetFinalTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	courseID := chi.URLParam(r, "courseID")
-	if middleware.HasLiveOrgRole(r.Context(), h.pool, claims.UserID, claims.OrgID,
-		middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor) {
+	canEdit, err := h.authzSvc.HasPermission(r.Context(), claims.UserID, claims.OrgID, PermCoursesEdit)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Permission check failed.")
+		return
+	}
+	if canEdit {
 		ft, err := h.service.GetFinalTestForEdit(r.Context(), claims.OrgID, courseID)
 		if err != nil {
 			writeDomainError(w, err)
@@ -179,11 +182,14 @@ func (h *Handler) IssueCertificate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	courseID := chi.URLParam(r, "courseID")
-	// Live-looked-up org role, not claims.OrgRole: a demoted admin's stale
-	// JWT would otherwise skip the mentor-assignment check below (see
-	// middleware.LiveOrgRole).
-	liveRole, _ := middleware.LiveOrgRole(r.Context(), h.pool, claims.UserID, claims.OrgID)
-	cert, err := h.service.IssueByMentor(r.Context(), claims.OrgID, claims.UserID, liveRole, req.StudentID, courseID)
+	// Live permission set, not the JWT's org_role claim: a demoted admin's
+	// stale token must not skip the mentor-assignment check.
+	unscoped, err := h.authzSvc.HasPermission(r.Context(), claims.UserID, claims.OrgID, PermCoursesEdit)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Permission check failed.")
+		return
+	}
+	cert, err := h.service.IssueByMentor(r.Context(), claims.OrgID, claims.UserID, unscoped, req.StudentID, courseID)
 	if err != nil {
 		writeDomainError(w, err)
 		return

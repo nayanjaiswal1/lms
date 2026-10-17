@@ -4,6 +4,7 @@ import ROUTES from "@/lib/routes";
 import { getPublicSheets, getSheetItems, getUserSheets, type SheetItem } from "@/lib/server/sheets";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { TrackOrCombinePanel } from "@/components/sheets/track-or-combine-panel";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Create a sheet" };
 
@@ -22,15 +23,7 @@ export default async function NewSheetPage() {
   return (
     <main className="page-container-sm">
       <Breadcrumb items={[{ label: "Sheets", href: ROUTES.SHEETS }, { label: "New" }]} />
-      <div className="page-header">
-        <div>
-          <h1 className="section-title">Create a sheet</h1>
-          <p className="text-sm text-muted-foreground">
-            Track built-in lists, combine 2+ into one deduped sheet, or leave every sheet unchecked to build your
-            own from scratch.
-          </p>
-        </div>
-      </div>
+      <PageHeader title="Create a sheet" description="Track built-in lists, combine 2+ into one deduped sheet, or leave every sheet unchecked to build your own from scratch." />
 
       <TrackOrCombinePanel
         itemsBySheetId={itemsBySheetId}

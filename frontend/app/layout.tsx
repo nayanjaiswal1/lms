@@ -134,6 +134,7 @@ export default function RootLayout({
     <html
       suppressHydrationWarning
       className={`${plusJakarta.variable} ${jetbrainsMono.variable} ${gochiHand.variable}`}
+      data-scroll-behavior="smooth"
       lang="en"
     >
       <body>

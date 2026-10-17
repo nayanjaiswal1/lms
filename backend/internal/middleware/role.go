@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"slices"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool" //nolint:staticcheck // shared pool type
@@ -21,7 +20,18 @@ const (
 	RoleAdmin      = "admin"
 	RoleInstructor = "instructor"
 	RoleMentor     = "mentor"
+	RoleLearner    = "learner"
 )
+
+// OrgRoleRank orders org_members.role labels for "may the actor manage or
+// grant this role" checks. The single copy shared by orgs and authz.
+var OrgRoleRank = map[string]int{
+	RoleOwner:      5,
+	RoleAdmin:      4,
+	RoleMentor:     3,
+	RoleInstructor: 2,
+	RoleLearner:    1,
+}
 
 // Platform-level roles, mirrored from the users.platform_role CHECK constraint.
 const (
@@ -29,86 +39,11 @@ const (
 	PlatformRoleUser       = "user"
 )
 
-// RequireOrgRole returns middleware that allows the request only if the
-// authenticated user's role in the active org is one of the permitted roles.
-// It must be chained after RequireAuth, which populates the Claims in context.
-//
-// The role is read from the database, not from the JWT's org_role claim. The
-// claim is minted at sign-in and lives for ACCESS_TOKEN_TTL, so authorizing
-// against it meant a demoted admin kept admin on every route guarded here until
-// their token happened to expire — while RequireOrgMember, sitting in the same
-// chains, was already reading the live value. Two answers to "what may this
-// user do", and the guard used the stale one.
-//
-// When RequireOrgMember ran earlier in the chain it has already performed this
-// exact lookup, so its result is reused rather than queried a second time.
-func RequireOrgRole(pool *pgxpool.Pool, allowed ...string) func(http.Handler) http.Handler {
-	permitted := make(map[string]struct{}, len(allowed))
-	for _, role := range allowed {
-		permitted[role] = struct{}{}
-	}
-
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			claims, ok := auth.GetClaims(r.Context())
-			if !ok {
-				httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-				return
-			}
-
-			role, ok := liveOrgRole(r, pool, claims)
-			if !ok {
-				httputil.WriteError(w, http.StatusForbidden, "Not a member of this organization.")
-				return
-			}
-			if _, allowed := permitted[role]; !allowed {
-				httputil.WriteError(w, http.StatusForbidden, "You do not have permission to perform this action.")
-				return
-			}
-
-			// When RequireOrgMember resolved a different org (URL {id} or
-			// X-Org-Id), handlers act on that org, so the role must also
-			// qualify there; otherwise an admin of org A could operate on org B
-			// where they hold a lesser role.
-			if orgCtx, ok := GetOrgCtx(r.Context()); ok && orgCtx.OrgID != claims.OrgID {
-				if _, allowed := permitted[orgCtx.CallerRole]; !allowed {
-					httputil.WriteError(w, http.StatusForbidden, "You do not have permission to perform this action.")
-					return
-				}
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-// liveOrgRole resolves the caller's current role in their JWT's org
-// (claims.OrgID), preferring the value RequireOrgMember already resolved.
-// Reports false when the user is not an active member of that org.
-//
-// The org is always claims.OrgID, never the X-Org-Id request header: the
-// header is caller-controlled, and every handler downstream of this
-// authorization check writes using claims.OrgID, not the header. Trusting
-// the header here would let a caller pass the role check for an org they
-// pick (e.g. one they made themselves an admin of) while every write still
-// lands in their real JWT org — a cross-org privilege escalation.
-// RequireOrgMember is a separate, legitimate multi-org-switching flow and is
-// free to keep reading the header; this function is only for authorization
-// decisions.
-func liveOrgRole(r *http.Request, pool *pgxpool.Pool, claims *auth.Claims) (string, bool) {
-	if orgCtx, ok := GetOrgCtx(r.Context()); ok && orgCtx.OrgID == claims.OrgID {
-		return orgCtx.CallerRole, true
-	}
-	if claims.OrgID == "" {
-		return "", false
-	}
-	return LiveOrgRole(r.Context(), pool, claims.UserID, claims.OrgID)
-}
-
-// LiveOrgRole looks up userID's current role in orgID directly from the
-// database. Exported so handlers that authorize outside the RequireOrgRole
-// middleware chain — e.g. comparing against a role instead of gating the
-// whole route — can use the same live lookup instead of reading the stale
-// claims.OrgRole JWT claim (see the rationale on RequireOrgRole above).
+// LiveOrgRole looks up userID's current org_members.role label in orgID
+// directly from the database, never from the JWT's org_role claim (minted at
+// sign-in, it outlives a demotion). Authorization is permission-code based
+// (authz.RequirePermission); this label is only for membership checks,
+// ownership and the OrgRoleRank grant-ceiling rules.
 // Reports false when the user is not an active member of orgID.
 func LiveOrgRole(ctx context.Context, pool *pgxpool.Pool, userID, orgID string) (string, bool) {
 	if orgID == "" {
@@ -188,12 +123,4 @@ func RequirePlatformRole(pool *pgxpool.Pool, allowed ...string) func(http.Handle
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-// HasLiveOrgRole reports whether userID currently holds one of allowed in
-// orgID — the in-handler counterpart of RequireOrgRole, for one endpoint that
-// returns more (e.g. drafts) to privileged callers instead of gating the route.
-func HasLiveOrgRole(ctx context.Context, pool *pgxpool.Pool, userID, orgID string, allowed ...string) bool {
-	role, ok := LiveOrgRole(ctx, pool, userID, orgID)
-	return ok && slices.Contains(allowed, role)
 }

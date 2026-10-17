@@ -142,7 +142,7 @@ interface CalendarGridProps {
 export function CalendarGrid({ currentUserId, initialAnchor, initialEvents, initialError, initialView }: CalendarGridProps) {
   const [view, setView] = useQueryState("view", parseAsStringEnum<CalendarView>(VIEW_VALUES).withDefault(initialView));
   const [dateParam, setDateParam] = useQueryState("date", parseAsString.withDefault(initialAnchor));
-  const [search, setSearch] = useQueryState("q", parseAsString.withDefault(""));
+  const [search] = useQueryState("q", parseAsString.withDefault(""));
   const [activeLayers, setActiveLayers] = useQueryState(
     "layers",
     parseAsArrayOf(parseAsStringEnum<CalendarLayer>(ALL_LAYERS)).withDefault(ALL_LAYERS),
@@ -348,13 +348,11 @@ export function CalendarGrid({ currentUserId, initialAnchor, initialEvents, init
       <CalendarToolbar
         activeLayers={activeLayers}
         rangeLabel={formatRangeLabel(view, anchor)}
-        search={search}
         tasksOnly={tasksOnly}
         view={view}
         onExportIcs={() => void handleExportIcs()}
         onNavigate={handleNavigate}
         onNewEvent={handleNewEvent}
-        onSearchChange={(value) => void setSearch(value || null)}
         onToday={handleToday}
         onToggleLayer={handleToggleLayer}
         onToggleTasksOnly={handleToggleTasksOnly}

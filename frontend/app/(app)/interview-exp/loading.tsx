@@ -6,7 +6,7 @@ export default function InterviewExpLoading() {
       <div className="page-header">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-4 w-full max-w-md" />
+          <Skeleton className="h-5 w-full max-w-md" />
         </div>
         <div className="flex gap-2">
           <Skeleton className="h-9 w-32" />

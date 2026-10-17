@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Clock, Shuffle, Star } from "lucide-react";
+import { Clock, Loader2, Shuffle, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { getRandomTopicAction } from "@/lib/courses/actions";
@@ -33,11 +33,9 @@ export function RandomTopicCard({ initialTopic }: RandomTopicCardProps) {
 
   if (!topic) {
     return (
-      <div className="card-base flex items-center gap-3 p-5">
+      <div className="card-base flex items-center gap-3 p-4">
         <Shuffle aria-hidden className="h-5 w-5 shrink-0 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">
-          No courses are available to suggest yet — check back once your org has published some.
-        </p>
+        <p className="text-sm text-muted-foreground">Nothing to suggest yet.</p>
       </div>
     );
   }
@@ -45,8 +43,8 @@ export function RandomTopicCard({ initialTopic }: RandomTopicCardProps) {
   const { course } = topic;
 
   return (
-    <div className="card-base flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex min-w-0 flex-col gap-2">
+    <div className="card-base flex flex-col gap-3 p-4">
+      <div aria-busy={pending} className="flex min-w-0 flex-col gap-1.5">
         <div className="flex items-center gap-1.5">
           <Shuffle aria-hidden className="h-4 w-4 text-primary" />
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -54,16 +52,12 @@ export function RandomTopicCard({ initialTopic }: RandomTopicCardProps) {
           </span>
         </div>
 
-        <Link className="line-clamp-1 text-lg font-semibold leading-snug hover:underline" href={ROUTES.course(course.slug)}>
+        <Link className="line-clamp-1 text-base font-semibold leading-snug hover:underline" href={ROUTES.course(course.slug)}>
           {course.title}
         </Link>
 
-        {course.description && (
-          <p className="line-clamp-2 text-sm text-muted-foreground">{course.description}</p>
-        )}
-
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          <span className={`difficulty-${course.difficulty} rounded-full border px-2 py-0.5`}>
+          <span className={`difficulty-${course.difficulty} rounded-full border px-2 py-0.5 font-medium capitalize`}>
             {course.difficulty}
           </span>
           {course.estimated_hours && (
@@ -81,14 +75,15 @@ export function RandomTopicCard({ initialTopic }: RandomTopicCardProps) {
         </div>
       </div>
 
-      <div className="flex shrink-0 gap-2">
-        <Button asChild size="lg">
+      <div className="flex flex-wrap gap-2">
+        <Button asChild className="h-7 px-3 text-xs" size="sm">
           <Link href={ROUTES.course(course.slug)}>
             {topic.already_enrolled ? "Continue" : "Start learning"}
           </Link>
         </Button>
-        <Button aria-label="Try another random topic" disabled={pending} size="lg" variant="outline" onClick={handleReroll}>
-          {pending ? "…" : "Try another"}
+        <Button aria-label="Try another random topic" className="h-7 px-3 text-xs" disabled={pending} size="sm" variant="outline" onClick={handleReroll}>
+          {pending ? <Loader2 aria-hidden className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Shuffle aria-hidden className="mr-1.5 h-3.5 w-3.5" />}
+          Try another
         </Button>
       </div>
     </div>

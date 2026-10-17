@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Library } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { getBundles, getManagedBundles } from "@/lib/server/bundles";
 import ROUTES from "@/lib/routes";
@@ -10,6 +11,19 @@ interface BundleGridProps {
 
 // Bundles strip on /courses. Instructors see drafts too so they can find
 // what they're still building; renders nothing when there are no bundles.
+export function BundleGridSkeleton() {
+  return (
+    <div className="mb-8">
+      <Skeleton className="mb-4 h-6 w-24" />
+      <div className="card-grid">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton className="h-28 rounded-lg" key={i} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export async function BundleGrid({ canManage }: BundleGridProps) {
   const bundles = await (canManage ? getManagedBundles() : getBundles()).catch(() => []);
   if (bundles.length === 0) return null;

@@ -1,11 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryState } from "nuqs";
-import { Search as SearchIcon } from "lucide-react";
 import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
 import { apiFetch } from "@/lib/client/api";
 import type { WikiPageDetail, WikiSearchResult } from "@/lib/server/wiki";
 import ROUTES from "@/lib/routes";
@@ -19,30 +17,24 @@ interface WikiSearchProps {
 
 export function WikiSearch({ spaceSlug }: WikiSearchProps) {
   const router = useRouter();
-  const [query, setQuery] = useQueryState("q", { defaultValue: "" });
+  const [query] = useQueryState("q", { defaultValue: "" });
   const [results, setResults] = useState<WikiSearchResult[] | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function runSearch(q: string) {
-    if (timer.current) clearTimeout(timer.current);
-    if (q.trim().length < 2) {
+  useEffect(() => {
+    if (query.trim().length < 2) {
       setResults(null);
       return;
     }
-    timer.current = setTimeout(() => void doSearch(q), DEBOUNCE_MS);
-  }
+    const t = setTimeout(() => void doSearch(query), DEBOUNCE_MS);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- doSearch only reads query/spaceSlug
+  }, [query, spaceSlug]);
 
   async function doSearch(q: string) {
     const params = new URLSearchParams({ q });
     if (spaceSlug) params.set("space", spaceSlug);
     const data = await apiFetch<WikiSearchResult[]>(`/wiki/search?${params.toString()}`);
     setResults(data ?? []);
-  }
-
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const next = e.target.value;
-    void setQuery(next || null);
-    runSearch(next);
   }
 
   async function openResult(result: WikiSearchResult) {
@@ -56,10 +48,6 @@ export function WikiSearch({ spaceSlug }: WikiSearchProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative">
-        <SearchIcon aria-hidden className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input className="pl-9" placeholder="Search the wiki…" value={query} onChange={handleChange} />
-      </div>
       {results !== null && (
         <ul className="flex flex-col gap-2">
           {results.length === 0 && <p className="text-sm text-muted-foreground">No pages found.</p>}

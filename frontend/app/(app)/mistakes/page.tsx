@@ -4,6 +4,7 @@ import { MistakeTrendChart } from "@/components/mistakes/mistake-trend-chart";
 import { MistakeTimeline } from "@/components/mistakes/mistake-timeline";
 import { LoadMoreButton } from "@/components/shared/load-more-button";
 import { MISTAKE_CATEGORY_OPTIONS } from "@/lib/constants";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata = { title: "My Mistakes" };
 
@@ -32,15 +33,11 @@ export default async function MistakesPage({ searchParams }: MistakesPageProps) 
 
   return (
     <main className="page-container">
-      <div className="page-header">
-        <div className="flex items-center gap-3">
-          <Brain aria-hidden className="size-6 text-primary" />
-          <h1 className="page-title">My Mistakes</h1>
-        </div>
+      <PageHeader icon={<Brain aria-hidden className="size-6 text-primary" />} title="My Mistakes">
         <span className="text-sm text-muted-foreground">
           {entries.length >= limit ? `${entries.length}+ logged` : `${entries.length} logged`}
         </span>
-      </div>
+      </PageHeader>
 
       <div className="flex flex-col gap-8">
         <section className="card-base p-6">

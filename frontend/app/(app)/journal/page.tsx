@@ -8,6 +8,7 @@ import { JournalTopicsView } from "@/components/journal/journal-topics-view";
 import { JournalToolbar } from "@/components/journal/journal-toolbar";
 import { JournalViewTabs } from "@/components/journal/journal-view-tabs";
 import { LoadMoreButton } from "@/components/shared/load-more-button";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Learning Journal" };
 
@@ -37,12 +38,7 @@ export default async function JournalPage({ searchParams }: JournalPageProps) {
 
   return (
     <main className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Learning Journal</h1>
-          <p className="text-sm text-muted-foreground">What you learned, day by day.</p>
-        </div>
-      </div>
+      <PageHeader title="Learning Journal" description="What you learned, day by day." />
 
       <div className="mb-4">
         <JournalViewTabs />

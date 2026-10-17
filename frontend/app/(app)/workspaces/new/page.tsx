@@ -19,8 +19,8 @@ export default async function NewWorkspacePage() {
     <main className="page-container-sm">
       <Breadcrumb items={[{ label: "Workspaces", href: ROUTES.WORKSPACES }, { label: "New" }]} />
       <header className="mb-6 flex flex-col gap-1">
-        <h1 className="section-title">New workspace</h1>
-        <p className="text-muted-foreground">You&apos;ll become the owner — invite a manager once the team forms.</p>
+        <h1 className="page-title">New workspace</h1>
+        <p className="page-description">You&apos;ll become the owner — invite a manager once the team forms.</p>
       </header>
       <CreateProjectForm />
     </main>

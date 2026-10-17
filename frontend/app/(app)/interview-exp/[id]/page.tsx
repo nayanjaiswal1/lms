@@ -7,6 +7,7 @@ import { AddQnaForm } from "@/components/interview-exp/add-qna-form";
 import { AddEntryForm } from "@/components/interview-exp/add-entry-form";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 interface InterviewExpDetailPageProps {
   params: Promise<{ id: string }>;
@@ -27,12 +28,13 @@ export default async function InterviewExpDetailPage({ params }: InterviewExpDet
       <Breadcrumb
         items={[{ href: ROUTES.INTERVIEW_EXP, label: "Interview Experiences" }, { label: post.title }]}
       />
-      <div className="page-header">
-        <div>
-          <h1 className="section-title">{post.title}</h1>
-          <p className="text-sm text-muted-foreground">
+      <PageHeader
+        title={post.title}
+        description={<p className="page-description">
             {post.company} · {post.position}
-          </p>
+          </p>}
+        meta={
+          <>
           {post.tags.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {post.tags.map((t) => (
@@ -42,8 +44,7 @@ export default async function InterviewExpDetailPage({ params }: InterviewExpDet
               ))}
             </div>
           )}
-        </div>
-      </div>
+          </>} />
 
       {post.entries.length > 0 && (
         <section className="mt-6 flex flex-col gap-6">

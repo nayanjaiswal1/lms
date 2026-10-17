@@ -4,6 +4,7 @@ import { TrendingUp, TrendingDown, Minus, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getStudentProgress } from "@/lib/assessments/server";
 import type { SkillTrend } from "@/lib/assessments/types";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Interview Readiness" };
 
@@ -15,9 +16,7 @@ export default async function InterviewProgressPage() {
 
   return (
     <main className="page-container">
-      <div className="page-header">
-        <h1 className="page-title">Interview Readiness</h1>
-      </div>
+      <PageHeader title="Interview Readiness" />
 
       <div className="grid-stats mb-8">
         <StatCard label="Total evaluated" value={String(progress.total_evaluated)} />

@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/authz/sysrole"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/pagination"
 )
@@ -478,6 +479,17 @@ func (s *InviteService) Join(ctx context.Context, req JoinOrgRequest, userID str
 		}
 	}
 
+	// The label before this join (if any membership row exists), so a
+	// re-activated member who takes the invite's role loses the system role
+	// mapped from their old label. Locked so the upsert below reads the same row.
+	var prevRole string
+	if err := tx.QueryRow(ctx,
+		`SELECT role FROM org_members WHERE org_id = $1 AND user_id = $2 FOR UPDATE`,
+		inv.OrgID, userID,
+	).Scan(&prevRole); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("orgs: join: lookup existing member: %w", err)
+	}
+
 	// Never demote: an already-active member keeps their current role (an
 	// admin clicking a learner invite stays admin). Only a new or inactive
 	// membership takes the invite's role.
@@ -494,8 +506,8 @@ func (s *InviteService) Join(ctx context.Context, req JoinOrgRequest, userID str
 		return nil, fmt.Errorf("orgs: join: upsert member: %w", err)
 	}
 
-	if err := syncTenantAdminRole(ctx, tx, inv.OrgID, userID, effectiveRole); err != nil {
-		return nil, fmt.Errorf("orgs: join: sync tenant_admin role: %w", err)
+	if err := sysrole.Sync(ctx, tx, inv.OrgID, userID, effectiveRole, prevRole); err != nil {
+		return nil, fmt.Errorf("orgs: join: %w", err)
 	}
 
 	if projectLinked {

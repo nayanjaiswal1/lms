@@ -4,12 +4,14 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/mindforge/backend/internal/auth"
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/httputil"
-	"github.com/mindforge/backend/internal/middleware"
 )
+
+// PermModerate gates moderation (resolve/pin/promote, FAQ management) and
+// lets its holders read and delete every message in the org's batches.
+const PermModerate = "messaging.moderate"
 
 const (
 	defaultSimilarFAQThreshold = 0.3
@@ -19,7 +21,18 @@ const (
 type Handler struct {
 	service *Service
 	repo    *Repo
-	pool    *pgxpool.Pool
+	perms   *authz.Service
+}
+
+// canModerate reports whether the caller holds messaging.moderate, writing
+// the 500 itself when the lookup fails.
+func (h *Handler) canModerate(w http.ResponseWriter, r *http.Request, claims *auth.Claims) (moderate, ok bool) {
+	moderate, err := h.perms.HasPermission(r.Context(), claims.UserID, claims.OrgID, PermModerate)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Permission check failed.")
+		return false, false
+	}
+	return moderate, true
 }
 
 var domainErrors = map[error]httputil.ErrSpec{
@@ -43,7 +56,11 @@ func (h *Handler) ListMessages(w http.ResponseWriter, r *http.Request) {
 		Unresolved: httputil.QueryBool(r, "unresolved"),
 		Pinned:     httputil.QueryBool(r, "pinned"),
 	}
-	msgs, err := h.repo.ListMessages(r.Context(), claims.OrgID, batchID, claims.UserID, f)
+	moderate, ok := h.canModerate(w, r, claims)
+	if !ok {
+		return
+	}
+	msgs, err := h.repo.ListMessages(r.Context(), claims.OrgID, batchID, claims.UserID, moderate, f)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -99,11 +116,13 @@ func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	msgID := chi.URLParam(r, "msgID")
-	// Live-looked-up org role, not claims.OrgRole: a demoted staff member's
-	// stale JWT would otherwise keep the "any staff can delete any message"
-	// privilege until token expiry (see middleware.LiveOrgRole).
-	liveRole, _ := middleware.LiveOrgRole(r.Context(), h.pool, claims.UserID, claims.OrgID)
-	if err := h.service.DeleteMessage(r.Context(), claims.OrgID, msgID, claims.UserID, liveRole); err != nil {
+	// Live permission set, not the JWT's org_role claim: a demoted moderator's
+	// stale token must not keep "delete any message" until it expires.
+	moderate, ok := h.canModerate(w, r, claims)
+	if !ok {
+		return
+	}
+	if err := h.service.DeleteMessage(r.Context(), claims.OrgID, msgID, claims.UserID, moderate); err != nil {
 		writeDomainError(w, err)
 		return
 	}

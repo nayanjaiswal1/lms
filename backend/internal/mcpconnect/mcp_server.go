@@ -74,7 +74,7 @@ func (rt *Router) HandleMCP(w http.ResponseWriter, r *http.Request) {
 	case "notifications/initialized":
 		w.WriteHeader(http.StatusAccepted)
 	case "tools/list":
-		rt.rpcToolsList(w, req)
+		rt.rpcToolsList(w, r, req, id)
 	case "tools/call":
 		rt.rpcToolsCall(w, r, req, id)
 	default:
@@ -94,9 +94,30 @@ func (rt *Router) rpcInitialize(w http.ResponseWriter, req rpcRequest) {
 	})
 }
 
-func (rt *Router) rpcToolsList(w http.ResponseWriter, req rpcRequest) {
+// rpcToolsList lists only the tools this caller can actually call — the
+// connection holds the tool's scope and the caller passes toolPermitted —
+// so a client never offers its model a tool that would always fail.
+func (rt *Router) rpcToolsList(w http.ResponseWriter, r *http.Request, req rpcRequest, id mcpIdentity) {
+	codes, err := rt.callerPermissions(r.Context(), id)
+	if err != nil {
+		slog.Warn("mcpconnect: tools/list permission lookup failed", "user_id", id.UserID, "error", err)
+		writeRPCError(w, req.ID, rpcInternalError, err.Error())
+		return
+	}
 	defs := make([]map[string]any, 0, len(tools))
 	for _, t := range tools {
+		if !id.hasScope(t.Scope) {
+			continue
+		}
+		ok, err := rt.toolPermitted(r.Context(), id, codes, t)
+		if err != nil {
+			slog.Warn("mcpconnect: tools/list permission check failed", "tool", t.Name, "user_id", id.UserID, "error", err)
+			writeRPCError(w, req.ID, rpcInternalError, "Internal error")
+			return
+		}
+		if !ok {
+			continue
+		}
 		defs = append(defs, map[string]any{
 			"name":        t.Name,
 			"description": t.Description,

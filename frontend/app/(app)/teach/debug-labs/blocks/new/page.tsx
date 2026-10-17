@@ -6,6 +6,7 @@ import { TEXT_BLOCK_KINDS } from "@/lib/labs/builder/options";
 import { requireBlockManager, requireLabAuthor } from "@/lib/labs/builder/server";
 import { isTextKind } from "@/lib/labs/builder/text-blocks";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "New block" };
 
@@ -23,14 +24,10 @@ export default async function NewBlockPage({ searchParams }: NewBlockPageProps) 
   return (
     <main className="page-container-sm flex flex-col gap-6">
       <BackLink href={ROUTES.LAB_BUILDER_BLOCKS} label="Block library" />
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">{chosen ? `New ${chosen.label.toLowerCase()} block` : "New block"}</h1>
-          <p className="text-sm text-muted-foreground">
-            {chosen?.description ?? "Text blocks are written in the browser and shared with your organization."}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        description={chosen?.description ?? "Text blocks are written in the browser and shared with your organization."}
+        title={chosen ? `New ${chosen.label.toLowerCase()} block` : "New block"}
+      />
       {chosen ? (
         <TextBlockForm kind={chosen.kind} />
       ) : (

@@ -6,6 +6,7 @@ import { ResponsiveTable } from "@/components/ui/responsive-table";
 import { BuildStatusBadge } from "@/components/labs/builder/build-status-badge";
 import { getRecipes, requireLabAuthor } from "@/lib/labs/builder/server";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Debug labs" };
 
@@ -16,8 +17,7 @@ export default async function DebugLabBuilderPage() {
 
   return (
     <main className="page-container flex flex-col gap-4">
-      <div className="page-header py-2">
-        <h1 className="page-title">Debug labs</h1>
+      <PageHeader title="Debug labs">
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
             <Link href={ROUTES.LAB_BUILDER_BLOCKS}>
@@ -32,7 +32,7 @@ export default async function DebugLabBuilderPage() {
             </Link>
           </Button>
         </div>
-      </div>
+      </PageHeader>
 
       {recipes.length === 0 ? (
         <div className="empty-state">

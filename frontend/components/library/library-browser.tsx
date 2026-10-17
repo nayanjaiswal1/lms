@@ -1,11 +1,11 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { useQueryState } from "nuqs";
 import { toast } from "sonner";
-import { Loader2, Search } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -61,7 +61,7 @@ export function LibraryBrowser({ initialPage }: LibraryBrowserProps) {
   const [isSearching, startSearch] = useTransition();
   const [isPreviewing, startPreview] = useTransition();
   const [isWorking, startWork] = useTransition();
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [query] = useQueryState("q", { defaultValue: "" });
 
   function runSearch(query: string, kind: LibraryKind | "all") {
     startSearch(async () => {
@@ -70,11 +70,16 @@ export function LibraryBrowser({ initialPage }: LibraryBrowserProps) {
     });
   }
 
-  function handleQueryChange(query: string) {
-    setList((prev) => ({ ...prev, query }));
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runSearch(query, list.kind), DEBOUNCE_MS);
-  }
+  // Query comes from the top-bar search (`?q=`).
+  useEffect(() => {
+    if (query === list.query) return;
+    const t = setTimeout(() => {
+      setList((prev) => ({ ...prev, query }));
+      runSearch(query, list.kind);
+    }, DEBOUNCE_MS);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runSearch is recreated each render
+  }, [query]);
 
   function handleKindChange(kind: LibraryKind | "all") {
     setList((prev) => ({ ...prev, kind }));
@@ -141,16 +146,6 @@ export function LibraryBrowser({ initialPage }: LibraryBrowserProps) {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
       <div className="flex min-w-0 flex-col gap-3">
-        <div className="relative">
-          <Search aria-hidden className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            aria-label="Search the library"
-            className="pl-9"
-            placeholder="Search labs, quizzes, notes…"
-            value={list.query}
-            onChange={(e) => handleQueryChange(e.target.value)}
-          />
-        </div>
         <div className="flex flex-wrap gap-1.5" role="tablist">
           {KIND_FILTERS.map((f) => (
             <Button aria-selected={list.kind === f.value}

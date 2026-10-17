@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/mindforge/backend/internal/auth"
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/jobs"
@@ -24,6 +25,9 @@ type Handler struct {
 	rewardsSvc  *rewards.Service
 	coursesSvc  *courses.Service
 	store       storage.StorageClient
+	// authzSvc is set by RegisterRoutes; it flushes cached permission sets
+	// when a batch invitation creates an org membership.
+	authzSvc *authz.Service
 }
 
 // NewHandler builds the assessment HTTP handler and its dependency graph.

@@ -82,8 +82,8 @@ export default async function ProctoringLogPage({ params, searchParams }: PagePr
       <header className="mb-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="section-title">Proctoring Log</h1>
-            <p className="text-muted-foreground">
+            <h1 className="page-title">Proctoring Log</h1>
+            <p className="page-description">
               Attempt #{attempt.attempt_number} · {attempt.status}
             </p>
           </div>

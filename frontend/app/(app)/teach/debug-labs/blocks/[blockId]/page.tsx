@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { canManageBlocks, getBlock, isPlatformAdmin, requireLabAuthor } from "@/lib/labs/builder/server";
 import { isTextKind } from "@/lib/labs/builder/text-blocks";
 import ROUTES from "@/lib/routes";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Block" };
 
@@ -27,16 +28,17 @@ export default async function BlockPage({ params }: BlockPageProps) {
   return (
     <main className="page-container-sm flex flex-col gap-6">
       <BackLink href={ROUTES.LAB_BUILDER_BLOCKS} label="Block library" />
-      <div className="page-header">
-        <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap gap-1.5">
+      <PageHeader
+        badge={
+          <>
             <Badge className="badge-info" variant="outline">{block.kind}</Badge>
             <Badge className="badge-muted" variant="outline">{block.stack}</Badge>
             {latest?.difficulty && <Badge className="badge-muted" variant="outline">{latest.difficulty}</Badge>}
-          </div>
-          <h1 className="page-title">{latest?.title ?? block.block_key}</h1>
-          <p className="break-all font-mono text-xs text-muted-foreground">{block.block_key}</p>
-        </div>
+          </>
+        }
+        description={<p className="page-description break-all font-mono">{block.block_key}</p>}
+        title={latest?.title ?? block.block_key}
+      >
         {editable && (
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
@@ -48,7 +50,7 @@ export default async function BlockPage({ params }: BlockPageProps) {
             <TextBlockDeleteButton blockId={block.id} />
           </div>
         )}
-      </div>
+      </PageHeader>
       {latest?.summary && <p className="text-sm">{latest.summary}</p>}
       {(latest?.requires?.length ?? 0) > 0 && (
         <p className="text-sm text-muted-foreground">Requires: {latest?.requires?.join(", ")}</p>

@@ -37,7 +37,7 @@ A user's effective permissions are the union of all permissions granted through 
 | Cross-tenant probing returns identical 404 | No existence leakage about other orgs' roles |
 | Cache always comes from Redis; DB is always authoritative | A Redis failure falls through to the DB, never blocks the request |
 
-**One deliberate exception to "roles are bags of permissions":** `user_permission_overrides` (§2) lets an admin grant a single permission straight to a user, bypassing roles, for a one-off case that doesn't warrant creating or editing a role. It is a parallel table `GetEffectivePermissions` unions in — role resolution itself is untouched — and every grant/revoke is audited (`user.permission.grant` / `user.permission.revoke`) and cache-invalidated exactly like a role assignment. Prefer a role for anything recurring; reach for an override only for genuine one-offs.
+**One deliberate exception to "roles are bags of permissions":** `user_permission_overrides` (§2) lets an admin grant a single permission straight to a user, bypassing roles, for a one-off case that doesn't warrant creating or editing a role. It is a parallel table the `effective_permissions` view unions in — role resolution itself is untouched — and every grant/revoke is audited (`user.permission.grant` / `user.permission.revoke`) and cache-invalidated exactly like a role assignment. Prefer a role for anything recurring; reach for an override only for genuine one-offs.
 
 ---
 
@@ -102,6 +102,8 @@ PRIMARY KEY (user_id, role_id, org_id)
 
 `org_id` is always set (never NULL). This is the **authoritative grant scope** — a system role assigned here only grants access within this tenant.
 
+**Single source of access.** `user_roles` (plus `user_permission_overrides`) is the only input to permission resolution; `org_members.role` is a label. Every write of that label goes through one writer, `sysrole.Sync` (`backend/internal/authz/sysrole`), in the same transaction as the `org_members` insert/update: org create, org-invite join, member role change, password and social signup, `auth.FindOrCreateUserByEmail` (calendar invites), and batch-invitation accept. Mapping: `owner`/`admin` → `tenant_admin`, `instructor` → `instructor`, `mentor` → `mentor`, `learner` → `member`. On a label change it revokes only the role mapped from the old label (owner ↔ admin keeps `tenant_admin`) and never touches extra roles granted through the RBAC admin. Inserts that hit an existing membership (`ON CONFLICT DO NOTHING`) leave its roles alone. Removal deletes every `user_roles`/override row for the org in the removal transaction. Callers flush the Redis permission cache after commit. Migration `008_rbac_membership_backfill` granted the mapped role to existing active/suspended staff missing it and `member` to learners with no role at all; its rows are tracked in `rbac_backfill_008` so the down migration removes exactly those.
+
 **Trigger:** `trg_user_role_org_scope` (function: `fn_check_user_role_org_scope`) fires BEFORE INSERT OR UPDATE. It rejects any attempt to assign a tenant-owned role under a different tenant's `org_id`. System roles (role's `org_id IS NULL`) pass unconditionally.
 
 Indexes:
@@ -123,9 +125,31 @@ granted_at    TIMESTAMPTZ DEFAULT now()
 PRIMARY KEY (user_id, org_id, permission_id)
 ```
 
-No tenant-scope trigger (unlike `user_roles`): `permissions` has no `org_id` at all — it's a global vocabulary — so there's no tenant-mismatch case to guard against. `GetEffectivePermissions` (`repo.go`) `UNION`s this table with the role-resolution query; nothing else in the resolution/cache layer changes.
+No tenant-scope trigger (unlike `user_roles`): `permissions` has no `org_id` at all — it's a global vocabulary — so there's no tenant-mismatch case to guard against. The `effective_permissions` view (below) `UNION`s this table with the role-resolution join; nothing else in the resolution/cache layer changes.
 
 Index: `idx_user_permission_overrides_user_tenant ON user_permission_overrides(user_id, org_id)`
+
+### `effective_permissions` (view)
+
+**Introduced by:** migration `009_staff_permission_codes.sql`.
+
+The single definition of "user U holds code C in org O" — columns `(user_id, org_id, code)`:
+
+```sql
+SELECT ur.user_id, ur.org_id, p.code
+FROM user_roles ur
+JOIN roles r            ON r.id = ur.role_id AND r.is_active
+JOIN role_permissions rp ON rp.role_id = r.id
+JOIN permissions p      ON p.id = rp.permission_id AND p.is_active
+JOIN org_members om     ON om.org_id = ur.org_id AND om.user_id = ur.user_id AND om.status = 'active'
+UNION
+SELECT upo.user_id, upo.org_id, p.code
+FROM user_permission_overrides upo
+JOIN permissions p  ON p.id = upo.permission_id AND p.is_active
+JOIN org_members om ON om.org_id = upo.org_id AND om.user_id = upo.user_id AND om.status = 'active'
+```
+
+Every reader goes through it: `authz.Repo.GetEffectivePermissions` (per-user, behind the Redis cache), `authz.Repo.OrgPermissionHolders` / `Service.OrgPermissionHolders` (recipient lists: lab circuit-breaker and ops alerts → `admin.manage_org`; mentor escalations → `mentoring.claim_tickets` / `mentoring.assign_tickets`; ticket staff emails → the ticket kind's manage code), `courses.Repo.IsOrgStaff` (`courses.edit`), and `auth`'s MFA-mandatory check (`admin.manage_org` or `admin.manage_roles` in any org — `auth` cannot import `authz`, so it queries the view directly). Never re-join `user_roles → role_permissions` by hand: those copies skipped overrides, `is_active` and suspended memberships.
 
 ### `audit_log`
 
@@ -155,7 +179,7 @@ All inserts use `ON CONFLICT DO NOTHING` — safe to re-run.
 
 ### Permission Catalogue
 
-The count below drifts every time a permission is added — treat it as a snapshot, not a contract. For the exhaustive, current list, grep `INSERT INTO public.permissions` across `backend/db/migrations/*.sql` (`001_baseline.sql` seeds 53 codes as of 2026-10-17).
+The count below drifts every time a permission is added — treat it as a snapshot, not a contract. For the exhaustive, current list, grep `INSERT INTO public.permissions` across `backend/db/migrations/*.sql` (55 codes from `001_baseline.sql`, +4 in 009, −2 in 010, which deletes the dead `content.interview_board` / `content.load_test`: 57 as of 2026-10-17). `content.sheets`, `content.diary`, `content.captures`, `content.learning_journal`, `projects.create`, `projects.oversee` are also live codes (see the matrix below).
 
 | Module | Code | Name |
 |---|---|---|
@@ -186,8 +210,6 @@ The count below drifts every time a permission is added — treat it as a snapsh
 | mentoring | `mentoring.view_tickets` | View Mentor Tickets |
 | content | `content.wiki` | Wiki |
 | content | `content.system_design` | System Design |
-| content | `content.interview_board` | Interview Board |
-| content | `content.load_test` | Load Test |
 | content | `content.sheets` | Sheet Tracker |
 | content | `content.srs` | Review Cards |
 | content | `content.certificates` | Certificates |
@@ -206,7 +228,11 @@ The count below drifts every time a permission is added — treat it as a snapsh
 | projects | `projects.view` | View Projects |
 | projects | `projects.manage` | Manage Projects |
 | support | `support.manage` | Manage Support Tickets |
-| moderation | `content.moderate` | Moderate Content Reports |
+| moderation | `content.moderate` | Moderate Content Reports (also: delete any wiki space/page/comment/template — tenant_admin only) |
+| messaging | `messaging.moderate` | Moderate Messaging — resolve/pin/promote/delete any batch message, reorder FAQs, read every batch conversation (instructor, mentor, tenant_admin; migration 009) |
+| content | `wiki.manage_spaces` | Manage Wiki Content — read every course space, see drafts, create pages and templates, edit own pages (instructor, mentor, tenant_admin; migration 009) |
+| content | `wiki.create_spaces` | Create Wiki Spaces (instructor, tenant_admin; migration 009) |
+| mentoring | `mentoring.claim_tickets` | Claim Mentor Tickets — self-claim from the queue; holders also receive mentor escalation emails (mentor only; migration 009) |
 | features | `features.revision_digest`, `features.what_now` | Beta-flagged tools — seeded as permission rows but currently gated through the separate org/user feature-flag system (`frontend/CLAUDE.md`'s Feature Flags section), not granted to any role via `role_permissions`. Not a bug; just a different gating mechanism sharing this table. |
 
 ### System Roles (fixed UUIDs — never change these)
@@ -222,17 +248,23 @@ The count below drifts every time a permission is added — treat it as a snapsh
 
 ### System Role → Permissions
 
-**viewer:** `courses.view`, `projects.view`
+Snapshot as of migration `010_role_matrix_cleanup.sql` (2026-10-17). The source of truth is the golden file `backend/internal/authz/testdata/role_matrix.golden.json`, checked by `TestSystemRoleMatrix_Golden` against a fully migrated database: any migration that changes a system-role grant fails that test until the golden (regenerate with `UPDATE_GOLDEN=1 go test -run TestSystemRoleMatrix_Golden ./internal/authz`) and this section are updated.
 
-**member (~15):** `courses.view`, `courses.enroll`, `assessments.take`, `assessments.view_assigned`, `practice.use`, `mentoring.chat`, `content.wiki`, `content.system_design`, `content.interview_board`, `content.load_test`, `content.sheets`, `content.srs`, `content.certificates`, `content.interview_exp`, and others — see `001_baseline.sql`'s `role_permissions` for the exhaustive, current list rather than a count here, which drifts every time a permission is added.
+Learner codes = `practice.use`, `content.srs`, `content.sheets`, `content.learning_journal`, `content.diary`, `content.captures`, `content.interview_exp`, `content.certificates`.
 
-**instructor:** all member permissions except `content.interview_exp` (member-only, deliberately — see below), plus `courses.create/edit/publish/delete/view_analytics`, `assessments.create/edit/publish/delete/view_results/manage_questions/manage_batches`, `admin.view_members`, `mentoring.assign_tickets`, `mentoring.verify_mentors`, `mentoring.manage_session_booking`, `mentoring.view_tickets`, `projects.manage`, and others — see `001_baseline.sql`.
+**viewer (1):** `courses.view`. (`projects.view` removed in 010.)
 
-**mentor:** all member permissions except `content.interview_exp`, plus `assessments.view_results`, `mentoring.manage_batches`, `mentoring.view_students`, `mentoring.view_tickets`, `admin.view_members`, `projects.view`, and others — see `001_baseline.sql`. Does **not** include `support.manage` — see `docs/support-ticket-rbac-decision.md` (support ticket access moved to the dedicated `support_agent` role). Assessment/batch **authoring** routes (create/edit/publish/delete/manage_questions) are gated by org role, not this permission set — see the Known Constraints note at the bottom of this file.
+**member (16):** `courses.view`, `courses.enroll`, `assessments.take`, `assessments.view_assigned`, `mentoring.chat`, `content.wiki`, `content.system_design`, `projects.view`, plus all learner codes.
+
+**instructor:** all member codes, plus `courses.create/edit/publish/delete/view_analytics`, `assessments.create/edit/publish/delete/view_results/manage_questions/manage_batches`, `admin.view_members`, `mentoring.assign_tickets`, `mentoring.verify_mentors`, `mentoring.manage_session_booking`, `mentoring.view_tickets`, `labauthor.compose`, `labauthor.manage_blocks`, `projects.create`, `projects.manage`, `messaging.moderate`, `wiki.manage_spaces`, `wiki.create_spaces`.
+
+**mentor:** all member codes, plus `assessments.view_results`, `mentoring.manage_batches`, `mentoring.view_students`, `mentoring.view_tickets`, `mentoring.claim_tickets`, `messaging.moderate`, `wiki.manage_spaces`, `admin.view_members`, `projects.create`. Does **not** include `support.manage` — see `docs/support-ticket-rbac-decision.md` (support ticket access moved to the dedicated `support_agent` role). Holds none of the assessment/batch authoring codes, so assessment results routes scope a mentor to the batches they mentor (scoping is lifted only by `assessments.manage_batches`).
 
 **support_agent (1):** `support.manage` only — view the support ticket queue, reply, triage (category/priority/status), and receive ticket email notifications.
 
-**tenant_admin:** all permissions, including `payments.manage_coupons` (granted only to tenant_admin by default — see the `payments.manage_coupons` INSERT in `001_baseline.sql`; the RBAC admin UI can grant it to instructor at runtime with no migration needed), `mentoring.verify_mentors` and `content.interview_exp` (both backfilled by `015_seed_missing_role_permissions.sql` — the original `001_baseline.sql` seed omitted them, which meant `PATCH /api/mentors/{id}/verify` and the entire interview-experience board had no role that could reach them; fixed 2026-08-11).
+**tenant_admin:** every code except the learner codes and `mentoring.claim_tickets` — i.e. all `admin.*`, `payments.*` (`payments.manage_coupons` is tenant_admin-only by default; the RBAC admin UI can grant it to instructor at runtime), `support.manage`, `content.moderate`, `calendar.events.manage`, `projects.view/create/manage/oversee`, the instructor and mentor staff codes, and `courses.view`, `courses.enroll`, `assessments.take`, `assessments.view_assigned`, `mentoring.chat`, `content.wiki`, `content.system_design`. Migration 010 removed the learner codes: an owner/admin who also learns holds the `member` role alongside `tenant_admin` (010 backfilled it for every owner/admin with learner activity in the org, tracked in `rbac_backfill_010`). Staff flows that used to ride on `practice.use` now accept the authoring code instead: starting a lab session and the lab catalog (`/api/labs/{id}/sessions`, `/api/labs/catalog`) require `practice.use` **or** `courses.edit`. `courses.enroll` is kept (no route enforces it; enrolling to preview a course is an admin action).
+
+`features.revision_digest` and `features.what_now` are granted to no system role (feature-flag gated, see the catalogue).
 
 ---
 
@@ -293,18 +325,11 @@ type AuditEntry struct {
 
 ### Permission Resolution (`repo.go` → `service.go`)
 
-Single JOIN query:
-
-```sql
-SELECT DISTINCT p.code
-FROM user_roles ur
-JOIN roles r       ON r.id = ur.role_id       AND r.is_active = true
-JOIN role_permissions rp ON rp.role_id = r.id
-JOIN permissions p ON p.id = rp.permission_id AND p.is_active = true
-WHERE ur.user_id = $1 AND ur.org_id = $2
-```
+`SELECT code FROM effective_permissions WHERE user_id = $1 AND org_id = $2` — the view (§2) applies the role/override union and the active-role, active-permission and active-membership filters.
 
 Returns `[]string{}` (not nil) when the user has no permissions.
+
+`Repo.OrgPermissionHolders(ctx, orgID, code) []userID` (exposed as `Service.OrgPermissionHolders`, uncached) answers the reverse question for recipient lists. Background job handlers that only hold a pool call `authz.NewRepo(pool).OrgPermissionHolders` — `Repo` is stateless over the pool.
 
 ### Cache (`cache.go`)
 
@@ -331,9 +356,14 @@ RequirePermission(svc *Service, codes ...string) func(http.Handler) http.Handler
 
 // Require AT LEAST ONE code — 401 if unauthenticated, 403 if none held
 RequireAnyPermission(svc *Service, codes ...string) func(http.Handler) http.Handler
+
+// Require code in the org RequireOrgMember resolved — and only there
+RequireOrgCtxPermission(svc *Service, code string) func(http.Handler) http.Handler
 ```
 
-Claims are read from context via `auth.GetClaims(r.Context())`. The tenant scope comes from `claims.OrgID`.
+Claims are read from context via `auth.GetClaims(r.Context())`. `RequirePermission`/`RequireAnyPermission` check `claims.OrgID`; when `middleware.RequireOrgMember` ran earlier in the chain and resolved a **different** org (URL `{id}` or `X-Org-Id`), the codes must hold there too — handlers behind these guards write with `claims.OrgID` but may read the resolved org, so an admin of org A cannot act on org B where they hold less. `RequireOrgCtxPermission` is for route groups whose handlers act only on the resolved org (`/api/orgs/{id}/...` settings, members, invites, audit log, per-member feature flags): it checks that org alone, so a user may administer any org they administer regardless of which org their token is currently switched to.
+
+For a check that changes what a handler returns rather than gating the route (drafts view, mentor scoping, wiki `Access`), call `svc.HasPermission(ctx, claims.UserID, claims.OrgID, code)` in the handler; never compare `claims.OrgRole` or `org_members.role`.
 
 ### Wiring into Router (`mindforge/backend/internal/api/router.go`)
 
@@ -433,6 +463,25 @@ POST body: `{ "permission_id": "<uuid>" }`
 | GET | `/api/admin/rbac/audit` | `admin.view_audit_log` (all) |
 
 Query params: `entity_type`, `entity_id`, `limit`, `offset`
+
+This is the single audit-log endpoint (org-scoped to the token's org): `/org/settings/audit-log` and the Audit tab on `/users/[id]` both read it. The older `GET /api/orgs/{id}/audit-logs` (cursor pagination) was removed; `/admin/rbac/audit` has no page of its own.
+
+Response: `{entries, total}`; each entry is `{id, org_id, org_name, actor_id, actor_name, actor_email, action, entity_type, entity_id, diff, ip_address, created_at}`. `org_name` joins `organizations`; `ip_address` is `host(audit_logs.ip_address)`, set by the orgs domain's audit writer (member/invite/settings actions) and `null` for RBAC-admin writes, which do not record it. `audit_logs` has no user-agent column, so none is returned.
+
+#### Other permission-gated reads outside `/api/admin/rbac`
+
+| Method | Path | Rule |
+|---|---|---|
+| GET | `/api/profile/user/{userID}` | Self always. Anyone else: `admin.manage_members` in the caller's token org (owner and admin both hold it through `tenant_admin`), and the target must be an active member of that org, else 404. Instructor/mentor/learner get 403, as before. Resolved by the handler through `authz.Service.HasPermission` and passed to `profile.Service.GetUserProfile` as a bool. |
+| GET | `/api/assessments/grading-queue?limit=10` (1-50) | `assessments.view_results`. Callers without `assessments.manage_batches` (mentors) see only attempts by members of batches they mentor. → `{total, limit, items[] {attempt_id, assessment_id, assessment_title, user_id, user_name, status, submitted_at, ungraded_answers}}`, oldest first. See [learning.md](learning.md#api-endpoints). |
+| GET | `/api/interview/review-queue?limit=50&offset=0` | `assessments.view_results`. Same mentor scope as the grading queue: callers without `assessments.manage_batches` see only flagged attempts by members of batches they mentor (none if they mentor no batch). |
+| GET | `/api/analytics/courses?mine=true` | `courses.view_analytics`. `mine=true` limits the org course summary to courses the caller created (`courses.creator_id`). → `{courses, total, limit, offset, mine}`. See [analytics.md](analytics.md#api). |
+| GET | `/api/content-reports/counts` | `content.moderate` → `{counts {pending, reviewing, removed, dismissed}, open}` (`open` = pending + reviewing). |
+| GET | `/api/admin/labs/usage?days=30&student_limit=50` | `admin.manage_org` (existing endpoint; the dashboard reuses it) → `{window_days, org, by_course[], by_student[]}`. See [labs.md](labs.md). |
+
+#### MCP (AI Connector) tools
+
+`POST /mcp` tools enforce the same permission codes as their REST equivalents: every tool declares `Permission` beside its registration, and one gate checks the caller's effective permissions in the token's org on `tools/call` and filters `tools/list`. The full tool → code table is in [ai-connector.md](ai-connector.md#permission-gate-rbac).
 
 ### Response envelope
 
@@ -539,9 +588,8 @@ All under route group `app/(app)/` — transparent to URL routing, so URLs are `
 | `/admin/rbac/roles` | `app/(app)/admin/rbac/roles/page.tsx` (role creation via `create-role-dialog.tsx`) | `admin.manage_roles` |
 | `/admin/rbac/roles/[id]` | `app/(app)/admin/rbac/roles/[id]/page.tsx` (client-gated) + a sibling `layout.tsx` doing the real server-side `notFound()` check | `admin.manage_permissions` |
 | `/users` | `app/(app)/users/page.tsx` | `admin.view_members` |
-| `/admin/rbac/audit` | `app/(app)/admin/rbac/audit/page.tsx` | `admin.view_audit_log` |
 | `/org/settings/**` (members, domains, authentication, integrations, jobs, invites) | `app/org/settings/**/page.tsx` | `admin.manage_org` |
-| `/org/settings/audit-log` | `app/org/settings/audit-log/page.tsx` | `admin.view_audit_log` |
+| `/org/settings/audit-log` | `app/org/settings/audit-log/page.tsx` — the single audit-log UI (offset pagination, actor name) over `GET /api/admin/rbac/audit` | `admin.view_audit_log` |
 
 `app/(app)/users/[userId]/page.tsx` and `app/(app)/admin/rbac/roles/new/page.tsx`, previously listed here, do not exist in the current tree — role creation happens inline on `/admin/rbac/roles` via `create-role-dialog.tsx`, and there is no dedicated per-user admin page today.
 
@@ -551,7 +599,7 @@ All under route group `app/(app)/` — transparent to URL routing, so URLs are `
 
 ### Page types
 
-- **Server components** (`permissions/page.tsx`, `roles/page.tsx`, `audit/page.tsx`, all of `org/settings/**`): fetch data server-side with cookie forwarding; check permissions at the top via `getMyPermissions()` before any data fetch.
+- **Server components** (`permissions/page.tsx`, `roles/page.tsx`, all of `org/settings/**`): fetch data server-side with cookie forwarding; check permissions at the top via `getMyPermissions()` before any data fetch.
 - **Client components** (`roles/[id]/page.tsx`): fetch from `process.env.NEXT_PUBLIC_API_URL` with `credentials: "include"`. Never call `fetch('/api/...')` — there is no Next.js API proxy; Go backend runs on a different port. Pair a client-gated page like this with a server-side `layout.tsx` doing the actual `notFound()` check — a client-only `useHasPermission()` hides controls but never stops the page from rendering for someone without access.
 
 ```ts
@@ -570,24 +618,44 @@ RBAC admin routes:
 ```ts
 ROUTES.ADMIN_RBAC_ROLES        // "/admin/rbac/roles"
 ROUTES.ADMIN_RBAC_PERMISSIONS  // "/admin/rbac/permissions"
-ROUTES.ADMIN_RBAC_AUDIT        // "/admin/rbac/audit"
 ```
 
 ### Nav Catalogue (`mindforge/frontend/lib/nav.ts`)
 
 `ALL_NAV_ITEMS` — flat record of every nav item, keyed by name. Each entry carries an optional `requiredPermission` code. This is the single place to define a nav item.
 
-`MAIN_NAV_GROUPS` — the grouped structure passed to `<Sidebar>`. The exact group list and item membership have moved more than once since this table was last hand-written (it's now a hub-based structure, not the four flat groups originally documented here) — read `ALL_NAV_ITEMS` and `MAIN_NAV_GROUPS` directly in `lib/nav.ts` rather than trusting a snapshot in this doc. Every `requiredPermission`/`hideForPermission` value there should be a `PERMISSIONS.*` constant import, never a raw string (§6) — if you find one that isn't, that's drift worth fixing on sight.
+`MAIN_NAV_GROUPS` — the sidebar: (unlabelled) Dashboard, Calendar, Help & Support · **Learn** (Learn hub, Mentors) · **Teach** (Instructor hub, Batches) · **Mentoring** (Overview, Ticket Queue) · **Support** (Support Queue) · **Administration**. The Platform group is appended for `platform_role === "super_admin"` in `sidebar-nav-content.tsx` (a separate axis from RBAC). `LEARN_HUB_GROUPS` (`/learn`) and `TEACHING_HUB_GROUPS` (`/teach`) back the two hub pages; no href appears twice within one surface (tested).
 
-### Sidebar (`mindforge/frontend/components/layout/sidebar.tsx`)
+Item gating fields:
+- `requiredPermission: string | string[]` — any-of.
+- `hideForPermission: string | string[]` — hidden if the user holds ANY (Mentors, the learner directory, is hidden for `mentoring.view_tickets`, `mentoring.manage_batches`, `admin.manage_roles`, so instructors, mentors and admins don't see it).
+- `hub: () => NavGroup[]` — the Learn entry is visible only if at least one Learn-hub item is visible (derived, no copied permission list).
+- An item with neither field must carry a `// public` comment. Only Dashboard and Help & Support are public.
 
-`"use client"` component. Accepts `nav: NavGroup[]` and:
-1. Calls `usePermissions()` to get the current user's permission set
-2. Filters each group's items — only items with no `requiredPermission`, or whose code is in the permission set, survive
-3. Drops groups that become empty after filtering
-4. Wraps items that have a `feature` field in `<AccessGate>` (feature-flag gating on top of permission gating)
+All filtering is the pure `filterNavGroups(groups, perms, terminology)`; `useVisibleNavGroups` just feeds it `usePermissions()` and `useTerminology()` (Batches -> Classes etc. is applied there). Role-by-role expectations live in `lib/nav.test.ts` (fixtures copied from `backend/internal/authz/testdata/role_matrix.golden.json`); run `vitest run` from `frontend/`.
 
-A student sees only the top group. An instructor additionally sees Teach. A tenant_admin sees all four groups including Admin.
+Shared any-of code sets (`ACCESS` in `lib/auth/permission-codes.ts`: `LABS`, `CALENDAR`, `PRACTICE`, `TEACH_HUB`) are used by both the nav item and the page's server guard (`requireAnyPermission` in `lib/server/permissions.ts`, 404 on miss) so they cannot disagree. Guarded pages: labs catalog, roadmap list, saved highlights, algorithm visualizer, calendar, library, support queue. Sub-routes such as `/roadmap/discover` (public view) are intentionally unguarded.
+
+Visibility by system role:
+
+| Role | Sidebar |
+|---|---|
+| viewer | Dashboard, Help & Support, Learn (My Courses only) |
+| member | + Calendar, Mentors; full Learn hub (Labs, Roadmap, Workspaces, ...) |
+| instructor | + Instructor hub (incl. Ticket Queue, Library, Lab library), Batches, Users; no Mentors, no Mentoring group |
+| mentor | + Mentoring (Overview, Ticket Queue), Users; no Mentors, no Instructor hub |
+| tenant_admin | Calendar, Instructor, Batches, Mentoring, Support Queue, Administration; Learn shows only Courses/Assessments/Wiki/Workspaces/Labs (courses.edit), no Mentors |
+| support_agent | Dashboard, Help & Support, Support Queue |
+
+### Personas and dashboards (`frontend/lib/auth/personas.ts`)
+
+`/dashboard` renders a persona-specific view, derived from permission codes only. Each persona has a marker permission: `admin` = `admin.manage_org`, `teach` = `courses.create`, `mentor` = `mentoring.manage_batches`, `support` = `support.manage`, `learn` = `practice.use`. `availablePersonas(perms)` lists the ones a user holds; `resolvePersona(perms, preferred?)` returns the optional `mf_persona` cookie value if it is available to the user, else the highest by order admin > teach > mentor > support > learn, else `viewer` (courses section only). `support` redirects to the support queue. The cookie is only a preference; it never grants anything, since the marker permission is re-checked on every render.
+
+Dashboard widgets are each gated by the permission their endpoint needs: grading queue (`assessments.view_results`, teach + mentor), My courses (`courses.view_analytics`, `mine=true`; org-wide list only with `admin.manage_org`), open reports (`content.moderate`), lab sessions/compute hours (`admin.manage_org`), all admin.
+
+### Sidebar (`mindforge/frontend/components/layout/sidebar-nav-content.tsx`)
+
+Shared by the desktop sidebar and the mobile drawer. It calls `useVisibleNavGroups()` (permission filtering, hub rule, terminology, empty groups dropped) and wraps items with a `feature` field in `<AccessGate>` (feature-flag gating on top of permission gating).
 
 ---
 
@@ -632,7 +700,7 @@ The pub/sub channel `rbac:invalidate` exists for future L1 in-process cache supp
 
 3. Permission resolution always scopes to `user_roles.org_id = ?`. A user with the `instructor` system role in Org A has no permissions in Org B, even if they are a member there without any role assignment.
 
-4. Admin API routes read `claims.OrgID` from the JWT to determine the caller's tenant. All queries filter by this value. Looking up another org's roles returns 404, identical to a genuinely missing role, preventing existence probing.
+4. Permission guards check `claims.OrgID` and, when `RequireOrgMember` resolved another org, that org too (§4 Middleware). Admin API routes read `claims.OrgID` from the JWT to determine the caller's tenant. All queries filter by this value. Looking up another org's roles returns 404, identical to a genuinely missing role, preventing existence probing.
 
 5. Disabling a role (`is_active=false`) is a soft delete. Hard deleting a role is blocked by `ON DELETE RESTRICT` on `user_roles.role_id` — you must revoke all user assignments first.
 
@@ -668,17 +736,27 @@ The pub/sub channel `rbac:invalidate` exists for future L1 in-process cache supp
 
 ### Protect a new Go API route
 
+1. Pick the permission code that names the action (add one in a new migration if none fits — grant it to every system role that should keep access, then add the constant to `permission-codes.ts`). Never gate on `org_members.role`; the label only drives ownership (`owner`-only actions such as org activation) and the `OrgRoleRank` grant-ceiling rules.
+2. Take `*authz.Service` in the package's `RegisterRoutes` (router.go passes `authzHandler.Service()`).
+3. Guard the route:
+
 ```go
 // Require ALL codes:
-r.With(RequirePermission(h.svc, "courses.create", "courses.publish")).
-    Post("/api/courses/{id}/publish", h.HandlePublish)
+r.With(authz.RequirePermission(perms, "courses.publish")).
+    Post("/api/courses/{courseID}/publish", h.PublishCourse)
 
 // Require ANY one code:
-r.With(RequireAnyPermission(h.svc, "admin.manage_roles", "admin.manage_permissions")).
-    Get("/api/admin/roles", h.HandleListRoles)
+r.With(authz.RequireAnyPermission(perms, "courses.edit", "mentoring.view_students")).
+    Get("/api/courses/{courseID}/progress", h.GetAllProgress)
+
+// Under /api/orgs/{id} (RequireOrgMember first) — check the {id} org only:
+r.With(authz.RequireOrgCtxPermission(perms, "admin.manage_members")).
+    Get("/members", h.handleListMembers)
 ```
 
-Import: `"github.com/mindforge/backend/internal/authz"` — then use `authz.RequirePermission` or `authz.RequireAnyPermission`.
+4. Add a row to `internal/api/rbac_routes_db_test.go` asserting which system roles may call it.
+
+Import: `"github.com/mindforge/backend/internal/authz"`.
 
 ### Gate a frontend server page
 
@@ -759,7 +837,7 @@ if err := svc.InvalidateUser(ctx, userID, tenantID); err != nil {
 
 ### Audit a specific entity's history
 
-Query the audit log page at `/admin/rbac/audit?entity_type=role&entity_id=<role-uuid>`, or via the API:
+Use the API (the org audit page `/org/settings/audit-log` lists everything, unfiltered):
 
 ```
 GET /api/admin/rbac/audit?entity_type=role&entity_id=<uuid>&limit=25
@@ -783,5 +861,5 @@ GET /api/admin/rbac/audit?entity_type=role&entity_id=<uuid>&limit=25
 - **System role UUIDs are immutable.** The seed file uses `ON CONFLICT (id) DO NOTHING`. Changing a UUID in the seed file after initial migration has no effect and will create a duplicate. To change a system role, update the existing row directly.
 - **`ON DELETE RESTRICT` on `user_roles.role_id`** means you cannot hard-delete a role that has current assignments. Use the disable flow (`DELETE /api/admin/rbac/roles/{id}` → sets `is_active=false`).
 - **No permission inheritance or hierarchy.** Permissions are flat — a role either has a code or it doesn't. There is no concept of "inherits from another role." Compose permission sets explicitly in the seed or via the admin UI.
+- **`practice.use` gates labs catalog / session start, roadmaps and highlights.** Every system role except `viewer` and `support_agent` holds it today. Phase 3 removes it from `tenant_admin`, so admins who also learn will need `member` as an extra role.
 - **`ON DELETE RESTRICT` on `user_permission_overrides.permission_id`** (same as `role_permissions.permission_id`) means a permission cannot be hard-deleted while it is directly granted to any user.
-- **Two authorization mechanisms coexist in the backend, and they are not equivalent.** Most of this doc describes the RBAC permission-code engine (`authz.RequirePermission`), which §1 calls the only thing application code should check. In practice, `middleware.RequireOrgRole` — a separate check against the literal `org_members.role` string — gates courses (authoring), assessments/batches/question-bank, messaging moderation, GitLab project authoring, and certificate authoring. The permission codes those actions nominally correspond to (`courses.create`, `assessments.manage_batches`, etc.) exist and appear in the RBAC admin UI, but toggling them for a role does not change who can actually call those routes — the org-role check is what decides it. `content.sheets`, `content.srs`, and `practice.use` are the exception in the other direction: they're enforced correctly (`authz.RequirePermission`), matching this doc. When you're not sure which mechanism gates a given route, check the route's own middleware chain rather than assuming from the permission catalogue — the catalogue is necessary but not sufficient for reasoning about backend access.

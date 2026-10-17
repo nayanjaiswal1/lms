@@ -16,7 +16,7 @@ interface BreadcrumbProps {
  */
 export function Breadcrumb({ items }: BreadcrumbProps) {
   return (
-    <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
+    <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-center gap-1 text-sm lg:hidden text-muted-foreground">
       {items.map((item, i) => (
         <span className="flex items-center gap-1" key={item.label}>
           {i > 0 && <span aria-hidden>/</span>}

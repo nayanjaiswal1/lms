@@ -451,7 +451,7 @@ interpreted (`$VAR`, `` `cmd` ``, `$()` are written byte-for-byte).
 | `GET`/`PUT` | `/api/instructor/labs/:labId/egress` | View / set the lab's `lab_egress_rules` allowlist (only effective when org egress proxy is enabled) |
 | `POST` | `/api/instructor/labs/:labId/test-session` | Start instructor test session (is_test=true) |
 | `GET` | `/api/instructor/labs/:labId/analytics` | Completion rates, avg time, common failure tasks |
-| `GET` | `/api/admin/labs/usage` | Org-admin: per-org lab compute + AI-token usage from `lab_usage_events` over a window |
+| `GET` | `/api/admin/labs/usage` | Org-admin (`admin.manage_org`): per-org lab compute + AI-token usage from `lab_usage_events` over a window. `?days=` (30, 1-365), `?student_limit=` (50, 1-200) → `{window_days, org, by_course[], by_student[]}`. Also the source for the admin dashboard tile |
 
 ---
 

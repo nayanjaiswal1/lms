@@ -4,6 +4,7 @@ import { TrendingUp, TrendingDown, Minus, BarChart2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getSkillTrends } from "@/lib/assessments/server";
 import type { SkillTrend } from "@/lib/assessments/types";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Skill Trends" };
 
@@ -19,9 +20,7 @@ export default async function InterviewSkillsPage() {
 
   return (
     <main className="page-container">
-      <div className="page-header">
-        <h1 className="page-title">Skill Trends</h1>
-      </div>
+      <PageHeader title="Skill Trends" />
 
       <div className="grid-stats mb-8">
         <StatCard label="Skills tracked" value={String(skill_trends.length)} />

@@ -175,7 +175,7 @@ export default function MentorTicketQueuePage() {
     <main className="page-container">
       <div className="mb-8 flex flex-col gap-2">
         <h1 className="page-title">Mentor ticket queue</h1>
-        <p className="text-muted-foreground">Claim open tickets or manage the ones assigned to you.</p>
+        <p className="page-description">Claim open tickets or manage the ones assigned to you.</p>
       </div>
       <Can permission={PERMISSIONS.MENTORING.ASSIGN_TICKETS}>
         <Suspense fallback={<Skeleton className="mb-8 h-32 rounded-lg" />}>

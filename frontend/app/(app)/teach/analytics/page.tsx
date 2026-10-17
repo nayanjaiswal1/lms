@@ -18,6 +18,7 @@ import ROUTES from "@/lib/routes";
 import { getOrgCourseSummaries, getOrgEnrollmentTrend } from "@/lib/server/course-analytics";
 import { requireAccess } from "@/lib/server/features";
 import { getMyPermissions } from "@/lib/server/permissions";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Course analytics" };
 
@@ -42,9 +43,7 @@ export default async function TeachAnalyticsPage({ searchParams }: Props) {
     <main className="page-container">
       <Breadcrumb items={[{ label: "Teach", href: ROUTES.TEACH }, { label: "Analytics" }]} />
 
-      <div className="page-header">
-        <h1 className="page-title">Course analytics</h1>
-      </div>
+      <PageHeader title="Course analytics" />
 
       <section aria-labelledby="org-trend-heading" className="card-base mb-8 p-6">
         <h2 className="section-title mb-4" id="org-trend-heading">Enrollments, last {ANALYTICS_DEFAULT_DAYS} days</h2>

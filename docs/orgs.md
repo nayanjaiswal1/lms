@@ -18,11 +18,23 @@ Org roles: `admin` · `instructor` · `mentor` · `student`
 POST   /api/orgs                    (super_admin) create org
 GET    /api/orgs/:slug              org detail
 
-POST   /api/orgs/:id/members        (org_admin) invite member by email → see auth.md for invite flow
-DELETE /api/orgs/:id/members/:uid   (org_admin) remove member
-PATCH  /api/orgs/:id/members/:uid   (org_admin) body: {role} — change member role
-                                    → bumps session_version for the affected user on demotion/removal
+PATCH  /api/orgs/:id                       (admin.manage_org) update org
+POST   /api/orgs/:id/activate              (owner label) activate org
+PATCH  /api/orgs/:id/onboarding            (admin.manage_org)
+GET|PATCH /api/orgs/:id/auth-config        (admin.manage_org)
+GET|PATCH /api/orgs/:id/ai-connector-config (admin.manage_org)
+*      /api/orgs/:id/domains/...           (admin.manage_org)
+*      /api/orgs/:id/invites/...           (admin.manage_members) → see auth.md for invite flow
+GET    /api/orgs/:id/members               (admin.manage_members)
+DELETE /api/orgs/:id/members/:memberID     (admin.manage_members) remove member
+PATCH  /api/orgs/:id/members/:memberID     (admin.manage_members) body: {role} — change member role
+                                           → bumps session_version for the affected user on demotion/removal
+GET    /api/admin/rbac/audit               (admin.view_audit_log; org-scoped by the caller's token org — the former /api/orgs/:id/audit-logs was removed, see docs/rbac.md Audit Log)
 ```
+
+Every permission above is checked in the `:id` org (`authz.RequireOrgCtxPermission`, after `RequireOrgMember`), not the org the caller's token is switched to. Invite/role-change/remove additionally apply the `OrgRoleRank` label ceiling (an actor cannot grant or manage a label at or above their own; owners are exempt).
+
+Every membership insert or role change also assigns the RBAC system role mapped from the label (`owner`/`admin` → `tenant_admin`, `instructor`, `mentor`, `learner` → `member`) in the same transaction via `sysrole.Sync`; removal revokes all of the member's roles in the org. Permissions come only from `user_roles` — see `rbac.md` §`user_roles`.
 
 Auth config endpoints are in `auth.md`.
 

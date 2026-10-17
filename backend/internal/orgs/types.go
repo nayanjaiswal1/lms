@@ -1,6 +1,10 @@
 package orgs
 
-import "time"
+import (
+	"time"
+
+	"github.com/mindforge/backend/internal/middleware"
+)
 
 // Role constants
 const (
@@ -47,21 +51,13 @@ func IsValidOrgType(t string) bool {
 	return ok
 }
 
-var roleRank = map[string]int{
-	RoleOwner:      5,
-	RoleAdmin:      4,
-	RoleMentor:     3,
-	RoleInstructor: 2,
-	RoleLearner:    1,
-}
-
 // CanGrantRole returns true if actorRole can assign granteeRole.
 // Owner can assign any role. Others can only assign roles strictly below their own.
 func CanGrantRole(actorRole, granteeRole string) bool {
 	if actorRole == RoleOwner {
 		return true
 	}
-	return roleRank[actorRole] > roleRank[granteeRole]
+	return middleware.OrgRoleRank[actorRole] > middleware.OrgRoleRank[granteeRole]
 }
 
 // reservedSlugs is enforced at application layer before DB insert.
@@ -193,24 +189,6 @@ type Domain struct {
 	VerifiedAt         *time.Time `json:"verified_at"`
 	AutoJoinEnabled    bool       `json:"auto_join_enabled"`
 	CreatedAt          time.Time  `json:"created_at"`
-}
-
-type AuditLog struct {
-	ID          int64     `json:"id"`
-	OrgID       string    `json:"org_id"`
-	ActorUserID *string   `json:"actor_user_id"`
-	Action      string    `json:"action"`
-	TargetType  *string   `json:"target_type"`
-	TargetID    *string   `json:"target_id"`
-	BeforeState *any      `json:"before_state"`
-	AfterState  *any      `json:"after_state"`
-	IPAddress   *string   `json:"ip_address"`
-	CreatedAt   time.Time `json:"created_at"`
-}
-
-type AuditLogPage struct {
-	Logs       []AuditLog `json:"logs"`
-	NextCursor string     `json:"next_cursor,omitempty"`
 }
 
 type OrgAuthConfig struct {

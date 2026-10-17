@@ -156,7 +156,7 @@ export function ModuleLabClient({ lab, title, moduleId, initialSession }: Module
           </Badge>
           {totalPoints > 0 && <Badge variant="secondary">{totalPoints} pts</Badge>}
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+        <h1 className="page-title">{title}</h1>
         {lab.description && (
           <p className="leading-relaxed text-muted-foreground">{lab.description}</p>
         )}

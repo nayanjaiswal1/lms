@@ -1,6 +1,7 @@
 import { getHighlightAnalytics } from "@/lib/server/highlights";
 import { HighlightsTabs } from "@/components/platform/highlights-tabs";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata = { title: "Highlights by Source Type — Platform Console" };
 
@@ -38,14 +39,7 @@ export default async function PlatformHighlightsBySourcePage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Highlights by Source Type</h1>
-          <p className="text-muted-foreground mt-1">
-            Where explanation traffic concentrates: wiki pages, lessons, or problems.
-          </p>
-        </div>
-      </div>
+      <PageHeader title="Highlights by Source Type" description="Where explanation traffic concentrates: wiki pages, lessons, or problems." />
 
       <HighlightsTabs active="by-source" />
 

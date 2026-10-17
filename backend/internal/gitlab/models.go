@@ -821,7 +821,7 @@ type CheckpointWithSubmissions struct {
 
 // ─── Batch 5 (gap fix): student-facing "my checkpoints" ────────────────────
 //
-// Every checkpoint/submission route above is staff-only (RequireOrgRole).
+// Every checkpoint/submission route above is staff-only (projects.manage).
 // This closes the resulting product gap: a student has no way to see their
 // own team's checkpoint list plus submission status/grade/feedback. Mirrors
 // TeamContributionsView's row-scoping shape (GetMyProject's membership check
