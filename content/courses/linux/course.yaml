@@ -1,12 +1,14 @@
 title: "Linux: The Atlas Story"
 description: >-
   Learn Linux by living it. You join Orbit Coffee as the new junior sysadmin and
-  inherit "atlas", the server that runs the whole shop. Across ten story chapters
-  you learn the filesystem, files and links, text tools and pipes, users and
-  permissions, processes and signals, systemd, logs and cron, packages, disks and
-  archives, networking and SSH, and Bash scripting. Every chapter has one hands-on
-  terminal lab, and the last chapter is Incident Week: real outage scenarios you
-  diagnose and fix yourself. One final exam closes the course.
+  inherit "atlas", the server that runs the whole shop. Short, one-idea lessons
+  take you from the shell and the filesystem map through text tools, users and
+  permissions, processes, systemd and logs, packages and storage (including LVM),
+  networking and SSH, and Bash scripting, then under the hood to system calls,
+  namespaces and cgroups, performance triage, and security hardening. Every
+  chapter ends with a hands-on terminal lab and a quiz; the last chapter is
+  Incident Week, a troubleshooting playbook with real outage scenarios to fix,
+  followed by flashcards and a final exam.
 difficulty: beginner
 tags:
   - linux
