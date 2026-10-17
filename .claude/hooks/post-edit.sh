@@ -32,9 +32,9 @@ if [[ "$file" == *.go ]]; then
   go vet ./... 2>&1 | condense
 elif [[ "$file" == *.ts ]] || [[ "$file" == *.tsx ]]; then
   cd "$FRONTEND_DIR" 2>/dev/null || exit 0
-  pnpm tsc --noEmit 2>&1 | condense
+  bun x tsc --noEmit 2>&1 | condense
   # eslint accepts an absolute path directly, so no relative-path conversion needed.
   # boundaries/dependencies legacy-selector warning is repo-wide config noise,
   # unrelated to the edited file — drop it before condensing the real output.
-  pnpm exec eslint "$file" 2>&1 | grep -v '^\[boundaries\]\|legacy selector syntax\|migration-guides' | condense
+  bun x eslint "$file" 2>&1 | grep -v '^\[boundaries\]\|legacy selector syntax\|migration-guides' | condense
 fi

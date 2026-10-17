@@ -1,9 +1,5 @@
 # MindForge
 
-> Say **"hi"** to resume. Say **"start phase N"** to build. Say **"update design: [feature]"** before adding features.
-
----
-
 ## Model Routing for MindForge Tasks
 
 Always pick the lowest tier that does the job correctly. Switch with `/model <alias>` before starting.
@@ -30,16 +26,16 @@ Always pick the lowest tier that does the job correctly. Switch with `/model <al
 | Security audit or threat model for any phase | `opus` |
 | Architecture decision: new service, new pattern, phase design | `opus` |
 
-Subagent, advisor-strategy, context-protection, and parallel-agent rules are already covered in the global `~/.claude/CLAUDE.md` and the `dev-env-setup` skill — not repeated here. The table above is the MindForge-specific addition.
+The table is guidance for choosing a model tier; nothing enforces it.
 
 ---
 
-MCP server list and hooks.json template: see the `dev-env-setup` skill. The post-edit hook is already wired in `.claude/settings.json` — `post-edit.sh` runs `go vet ./...` after `.go` edits and `pnpm tsc --noEmit` after `.ts/.tsx` edits, so Claude self-corrects before moving to the next file.
+The post-edit hook is wired in `.claude/settings.json` — `post-edit.sh` runs `go vet ./...` after `.go` edits and `bun x tsc --noEmit` plus `vp lint` after `.ts/.tsx` edits, so Claude self-corrects before moving to the next file.
 
 ---
 
 **MindForge** — multi-tenant learning platform. LeetCode + KodeKloud + Udemy + Notion, delivered as SaaS.
-Stack: Go 1.26.4 + Chi v5 + pgx/v5 · Next.js 16.2.9 + React 19 + Tailwind v4 + shadcn/ui · PostgreSQL · Docker Compose.
+Stack: Go (see `backend/go.mod`) + Chi v5 + pgx/v5 · Next.js (see `frontend/package.json`) + React 19 + Tailwind v4 + shadcn/ui · PostgreSQL · Docker Compose.
 
 ---
 
@@ -76,13 +72,26 @@ Each file is self-contained for its domain — features, API endpoints, DB schem
 | [docs/ops-alerts.md](docs/ops-alerts.md) | Admin alerting for dead-letter jobs and job-system health — routing, per-handler rules, dedupe/storm frequency control, ops.health + ops.digest crons, API |
 | [docs/activity.md](docs/activity.md) | Activity tracker — day-by-day timeline aggregating module/course completions, quiz attempts, MCP reflections, sheet progress, lab sessions, SM-2 reviews, API, DB schema |
 | [docs/analytics.md](docs/analytics.md) | Instructor & org analytics — completion funnel, per-lesson drop-off, hardest quiz questions, at-risk students, enrollment trend, API, RBAC, query cost |
+| [docs/entitlements.md](docs/entitlements.md) | Tier & entitlement system — plans, add-ons, seats, quota engine (partially implemented) |
+| [docs/support-ticket-rbac-decision.md](docs/support-ticket-rbac-decision.md) | Why support ticket access moved to the dedicated `support_agent` role |
+| [docs/interview-experiences.md](docs/interview-experiences.md) | Crowd-sourced interview experience board — posts, continuation, Q&A, voting |
+| [docs/interview-practice.md](docs/interview-practice.md) | Subjective assessment questions with AI grading |
+| [docs/content-pipeline.md](docs/content-pipeline.md) | Importing third-party course material: vendor → canonical markdown → SQL → DB |
+| [docs/flow-map.md](docs/flow-map.md) | Feature-wise code flow trace: frontend → API → handler → repo → DB |
+| [docs/api-review.md](docs/api-review.md) | Review of ~600 endpoints against the resource-oriented/MCP-friendly rubric |
+| [docs/audit-root-cause-analysis.md](docs/audit-root-cause-analysis.md) | Consolidated audit — findings, root causes, fixes, status |
+| [docs/schema-refactor-decisions.md](docs/schema-refactor-decisions.md) | Schema overlap review and refactor decisions record |
+| [docs/email-job-resilience-checklist.md](docs/email-job-resilience-checklist.md) | Email and job-queue failure resilience checklist |
+| [docs/local-k3s-dev.md](docs/local-k3s-dev.md) | Local k3s dev environment in WSL using the cloud manifests |
+| [docs/erd.md](docs/erd.md) | Auto-generated DB ER diagram (`scripts/db-erd.sh`) — do not edit by hand |
+| [docs/debug-labs-status.md](docs/debug-labs-status.md) | Debug labs build status; E2E logs in `debug-labs-e2e-status.md` and `debug-labs-e2e-report-2026-10-10.md` |
 | [docs/frontend-gotchas.md](docs/frontend-gotchas.md) | Non-obvious frontend bugs and regressions worth not repeating (e.g. Popover-in-Dialog scroll lock) |
 | [docs/ai-pattern-learnings.md](docs/ai-pattern-learnings.md) | Shortcut patterns found in AI-written code (unthrottled endpoints, unlocked counters, unpaginated lists, trusted-input-as-validation, missing DB test infra) — updated as new instances are found, not just at the end of a review |
 
 ---
 
 ## Frontend Rules
-See [frontend/CLAUDE.md](frontend/CLAUDE.md) — enforced on every frontend file. Covers design tokens, the `lib/server/api.ts` helpers, and the `ui-ux-pro-max` adapter rule — not repeated here since this file loads for backend work too.
+See [frontend/CLAUDE.md](frontend/CLAUDE.md) — enforced on every frontend file. Covers design tokens, the `lib/server/api.ts` helpers, and the UX-skill adapter rule — not repeated here since this file loads for backend work too.
 
 ---
 
@@ -98,6 +107,7 @@ See [frontend/CLAUDE.md](frontend/CLAUDE.md) — enforced on every frontend file
 8. Use `TaskCreate/TaskUpdate` to track all phases
 
 No-stubs and no-hardcoded-values are covered by the banned-patterns table below.
+9. **Permission codes only** — nav items, route guards, and handlers check permission codes (`requiredPermission`, `authz.RequirePermission`), never `org_members.role` strings. A nav item with no `requiredPermission` must carry a `// public` comment saying why.
 
 ---
 
@@ -117,6 +127,8 @@ Every line of code written here is production code. There are no phases, shortcu
 | `sync.Map` instead of Redis "for now" | In-process cache for shared state | Breaks at 2 replicas |
 | `// TODO`, `// FIXME`, `// HACK` | Any variant | Signals incomplete work |
 | `panic("not implemented")` | Any variant | Crashes prod |
+
+Not banned: a comment recording a *deliberate, shipped* simplification (`ponytail:` marker naming its ceiling), or a note that a route/feature is intentionally absent until it ships (e.g. in `frontend/lib/nav.ts`). Banned is unfinished code, not documented scope.
 
 **Decision rule:** If a proper implementation would take longer, do the proper implementation. Do not ship the shortcut and plan to revisit. The shortcut becomes the implementation.
 

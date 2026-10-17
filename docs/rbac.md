@@ -155,7 +155,7 @@ All inserts use `ON CONFLICT DO NOTHING` — safe to re-run.
 
 ### Permission Catalogue
 
-The count below drifts every time a permission is added — treat it as a snapshot, not a contract. For the exhaustive, current list, grep `INSERT INTO public.permissions` across `backend/db/migrations/*.sql` (as of this revision: 45 codes in `001_baseline.sql`, plus `features.revision_digest` in `002_revision_digest.sql`, `mentoring.view_tickets` in `002_ticket_merge.sql`, and `features.what_now` in `003_org_user_feature_flags.sql` — 48 total).
+The count below drifts every time a permission is added — treat it as a snapshot, not a contract. For the exhaustive, current list, grep `INSERT INTO public.permissions` across `backend/db/migrations/*.sql` (`001_baseline.sql` seeds 53 codes as of 2026-10-17).
 
 | Module | Code | Name |
 |---|---|---|
