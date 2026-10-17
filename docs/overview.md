@@ -18,7 +18,7 @@ Three axes. Access checks use permission codes (see [rbac.md](rbac.md)), never r
 |---|---|---|
 | Platform (`users.platform_role`) | `super_admin` · `user` | `super_admin` manages the whole platform |
 | RBAC system roles (`user_roles`, per org, multiple allowed) | `viewer` · `member` · `instructor` · `mentor` · `tenant_admin` · `support_agent` | Effective permissions = union of roles + per-user overrides |
-| Org membership (`org_members.role`) | `owner` · `admin` · `instructor` · `mentor` · `learner` | Single label; `owner`/`admin` auto-sync the `tenant_admin` RBAC role |
+| Org membership (`org_members.role`) | `owner` · `admin` · `instructor` · `mentor` · `learner` | Single label (owner flag + rank); every membership insert or label change assigns the mapped system role via `sysrole.Sync` (owner/admin → `tenant_admin`, instructor, mentor, learner → `member`) |
 
 Also: `guest` (free preview, no account) and `anonymous` (public tests via link).
 
