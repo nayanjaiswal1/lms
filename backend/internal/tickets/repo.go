@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/jobs"
 )
 
@@ -294,20 +295,16 @@ func (r *Repo) userContact(ctx context.Context, userID string) (contact, error) 
 	return c, nil
 }
 
-// manageContacts returns every user in orgID holding permission code perm —
-// mirrors jobs/handlers/mentor_escalation.go's orgAssignStaff query (kept
-// separate rather than shared: that one is scheduler-only and caches across a
-// whole run, this one is a single per-request lookup).
+// manageContacts returns every emailable user in orgID holding permission
+// code perm, resolved through authz's effective_permissions view (roles,
+// overrides, active membership only).
 func (r *Repo) manageContacts(ctx context.Context, orgID, perm string) ([]contact, error) {
+	ids, err := authz.NewRepo(r.pool).OrgPermissionHolders(ctx, orgID, perm)
+	if err != nil {
+		return nil, fmt.Errorf("tickets: manage contacts: %w", err)
+	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT DISTINCT u.id, u.email, u.name
-		 FROM user_roles ur
-		 JOIN role_permissions rp ON rp.role_id = ur.role_id
-		 JOIN permissions p ON p.id = rp.permission_id
-		 JOIN users u ON u.id = ur.user_id
-		 WHERE ur.org_id = $1 AND p.code = $2 AND u.email <> ''`,
-		orgID, perm,
-	)
+		`SELECT id, email, name FROM users WHERE id = ANY($1::uuid[]) AND email <> ''`, ids)
 	if err != nil {
 		return nil, fmt.Errorf("tickets: manage contacts: %w", err)
 	}

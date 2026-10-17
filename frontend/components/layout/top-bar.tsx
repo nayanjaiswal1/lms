@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronRight, Loader2, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandItem, CommandList } from "@/components/ui/command";
-import { useVisibleNavGroups } from "@/lib/nav";
+import { useAllVisibleNavItems } from "@/lib/nav";
 import { isCourseLearnRoute } from "@/lib/routes";
 
 const ID_SEGMENT = /^(\d+|[0-9a-f]{8}-[0-9a-f-]{27}|[0-9a-f]{20,})$/i;
@@ -16,7 +16,7 @@ const SEARCH_DEBOUNCE_MS = 300;
 // other page uses the same box to jump to a page.
 type PageSearch = { placeholder: string; param: string };
 const PAGE_SEARCH: [RegExp, PageSearch][] = [
-  [/^\/courses$/, { placeholder: "Search courses…", param: "q" }],
+  [/^\/courses(\/browse)?$/, { placeholder: "Search courses…", param: "q" }],
   [/^\/users$/, { placeholder: "Search by name or email…", param: "search" }],
   [/^\/assessments$/, { placeholder: "Search assessments by title…", param: "search" }],
   [/^\/question-bank$/, { placeholder: "Search questions by title…", param: "search" }],
@@ -42,8 +42,8 @@ function humanize(segment: string): string {
 // Trail derived from the URL: Home / Segment / … / Current. Labels come from
 // the sidebar nav where a segment is a nav destination, else the humanized slug.
 function useTrail(pathname: string) {
-  const groups = useVisibleNavGroups();
-  const navLabels = new Map(groups.flatMap((g) => g.items).map((i) => [i.href, i.label]));
+  const items = useAllVisibleNavItems();
+  const navLabels = new Map(items.map((i) => [i.href, i.label]));
   const segments = pathname.split("/").filter(Boolean);
   return segments.map((segment, i) => {
     const href = "/" + segments.slice(0, i + 1).join("/");
@@ -54,7 +54,7 @@ function useTrail(pathname: string) {
 function SearchBar({ pathname }: { pathname: string }) {
   const router = useRouter();
   const params = useSearchParams();
-  const groups = useVisibleNavGroups();
+  const items = useAllVisibleNavItems();
   const inputRef = useRef<HTMLInputElement>(null);
   const pageSearch = findPageSearch(pathname);
   const current = pageSearch ? (params.get(pageSearch.param) ?? "") : "";
@@ -63,7 +63,7 @@ function SearchBar({ pathname }: { pathname: string }) {
   const [pending, startTransition] = useTransition();
   // Typing but not yet applied to the URL (debounce window) also counts as busy.
   const busy = pageSearch ? pending || value.trim() !== current : false;
-  const matches = groups.flatMap((g) => g.items).filter((i) => i.label.toLowerCase().includes(value.trim().toLowerCase()));
+  const matches = items.filter((i) => i.label.toLowerCase().includes(value.trim().toLowerCase()));
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

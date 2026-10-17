@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/jobs"
 )
@@ -152,21 +153,30 @@ func (h *MentorEscalationHandler) escalateStep(ctx context.Context, step mentorE
 	return escalated, nil
 }
 
-// orgMentors returns every org-role 'mentor' in orgID, caching the result in
-// cache for the remainder of this run.
-func (h *MentorEscalationHandler) orgMentors(ctx context.Context, orgID string, cache map[string][]contact) ([]contact, error) {
+// Permission codes whose holders receive escalations. Mirrors
+// mentoring.PermissionClaimTickets / PermissionAssignTickets
+// (backend/internal/mentoring/handler.go) as literals rather than importing
+// the mentoring package for two constants.
+const (
+	mentoringClaimTicketsPermission  = "mentoring.claim_tickets"
+	mentoringAssignTicketsPermission = "mentoring.assign_tickets"
+)
+
+// permissionContacts returns the emailable holders of code in orgID, resolved
+// through authz's effective_permissions view (roles, overrides, active
+// membership), caching the result in cache for the remainder of this run.
+func (h *MentorEscalationHandler) permissionContacts(ctx context.Context, orgID, code string, cache map[string][]contact) ([]contact, error) {
 	if c, ok := cache[orgID]; ok {
 		return c, nil
 	}
-	rows, err := h.pool.Query(ctx,
-		`SELECT u.id, u.email, u.name
-		 FROM org_members om
-		 JOIN users u ON u.id = om.user_id
-		 WHERE om.org_id = $1 AND om.role = 'mentor' AND u.email <> ''`,
-		orgID,
-	)
+	ids, err := authz.NewRepo(h.pool).OrgPermissionHolders(ctx, orgID, code)
 	if err != nil {
-		return nil, fmt.Errorf("query org mentors: %w", err)
+		return nil, fmt.Errorf("query %s holders: %w", code, err)
+	}
+	rows, err := h.pool.Query(ctx,
+		`SELECT id, email, name FROM users WHERE id = ANY($1::uuid[]) AND email <> ''`, ids)
+	if err != nil {
+		return nil, fmt.Errorf("query %s holder contacts: %w", code, err)
 	}
 	defer rows.Close()
 	contacts, err := scanContacts(rows)
@@ -177,38 +187,14 @@ func (h *MentorEscalationHandler) orgMentors(ctx context.Context, orgID string, 
 	return contacts, nil
 }
 
-// mentoringAssignTicketsPermission mirrors mentoring.PermissionAssignTickets
-// (backend/internal/mentoring/handler.go) — duplicated as a literal here
-// rather than importing the mentoring package, matching how models.go
-// elsewhere hardcodes strings mirroring migration CHECK constraints instead
-// of taking a cross-domain dependency for a single constant.
-const mentoringAssignTicketsPermission = "mentoring.assign_tickets"
+// orgMentors returns every mentoring.claim_tickets holder in orgID.
+func (h *MentorEscalationHandler) orgMentors(ctx context.Context, orgID string, cache map[string][]contact) ([]contact, error) {
+	return h.permissionContacts(ctx, orgID, mentoringClaimTicketsPermission, cache)
+}
 
-// orgAssignStaff returns every user in orgID holding the mentoring.assign_tickets
-// permission (via the fine-grained RBAC tables), caching the result in cache.
+// orgAssignStaff returns every mentoring.assign_tickets holder in orgID.
 func (h *MentorEscalationHandler) orgAssignStaff(ctx context.Context, orgID string, cache map[string][]contact) ([]contact, error) {
-	if c, ok := cache[orgID]; ok {
-		return c, nil
-	}
-	rows, err := h.pool.Query(ctx,
-		`SELECT DISTINCT u.id, u.email, u.name
-		 FROM user_roles ur
-		 JOIN role_permissions rp ON rp.role_id = ur.role_id
-		 JOIN permissions p ON p.id = rp.permission_id
-		 JOIN users u ON u.id = ur.user_id
-		 WHERE ur.org_id = $1 AND p.code = $2 AND u.email <> ''`,
-		orgID, mentoringAssignTicketsPermission,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("query org assign-staff: %w", err)
-	}
-	defer rows.Close()
-	contacts, err := scanContacts(rows)
-	if err != nil {
-		return nil, err
-	}
-	cache[orgID] = contacts
-	return contacts, nil
+	return h.permissionContacts(ctx, orgID, mentoringAssignTicketsPermission, cache)
 }
 
 func scanContacts(rows pgx.Rows) ([]contact, error) {

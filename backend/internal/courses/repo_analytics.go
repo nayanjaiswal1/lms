@@ -373,12 +373,13 @@ ORDER BY gs`, days, orgID, courseID)
 
 // CourseSummaries pages the org's courses (newest first) and attaches
 // per-course enrollment, completion, average progress and 7-day activity.
-// total is 0 when offset is past the last row.
-func (r *Repo) CourseSummaries(ctx context.Context, orgID string, limit, offset int) ([]CourseSummary, int, error) {
+// total is 0 when offset is past the last row. A non-nil creatorID limits the
+// page to courses that user created (the instructor's "my courses" view).
+func (r *Repo) CourseSummaries(ctx context.Context, orgID string, creatorID *string, limit, offset int) ([]CourseSummary, int, error) {
 	rows, err := r.pool.Query(ctx, `
 WITH page AS (
 	SELECT c.id, c.title, c.slug, c.status, c.created_at, (count(*) OVER())::int AS total
-	FROM courses c WHERE c.org_id = $1
+	FROM courses c WHERE c.org_id = $1 AND ($5::uuid IS NULL OR c.creator_id = $5::uuid)
 	ORDER BY c.created_at DESC, c.id
 	LIMIT $2 OFFSET $3
 )
@@ -402,7 +403,7 @@ CROSS JOIN LATERAL (
 		GROUP BY mp.user_id
 	) p ON p.user_id = e.user_id
 ) s
-ORDER BY page.created_at DESC, page.id`, orgID, limit, offset, activeWindowDays)
+ORDER BY page.created_at DESC, page.id`, orgID, limit, offset, activeWindowDays, creatorID)
 	if err != nil {
 		return nil, 0, fmt.Errorf("courses: analytics CourseSummaries: %w", err)
 	}

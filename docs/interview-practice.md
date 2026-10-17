@@ -335,7 +335,7 @@ GET  /api/assessments/attempts/:id/evaluation     — 202 if processing, 200 whe
 GET  /api/assessments/attempts/:id/compare/:other — side-by-side comparison (own attempts only)
 GET  /api/interview/progress                      — student readiness trend + assignment list
 GET  /api/interview/skills                        — student skill scores + weak/strong breakdown
-GET  /api/interview/review-queue                  — instructor/admin: flagged attempts
+GET  /api/interview/review-queue                  — assessments.view_results: flagged attempts (mentors without assessments.manage_batches: own batches only)
 ```
 
 ---

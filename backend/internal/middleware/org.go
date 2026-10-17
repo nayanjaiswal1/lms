@@ -30,6 +30,17 @@ func GetOrgCtx(ctx context.Context) (*OrgCtx, bool) {
 	return v, ok
 }
 
+// OrgCtxOr403 returns the OrgCtx RequireOrgMember injected, or writes a 403
+// and reports false when the chain did not run it.
+func OrgCtxOr403(w http.ResponseWriter, r *http.Request) (*OrgCtx, bool) {
+	orgCtx, ok := GetOrgCtx(r.Context())
+	if !ok {
+		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
+		return nil, false
+	}
+	return orgCtx, true
+}
+
 // RequireOrgMember validates that the authenticated user is an active member of
 // the target organization. It must be chained after RequireAuth.
 //

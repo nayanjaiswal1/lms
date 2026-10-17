@@ -12,15 +12,15 @@ Stack: Go 1.26.4 + Chi v5 + pgx/v5 · Next.js 16.2.9 + React 19 + Tailwind v4 + 
 
 ## User Roles
 
-| Role | Scope |
-|---|---|
-| `super_admin` | Manages the entire platform |
-| `org_admin` | Manages their organization, approves course publishing |
-| `instructor` | Creates and publishes courses within their org or as individual |
-| `mentor` | Guides assigned students, reviews code, answers questions |
-| `student` | Enrolls, learns, submits code, takes quizzes |
-| `guest` | Views free preview modules only — no account needed |
-| `anonymous` | Takes public tests via shareable link — no account required |
+Three axes. Access checks use permission codes (see [rbac.md](rbac.md)), never role names.
+
+| Axis | Values | Notes |
+|---|---|---|
+| Platform (`users.platform_role`) | `super_admin` · `user` | `super_admin` manages the whole platform |
+| RBAC system roles (`user_roles`, per org, multiple allowed) | `viewer` · `member` · `instructor` · `mentor` · `tenant_admin` · `support_agent` | Effective permissions = union of roles + per-user overrides |
+| Org membership (`org_members.role`) | `owner` · `admin` · `instructor` · `mentor` · `learner` | Single label; `owner`/`admin` auto-sync the `tenant_admin` RBAC role |
+
+Also: `guest` (free preview, no account) and `anonymous` (public tests via link).
 
 ---
 
@@ -29,7 +29,7 @@ Stack: Go 1.26.4 + Chi v5 + pgx/v5 · Next.js 16.2.9 + React 19 + Tailwind v4 + 
 ```
 Platform (MindForge)
   └─ Organizations (colleges, bootcamps, companies)
-  │    └─ org_admin manages members
+  │    └─ org admin manages members
   │    └─ instructors create courses under the org
   │    └─ students enroll via org invite or org-specific link
   │    └─ mentors assigned per course or per student
@@ -39,8 +39,6 @@ Platform (MindForge)
        └─ students browse and enroll (paid or free)
 ```
 
-Org roles (`org_members.role`): `admin` · `instructor` · `mentor` · `student`
-Platform role (`users.platform_role`): `super_admin` · `user`
 
 ---
 

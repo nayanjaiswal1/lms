@@ -10,6 +10,7 @@ import type {
   QuestionUsage,
   AttemptPayload,
   ReviewItem,
+  GradingQueue,
   Attempt,
   AssessmentAnalytics,
   AttemptRow,
@@ -159,4 +160,10 @@ export async function getReviewQueue(
   offset = 0,
 ): Promise<{ items: ReviewQueueItem[] }> {
   return apiGet(`/api/interview/review-queue?limit=${limit}&offset=${offset}`);
+}
+
+// getGradingQueue lists submitted attempts with answers awaiting manual grading
+// (requires assessments.view_results; callers gate before calling).
+export async function getGradingQueue(limit: number): Promise<GradingQueue> {
+  return apiGet<GradingQueue>(`/api/assessments/grading-queue?limit=${limit}`);
 }

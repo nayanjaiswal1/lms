@@ -31,12 +31,18 @@ export const PERMISSIONS = {
     MANAGE_REPORTS:  "mentoring.manage_reports",
     VERIFY_MENTORS:  "mentoring.verify_mentors",
     MANAGE_SESSION_BOOKING: "mentoring.manage_session_booking",
+    CLAIM_TICKETS:   "mentoring.claim_tickets",
+  },
+  MESSAGING: {
+    MODERATE: "messaging.moderate",
+  },
+  WIKI: {
+    MANAGE_SPACES: "wiki.manage_spaces",
+    CREATE_SPACES: "wiki.create_spaces",
   },
   CONTENT: {
     WIKI:            "content.wiki",
     SYSTEM_DESIGN:   "content.system_design",
-    INTERVIEW_BOARD: "content.interview_board",
-    LOAD_TEST:       "content.load_test",
     SHEETS:          "content.sheets",
     SRS:             "content.srs",
     CERTIFICATES:    "content.certificates",
@@ -64,6 +70,7 @@ export const PERMISSIONS = {
     MANAGE: "content.moderate",
   },
   PROJECTS: {
+    VIEW:    "projects.view",
     MANAGE:  "projects.manage",
     // Project Workspace (corporate-style project lifecycle) — distinct from
     // the GitLab-assignment VIEW/MANAGE pair above. CREATE grants workspace
@@ -83,3 +90,22 @@ export const PERMISSIONS = {
   },
 } as const
 
+
+// Any-of permission sets shared by a nav item and the server guard on the page
+// it links to, so the two cannot disagree. Mirror the backend route gates.
+export const ACCESS = {
+  // Labs catalog/session routes accept practice.use OR courses.edit.
+  LABS:     [PERMISSIONS.PRACTICE.USE, PERMISSIONS.COURSES.EDIT],
+  CALENDAR: [
+    PERMISSIONS.PRACTICE.USE,
+    PERMISSIONS.COURSES.CREATE,
+    PERMISSIONS.MENTORING.MANAGE_BATCHES,
+    PERMISSIONS.CALENDAR.MANAGE_EVENTS,
+  ],
+  PRACTICE: [PERMISSIONS.PRACTICE.USE],
+  TEACH_HUB: [
+    PERMISSIONS.COURSES.CREATE,
+    PERMISSIONS.ASSESSMENTS.CREATE,
+    PERMISSIONS.LABAUTHOR.COMPOSE,
+  ],
+} as const satisfies Record<string, readonly string[]>

@@ -7,12 +7,15 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/mindforge/backend/internal/authz/sysrole"
 )
 
 // FindOrCreateUserByEmail returns the ID of the user with the given email,
 // creating a minimal passwordless account if none exists, and ensures that
-// user holds an active 'learner' membership in orgID (upserted, never
-// downgrading an existing membership).
+// user holds a membership in orgID: a new one is created as an active
+// 'learner' with the mapped RBAC member role; an existing one (any label or
+// status) is left exactly as it is.
 //
 // This is the account-creation path for flows where the caller already has
 // out-of-band proof of email ownership (an accepted, unexpired invite token)
@@ -43,13 +46,24 @@ func FindOrCreateUserByEmail(ctx context.Context, pool *pgxpool.Pool, orgID, ema
 		return "", fmt.Errorf("auth: find or create user: lookup: %w", err)
 	}
 
-	if _, err = tx.Exec(ctx,
+	var inserted bool
+	err = tx.QueryRow(ctx,
 		`INSERT INTO org_members (org_id, user_id, role, status)
 		 VALUES ($1, $2, 'learner', 'active')
-		 ON CONFLICT (org_id, user_id) DO NOTHING`,
+		 ON CONFLICT (org_id, user_id) DO NOTHING
+		 RETURNING true`,
 		orgID, userID,
-	); err != nil {
+	).Scan(&inserted)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return "", fmt.Errorf("auth: find or create user: upsert org membership: %w", err)
+	}
+	// Callers must invalidate the (user, org) permission cache after this
+	// returns: a permission check made while the user was not yet a member may
+	// have cached an empty set.
+	if inserted {
+		if err = sysrole.Sync(ctx, tx, orgID, userID, "learner", ""); err != nil {
+			return "", fmt.Errorf("auth: find or create user: %w", err)
+		}
 	}
 
 	if err = tx.Commit(ctx); err != nil {

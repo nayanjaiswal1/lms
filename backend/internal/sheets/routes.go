@@ -7,6 +7,9 @@ import (
 	"github.com/mindforge/backend/internal/authz"
 )
 
+// PermUse is the permission code gating the sheet tracker API and its MCP tools.
+const PermUse = "content.sheets"
+
 func New(pool *pgxpool.Pool) *Handler {
 	return NewHandler(pool)
 }
@@ -17,7 +20,7 @@ func New(pool *pgxpool.Pool) *Handler {
 // security. The caller is responsible for applying RequireAuth + RequireCSRF
 // before this.
 func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
-	r.With(authz.RequirePermission(authzSvc, "content.sheets")).Group(func(r chi.Router) {
+	r.With(authz.RequirePermission(authzSvc, PermUse)).Group(func(r chi.Router) {
 		r.Get("/api/sheets/public", h.ListPublicSheets)
 		r.Post("/api/sheets", h.CreateSheet)
 		r.Post("/api/sheets/combine", h.CombineSheets)

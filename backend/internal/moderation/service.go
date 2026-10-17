@@ -61,6 +61,16 @@ func (s *Service) ListReports(ctx context.Context, orgID string, status, content
 	return s.repo.ListReports(ctx, orgID, status, contentType)
 }
 
+// ReportCounts returns orgID's report count per status plus the open
+// (pending + reviewing) total. Callers must already hold content.moderate.
+func (s *Service) ReportCounts(ctx context.Context, orgID string) (counts map[string]int, open int, err error) {
+	counts, err = s.repo.StatusCounts(ctx, orgID)
+	if err != nil {
+		return nil, 0, err
+	}
+	return counts, counts[StatusPending] + counts[StatusReviewing], nil
+}
+
 // Resolve transitions reportID's status within orgID. Callers must already
 // hold content.moderate (checked by route middleware). Marking a report
 // 'removed' also takes down the underlying content — the point of the

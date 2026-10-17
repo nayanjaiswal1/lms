@@ -65,14 +65,13 @@ export function WarmPoolTable({ images }: { images: WarmPoolRowData[] }) {
         title="Warm Pool Sizing"
         description="Sandboxes are pooled per image, not per lab — every lab on the same image draws from the same pool. The platform sizes each pool automatically from arrival rate and measured warm-start time; the Target and Why columns show what it decided and on what evidence."
         meta={
-          <>
           <Link
             className="text-sm text-primary underline underline-offset-2 mt-2 inline-block"
             href={ROUTES.ADMIN_LABS_USAGE}
           >
             View compute usage →
           </Link>
-          </>}>
+        }>
         <Badge className="badge-muted" variant="outline">
           {images.length} image{images.length === 1 ? "" : "s"}
         </Badge>

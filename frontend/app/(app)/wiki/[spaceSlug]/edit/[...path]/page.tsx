@@ -5,7 +5,8 @@ import { Eye } from "lucide-react";
 
 import { requireAccess } from "@/lib/server/features";
 import { FEATURES } from "@/lib/features";
-import { getOrgRole } from "@/lib/server/auth";
+import { getMyPermissions } from "@/lib/server/permissions";
+import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import { getWikiSpace, getWikiPage, getWikiTemplates, resolvePageIdFromPath } from "@/lib/server/wiki";
 import { WikiSidebarTree } from "@/components/wiki/wiki-sidebar-tree";
 import { WikiSidebarDrawer } from "@/components/wiki/wiki-sidebar-drawer";
@@ -25,8 +26,8 @@ export default async function WikiPageEditPage({ params }: Props) {
   await requireAccess(FEATURES.WIKI);
   const { spaceSlug, path } = await params;
 
-  const orgRole = await getOrgRole();
-  const canManage = orgRole === "admin" || orgRole === "instructor" || orgRole === "mentor";
+  const perms = await getMyPermissions();
+  const canManage = perms.includes(PERMISSIONS.WIKI.MANAGE_SPACES);
   if (!canManage) redirect(ROUTES.wikiPage(spaceSlug, ...path));
 
   const [space, templates] = await Promise.all([getWikiSpace(spaceSlug), getWikiTemplates()]);

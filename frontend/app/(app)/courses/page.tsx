@@ -1,133 +1,72 @@
-import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import Link from "next/link";
-import { BookOpen, Library, Plus } from "lucide-react";
+import { Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { CatalogPage } from "@/components/courses/catalog-page";
+import { CourseFilters, filterAndSortCourses, hasActiveFilters, parseCourseFilters } from "@/components/courses/course-filters";
 import { CourseCard } from "@/components/courses/course-card";
-import { RandomTopicCard } from "@/components/courses/random-topic-card";
-import { BundleGrid } from "@/components/bundles/bundle-grid";
-import { getCourses, getEnrollments, getRandomTopic } from "@/lib/server/courses";
+import { PageHeader } from "@/components/shared/page-header";
+import { getEnrollments } from "@/lib/server/courses";
 import { getMyPermissions } from "@/lib/server/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
-import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata = { title: "Courses" };
 
-async function RandomTopic() {
-  const topic = await getRandomTopic();
-  return <RandomTopicCard initialTopic={topic} />;
-}
+type SearchParams = Promise<Record<string, string | undefined>>;
 
-interface CourseGridProps {
-  query: string;
-  canManage: boolean;
-  canEdit: boolean;
-  canViewAnalytics: boolean;
-}
+// Instructors/admins manage the full catalog here. Students see only their
+// enrolled courses, with a way out to the catalog; none enrolled -> straight
+// to the catalog.
+export default async function CoursesPage({ searchParams }: { searchParams: SearchParams }) {
+  const permissions = await getMyPermissions();
+  if (permissions.includes(PERMISSIONS.COURSES.CREATE)) {
+    return <CatalogPage basePath={ROUTES.COURSES} searchParams={searchParams} />;
+  }
 
-async function CourseGrid({ query, canManage, canEdit, canViewAnalytics }: CourseGridProps) {
-  const [courses, enrollments, ownCourses] = await Promise.all([
-    getCourses(),
-    getEnrollments(),
-    canManage ? getCourses("?role=instructor") : Promise.resolve([]),
-  ]);
+  const enrollments = await getEnrollments();
+  if (enrollments.length === 0) redirect(ROUTES.COURSES_BROWSE);
 
-  const enrolledMap = new Map(enrollments.map((e) => [e.course_id, e]));
-  const ownedIds = new Set(ownCourses.map((c) => c.id));
-
-  // Own drafts don't appear in the published catalog `courses` already covers
-  // — append any owned course not already listed there.
-  const q = query.toLowerCase();
-  const merged = [
-    ...courses,
-    ...ownCourses.filter((c) => !courses.some((pc) => pc.id === c.id)),
-  ].filter(
-    (c) =>
-      !q ||
-      [c.title, c.description ?? "", c.instructor_name, ...c.tags].some((f) => f.toLowerCase().includes(q)),
+  const raw = await searchParams;
+  const filters = parseCourseFilters(raw);
+  const byCourse = new Map(enrollments.map((e) => [e.course_id, e]));
+  // Default order is last activity; an explicit ?sort= switches to course ordering.
+  const matched = filterAndSortCourses(
+    enrollments.map((e) => e.course),
+    filters,
+    new Set(byCourse.keys()),
   );
-
-  if (merged.length === 0) {
-    return (
-      <div className="empty-state py-16">
-        <BookOpen aria-hidden className="h-12 w-12 text-muted-foreground" />
-        <p className="mt-3 text-sm text-muted-foreground">
-          {q ? `No courses match “${query}”.` : "No courses are available yet."}
-        </p>
-        {canManage && !q && (
-          <Button asChild className="mt-4">
-            <Link href={ROUTES.COURSE_NEW}>Create your first course</Link>
-          </Button>
-        )}
-      </div>
+  const mine = (
+    raw.sort ? matched.map((c) => byCourse.get(c.id)) : enrollments.filter((e) => matched.some((c) => c.id === e.course_id))
+  ).filter((e): e is NonNullable<typeof e> => Boolean(e));
+  if (!raw.sort) {
+    mine.sort((a, b) =>
+      (b.progress.last_activity_at ?? b.enrolled_at).localeCompare(a.progress.last_activity_at ?? a.enrolled_at),
     );
   }
 
   return (
-    <div className="card-grid">
-      {merged.map((course) => (
-        <CourseCard
-          canEdit={canEdit}
-          canViewAnalytics={canViewAnalytics}
-          course={course}
-          enrolled={enrolledMap.has(course.id)}
-          key={course.id}
-          owned={ownedIds.has(course.id)}
-        />
-      ))}
-    </div>
-  );
-}
-
-function CourseGridSkeleton() {
-  return (
-    <div className="card-grid">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <Skeleton className="h-64 rounded-lg" key={i} />
-      ))}
-    </div>
-  );
-}
-
-export default async function CoursesPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const { q = "" } = await searchParams;
-  const permissions = await getMyPermissions();
-  const canManage = permissions.includes(PERMISSIONS.COURSES.CREATE);
-  const canEdit = permissions.includes(PERMISSIONS.COURSES.EDIT);
-  const canViewAnalytics = permissions.includes(PERMISSIONS.COURSES.VIEW_ANALYTICS);
-
-  return (
     <main className="page-container">
-      <PageHeader title="Courses">
-        {canManage && (
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline">
-              <Link href={ROUTES.BUNDLE_NEW}>
-                <Library aria-hidden className="mr-2 h-4 w-4" />
-                New bundle
-              </Link>
-            </Button>
-            <Button asChild>
-              <Link href={ROUTES.COURSE_NEW}>
-                <Plus aria-hidden className="mr-2 h-4 w-4" />
-                New course
-              </Link>
-            </Button>
-          </div>
-        )}
+      <PageHeader description="Courses you are enrolled in." title="My courses">
+        <Button asChild variant="outline">
+          <Link href={ROUTES.COURSES_BROWSE}>
+            <Compass aria-hidden className="mr-2 h-4 w-4" />
+            Browse other courses
+          </Link>
+        </Button>
       </PageHeader>
-      <div className="mb-6">
-        <Suspense fallback={<Skeleton className="h-32 rounded-lg" />}>
-          <RandomTopic />
-        </Suspense>
-      </div>
-      <Suspense fallback={null}>
-        <BundleGrid canManage={canManage} />
-      </Suspense>
-      <Suspense fallback={<CourseGridSkeleton />} key={q.trim()}>
-        <CourseGrid query={q.trim()} canEdit={canEdit} canManage={canManage} canViewAnalytics={canViewAnalytics} />
-      </Suspense>
+      <CourseFilters basePath={ROUTES.COURSES} fields={["difficulty", "sort"]} filters={filters} />
+      {mine.length === 0 ? (
+        <p className="py-16 text-center text-sm text-muted-foreground">
+          No enrolled course matches{hasActiveFilters(filters) ? " these filters" : ""}.
+        </p>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {mine.map((e) => (
+            <CourseCard course={e.course} enrolled key={e.id} progress={e.progress} progressPct={e.progress.pct} />
+          ))}
+        </div>
+      )}
     </main>
   );
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mindforge/backend/internal/db"
+	"github.com/mindforge/backend/internal/middleware"
 )
 
 // AdminRepo handles RBAC administration queries: permissions, roles, and
@@ -772,10 +773,6 @@ func (r *AdminRepo) SetUserStatus(ctx context.Context, userID, orgID, status, re
 	})
 }
 
-// orgRoleRank orders org_members.role for the "may the actor manage the
-// target" check. Mirrors orgs.roleRank (authz cannot import orgs).
-var orgRoleRank = map[string]int{"owner": 5, "admin": 4, "mentor": 3, "instructor": 2, "learner": 1}
-
 // ErrOutranked is returned when a tenant admin tries to act on a member who is
 // at or above their own org role.
 var ErrOutranked = errors.New("forbidden: you cannot manage a member at or above your own role")
@@ -820,7 +817,7 @@ func (r *AdminRepo) SetMemberStatus(ctx context.Context, actorID, userID, orgID,
 		}
 		return "", fmt.Errorf("admin: set member status: lookup: %w", err)
 	}
-	if actorRole != "owner" && orgRoleRank[actorRole] <= orgRoleRank[targetRole] {
+	if actorRole != middleware.RoleOwner && middleware.OrgRoleRank[actorRole] <= middleware.OrgRoleRank[targetRole] {
 		return "", ErrOutranked
 	}
 

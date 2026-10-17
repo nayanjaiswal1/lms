@@ -5,9 +5,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mindforge/backend/internal/assessment"
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/labs"
-	"github.com/mindforge/backend/internal/middleware"
 )
 
 // New wires the full library dependency graph and returns the HTTP handler.
@@ -26,14 +26,13 @@ func New(pool *pgxpool.Pool, coursesRepo *courses.Repo, labsRepo *labs.Repo, lab
 func (h *Handler) Service() *Service { return h.service }
 
 // RegisterRoutes mounts the library API. Every route uses the same
-// RequireOrgRole(owner, admin, instructor) guard courses' module routes use
+// courses.edit guard courses' module routes use
 // (docs/debug-labs.md L4) — placing library content is an authoring action,
 // not a student-facing one, even for the read-only list/preview/try
 // endpoints (a student doesn't get a library picker of its own in Phase A).
-func (h *Handler) RegisterRoutes(r chi.Router, pool *pgxpool.Pool) {
-	instructor := middleware.RequireOrgRole(pool, middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor)
+func (h *Handler) RegisterRoutes(r chi.Router, perms *authz.Service) {
 	r.Group(func(r chi.Router) {
-		r.Use(instructor)
+		r.Use(authz.RequirePermission(perms, "courses.edit"))
 		r.Get("/api/library", h.HandleList)
 		r.Get("/api/library/{kind}/{id}/preview", h.HandlePreview)
 		r.Post("/api/library/{kind}/{id}/try", h.HandleTry)

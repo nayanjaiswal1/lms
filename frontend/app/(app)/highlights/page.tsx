@@ -1,3 +1,5 @@
+import { requireAnyPermission } from "@/lib/server/permissions"
+import { ACCESS } from "@/lib/auth/permission-codes"
 import Link from "next/link"
 import { BookmarkCheck, ExternalLink, FileX, Sparkles } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -144,6 +146,7 @@ interface SavedHighlightsPageProps {
 }
 
 export default async function SavedHighlightsPage({ searchParams }: SavedHighlightsPageProps) {
+  await requireAnyPermission(ACCESS.PRACTICE)
   const { cursor } = await searchParams
   const [{ items: highlights, next_cursor: nextCursor }, user] = await Promise.all([
     getSavedHighlights(cursor),

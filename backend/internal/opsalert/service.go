@@ -10,8 +10,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/notifications"
 )
@@ -150,26 +150,27 @@ func (s *Service) NotifyOrgAdmins(ctx context.Context, orgID string, alert Alert
 	return s.send(ctx, recips, alert)
 }
 
-// recipients resolves who to alert: an org's active owners/admins, or (orgID
-// nil) all super admins, each attributed to their oldest active org because
-// notifications.org_id is NOT NULL. Super admins without any org are skipped
-// with a warning.
+// recipients resolves who to alert: an org's admin.manage_org holders, or
+// (orgID nil) all super admins, each attributed to their oldest active org
+// because notifications.org_id is NOT NULL. Super admins without any org are
+// skipped with a warning.
 func (s *Service) recipients(ctx context.Context, orgID *string) ([]recipient, error) {
-	var (
-		rows pgx.Rows
-		err  error
-	)
 	if orgID != nil {
-		rows, err = s.pool.Query(ctx,
-			`SELECT user_id, org_id FROM org_members
-			 WHERE org_id = $1 AND status = 'active' AND role IN ('owner', 'admin')`, *orgID)
-	} else {
-		rows, err = s.pool.Query(ctx,
-			`SELECT u.id, (SELECT m.org_id FROM org_members m
-			               WHERE m.user_id = u.id AND m.status = 'active'
-			               ORDER BY m.joined_at LIMIT 1)
-			 FROM users u WHERE u.platform_role = 'super_admin'`)
+		ids, err := authz.NewRepo(s.pool).OrgPermissionHolders(ctx, *orgID, "admin.manage_org")
+		if err != nil {
+			return nil, fmt.Errorf("query recipients: %w", err)
+		}
+		out := make([]recipient, 0, len(ids))
+		for _, id := range ids {
+			out = append(out, recipient{UserID: id, OrgID: *orgID})
+		}
+		return out, nil
 	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT u.id, (SELECT m.org_id FROM org_members m
+		               WHERE m.user_id = u.id AND m.status = 'active'
+		               ORDER BY m.joined_at LIMIT 1)
+		 FROM users u WHERE u.platform_role = 'super_admin'`)
 	if err != nil {
 		return nil, fmt.Errorf("query recipients: %w", err)
 	}

@@ -7,7 +7,6 @@ import (
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
-	"github.com/mindforge/backend/internal/middleware"
 )
 
 // maxBundleCourses caps one bundle's course list — a bundle is a curated
@@ -145,14 +144,18 @@ func (h *Handler) SetBundleCourses(w http.ResponseWriter, r *http.Request) {
 // ─── All authenticated users ─────────────────────────────────────────────────
 
 // includeDrafts reads ?include_drafts=true — the editor's view, drafts and
-// unpublished courses included — which only instructors+ may ask for.
+// unpublished courses included — which only courses.edit holders may ask for.
 // Reports false after writing 403 when the caller may not.
 func (h *Handler) includeDrafts(w http.ResponseWriter, r *http.Request, claims *auth.Claims) (drafts, ok bool) {
 	if r.URL.Query().Get("include_drafts") != "true" {
 		return false, true
 	}
-	if !middleware.HasLiveOrgRole(r.Context(), h.repo.Pool(), claims.UserID, claims.OrgID,
-		middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor) {
+	canEdit, err := h.authzSvc.HasPermission(r.Context(), claims.UserID, claims.OrgID, PermissionEdit)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Permission check failed.")
+		return false, false
+	}
+	if !canEdit {
 		httputil.WriteError(w, http.StatusForbidden, "Only instructors can see draft bundles.")
 		return false, false
 	}

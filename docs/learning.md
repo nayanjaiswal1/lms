@@ -181,6 +181,14 @@ POST /api/assessments/:id/attempt/start   start an assessment attempt
 POST /api/assessments/:id/attempt/:attemptId/submit  body: {answers} → {score, passed}
 GET  /api/assessments/:id/attempts/me     my attempt history for this assessment
 
+GET  /api/assessments/grading-queue   ?limit=10 (1-50) → {total, limit, items[{attempt_id, assessment_id, assessment_title,
+                                      user_id, user_name, status, submitted_at, ungraded_answers}]}
+                                      assessments.view_results; mentors (no assessments.manage_batches) see only
+                                      attempts by members of batches they mentor. There is no "pending grading" status:
+                                      an item is a submitted/eval_failed attempt with at least one answer whose
+                                      evaluated_at is NULL (coding with no executor, failed AI evaluation). A score
+                                      override sets evaluated_at, which clears it. Oldest submitted first.
+
 GET  /api/cards/due                  cards due for review today
 POST /api/cards/review               body: {card_id, grade: 0-5} → updated schedule
 

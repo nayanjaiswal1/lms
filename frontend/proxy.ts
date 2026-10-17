@@ -20,12 +20,12 @@ const LAST_PAGE_MAX_AGE = 60 * 60 * 24 * 365
 const PUBLIC_EXACT_PATHS = new Set([
   "/",
   "/org", // org marketing landing — distinct from the authenticated /org/create, /org/settings, /org/setup routes below
-  "/roadmaps", // (public) route group — anonymous roadmap Discover gallery
+  ROUTES.PUBLIC_ROADMAPS, // (public) route group — anonymous roadmap Discover gallery
   "/login",
   "/login/mfa", // second sign-in step — the session does not exist yet
   "/register",
   "/forgot-password",
-  "/reset-password",
+  ROUTES.RESET_PASSWORD,
   "/verify-email",
   "/demo",
   "/demo/tour",
@@ -42,12 +42,12 @@ const PUBLIC_EXACT_PATHS = new Set([
 // Prefix matches — for route segments with dynamic children ([token], [uuid],
 // [code], [...path]) or where nested auth is out of scope for this gate.
 const PUBLIC_PREFIXES = [
-  "/auth/callback", // OAuth redirect target — fires before any session cookie exists
+  ROUTES.AUTH_CALLBACK, // OAuth redirect target — fires before any session cookie exists
   "/calendar/invite/", // (public) route group — public calendar-invite acceptance link
   "/certificates/", // (public) route group — public certificate verification link
   "/hire/", // (public) route group — public hiring-code landing link
   "/join/", // (public) route group — public project-workspace share-link landing page
-  "/roadmaps/", // (public) route group — anonymous roadmap detail view
+  `${ROUTES.PUBLIC_ROADMAPS}/`, // (public) route group — anonymous roadmap detail view
   "/api/", // Route handlers do their own auth + return JSON 401s; a redirect here would break fetch() callers expecting JSON
 ]
 

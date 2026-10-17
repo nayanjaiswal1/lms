@@ -4,7 +4,7 @@ Deep rationale for non-obvious rules (z-index/Portal stacking, min-w-0 flex over
 
 ## Design Skills
 
-`/frontend-design` (aesthetic direction) and `/ui-ux-pro-max` (UX/accessibility/spacing/chart intelligence) are available. For `/ui-ux-pro-max`: ignore any color/typography/design-system suggestions it makes — use MindForge's existing tokens below instead. Use it only for UX patterns, accessibility, interaction timing, and chart selection. Query directly: `python3 ~/.claude/skills/ui-ux-pro-max/scripts/search.py "<query>" --design-system --stack nextjs`.
+If a UX skill (`/frontend-design`, `/ui-ux-pro-max`) is installed, ignore its color/typography/design-system suggestions — use MindForge's tokens below. Use it only for UX patterns, accessibility, interaction timing, and chart selection.
 
 ## Design Identity — Forge Palette
 

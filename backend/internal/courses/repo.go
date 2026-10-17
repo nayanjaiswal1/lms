@@ -45,8 +45,7 @@ type Repo struct {
 }
 
 // Pool exposes the underlying connection pool for callers that need to build
-// middleware over the same database (RequireOrgRole resolves the caller's live
-// org role). Kept read-only by convention: use the Repo's own methods for
+// middleware over the same database (e.g. Idempotency). Kept read-only by convention: use the Repo's own methods for
 // queries that belong to this domain.
 func (r *Repo) Pool() *pgxpool.Pool { return r.pool }
 
@@ -213,7 +212,65 @@ func (r *Repo) ListCourses(ctx context.Context, orgID string, filter CourseFilte
 		}
 		out = append(out, c)
 	}
-	return out, total, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("courses: list rows: %w", err)
+	}
+	ptrs := make([]*Course, len(out))
+	for i := range out {
+		ptrs[i] = &out[i]
+	}
+	if err := r.attachInstructors(ctx, orgID, ptrs); err != nil {
+		return nil, 0, err
+	}
+	return out, total, nil
+}
+
+// attachInstructors fills Course.Instructor for every course in one batch
+// query (no N+1). Bio, headline and profile slug are only exposed when the
+// instructor opted into a public profile; the avatar and published-course
+// count are already visible on the catalog itself.
+func (r *Repo) attachInstructors(ctx context.Context, orgID string, courses []*Course) error {
+	if len(courses) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(courses))
+	ids := make([]string, 0, len(courses))
+	for _, c := range courses {
+		if _, dup := seen[c.CreatorID]; !dup {
+			seen[c.CreatorID] = struct{}{}
+			ids = append(ids, c.CreatorID)
+		}
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT u.id, u.avatar_url,
+		        CASE WHEN p.public_enabled THEN p."current_role" END,
+		        CASE WHEN p.public_enabled THEN p.bio END,
+		        CASE WHEN p.public_enabled THEN p.profile_slug END,
+		        (SELECT COUNT(*) FROM courses pc
+		          WHERE pc.creator_id = u.id AND pc.org_id = $2 AND pc.status = 'published')
+		 FROM users u
+		 LEFT JOIN user_profiles p ON p.user_id = u.id
+		 WHERE u.id = ANY($1::uuid[])`, ids, orgID)
+	if err != nil {
+		return fmt.Errorf("courses: instructor previews: %w", err)
+	}
+	defer rows.Close()
+	byID := make(map[string]*InstructorPreview, len(ids))
+	for rows.Next() {
+		var id string
+		p := &InstructorPreview{}
+		if err := rows.Scan(&id, &p.AvatarURL, &p.Headline, &p.Bio, &p.ProfileSlug, &p.CourseCount); err != nil {
+			return fmt.Errorf("courses: scan instructor preview: %w", err)
+		}
+		byID[id] = p
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("courses: instructor preview rows: %w", err)
+	}
+	for _, c := range courses {
+		c.Instructor = byID[c.CreatorID]
+	}
+	return nil
 }
 
 // ListPublicCourses returns published courses whose instructors opted into
@@ -844,14 +901,14 @@ func (r *Repo) IsEnrolled(ctx context.Context, userID, courseID string) (bool, e
 	return ok, err
 }
 
-// IsOrgStaff reports whether userID is an active owner, admin or instructor
-// of orgID, the roles that author and review course content.
+// IsOrgStaff reports whether userID holds courses.edit in orgID (authors and
+// reviewers of course content), via the effective_permissions view.
 func (r *Repo) IsOrgStaff(ctx context.Context, orgID, userID string) (bool, error) {
 	var ok bool
 	err := r.pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM org_members
-		   WHERE org_id = $1 AND user_id = $2 AND status = 'active' AND role IN ('owner','admin','instructor'))`,
-		orgID, userID,
+		`SELECT EXISTS(SELECT 1 FROM effective_permissions
+		   WHERE org_id = $1 AND user_id = $2 AND code = $3)`,
+		orgID, userID, PermissionEdit,
 	).Scan(&ok)
 	if err != nil {
 		return false, fmt.Errorf("courses: check org staff: %w", err)
@@ -1074,7 +1131,17 @@ func (r *Repo) GetMyEnrollments(ctx context.Context, userID, orgID string) ([]En
 		}
 		out = append(out, e)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("courses: my enrollments rows: %w", err)
+	}
+	ptrs := make([]*Course, len(out))
+	for i := range out {
+		ptrs[i] = &out[i].Course
+	}
+	if err := r.attachInstructors(ctx, orgID, ptrs); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // UpsertProgress creates or updates module progress.

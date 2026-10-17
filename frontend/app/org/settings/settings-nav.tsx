@@ -2,37 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Globe,
-  Shield,
-  ScrollText,
-  Cpu,
-  GitBranch,
-  FlaskConical,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
-import ROUTES from "@/lib/routes";
-
-interface OrgNavItem {
-  label: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
-  exact?: boolean;
-}
-
-const ORG_SETTINGS_NAV: OrgNavItem[] = [
-  { label: "Overview",       href: ROUTES.ORG_SETTINGS,         icon: LayoutDashboard, exact: true },
-  { label: "Domains",        href: ROUTES.ORG_SETTINGS_DOMAINS,  icon: Globe },
-  { label: "Authentication", href: ROUTES.ORG_SETTINGS_AUTH,     icon: Shield },
-  { label: "Integrations",   href: ROUTES.ORG_SETTINGS_INTEGRATIONS, icon: GitBranch },
-  { label: "Labs",           href: ROUTES.ORG_SETTINGS_LABS,     icon: FlaskConical },
-  { label: "Audit Log",      href: ROUTES.ORG_SETTINGS_AUDIT,    icon: ScrollText },
-  { label: "Jobs",           href: ROUTES.ORG_SETTINGS_JOBS,     icon: Cpu },
-];
+import { usePermissions } from "@/lib/auth/permissions";
+import { visibleOrgSettingsNav } from "@/lib/org-settings-nav";
 
 export function OrgSettingsMobileNav() {
   const pathname = usePathname();
+  const items = visibleOrgSettingsNav(usePermissions());
 
   return (
     <div
@@ -40,7 +16,7 @@ export function OrgSettingsMobileNav() {
       className="flex gap-2 overflow-x-auto pb-2 mb-6 lg:hidden"
       role="navigation"
     >
-      {ORG_SETTINGS_NAV.map((item) => {
+      {items.map((item) => {
         const isActive = item.exact
           ? pathname === item.href
           : pathname.startsWith(item.href);
@@ -66,6 +42,7 @@ export function OrgSettingsMobileNav() {
 
 export function OrgSettingsDesktopNav() {
   const pathname = usePathname();
+  const items = visibleOrgSettingsNav(usePermissions());
 
   return (
     <aside className="hidden lg:block w-full lg:w-[220px] flex-shrink-0">
@@ -73,7 +50,7 @@ export function OrgSettingsDesktopNav() {
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-1">
           Organisation
         </p>
-        {ORG_SETTINGS_NAV.map((item) => {
+        {items.map((item) => {
           const Icon = item.icon;
           const isActive = item.exact
             ? pathname === item.href

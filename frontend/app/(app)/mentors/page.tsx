@@ -203,7 +203,7 @@ async function YourMentorsSection() {
           />
         ) : (
           <Button asChild className="min-h-11 lg:min-h-9">
-            <Link href={ROUTES.COURSES}>Browse courses</Link>
+            <Link href={ROUTES.COURSES_BROWSE}>Browse courses</Link>
           </Button>
         )}
       </section>

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/authz/sysrole"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/notifications"
 	"github.com/mindforge/backend/internal/opsalert"
@@ -48,6 +49,7 @@ func join(t *testing.T, pool *pgxpool.Pool, orgID, userID, role, joinedAt string
 		`INSERT INTO org_members (org_id, user_id, role, joined_at) VALUES ($1, $2, $3, $4::timestamptz)`,
 		orgID, userID, role, joinedAt)
 	require.NoError(t, err)
+	require.NoError(t, sysrole.Sync(context.Background(), pool, orgID, userID, role, ""))
 }
 
 func insertDead(t *testing.T, pool *pgxpool.Pool, handler string, orgID *string, n int) {
