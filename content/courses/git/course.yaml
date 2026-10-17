@@ -1,12 +1,14 @@
 title: "Git: Commits, Branches, Merges, Rebase and Recovery"
 description: >-
-  A hands-on Git course taught entirely in real terminals. Every section pairs a
-  short, diagram-led lesson with graded labs that inspect your actual repository:
-  first commits, clones and remotes, branching and merging, resolving conflicts,
-  rebasing (including interactive rebase), undoing and recovering work with
-  restore, reset, revert, reflog, cherry-pick and stash, investigating history
-  with blame, log -S/-G and bisect, and a capstone team workflow against a
-  local origin.
+  A hands-on Git course in short, one-idea lessons, each followed by graded labs
+  in a real terminal and scenario quizzes. Start from commits, the staging area,
+  remotes and authentication; learn branching, merging, conflicts and rebase;
+  see how Git works inside (objects, refs, the index, the reflog); undo and
+  recover anything with restore, reset, revert, cherry-pick and stash; investigate
+  history with blame, pickaxe search and bisect; then work like a team with
+  branching strategies, tags and releases, hooks, commit signing, worktrees,
+  submodules, large-repo tools and a troubleshooting playbook, ending in a
+  capstone feature-to-release workflow and a final exam.
 difficulty: beginner
 cover_url: "/course-covers/git.png"
 tags:
